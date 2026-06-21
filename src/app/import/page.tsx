@@ -3,15 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Dossier } from "@/lib/types";
+import { LigneExtraite } from "@/lib/documents";
 import DossierForm from "@/components/DossierForm";
 import ConfigBanner from "@/components/ConfigBanner";
+
+type Extraction = Partial<Dossier> & { lignes?: LigneExtraite[]; tva?: number | null };
 
 export default function ImportPage() {
   const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [analyse, setAnalyse] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [prefill, setPrefill] = useState<Partial<Dossier> | null>(null);
+  const [prefill, setPrefill] = useState<Extraction | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   async function analyser() {
@@ -24,7 +27,7 @@ export default function ImportPage() {
       const res = await fetch("/api/extract-rapport", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Échec de l'analyse.");
-      setPrefill(json.data as Partial<Dossier>);
+      setPrefill(json.data as Extraction);
       setShowForm(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur.");
@@ -84,6 +87,8 @@ export default function ImportPage() {
         <DossierForm
           prefill={prefill}
           prefillFile={file}
+          prefillLignes={prefill?.lignes}
+          prefillTva={prefill?.tva ?? null}
           onClose={() => setShowForm(false)}
           onSaved={() => router.push("/sinistres")}
         />

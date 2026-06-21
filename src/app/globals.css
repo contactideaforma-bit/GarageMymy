@@ -114,3 +114,10 @@ html.light .bg-white\/10 { background-color: rgba(0,0,0,0.05); }
 html.light .bg-white\/5 { background-color: rgba(0,0,0,0.03); }
 html.light .hover\:bg-white\/10:hover { background-color: rgba(0,0,0,0.05); }
 html.light .hover\:bg-white\/5:hover { background-color: rgba(0,0,0,0.03); }
+
+/* Couleurs de texte claires -> versions lisibles sur fond clair */
+html.light .text-amber-100 { color: #92400e; }
+html.light .text-emerald-300, html.light .text-emerald-200 { color: #047857; }
+html.light .text-rose-200, html.light .text-rose-300 { color: #be123c; }
+html.light .text-accent-teal { color: #0d9488; }
+html.light .file\:text-white::file-selector-button { color: #1f2433; }

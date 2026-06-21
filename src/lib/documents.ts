@@ -41,6 +41,34 @@ export function badgeStatutDoc(s: string): string {
   return STATUTS_DOC[s]?.badge || "bg-slate-100 text-slate-700";
 }
 
+export type LigneExtraite = {
+  designation?: string | null;
+  quantite?: number | string | null;
+  prix_unitaire?: number | string | null;
+};
+
+export type LigneNum = { designation: string; quantite: number; prix_unitaire: number };
+
+// Normalise les lignes extraites du rapport ; fallback sur une ligne unique au montant global.
+export function normaliseLignes(
+  lignes: LigneExtraite[] | undefined | null,
+  montant?: number | null
+): LigneNum[] {
+  const arr = (lignes || [])
+    .filter((l) => l && (l.designation || l.prix_unitaire))
+    .map((l) => ({
+      designation: String(l.designation || "Prestation"),
+      quantite: Number(l.quantite) || 1,
+      prix_unitaire: Number(l.prix_unitaire) || 0,
+    }));
+  if (arr.length === 0 && montant && montant > 0) {
+    return [
+      { designation: "Réparations selon rapport d'expertise", quantite: 1, prix_unitaire: montant },
+    ];
+  }
+  return arr;
+}
+
 export function lignesToDb(lignes: LigneSaisie[]): Omit<DocumentLigne, "id" | "document_id">[] {
   return lignes
     .filter((l) => l.designation.trim() !== "")

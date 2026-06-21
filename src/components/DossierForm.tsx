@@ -4,6 +4,13 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier } from "@/lib/types";
 import { STATUTS_ORDRE, STATUTS_INFO } from "@/lib/format";
+import {
+  computeTotaux,
+  genNumero,
+  normaliseLignes,
+  LigneExtraite,
+  LigneNum,
+} from "@/lib/documents";
 
 type FormState = {
   immatriculation: string;
@@ -68,12 +75,16 @@ export default function DossierForm({
   dossier,
   prefill,
   prefillFile,
+  prefillLignes,
+  prefillTva,
 }: {
   onClose: () => void;
   onSaved: () => void;
   dossier?: Dossier | null;
   prefill?: Partial<Dossier> | null;
   prefillFile?: File | null;
+  prefillLignes?: LigneExtraite[] | null;
+  prefillTva?: number | null;
 }) {
   const isEdit = Boolean(dossier);
   const [form, setForm] = useState<FormState>(toForm(dossier ?? prefill));
@@ -82,6 +93,44 @@ export default function DossierForm({
   const [error, setError] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeMsg, setAnalyzeMsg] = useState<string | null>(null);
+
+  // Lignes du chiffrage extraites du rapport → devis/facture auto
+  const [autoLignes, setAutoLignes] = useState<LigneExtraite[]>(prefillLignes ?? []);
+  const [autoTva, setAutoTva] = useState<number>(prefillTva ?? 20);
+  const [analysed, setAnalysed] = useState<boolean>(Boolean(prefillLignes));
+
+  async function creerDocument(
+    type: "devis" | "facture",
+    dossierId: string,
+    lignes: LigneNum[],
+    tvaTaux: number
+  ) {
+    const totaux = computeTotaux(lignes, tvaTaux);
+    const { data } = await supabase
+      .from("documents")
+      .insert({
+        dossier_id: dossierId,
+        type,
+        numero: genNumero(type),
+        date_document: new Date().toISOString().slice(0, 10),
+        statut: "brouillon",
+        tva: tvaTaux,
+        total_ht: totaux.ht,
+        total_tva: totaux.tva,
+        total_ttc: totaux.ttc,
+      })
+      .select("id")
+      .single();
+    if (!data) return;
+    const rows = lignes.map((l, i) => ({
+      document_id: data.id as string,
+      designation: l.designation,
+      quantite: l.quantite,
+      prix_unitaire: l.prix_unitaire,
+      ordre: i,
+    }));
+    if (rows.length) await supabase.from("document_lignes").insert(rows);
+  }
 
   const set = (name: keyof FormState, value: string) =>
     setForm((f) => ({ ...f, [name]: value }));
@@ -97,7 +146,10 @@ export default function DossierForm({
       const res = await fetch("/api/extract-rapport", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Échec de l'analyse.");
-      const d = json.data as Partial<Dossier>;
+      const d = json.data as Partial<Dossier> & {
+        lignes?: LigneExtraite[];
+        tva?: number | null;
+      };
       // ne remplit que les champs renvoyés (sans écraser par du vide)
       setForm((f) => {
         const next = { ...f };
@@ -109,7 +161,12 @@ export default function DossierForm({
         });
         return next;
       });
-      setAnalyzeMsg("✓ Champs pré-remplis à partir du rapport. Vérifie et complète si besoin.");
+      setAutoLignes(Array.isArray(d.lignes) ? d.lignes : []);
+      if (d.tva) setAutoTva(Number(d.tva) || 20);
+      setAnalysed(true);
+      setAnalyzeMsg(
+        "✓ Dossier pré-rempli. Un devis et une facture seront générés automatiquement à l'enregistrement."
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur d'analyse.");
     } finally {
@@ -159,8 +216,13 @@ export default function DossierForm({
         const { error: updErr } = await supabase.from("dossiers").update(payload).eq("id", dossier.id);
         if (updErr) throw updErr;
       } else {
-        const { error: insErr } = await supabase.from("dossiers").insert(payload);
+        const { data: created, error: insErr } = await supabase
+          .from("dossiers")
+          .insert(payload)
+          .select("id")
+          .single();
         if (insErr) throw insErr;
+        const newId = created?.id as string | undefined;
 
         // Alimente automatiquement la base Clients (sans doublon nom+CP)
         if (form.client_nom) {
@@ -178,6 +240,18 @@ export default function DossierForm({
               ville: form.client_ville || null,
               source: "auto",
             });
+          }
+        }
+
+        // Génère automatiquement un devis + une facture depuis le rapport
+        if (newId && analysed) {
+          const lignes = normaliseLignes(
+            autoLignes,
+            form.montant ? Number(form.montant) : null
+          );
+          if (lignes.length) {
+            await creerDocument("devis", newId, lignes, autoTva);
+            await creerDocument("facture", newId, lignes, autoTva);
           }
         }
       }
@@ -225,6 +299,11 @@ export default function DossierForm({
               </button>
             </div>
             {analyzeMsg && <p className="text-xs text-emerald-300 mt-2">{analyzeMsg}</p>}
+            {analysed && !analyzeMsg && (
+              <p className="text-xs text-emerald-300 mt-2">
+                Un devis et une facture seront générés automatiquement à l&apos;enregistrement.
+              </p>
+            )}
           </div>
 
           <section>

@@ -22,10 +22,18 @@ Extrais TOUTES les informations utiles et renvoie UNIQUEMENT un objet JSON valid
   "client_adresse": string|null,         // adresse (rue)
   "client_code_postal": string|null,
   "client_ville": string|null,
-  "montant": number|null                 // montant total des réparations HT ou TTC en euros (nombre seul)
+  "montant": number|null,                // montant total des réparations HT en euros (nombre seul)
+  "tva": number|null,                    // taux de TVA en % (ex: 20). null si absent
+  "lignes": [                            // détail du chiffrage des réparations (poste par poste)
+    { "designation": string, "quantite": number, "prix_unitaire": number }
+  ]
 }
 
-Règles : dates au format AAAA-MM-JJ. "montant" = nombre sans symbole ni espace (ex: 2450.50). N'invente rien.`;
+Règles :
+- dates au format AAAA-MM-JJ ;
+- "montant", "prix_unitaire", "quantite" = nombres sans symbole ni espace (ex: 2450.50) ;
+- "lignes" : reprends le détail du chiffrage du rapport (main d'œuvre, pièces, peinture, ingrédients peinture, etc.), un poste par ligne, avec son prix unitaire HT et sa quantité. Si le rapport ne donne qu'un montant global, mets une seule ligne {"designation":"Réparations selon rapport d'expertise","quantite":1,"prix_unitaire": montant_global}. Si aucun montant, "lignes": [] ;
+- N'invente rien.`;
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
