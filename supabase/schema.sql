@@ -9,7 +9,7 @@ create table if not exists public.dossiers (
   created_at timestamptz not null default now(),
 
   -- Suivi
-  statut text not null default 'en_cours',   -- en_cours | termine | en_attente
+  statut text not null default 'nouveau',     -- nouveau|expertise|devis|reparation|facture|paye|cloture
   montant numeric(10,2) default 0,           -- montant du dossier en euros
 
   -- 1. Informations du véhicule

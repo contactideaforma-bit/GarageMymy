@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier, Evenement } from "@/lib/types";
-import { formatEuros, formatDate, formatDateTime, labelStatut } from "@/lib/format";
+import { formatEuros, formatDate, formatDateTime, estActif } from "@/lib/format";
 import StatCard from "@/components/StatCard";
+import StatutBadge from "@/components/StatutBadge";
 import ConfigBanner from "@/components/ConfigBanner";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
   const [evenements, setEvenements] = useState<Evenement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +28,7 @@ export default function DashboardPage() {
     })();
   }, []);
 
-  const enCours = dossiers.filter((d) => d.statut === "en_cours");
+  const enCours = dossiers.filter((d) => estActif(d.statut));
 
   // Total € des dossiers dont le sinistre tombe dans le mois en cours
   const now = new Date();
@@ -106,8 +109,12 @@ export default function DashboardPage() {
                   </tr>
                 )}
                 {enCours.map((d) => (
-                  <tr key={d.id} className="border-t border-slate-100">
-                    <td className="px-5 py-3 font-medium text-slate-800">
+                  <tr
+                    key={d.id}
+                    onClick={() => router.push(`/sinistres/${d.id}`)}
+                    className="border-t border-surface-line hover:bg-surface-muted cursor-pointer"
+                  >
+                    <td className="px-5 py-3 font-medium text-ink">
                       {d.numero_sinistre || "—"}
                     </td>
                     <td className="px-5 py-3">{d.client_nom || "—"}</td>
@@ -116,9 +123,7 @@ export default function DashboardPage() {
                       {d.immatriculation ? ` (${d.immatriculation})` : ""}
                     </td>
                     <td className="px-5 py-3">
-                      <span className="rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs">
-                        {labelStatut(d.statut)}
-                      </span>
+                      <StatutBadge statut={d.statut} />
                     </td>
                     <td className="px-5 py-3 text-right">{formatEuros(d.montant)}</td>
                   </tr>

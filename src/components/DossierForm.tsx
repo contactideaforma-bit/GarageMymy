@@ -2,48 +2,48 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { Dossier } from "@/lib/types";
+import { STATUTS_ORDRE, STATUTS_INFO } from "@/lib/format";
 
 type FormState = {
-  // Véhicule
   immatriculation: string;
   marque_modele: string;
   numero_serie: string;
   premiere_circulation: string;
-  // Sinistre
   date_sinistre: string;
   numero_sinistre: string;
   cabinet_expert: string;
   date_expertise: string;
   numero_police: string;
   assureur: string;
-  // Client
   client_nom: string;
   client_adresse: string;
   client_code_postal: string;
   client_ville: string;
-  // Suivi
   montant: string;
   statut: string;
 };
 
-const EMPTY: FormState = {
-  immatriculation: "",
-  marque_modele: "",
-  numero_serie: "",
-  premiere_circulation: "",
-  date_sinistre: "",
-  numero_sinistre: "",
-  cabinet_expert: "",
-  date_expertise: "",
-  numero_police: "",
-  assureur: "",
-  client_nom: "",
-  client_adresse: "",
-  client_code_postal: "",
-  client_ville: "",
-  montant: "",
-  statut: "en_cours",
-};
+function toForm(d?: Dossier | null): FormState {
+  return {
+    immatriculation: d?.immatriculation ?? "",
+    marque_modele: d?.marque_modele ?? "",
+    numero_serie: d?.numero_serie ?? "",
+    premiere_circulation: d?.premiere_circulation ?? "",
+    date_sinistre: d?.date_sinistre ?? "",
+    numero_sinistre: d?.numero_sinistre ?? "",
+    cabinet_expert: d?.cabinet_expert ?? "",
+    date_expertise: d?.date_expertise ?? "",
+    numero_police: d?.numero_police ?? "",
+    assureur: d?.assureur ?? "",
+    client_nom: d?.client_nom ?? "",
+    client_adresse: d?.client_adresse ?? "",
+    client_code_postal: d?.client_code_postal ?? "",
+    client_ville: d?.client_ville ?? "",
+    montant: d?.montant != null ? String(d.montant) : "",
+    statut: d?.statut ?? "nouveau",
+  };
+}
 
 function Field({
   label,
@@ -74,11 +74,14 @@ function Field({
 export default function DossierForm({
   onClose,
   onSaved,
+  dossier,
 }: {
   onClose: () => void;
   onSaved: () => void;
+  dossier?: Dossier | null;
 }) {
-  const [form, setForm] = useState<FormState>(EMPTY);
+  const isEdit = Boolean(dossier);
+  const [form, setForm] = useState<FormState>(toForm(dossier));
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,10 +95,9 @@ export default function DossierForm({
     setError(null);
 
     try {
-      let rapport_path: string | null = null;
-      let rapport_nom: string | null = null;
+      let rapport_path = dossier?.rapport_path ?? null;
+      let rapport_nom = dossier?.rapport_nom ?? null;
 
-      // 1) Upload du rapport d'expertise dans le bucket "rapports"
       if (file) {
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
         const path = `${Date.now()}_${safeName}`;
@@ -107,8 +109,7 @@ export default function DossierForm({
         rapport_nom = file.name;
       }
 
-      // 2) Insertion du dossier
-      const { error: insErr } = await supabase.from("dossiers").insert({
+      const payload = {
         immatriculation: form.immatriculation || null,
         marque_modele: form.marque_modele || null,
         numero_serie: form.numero_serie || null,
@@ -127,13 +128,24 @@ export default function DossierForm({
         statut: form.statut,
         rapport_path,
         rapport_nom,
-      });
-      if (insErr) throw insErr;
+      };
+
+      if (isEdit && dossier) {
+        const { error: updErr } = await supabase
+          .from("dossiers")
+          .update(payload)
+          .eq("id", dossier.id);
+        if (updErr) throw updErr;
+      } else {
+        const { error: insErr } = await supabase.from("dossiers").insert(payload);
+        if (insErr) throw insErr;
+      }
 
       onSaved();
       onClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erreur lors de l'enregistrement.";
+      const msg =
+        err instanceof Error ? err.message : "Erreur lors de l'enregistrement.";
       setError(msg);
     } finally {
       setSaving(false);
@@ -143,19 +155,20 @@ export default function DossierForm({
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto">
       <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl my-8">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-lg font-semibold text-slate-900">Nouveau dossier</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-surface-line">
+          <h2 className="text-lg font-semibold text-ink">
+            {isEdit ? "Modifier le dossier" : "Nouveau dossier"}
+          </h2>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 text-xl leading-none"
+            className="text-ink-faint hover:text-ink text-xl leading-none"
           >
             ×
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-6">
-          {/* Rapport d'expertise */}
-          <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
+          <div className="rounded-lg border border-dashed border-surface-line bg-surface-muted p-4">
             <label className="field-label">
               Rapport d&apos;expertise (PDF) — enregistré dans la base
             </label>
@@ -165,13 +178,17 @@ export default function DossierForm({
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               className="text-sm"
             />
-            <p className="text-xs text-slate-400 mt-2">
+            {isEdit && dossier?.rapport_nom && !file && (
+              <p className="text-xs text-ink-soft mt-2">
+                Fichier actuel : {dossier.rapport_nom}
+              </p>
+            )}
+            <p className="text-xs text-ink-faint mt-2">
               Le fichier est stocké et lié au dossier. (L&apos;extraction
               automatique des champs sera ajoutée plus tard.)
             </p>
           </div>
 
-          {/* 1. Véhicule */}
           <section>
             <h3 className="text-sm font-semibold text-brand mb-3">
               1. Informations du véhicule
@@ -184,7 +201,6 @@ export default function DossierForm({
             </div>
           </section>
 
-          {/* 2. Sinistre */}
           <section>
             <h3 className="text-sm font-semibold text-brand mb-3">
               2. Informations du sinistre
@@ -199,7 +215,6 @@ export default function DossierForm({
             </div>
           </section>
 
-          {/* 3. Client */}
           <section>
             <h3 className="text-sm font-semibold text-brand mb-3">
               3. Informations du client
@@ -212,7 +227,6 @@ export default function DossierForm({
             </div>
           </section>
 
-          {/* Suivi */}
           <section>
             <h3 className="text-sm font-semibold text-brand mb-3">Suivi</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -224,9 +238,11 @@ export default function DossierForm({
                   value={form.statut}
                   onChange={(e) => set("statut", e.target.value)}
                 >
-                  <option value="en_cours">En cours</option>
-                  <option value="en_attente">En attente</option>
-                  <option value="termine">Terminé</option>
+                  {STATUTS_ORDRE.map((s) => (
+                    <option key={s} value={s}>
+                      {STATUTS_INFO[s].label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -242,7 +258,7 @@ export default function DossierForm({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              className="rounded-lg border border-surface-line px-4 py-2 text-sm text-ink-soft hover:bg-surface-muted"
             >
               Annuler
             </button>
@@ -251,7 +267,7 @@ export default function DossierForm({
               disabled={saving}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-50"
             >
-              {saving ? "Enregistrement…" : "Enregistrer le dossier"}
+              {saving ? "Enregistrement…" : isEdit ? "Enregistrer" : "Créer le dossier"}
             </button>
           </div>
         </form>

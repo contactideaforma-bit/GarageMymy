@@ -1,16 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier } from "@/lib/types";
-import { formatEuros, formatDate, labelStatut } from "@/lib/format";
+import { formatEuros, formatDate } from "@/lib/format";
 import DossierForm from "@/components/DossierForm";
+import StatutBadge from "@/components/StatutBadge";
 import ConfigBanner from "@/components/ConfigBanner";
 
 export default function SinistresPage() {
+  const router = useRouter();
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [q, setQ] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -32,10 +36,25 @@ export default function SinistresPage() {
     return data.publicUrl;
   }
 
+  const term = q.trim().toLowerCase();
+  const filtered = term
+    ? dossiers.filter((d) =>
+        [
+          d.numero_sinistre,
+          d.client_nom,
+          d.marque_modele,
+          d.immatriculation,
+          d.assureur,
+        ]
+          .filter(Boolean)
+          .some((v) => (v as string).toLowerCase().includes(term))
+      )
+    : dossiers;
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Sinistres</h1>
+        <h1 className="text-2xl font-semibold text-ink">Sinistres</h1>
         <button
           onClick={() => setShowForm(true)}
           className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
@@ -46,9 +65,18 @@ export default function SinistresPage() {
 
       <ConfigBanner />
 
-      <div className="rounded-xl bg-white border border-slate-200 shadow-sm overflow-x-auto">
+      <div className="mb-4">
+        <input
+          className="field-input max-w-sm"
+          placeholder="Rechercher (client, véhicule, n° sinistre, assureur…)"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+      </div>
+
+      <div className="rounded-xl bg-white border border-surface-line shadow-sm overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="text-left text-slate-500 bg-slate-50">
+          <thead className="text-left text-ink-soft bg-surface-muted">
             <tr>
               <th className="px-5 py-3 font-medium">N° sinistre</th>
               <th className="px-5 py-3 font-medium">Client</th>
@@ -63,23 +91,27 @@ export default function SinistresPage() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={8} className="px-5 py-8 text-center text-slate-400">
+                <td colSpan={8} className="px-5 py-8 text-center text-ink-faint">
                   Chargement…
                 </td>
               </tr>
             )}
-            {!loading && dossiers.length === 0 && (
+            {!loading && filtered.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-5 py-8 text-center text-slate-400">
+                <td colSpan={8} className="px-5 py-8 text-center text-ink-faint">
                   Aucun dossier. Clique sur « + Ajouter un dossier ».
                 </td>
               </tr>
             )}
-            {dossiers.map((d) => {
+            {filtered.map((d) => {
               const url = rapportUrl(d.rapport_path);
               return (
-                <tr key={d.id} className="border-t border-slate-100 hover:bg-slate-50">
-                  <td className="px-5 py-3 font-medium text-slate-800">
+                <tr
+                  key={d.id}
+                  onClick={() => router.push(`/sinistres/${d.id}`)}
+                  className="border-t border-surface-line hover:bg-surface-muted cursor-pointer"
+                >
+                  <td className="px-5 py-3 font-medium text-ink">
                     {d.numero_sinistre || "—"}
                   </td>
                   <td className="px-5 py-3">{d.client_nom || "—"}</td>
@@ -90,9 +122,7 @@ export default function SinistresPage() {
                   <td className="px-5 py-3">{d.assureur || "—"}</td>
                   <td className="px-5 py-3">{formatDate(d.date_sinistre)}</td>
                   <td className="px-5 py-3">
-                    <span className="rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 text-xs">
-                      {labelStatut(d.statut)}
-                    </span>
+                    <StatutBadge statut={d.statut} />
                   </td>
                   <td className="px-5 py-3 text-right">{formatEuros(d.montant)}</td>
                   <td className="px-5 py-3">
@@ -101,12 +131,13 @@ export default function SinistresPage() {
                         href={url}
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="text-brand hover:underline"
                       >
                         📄 Voir
                       </a>
                     ) : (
-                      <span className="text-slate-300">—</span>
+                      <span className="text-ink-faint">—</span>
                     )}
                   </td>
                 </tr>
