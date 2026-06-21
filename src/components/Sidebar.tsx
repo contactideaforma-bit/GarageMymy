@@ -33,70 +33,70 @@ const SECTIONS: { titre: string; items: { href: string; label: string; icon: str
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   return (
-    <aside className="w-64 shrink-0 p-3">
-      <div className="glass-card h-full flex flex-col p-4">
-        <div className="px-2 py-3">
-          <div className="text-xl font-bold tracking-tight bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
-            GarageMYMY
-          </div>
-          <div className="text-xs text-white/40">Gestion carrosserie</div>
+    <div className="glass-card h-full flex flex-col p-4">
+      <div className="px-2 py-3">
+        <div className="text-xl font-bold tracking-tight bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
+          GarageMYMY
         </div>
-
-        <Link href="/import" className="btn-primary mt-2 mb-4 flex items-center justify-center gap-2">
-          ⬆ Importer un rapport
-        </Link>
-
-        <nav className="flex-1 space-y-5 overflow-y-auto">
-          {SECTIONS.map((sec) => (
-            <div key={sec.titre}>
-              <div className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35">
-                {sec.titre}
-              </div>
-              <div className="space-y-1">
-                {sec.items.map((item) => {
-                  const active = isActive(item.href);
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                        active
-                          ? "bg-white/15 text-white font-medium shadow-inner"
-                          : "text-white/70 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      <span className="text-base">{item.icon}</span>
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </nav>
-
-        <div className="space-y-1 border-t border-white/10 pt-3 mt-3">
-          <Link
-            href="/profil"
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-              isActive("/profil")
-                ? "bg-white/15 text-white font-medium"
-                : "text-white/70 hover:bg-white/10 hover:text-white"
-            }`}
-          >
-            <span className="text-base">⚙️</span>
-            Profil du garage
-          </Link>
-          <ThemeToggle />
-          <div className="px-3 pt-2 text-xs text-white/30">v0.4</div>
-        </div>
+        <div className="text-xs text-white/40">Gestion carrosserie</div>
       </div>
-    </aside>
+
+      <Link href="/import" onClick={onNavigate} className="btn-primary mt-2 mb-4 flex items-center justify-center gap-2">
+        ⬆ Importer un rapport
+      </Link>
+
+      <nav className="flex-1 space-y-5 overflow-y-auto">
+        {SECTIONS.map((sec) => (
+          <div key={sec.titre}>
+            <div className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35">
+              {sec.titre}
+            </div>
+            <div className="space-y-1">
+              {sec.items.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onNavigate}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      active
+                        ? "bg-white/15 text-white font-medium shadow-inner"
+                        : "text-white/70 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <span className="text-base">{item.icon}</span>
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </nav>
+
+      <div className="space-y-1 border-t border-white/10 pt-3 mt-3">
+        <Link
+          href="/profil"
+          onClick={onNavigate}
+          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+            isActive("/profil")
+              ? "bg-white/15 text-white font-medium"
+              : "text-white/70 hover:bg-white/10 hover:text-white"
+          }`}
+        >
+          <span className="text-base">⚙️</span>
+          Profil du garage
+        </Link>
+        <ThemeToggle />
+        <div className="px-3 pt-2 text-xs text-white/30">v0.8</div>
+      </div>
+    </div>
   );
 }
