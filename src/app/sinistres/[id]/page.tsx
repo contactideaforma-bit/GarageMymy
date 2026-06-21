@@ -103,7 +103,7 @@ export default function DossierDetailPage() {
     if (!dossier) return;
     const { data } = await supabase
       .from("document_lignes").select("*").eq("document_id", doc.id).order("ordre", { ascending: true });
-    generateDocumentPdf(doc, (data as DocumentLigne[]) || [], dossier);
+    await generateDocumentPdf(doc, (data as DocumentLigne[]) || [], dossier);
   }
 
   async function supprimerDoc(doc: Document) {

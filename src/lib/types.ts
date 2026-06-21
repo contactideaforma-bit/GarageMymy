@@ -63,3 +63,46 @@ export type DocumentLigne = {
   prix_unitaire: number | null;
   ordre: number | null;
 };
+
+export type Entreprise = {
+  id: string;
+  created_at?: string;
+  nom: string | null;
+  adresse: string | null;
+  code_postal: string | null;
+  ville: string | null;
+  tel: string | null;
+  email: string | null;
+  siret: string | null;
+  tva_intra: string | null;
+  iban: string | null;
+  bic: string | null;
+  mentions: string | null;
+  logo_path: string | null;
+  modele_facture_path: string | null;
+};
+
+export type Client = {
+  id: string;
+  created_at: string;
+  nom: string | null;
+  email: string | null;
+  telephone: string | null;
+  adresse: string | null;
+  code_postal: string | null;
+  ville: string | null;
+  source: string;
+  notes: string | null;
+};
+
+export type Email = {
+  id: string;
+  created_at: string;
+  dossier_id: string | null;
+  client_id: string | null;
+  destinataire: string | null;
+  objet: string | null;
+  corps: string | null;
+  statut: string;
+  erreur: string | null;
+};

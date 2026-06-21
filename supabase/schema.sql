@@ -104,3 +104,52 @@ create policy "documents_all_anon" on public.documents
 drop policy if exists "document_lignes_all_anon" on public.document_lignes;
 create policy "document_lignes_all_anon" on public.document_lignes
   for all using (true) with check (true);
+
+-- ---------- Profil / entreprise (une seule ligne) ----------
+create table if not exists public.entreprise (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  nom text, adresse text, code_postal text, ville text,
+  tel text, email text, siret text, tva_intra text,
+  iban text, bic text, mentions text,
+  logo_path text, modele_facture_path text
+);
+
+-- ---------- Clients ----------
+create table if not exists public.clients (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  nom text, email text, telephone text,
+  adresse text, code_postal text, ville text,
+  source text not null default 'manuel',
+  notes text
+);
+
+-- ---------- Emails (journal) ----------
+create table if not exists public.emails (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  dossier_id uuid references public.dossiers(id) on delete set null,
+  client_id uuid references public.clients(id) on delete set null,
+  destinataire text, objet text, corps text,
+  statut text not null default 'envoye', erreur text
+);
+
+alter table public.entreprise enable row level security;
+alter table public.clients enable row level security;
+alter table public.emails enable row level security;
+
+drop policy if exists "entreprise_all_anon" on public.entreprise;
+create policy "entreprise_all_anon" on public.entreprise for all using (true) with check (true);
+drop policy if exists "clients_all_anon" on public.clients;
+create policy "clients_all_anon" on public.clients for all using (true) with check (true);
+drop policy if exists "emails_all_anon" on public.emails;
+create policy "emails_all_anon" on public.emails for all using (true) with check (true);
+
+insert into storage.buckets (id, name, public)
+values ('entreprise', 'entreprise', true)
+on conflict (id) do nothing;
+
+drop policy if exists "entreprise_bucket_all_anon" on storage.objects;
+create policy "entreprise_bucket_all_anon" on storage.objects
+  for all using (bucket_id = 'entreprise') with check (bucket_id = 'entreprise');

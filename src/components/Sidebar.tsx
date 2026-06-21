@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const SECTIONS: { titre: string; items: { href: string; label: string; icon: string }[] }[] = [
   {
@@ -10,7 +11,10 @@ const SECTIONS: { titre: string; items: { href: string; label: string; icon: str
   },
   {
     titre: "Dossiers",
-    items: [{ href: "/sinistres", label: "Sinistres", icon: "🗂" }],
+    items: [
+      { href: "/sinistres", label: "Sinistres", icon: "🗂" },
+      { href: "/clients", label: "Clients", icon: "👥" },
+    ],
   },
   {
     titre: "Documents",
@@ -27,7 +31,6 @@ const SECTIONS: { titre: string; items: { href: string; label: string; icon: str
 
 export default function Sidebar() {
   const pathname = usePathname();
-
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
@@ -74,7 +77,21 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        <div className="px-2 py-2 text-xs text-white/30 border-t border-white/10">v0.3</div>
+        <div className="space-y-1 border-t border-white/10 pt-3 mt-3">
+          <Link
+            href="/profil"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+              isActive("/profil")
+                ? "bg-white/15 text-white font-medium"
+                : "text-white/70 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            <span className="text-base">⚙️</span>
+            Profil du garage
+          </Link>
+          <ThemeToggle />
+          <div className="px-3 pt-2 text-xs text-white/30">v0.4</div>
+        </div>
       </div>
     </aside>
   );

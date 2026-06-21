@@ -113,7 +113,7 @@ export default function DocumentEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm">
-      <div className="w-full max-w-3xl glass-card my-8 bg-[#15122b]/90">
+      <div className="w-full max-w-3xl glass-card my-8 modal-panel">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-white">
             {isEdit ? `Modifier ${titre.toLowerCase()}` : `Nouveau ${titre.toLowerCase()}`}

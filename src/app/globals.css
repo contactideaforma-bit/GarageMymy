@@ -59,4 +59,58 @@ body {
   .field-input option {
     @apply bg-[#171430] text-white;
   }
+
+  .modal-panel {
+    background-color: rgba(21, 18, 43, 0.92);
+  }
 }
+
+/* ===================================================================
+   MODE CLAIR — surcharge quand <html class="light">
+   (aucune modif des composants : on retape les utilitaires utilisés)
+=================================================================== */
+html.light body {
+  color: #1f2433;
+  background-color: #eef0f6;
+  background-image:
+    radial-gradient(40rem 40rem at 10% 0%, rgba(139, 92, 246, 0.18), transparent 60%),
+    radial-gradient(38rem 38rem at 90% 10%, rgba(236, 72, 153, 0.16), transparent 60%),
+    radial-gradient(42rem 42rem at 80% 90%, rgba(45, 212, 191, 0.16), transparent 60%),
+    radial-gradient(40rem 40rem at 15% 95%, rgba(59, 130, 246, 0.16), transparent 60%);
+}
+
+/* Cartes / surfaces */
+html.light .glass-card { background-color: rgba(255, 255, 255, 0.72); border-color: rgba(0,0,0,0.08); }
+html.light .glass-soft { background-color: rgba(255, 255, 255, 0.6); border-color: rgba(0,0,0,0.08); }
+html.light .modal-panel { background-color: rgba(255, 255, 255, 0.97); }
+
+/* Champs */
+html.light .field-input { background-color: rgba(255,255,255,0.9); border-color: rgba(0,0,0,0.12); color: #1f2433; }
+html.light .field-input::placeholder { color: rgba(31,36,51,0.4); }
+html.light .field-input option { background-color: #ffffff; color: #1f2433; }
+html.light .btn-ghost { background-color: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.12); color: #1f2433; }
+
+/* Textes blancs -> sombres */
+html.light .text-white { color: #1f2433; }
+html.light .text-white\/90 { color: rgba(31,36,51,0.9); }
+html.light .text-white\/80 { color: rgba(31,36,51,0.8); }
+html.light .text-white\/70 { color: rgba(31,36,51,0.72); }
+html.light .text-white\/60 { color: rgba(31,36,51,0.62); }
+html.light .text-white\/50 { color: rgba(31,36,51,0.52); }
+html.light .text-white\/45 { color: rgba(31,36,51,0.48); }
+html.light .text-white\/40 { color: rgba(31,36,51,0.42); }
+html.light .text-white\/35 { color: rgba(31,36,51,0.38); }
+html.light .text-white\/30 { color: rgba(31,36,51,0.34); }
+
+/* Bordures blanches -> sombres */
+html.light .border-white\/15 { border-color: rgba(0,0,0,0.12); }
+html.light .border-white\/10 { border-color: rgba(0,0,0,0.08); }
+html.light .border-white\/5 { border-color: rgba(0,0,0,0.06); }
+html.light .divide-white\/10 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(0,0,0,0.08); }
+
+/* Fonds blancs translucides -> teinte claire */
+html.light .bg-white\/15 { background-color: rgba(0,0,0,0.06); }
+html.light .bg-white\/10 { background-color: rgba(0,0,0,0.05); }
+html.light .bg-white\/5 { background-color: rgba(0,0,0,0.03); }
+html.light .hover\:bg-white\/10:hover { background-color: rgba(0,0,0,0.05); }
+html.light .hover\:bg-white\/5:hover { background-color: rgba(0,0,0,0.03); }

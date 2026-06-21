@@ -5,11 +5,16 @@ Stack : **Next.js 14** (App Router) + **Tailwind CSS** + **Supabase** (base + st
 
 ## Fonctionnalités
 
-- **Thème aurora** translucide (glassmorphism) animé.
+- **Thème aurora** translucide (glassmorphism) animé + **bascule mode clair / sombre**.
 - **Tableau de bord** : dossiers en cours, agenda, total € du mois.
 - **Sinistres** : liste recherchable, fiche dossier complète, **pipeline de statut** (Nouveau → Expertise → Devis → Réparation → Facturé → Payé → Clôturé), édition/suppression, événements liés.
-- **Importer un rapport (IA)** : on dépose le PDF d'expertise → l'API Claude en extrait véhicule, sinistre, client, expert, assurance → un dossier pré-rempli est créé (modifiable manuellement). Le PDF est stocké dans Supabase.
-- **Devis & Factures** : création depuis un dossier (lignes, TVA, totaux, statut) et **export PDF**.
+- **Importer un rapport (IA)** : on dépose le PDF d'expertise → l'API Claude en extrait véhicule, sinistre, client, expert, assurance → dossier pré-rempli. Disponible aussi **directement dans le formulaire d'ajout** (bouton « Analyser et pré-remplir »).
+- **Devis & Factures** : création depuis un dossier (lignes, TVA, totaux, statut) et **export PDF à la charte du garage**.
+- **Profil du garage** (`/profil`) : coordonnées, SIRET, TVA, IBAN/BIC, mentions, **logo** et **facture type** de référence → utilisés dans les PDF.
+- **Clients** (`/clients`) : base alimentée **automatiquement** à la création d'un dossier + **ajout manuel**, avec recherche.
+
+### À venir
+- Envoi de mails depuis la plateforme (Resend) + journal des mails (table `emails` déjà prête).
 
 ## Installation locale
 
@@ -34,8 +39,10 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 
 Dans **SQL Editor**, exécute (Run) :
 
-1. [`supabase/schema.sql`](supabase/schema.sql) — tables `dossiers`, `evenements`, `documents`, `document_lignes`, bucket `rapports`, règles d'accès.
-2. Si ta base existait déjà avant les devis/factures, exécute en plus [`supabase/migration_documents.sql`](supabase/migration_documents.sql).
+1. [`supabase/schema.sql`](supabase/schema.sql) — tout le schéma (dossiers, evenements, documents, entreprise, clients, emails) + buckets.
+2. Si ta base existait déjà, exécute en plus les migrations manquantes :
+   - [`supabase/migration_documents.sql`](supabase/migration_documents.sql) (devis/factures),
+   - [`supabase/migration_profil_clients.sql`](supabase/migration_profil_clients.sql) (profil garage, clients, emails + bucket `entreprise`).
 
 Récupère URL + clé `anon` dans **Project Settings > API**.
 

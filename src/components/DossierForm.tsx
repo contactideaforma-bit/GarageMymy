@@ -80,9 +80,42 @@ export default function DossierForm({
   const [file, setFile] = useState<File | null>(prefillFile ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeMsg, setAnalyzeMsg] = useState<string | null>(null);
 
   const set = (name: keyof FormState, value: string) =>
     setForm((f) => ({ ...f, [name]: value }));
+
+  async function analyser() {
+    if (!file) return;
+    setAnalyzing(true);
+    setAnalyzeMsg(null);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/extract-rapport", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Échec de l'analyse.");
+      const d = json.data as Partial<Dossier>;
+      // ne remplit que les champs renvoyés (sans écraser par du vide)
+      setForm((f) => {
+        const next = { ...f };
+        (Object.keys(toForm(d)) as (keyof FormState)[]).forEach((k) => {
+          const v = (d as Record<string, unknown>)[k as string];
+          if (v !== null && v !== undefined && v !== "") {
+            next[k] = String(v);
+          }
+        });
+        return next;
+      });
+      setAnalyzeMsg("✓ Champs pré-remplis à partir du rapport. Vérifie et complète si besoin.");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Erreur d'analyse.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -128,6 +161,25 @@ export default function DossierForm({
       } else {
         const { error: insErr } = await supabase.from("dossiers").insert(payload);
         if (insErr) throw insErr;
+
+        // Alimente automatiquement la base Clients (sans doublon nom+CP)
+        if (form.client_nom) {
+          const { data: existing } = await supabase
+            .from("clients")
+            .select("id")
+            .eq("nom", form.client_nom)
+            .eq("code_postal", form.client_code_postal || "")
+            .maybeSingle();
+          if (!existing) {
+            await supabase.from("clients").insert({
+              nom: form.client_nom,
+              adresse: form.client_adresse || null,
+              code_postal: form.client_code_postal || null,
+              ville: form.client_ville || null,
+              source: "auto",
+            });
+          }
+        }
       }
 
       onSaved();
@@ -141,7 +193,7 @@ export default function DossierForm({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm">
-      <div className="w-full max-w-2xl glass-card my-8 bg-[#15122b]/90">
+      <div className="w-full max-w-2xl glass-card my-8 modal-panel">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-white">
             {isEdit ? "Modifier le dossier" : "Nouveau dossier"}
@@ -151,17 +203,28 @@ export default function DossierForm({
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-6">
           <div className="glass-soft p-4">
-            <label className="field-label">Rapport d&apos;expertise (PDF) — enregistré dans la base</label>
+            <label className="field-label">Rapport d&apos;expertise (PDF) — analyse IA + enregistrement</label>
             <input
               type="file"
               accept="application/pdf,image/*"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              onChange={(e) => { setFile(e.target.files?.[0] || null); setAnalyzeMsg(null); }}
               className="text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-white"
             />
             {file && <p className="text-xs text-white/60 mt-2">Fichier : {file.name}</p>}
             {!file && isEdit && dossier?.rapport_nom && (
               <p className="text-xs text-white/60 mt-2">Fichier actuel : {dossier.rapport_nom}</p>
             )}
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={analyser}
+                disabled={!file || analyzing}
+                className="btn-primary py-1.5 px-3 text-xs"
+              >
+                {analyzing ? "Analyse en cours…" : "✨ Analyser et pré-remplir"}
+              </button>
+            </div>
+            {analyzeMsg && <p className="text-xs text-emerald-300 mt-2">{analyzeMsg}</p>}
           </div>
 
           <section>

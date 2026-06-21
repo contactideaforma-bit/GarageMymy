@@ -38,7 +38,7 @@ export default function DocumentsView({ type }: { type: DocumentType }) {
       .select("*")
       .eq("document_id", doc.id)
       .order("ordre", { ascending: true });
-    generateDocumentPdf(doc, (data as DocumentLigne[]) || [], doc.dossier);
+    await generateDocumentPdf(doc, (data as DocumentLigne[]) || [], doc.dossier);
   }
 
   return (
