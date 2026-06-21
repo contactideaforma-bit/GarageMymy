@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #f1f5f9;
+}
+
+body {
+  background: var(--background);
+  color: #0f172a;
+}
+
+/* Champs de formulaire réutilisables */
+.field-label {
+  @apply block text-sm font-medium text-slate-600 mb-1;
+}
+.field-input {
+  @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm
+         focus:border-brand focus:ring-1 focus:ring-brand outline-none bg-white;
+}
