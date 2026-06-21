@@ -18,15 +18,62 @@ export type Dossier = {
   numero_police: string | null;
   assureur: string | null;
 
+  // Cabinet d'expert (coordonnées)
+  cabinet_adresse: string | null;
+  cabinet_tel: string | null;
+  cabinet_email: string | null;
+  // Expert en charge
+  expert_nom: string | null;
+  expert_tel: string | null;
+  expert_email: string | null;
+  // Assurance (coordonnées)
+  assureur_adresse: string | null;
+  assureur_tel: string | null;
+  assureur_email: string | null;
+
   // Client
   client_nom: string | null;
   client_adresse: string | null;
   client_code_postal: string | null;
   client_ville: string | null;
 
+  // Réparation (planning)
+  reparation_debut: string | null;
+  reparation_fin: string | null;
+  reparateur: string | null;
+
   // Rapport
   rapport_path: string | null;
   rapport_nom: string | null;
+};
+
+export type Expert = {
+  id: string;
+  created_at: string;
+  cabinet: string | null;
+  adresse: string | null;
+  code_postal: string | null;
+  ville: string | null;
+  tel: string | null;
+  email: string | null;
+  expert_nom: string | null;
+  expert_tel: string | null;
+  expert_email: string | null;
+  source: string;
+  notes: string | null;
+};
+
+export type Assureur = {
+  id: string;
+  created_at: string;
+  nom: string | null;
+  adresse: string | null;
+  code_postal: string | null;
+  ville: string | null;
+  tel: string | null;
+  email: string | null;
+  source: string;
+  notes: string | null;
 };
 
 export type Evenement = {

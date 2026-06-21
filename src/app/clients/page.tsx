@@ -7,13 +7,15 @@ import { formatDate } from "@/lib/format";
 import ConfigBanner from "@/components/ConfigBanner";
 
 const EMPTY = { nom: "", email: "", telephone: "", adresse: "", code_postal: "", ville: "", notes: "" };
+type FormC = typeof EMPTY;
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ ...EMPTY });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<FormC>({ ...EMPTY });
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -25,11 +27,31 @@ export default function ClientsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function ajouter() {
+  function ouvrirAjout() {
+    setEditingId(null);
+    setForm({ ...EMPTY });
+    setShowForm(true);
+  }
+  function ouvrirEdition(c: Client) {
+    setEditingId(c.id);
+    setForm({
+      nom: c.nom ?? "", email: c.email ?? "", telephone: c.telephone ?? "",
+      adresse: c.adresse ?? "", code_postal: c.code_postal ?? "", ville: c.ville ?? "",
+      notes: c.notes ?? "",
+    });
+    setShowForm(true);
+  }
+
+  async function enregistrer() {
     if (!form.nom.trim()) return;
     setSaving(true);
-    await supabase.from("clients").insert({ ...form, source: "manuel" });
+    if (editingId) {
+      await supabase.from("clients").update(form).eq("id", editingId);
+    } else {
+      await supabase.from("clients").insert({ ...form, source: "manuel" });
+    }
     setForm({ ...EMPTY });
+    setEditingId(null);
     setShowForm(false);
     setSaving(false);
     load();
@@ -48,19 +70,20 @@ export default function ClientsPage() {
       )
     : clients;
 
-  const set = (k: keyof typeof EMPTY, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const set = (k: keyof FormC, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-white">Clients</h1>
-        <button onClick={() => setShowForm((s) => !s)} className="btn-primary">+ Ajouter un client</button>
+        <button onClick={ouvrirAjout} className="btn-primary">+ Ajouter un client</button>
       </div>
 
       <ConfigBanner />
 
       {showForm && (
         <div className="glass-card p-5 mb-5">
+          <h2 className="font-semibold text-white mb-3">{editingId ? "Modifier le client" : "Nouveau client"}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <input className="field-input" placeholder="Nom et prénom *" value={form.nom} onChange={(e) => set("nom", e.target.value)} />
             <input className="field-input" placeholder="Email" value={form.email} onChange={(e) => set("email", e.target.value)} />
@@ -69,10 +92,15 @@ export default function ClientsPage() {
             <input className="field-input" placeholder="Code postal" value={form.code_postal} onChange={(e) => set("code_postal", e.target.value)} />
             <input className="field-input" placeholder="Ville" value={form.ville} onChange={(e) => set("ville", e.target.value)} />
           </div>
+          <div className="mt-3">
+            <label className="field-label">Commentaire</label>
+            <textarea className="field-input" rows={2} value={form.notes}
+              onChange={(e) => set("notes", e.target.value)} placeholder="Notes internes, préférences, historique…" />
+          </div>
           <div className="flex justify-end gap-2 mt-3">
-            <button onClick={() => setShowForm(false)} className="btn-ghost">Annuler</button>
-            <button onClick={ajouter} disabled={saving} className="btn-primary">
-              {saving ? "Ajout…" : "Ajouter"}
+            <button onClick={() => { setShowForm(false); setEditingId(null); }} className="btn-ghost">Annuler</button>
+            <button onClick={enregistrer} disabled={saving} className="btn-primary">
+              {saving ? "Enregistrement…" : editingId ? "Enregistrer" : "Ajouter"}
             </button>
           </div>
         </div>
@@ -90,8 +118,8 @@ export default function ClientsPage() {
               <th className="px-5 py-3 font-medium">Email</th>
               <th className="px-5 py-3 font-medium">Téléphone</th>
               <th className="px-5 py-3 font-medium">Ville</th>
+              <th className="px-5 py-3 font-medium">Commentaire</th>
               <th className="px-5 py-3 font-medium">Origine</th>
-              <th className="px-5 py-3 font-medium">Ajouté le</th>
               <th className="px-5 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
@@ -108,6 +136,7 @@ export default function ClientsPage() {
                 <td className="px-5 py-3 text-white/80">{c.email || "—"}</td>
                 <td className="px-5 py-3 text-white/80">{c.telephone || "—"}</td>
                 <td className="px-5 py-3 text-white/80">{c.ville || "—"}</td>
+                <td className="px-5 py-3 text-white/60 max-w-[16rem] truncate" title={c.notes || ""}>{c.notes || "—"}</td>
                 <td className="px-5 py-3">
                   <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
                     c.source === "auto" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-700"
@@ -115,8 +144,8 @@ export default function ClientsPage() {
                     {c.source === "auto" ? "Auto" : "Manuel"}
                   </span>
                 </td>
-                <td className="px-5 py-3 text-white/80">{formatDate(c.created_at)}</td>
-                <td className="px-5 py-3 text-right">
+                <td className="px-5 py-3 text-right whitespace-nowrap">
+                  <button onClick={() => ouvrirEdition(c)} className="text-accent-pink hover:underline mr-3">Modifier</button>
                   <button onClick={() => supprimer(c.id)} className="text-white/40 hover:text-rose-300">Suppr.</button>
                 </td>
               </tr>

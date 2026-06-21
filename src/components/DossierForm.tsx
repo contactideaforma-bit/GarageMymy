@@ -23,10 +23,22 @@ type FormState = {
   date_expertise: string;
   numero_police: string;
   assureur: string;
+  cabinet_adresse: string;
+  cabinet_tel: string;
+  cabinet_email: string;
+  expert_nom: string;
+  expert_tel: string;
+  expert_email: string;
+  assureur_adresse: string;
+  assureur_tel: string;
+  assureur_email: string;
   client_nom: string;
   client_adresse: string;
   client_code_postal: string;
   client_ville: string;
+  reparation_debut: string;
+  reparation_fin: string;
+  reparateur: string;
   montant: string;
   statut: string;
 };
@@ -43,10 +55,22 @@ function toForm(d?: Partial<Dossier> | null): FormState {
     date_expertise: d?.date_expertise ?? "",
     numero_police: d?.numero_police ?? "",
     assureur: d?.assureur ?? "",
+    cabinet_adresse: d?.cabinet_adresse ?? "",
+    cabinet_tel: d?.cabinet_tel ?? "",
+    cabinet_email: d?.cabinet_email ?? "",
+    expert_nom: d?.expert_nom ?? "",
+    expert_tel: d?.expert_tel ?? "",
+    expert_email: d?.expert_email ?? "",
+    assureur_adresse: d?.assureur_adresse ?? "",
+    assureur_tel: d?.assureur_tel ?? "",
+    assureur_email: d?.assureur_email ?? "",
     client_nom: d?.client_nom ?? "",
     client_adresse: d?.client_adresse ?? "",
     client_code_postal: d?.client_code_postal ?? "",
     client_ville: d?.client_ville ?? "",
+    reparation_debut: d?.reparation_debut ?? "",
+    reparation_fin: d?.reparation_fin ?? "",
+    reparateur: d?.reparateur ?? "",
     montant: d?.montant != null ? String(d.montant) : "",
     statut: d?.statut ?? "nouveau",
   };
@@ -202,10 +226,22 @@ export default function DossierForm({
         date_expertise: form.date_expertise || null,
         numero_police: form.numero_police || null,
         assureur: form.assureur || null,
+        cabinet_adresse: form.cabinet_adresse || null,
+        cabinet_tel: form.cabinet_tel || null,
+        cabinet_email: form.cabinet_email || null,
+        expert_nom: form.expert_nom || null,
+        expert_tel: form.expert_tel || null,
+        expert_email: form.expert_email || null,
+        assureur_adresse: form.assureur_adresse || null,
+        assureur_tel: form.assureur_tel || null,
+        assureur_email: form.assureur_email || null,
         client_nom: form.client_nom || null,
         client_adresse: form.client_adresse || null,
         client_code_postal: form.client_code_postal || null,
         client_ville: form.client_ville || null,
+        reparation_debut: form.reparation_debut || null,
+        reparation_fin: form.reparation_fin || null,
+        reparateur: form.reparateur || null,
         montant: form.montant ? Number(form.montant) : 0,
         statut: form.statut,
         rapport_path,
@@ -238,6 +274,39 @@ export default function DossierForm({
               adresse: form.client_adresse || null,
               code_postal: form.client_code_postal || null,
               ville: form.client_ville || null,
+              source: "auto",
+            });
+          }
+        }
+
+        // Alimente l'annuaire Experts (sans doublon cabinet)
+        if (form.cabinet_expert) {
+          const { data: ex } = await supabase
+            .from("experts").select("id").eq("cabinet", form.cabinet_expert).maybeSingle();
+          if (!ex) {
+            await supabase.from("experts").insert({
+              cabinet: form.cabinet_expert,
+              adresse: form.cabinet_adresse || null,
+              tel: form.cabinet_tel || null,
+              email: form.cabinet_email || null,
+              expert_nom: form.expert_nom || null,
+              expert_tel: form.expert_tel || null,
+              expert_email: form.expert_email || null,
+              source: "auto",
+            });
+          }
+        }
+
+        // Alimente l'annuaire Assureurs (sans doublon nom)
+        if (form.assureur) {
+          const { data: existingAs } = await supabase
+            .from("assureurs").select("id").eq("nom", form.assureur).maybeSingle();
+          if (!existingAs) {
+            await supabase.from("assureurs").insert({
+              nom: form.assureur,
+              adresse: form.assureur_adresse || null,
+              tel: form.assureur_tel || null,
+              email: form.assureur_email || null,
               source: "auto",
             });
           }
@@ -329,12 +398,42 @@ export default function DossierForm({
           </section>
 
           <section>
+            <h3 className="text-sm font-semibold text-accent-pink mb-3">Cabinet d&apos;expert & expert</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Adresse du cabinet" name="cabinet_adresse" value={form.cabinet_adresse} onChange={set} />
+              <Field label="Téléphone cabinet" name="cabinet_tel" value={form.cabinet_tel} onChange={set} />
+              <Field label="Email cabinet" name="cabinet_email" value={form.cabinet_email} onChange={set} />
+              <Field label="Nom de l'expert" name="expert_nom" value={form.expert_nom} onChange={set} />
+              <Field label="Téléphone expert" name="expert_tel" value={form.expert_tel} onChange={set} />
+              <Field label="Email expert" name="expert_email" value={form.expert_email} onChange={set} />
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-sm font-semibold text-accent-pink mb-3">Coordonnées assurance</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Adresse assureur" name="assureur_adresse" value={form.assureur_adresse} onChange={set} />
+              <Field label="Téléphone assureur" name="assureur_tel" value={form.assureur_tel} onChange={set} />
+              <Field label="Email assureur" name="assureur_email" value={form.assureur_email} onChange={set} />
+            </div>
+          </section>
+
+          <section>
             <h3 className="text-sm font-semibold text-accent-pink mb-3">3. Informations du client</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Nom et prénom" name="client_nom" value={form.client_nom} onChange={set} />
               <Field label="Adresse postale" name="client_adresse" value={form.client_adresse} onChange={set} />
               <Field label="Code postal" name="client_code_postal" value={form.client_code_postal} onChange={set} />
               <Field label="Ville" name="client_ville" value={form.client_ville} onChange={set} />
+            </div>
+          </section>
+
+          <section>
+            <h3 className="text-sm font-semibold text-accent-pink mb-3">Réparation (planning)</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field label="Début réparation" name="reparation_debut" value={form.reparation_debut} onChange={set} type="date" />
+              <Field label="Fin réparation" name="reparation_fin" value={form.reparation_fin} onChange={set} type="date" />
+              <Field label="Réparateur attitré" name="reparateur" value={form.reparateur} onChange={set} />
             </div>
           </section>
 

@@ -11,7 +11,11 @@ Stack : **Next.js 14** (App Router) + **Tailwind CSS** + **Supabase** (base + st
 - **Importer un rapport (IA)** : on dépose le PDF d'expertise → l'API Claude en extrait véhicule, sinistre, client, expert, assurance → dossier pré-rempli. Disponible aussi **directement dans le formulaire d'ajout** (bouton « Analyser et pré-remplir »).
 - **Devis & Factures** : création depuis un dossier (lignes, TVA, totaux, statut) et **export PDF à la charte du garage**.
 - **Profil du garage** (`/profil`) : coordonnées, SIRET, TVA, IBAN/BIC, mentions, **logo** et **facture type** de référence → utilisés dans les PDF.
-- **Clients** (`/clients`) : base alimentée **automatiquement** à la création d'un dossier + **ajout manuel**, avec recherche.
+- **Clients** (`/clients`) : base alimentée **automatiquement** à la création d'un dossier + **ajout/édition manuels** avec commentaire et recherche.
+- **Annuaire** (`/annuaire`) : bases **Experts/cabinets** et **Assurances**, alimentées auto depuis les dossiers + ajout/édition manuels + recherche.
+- **Planning de réparations** (`/planning`) : période de réparation + réparateur attitré par dossier, vue semaine, planification depuis le planning.
+- **Fiche dossier enrichie** : coordonnées complètes du cabinet d'expert, de l'expert en charge et de l'assurance.
+- **Tableau de bord** : le total du mois affiche désormais la somme des **factures créées** dans le mois.
 
 ### À venir
 - Envoi de mails depuis la plateforme (Resend) + journal des mails (table `emails` déjà prête).
@@ -42,7 +46,8 @@ Dans **SQL Editor**, exécute (Run) :
 1. [`supabase/schema.sql`](supabase/schema.sql) — tout le schéma (dossiers, evenements, documents, entreprise, clients, emails) + buckets.
 2. Si ta base existait déjà, exécute en plus les migrations manquantes :
    - [`supabase/migration_documents.sql`](supabase/migration_documents.sql) (devis/factures),
-   - [`supabase/migration_profil_clients.sql`](supabase/migration_profil_clients.sql) (profil garage, clients, emails + bucket `entreprise`).
+   - [`supabase/migration_profil_clients.sql`](supabase/migration_profil_clients.sql) (profil garage, clients, emails + bucket `entreprise`),
+   - [`supabase/migration_v2.sql`](supabase/migration_v2.sql) (coordonnées expert/assurance, planning réparation, bases experts & assureurs).
 
 Récupère URL + clé `anon` dans **Project Settings > API**.
 

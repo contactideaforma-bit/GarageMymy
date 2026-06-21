@@ -14,6 +14,7 @@ const SECTIONS: { titre: string; items: { href: string; label: string; icon: str
     items: [
       { href: "/sinistres", label: "Sinistres", icon: "🗂" },
       { href: "/clients", label: "Clients", icon: "👥" },
+      { href: "/annuaire", label: "Annuaire", icon: "📇" },
     ],
   },
   {
@@ -25,7 +26,10 @@ const SECTIONS: { titre: string; items: { href: string; label: string; icon: str
   },
   {
     titre: "Organisation",
-    items: [{ href: "/agenda", label: "Agenda", icon: "📅" }],
+    items: [
+      { href: "/planning", label: "Planning", icon: "🛠" },
+      { href: "/agenda", label: "Agenda", icon: "📅" },
+    ],
   },
 ];
 

@@ -172,10 +172,32 @@ export default function DossierDetailPage() {
         <Card title="Sinistre">
           <InfoRow label="Date du sinistre" value={formatDate(dossier.date_sinistre)} />
           <InfoRow label="N° de sinistre" value={dossier.numero_sinistre} />
-          <InfoRow label="Cabinet d'expert" value={dossier.cabinet_expert} />
           <InfoRow label="Date d'expertise" value={formatDate(dossier.date_expertise)} />
           <InfoRow label="N° police" value={dossier.numero_police} />
+        </Card>
+
+        <Card title="Cabinet d'expert & expert">
+          <InfoRow label="Cabinet" value={dossier.cabinet_expert} />
+          <InfoRow label="Adresse cabinet" value={dossier.cabinet_adresse} />
+          <InfoRow label="Tél cabinet" value={dossier.cabinet_tel} />
+          <InfoRow label="Email cabinet" value={dossier.cabinet_email} />
+          <InfoRow label="Expert" value={dossier.expert_nom} />
+          <InfoRow label="Tél expert" value={dossier.expert_tel} />
+          <InfoRow label="Email expert" value={dossier.expert_email} />
+        </Card>
+
+        <Card title="Assurance">
           <InfoRow label="Assureur" value={dossier.assureur} />
+          <InfoRow label="Adresse" value={dossier.assureur_adresse} />
+          <InfoRow label="Téléphone" value={dossier.assureur_tel} />
+          <InfoRow label="Email" value={dossier.assureur_email} />
+          <InfoRow label="N° police" value={dossier.numero_police} />
+        </Card>
+
+        <Card title="Réparation">
+          <InfoRow label="Début" value={formatDate(dossier.reparation_debut)} />
+          <InfoRow label="Fin" value={formatDate(dossier.reparation_fin)} />
+          <InfoRow label="Réparateur" value={dossier.reparateur} />
         </Card>
 
         <Card title="Client">

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { Dossier, Evenement } from "@/lib/types";
+import { Dossier, Evenement, Document } from "@/lib/types";
 import { formatEuros, formatDate, formatDateTime, estActif } from "@/lib/format";
 import StatCard from "@/components/StatCard";
 import StatutBadge from "@/components/StatutBadge";
@@ -14,16 +14,19 @@ export default function DashboardPage() {
   const router = useRouter();
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
   const [evenements, setEvenements] = useState<Evenement[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const [d, e] = await Promise.all([
+      const [d, e, docs] = await Promise.all([
         supabase.from("dossiers").select("*").order("created_at", { ascending: false }),
         supabase.from("evenements").select("*").order("date_evenement", { ascending: true }),
+        supabase.from("documents").select("*").eq("type", "facture"),
       ]);
       if (d.data) setDossiers(d.data as Dossier[]);
       if (e.data) setEvenements(e.data as Evenement[]);
+      if (docs.data) setDocuments(docs.data as Document[]);
       setLoading(false);
     })();
   }, []);
@@ -31,14 +34,15 @@ export default function DashboardPage() {
   const enCours = dossiers.filter((d) => estActif(d.statut));
 
   const now = new Date();
-  const totalMois = dossiers
-    .filter((d) => {
-      const ref = d.date_sinistre || d.created_at;
+  // Total des factures créées le mois en cours
+  const totalMois = documents
+    .filter((f) => {
+      const ref = f.date_document || f.created_at;
       if (!ref) return false;
       const dt = new Date(ref);
       return dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
     })
-    .reduce((sum, d) => sum + (Number(d.montant) || 0), 0);
+    .reduce((sum, f) => sum + (Number(f.total_ttc) || 0), 0);
 
   const aVenir = evenements.filter((e) => new Date(e.date_evenement) >= now);
   const passes = evenements.filter((e) => new Date(e.date_evenement) < now).reverse();
@@ -55,7 +59,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <StatCard label="Dossiers en cours" value={String(enCours.length)} />
         <StatCard
-          label="Total dossiers (mois en cours)"
+          label="Total facturé (mois en cours)"
           value={formatEuros(totalMois)}
           hint={now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
         />
