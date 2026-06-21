@@ -52,31 +52,29 @@ export async function POST(req: NextRequest) {
 
     const documentBlock = isPdf
       ? {
-          type: "document" as const,
-          source: { type: "base64" as const, media_type: "application/pdf" as const, data: base64 },
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: base64 },
         }
       : {
-          type: "image" as const,
+          type: "image",
           source: {
-            type: "base64" as const,
-            media_type: (file.type || "image/jpeg") as
-              | "image/jpeg"
-              | "image/png"
-              | "image/webp"
-              | "image/gif",
+            type: "base64",
+            media_type: file.type || "image/jpeg",
             data: base64,
           },
         };
 
+    // Le bloc "document" (PDF) n'est pas encore typé dans certaines versions du SDK,
+    // mais l'API l'accepte : on contourne le typage via un cast.
+    const content = [
+      documentBlock,
+      { type: "text", text: PROMPT },
+    ] as unknown as Anthropic.MessageParam["content"];
+
     const message = await client.messages.create({
       model,
       max_tokens: 1500,
-      messages: [
-        {
-          role: "user",
-          content: [documentBlock, { type: "text", text: PROMPT }],
-        },
-      ],
+      messages: [{ role: "user", content }],
     });
 
     const textPart = message.content.find((c) => c.type === "text");
