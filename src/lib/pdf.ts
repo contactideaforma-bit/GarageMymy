@@ -6,21 +6,20 @@ import { supabase } from "./supabaseClient";
 
 const DEFAUT: Partial<Entreprise> = {
   nom: "GarageMYMY",
-  adresse: "",
-  code_postal: "",
-  ville: "",
-  tel: "",
-  email: "",
-  siret: "",
-  tva_intra: "",
-  iban: "",
-  bic: "",
-  mentions: "",
+  adresse: "", code_postal: "", ville: "", tel: "", email: "",
+  siret: "", tva_intra: "", iban: "", bic: "", mentions: "",
 };
 
+// Format monétaire SANS espace insécable (la police PDF ne la gère pas) :
+// espace normale pour les milliers, virgule décimale, "EUR" suffixe.
 function euros(n: number): string {
-  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
+  const neg = n < 0;
+  const fixed = Math.abs(n).toFixed(2);
+  const [intPart, dec] = fixed.split(".");
+  const withSep = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+  return `${neg ? "-" : ""}${withSep},${dec} €`;
 }
+
 function dateFr(s: string | null): string {
   if (!s) return "—";
   const d = new Date(s);
@@ -62,81 +61,93 @@ export async function generateDocumentPdf(
   const logo = await logoDataUrl(ent.logo_path);
 
   const pdf = new jsPDF();
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const M = 14; // marge gauche/droite
+  const right = pageW - M;
   const titre = doc.type === "devis" ? "DEVIS" : "FACTURE";
-  const accent: [number, number, number] = [139, 92, 246];
+  const accent: [number, number, number] = [124, 92, 246];
 
-  // Logo (optionnel)
-  let headerX = 14;
-  if (logo) {
-    try {
-      pdf.addImage(logo, "PNG", 14, 12, 28, 28);
-      headerX = 48;
-    } catch {
-      /* format non supporté : on ignore */
-    }
+  // Pied de page (dessiné sur chaque page)
+  const pied = [
+    [ent.nom, ent.siret ? `SIRET ${ent.siret}` : "", ent.tva_intra ? `TVA ${ent.tva_intra}` : ""]
+      .filter(Boolean).join("  -  "),
+    [ent.iban ? `IBAN ${ent.iban}` : "", ent.bic ? `BIC ${ent.bic}` : ""].filter(Boolean).join("  -  "),
+    ent.mentions || "",
+  ].filter(Boolean);
+
+  function drawFooter() {
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(150);
+    pied.forEach((line, i) => {
+      pdf.text(line, pageW / 2, pageH - 14 + i * 4, { align: "center" });
+    });
   }
 
-  // En-tête entreprise
+  // ---------- En-tête (page 1) ----------
+  let headerX = M;
+  if (logo) {
+    try {
+      pdf.addImage(logo, "PNG", M, 12, 26, 26);
+      headerX = M + 32;
+    } catch { /* format non supporté */ }
+  }
   pdf.setFontSize(16);
   pdf.setTextColor(...accent);
-  pdf.text(ent.nom || "GarageMYMY", headerX, 20);
+  pdf.text(ent.nom || "GarageMYMY", headerX, 19);
   pdf.setFontSize(9);
   pdf.setTextColor(90);
   pdf.text(
     [
       ent.adresse || "",
       `${ent.code_postal || ""} ${ent.ville || ""}`.trim(),
-      ent.tel ? `Tél : ${ent.tel}` : "",
+      ent.tel ? `Tel : ${ent.tel}` : "",
       ent.email || "",
     ].filter(Boolean),
     headerX,
-    27
+    26
   );
 
-  // Titre document (droite)
   pdf.setFontSize(22);
   pdf.setTextColor(30);
-  pdf.text(titre, 196, 22, { align: "right" });
+  pdf.text(titre, right, 21, { align: "right" });
   pdf.setFontSize(10);
   pdf.setTextColor(90);
-  pdf.text(`N° ${doc.numero || "—"}`, 196, 30, { align: "right" });
-  pdf.text(`Date : ${dateFr(doc.date_document)}`, 196, 35, { align: "right" });
+  pdf.text(`N° ${doc.numero || "—"}`, right, 29, { align: "right" });
+  pdf.text(`Date : ${dateFr(doc.date_document)}`, right, 34, { align: "right" });
 
-  // Client
-  const y = 52;
+  // ---------- Blocs client / véhicule ----------
+  const yBlocs = 50;
   pdf.setFontSize(10);
   pdf.setTextColor(30);
-  pdf.text("Client", 14, y);
+  pdf.text("Client", M, yBlocs);
+  pdf.text("Véhicule & sinistre", pageW / 2 + 6, yBlocs);
   pdf.setTextColor(70);
+  pdf.setFontSize(9);
   pdf.text(
     [
       dossier.client_nom || "—",
       dossier.client_adresse || "",
       `${dossier.client_code_postal || ""} ${dossier.client_ville || ""}`.trim(),
     ].filter(Boolean),
-    14,
-    y + 5
+    M, yBlocs + 6
   );
-
-  // Véhicule / sinistre
-  pdf.setTextColor(30);
-  pdf.text("Véhicule & sinistre", 120, y);
-  pdf.setTextColor(70);
   pdf.text(
     [
-      `${dossier.marque_modele || "—"}`,
+      dossier.marque_modele || "—",
       `Immat. : ${dossier.immatriculation || "—"}`,
       `N° sinistre : ${dossier.numero_sinistre || "—"}`,
       `Assureur : ${dossier.assureur || "—"}`,
     ],
-    120,
-    y + 5
+    pageW / 2 + 6, yBlocs + 6
   );
 
-  // Tableau lignes
+  // ---------- Tableau des lignes ----------
   const totaux = computeTotaux(lignes, doc.tva);
   autoTable(pdf, {
-    startY: y + 30,
+    startY: yBlocs + 32,
+    margin: { top: 20, left: M, right: M, bottom: 26 },
+    tableWidth: pageW - M * 2,
     head: [["Désignation", "Qté", "PU HT", "Total HT"]],
     body: lignes.map((l) => [
       l.designation || "",
@@ -144,48 +155,52 @@ export async function generateDocumentPdf(
       euros(Number(l.prix_unitaire) || 0),
       euros((Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0)),
     ]),
-    headStyles: { fillColor: accent, textColor: 255 },
-    styles: { fontSize: 9, cellPadding: 3 },
-    columnStyles: { 1: { halign: "right" }, 2: { halign: "right" }, 3: { halign: "right" } },
+    headStyles: { fillColor: accent, textColor: 255, fontStyle: "bold" },
+    styles: { fontSize: 9, cellPadding: 2.5, overflow: "linebreak", valign: "middle" },
+    alternateRowStyles: { fillColor: [245, 244, 250] },
+    columnStyles: {
+      0: { cellWidth: "auto" },
+      1: { cellWidth: 16, halign: "right" },
+      2: { cellWidth: 32, halign: "right" },
+      3: { cellWidth: 34, halign: "right" },
+    },
+    didDrawPage: () => drawFooter(),
   });
 
-  const afterTable =
-    (pdf as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y + 60;
-  let ty = afterTable + 10;
-  const right = 196;
-  pdf.setFontSize(10);
-  pdf.setTextColor(70);
-  pdf.text("Total HT", 150, ty, { align: "right" });
-  pdf.text(euros(totaux.ht), right, ty, { align: "right" });
-  ty += 6;
-  pdf.text(`TVA (${doc.tva ?? 0}%)`, 150, ty, { align: "right" });
-  pdf.text(euros(totaux.tva), right, ty, { align: "right" });
-  ty += 7;
-  pdf.setFontSize(12);
-  pdf.setTextColor(...accent);
-  pdf.text("Total TTC", 150, ty, { align: "right" });
-  pdf.text(euros(totaux.ttc), right, ty, { align: "right" });
-
-  // Notes
-  if (doc.notes) {
-    ty += 14;
-    pdf.setFontSize(9);
-    pdf.setTextColor(90);
-    pdf.text("Notes :", 14, ty);
-    pdf.text(pdf.splitTextToSize(doc.notes, 180), 14, ty + 5);
+  // ---------- Totaux (sans orphelin : saut de page si trop bas) ----------
+  let ty = ((pdf as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? yBlocs + 60) + 10;
+  if (ty > pageH - 50) {
+    pdf.addPage();
+    drawFooter();
+    ty = 25;
   }
 
-  // Pied de page : coordonnées légales
-  const pied = [
-    [ent.nom, ent.siret ? `SIRET ${ent.siret}` : "", ent.tva_intra ? `TVA ${ent.tva_intra}` : ""]
-      .filter(Boolean)
-      .join(" · "),
-    [ent.iban ? `IBAN ${ent.iban}` : "", ent.bic ? `BIC ${ent.bic}` : ""].filter(Boolean).join(" · "),
-    ent.mentions || "",
-  ].filter(Boolean);
-  pdf.setFontSize(8);
-  pdf.setTextColor(150);
-  pdf.text(pied, 105, 282, { align: "center" });
+  const labelX = right - 45;
+  pdf.setFontSize(10);
+  pdf.setTextColor(70);
+  pdf.text("Total HT", labelX, ty, { align: "right" });
+  pdf.text(euros(totaux.ht), right, ty, { align: "right" });
+  ty += 6;
+  pdf.text(`TVA (${doc.tva ?? 0}%)`, labelX, ty, { align: "right" });
+  pdf.text(euros(totaux.tva), right, ty, { align: "right" });
+  ty += 8;
+  pdf.setDrawColor(...accent);
+  pdf.setLineWidth(0.4);
+  pdf.line(labelX - 5, ty - 5, right, ty - 5);
+  pdf.setFontSize(12);
+  pdf.setTextColor(...accent);
+  pdf.text("Total TTC", labelX, ty, { align: "right" });
+  pdf.text(euros(totaux.ttc), right, ty, { align: "right" });
+
+  // ---------- Notes ----------
+  if (doc.notes) {
+    ty += 14;
+    if (ty > pageH - 30) { pdf.addPage(); drawFooter(); ty = 25; }
+    pdf.setFontSize(9);
+    pdf.setTextColor(90);
+    pdf.text("Notes :", M, ty);
+    pdf.text(pdf.splitTextToSize(doc.notes, pageW - M * 2), M, ty + 5);
+  }
 
   pdf.save(`${doc.numero || titre}.pdf`);
 }
