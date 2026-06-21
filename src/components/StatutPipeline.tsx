@@ -2,10 +2,6 @@
 
 import { STATUTS_ORDRE, STATUTS_INFO } from "@/lib/format";
 
-/**
- * Frise (stepper) du cycle de vie d'un dossier.
- * Cliquer sur une étape change le statut (si onChange fourni).
- */
 export default function StatutPipeline({
   statut,
   onChange,
@@ -15,7 +11,6 @@ export default function StatutPipeline({
   onChange?: (s: string) => void;
   disabled?: boolean;
 }) {
-  // index courant (les statuts hérités tombent à -1 = aucune étape active)
   const currentIndex = STATUTS_ORDRE.indexOf(statut as never);
 
   return (
@@ -40,17 +35,17 @@ export default function StatutPipeline({
               <span
                 className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold transition-colors ${
                   active
-                    ? "border-brand bg-brand text-white"
+                    ? "border-transparent bg-gradient-to-br from-accent-violet to-accent-pink text-white"
                     : done
-                    ? "border-brand bg-brand/15 text-brand"
-                    : "border-surface-line bg-white text-ink-faint group-hover:border-brand-light"
+                    ? "border-accent-violet/50 bg-accent-violet/20 text-white"
+                    : "border-white/20 bg-white/5 text-white/40 group-hover:border-accent-violet/60"
                 }`}
               >
                 {done ? "✓" : i + 1}
               </span>
               <span
                 className={`text-[11px] whitespace-nowrap ${
-                  active ? "font-semibold text-brand" : "text-ink-soft"
+                  active ? "font-semibold text-white" : "text-white/50"
                 }`}
               >
                 {info.label}
@@ -60,7 +55,7 @@ export default function StatutPipeline({
             {i < STATUTS_ORDRE.length - 1 && (
               <div
                 className={`mx-1 h-0.5 flex-1 ${
-                  done ? "bg-brand" : "bg-surface-line"
+                  done ? "bg-accent-violet/60" : "bg-white/10"
                 }`}
               />
             )}

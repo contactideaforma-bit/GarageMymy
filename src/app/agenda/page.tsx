@@ -23,24 +23,17 @@ export default function AgendaPage() {
 
   const now = new Date();
   const aVenir = evenements.filter((e) => new Date(e.date_evenement) >= now);
-  const passes = evenements
-    .filter((e) => new Date(e.date_evenement) < now)
-    .reverse();
+  const passes = evenements.filter((e) => new Date(e.date_evenement) < now).reverse();
 
   function Liste({ items }: { items: Evenement[] }) {
-    if (items.length === 0)
-      return <p className="text-sm text-slate-400">Aucun événement.</p>;
+    if (items.length === 0) return <p className="text-sm text-white/40">Aucun événement.</p>;
     return (
-      <ul className="divide-y divide-slate-100">
+      <ul className="divide-y divide-white/10">
         {items.map((e) => (
           <li key={e.id} className="py-3">
-            <div className="font-medium text-slate-800">{e.titre}</div>
-            {e.description && (
-              <div className="text-sm text-slate-500">{e.description}</div>
-            )}
-            <div className="text-xs text-slate-400 mt-0.5">
-              {formatDateTime(e.date_evenement)}
-            </div>
+            <div className="font-medium text-white">{e.titre}</div>
+            {e.description && <div className="text-sm text-white/60">{e.description}</div>}
+            <div className="text-xs text-white/40 mt-0.5">{formatDateTime(e.date_evenement)}</div>
           </li>
         ))}
       </ul>
@@ -49,23 +42,18 @@ export default function AgendaPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-900 mb-6">Agenda</h1>
+      <h1 className="text-2xl font-semibold text-white mb-6">Agenda</h1>
       <ConfigBanner />
-
       {loading ? (
-        <p className="text-slate-400">Chargement…</p>
+        <p className="text-white/40">Chargement…</p>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <section className="rounded-xl bg-white border border-slate-200 shadow-sm p-5">
-            <h2 className="font-semibold text-slate-800 mb-3">
-              Événements à venir
-            </h2>
+          <section className="glass-card p-5">
+            <h2 className="font-semibold text-white mb-3">Événements à venir</h2>
             <Liste items={aVenir} />
           </section>
-          <section className="rounded-xl bg-white border border-slate-200 shadow-sm p-5">
-            <h2 className="font-semibold text-slate-800 mb-3">
-              Événements passés
-            </h2>
+          <section className="glass-card p-5">
+            <h2 className="font-semibold text-white mb-3">Événements passés</h2>
             <Liste items={passes} />
           </section>
         </div>

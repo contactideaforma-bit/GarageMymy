@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier } from "@/lib/types";
@@ -39,13 +40,7 @@ export default function SinistresPage() {
   const term = q.trim().toLowerCase();
   const filtered = term
     ? dossiers.filter((d) =>
-        [
-          d.numero_sinistre,
-          d.client_nom,
-          d.marque_modele,
-          d.immatriculation,
-          d.assureur,
-        ]
+        [d.numero_sinistre, d.client_nom, d.marque_modele, d.immatriculation, d.assureur]
           .filter(Boolean)
           .some((v) => (v as string).toLowerCase().includes(term))
       )
@@ -54,13 +49,13 @@ export default function SinistresPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-ink">Sinistres</h1>
-        <button
-          onClick={() => setShowForm(true)}
-          className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
-        >
-          + Ajouter un dossier
-        </button>
+        <h1 className="text-2xl font-semibold text-white">Sinistres</h1>
+        <div className="flex gap-2">
+          <Link href="/import" className="btn-ghost">⬆ Importer un rapport</Link>
+          <button onClick={() => setShowForm(true)} className="btn-primary">
+            + Ajouter un dossier
+          </button>
+        </div>
       </div>
 
       <ConfigBanner />
@@ -74,9 +69,9 @@ export default function SinistresPage() {
         />
       </div>
 
-      <div className="rounded-xl bg-white border border-surface-line shadow-sm overflow-x-auto">
+      <div className="glass-card overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="text-left text-ink-soft bg-surface-muted">
+          <thead className="text-left text-white/50">
             <tr>
               <th className="px-5 py-3 font-medium">N° sinistre</th>
               <th className="px-5 py-3 font-medium">Client</th>
@@ -90,18 +85,12 @@ export default function SinistresPage() {
           </thead>
           <tbody>
             {loading && (
-              <tr>
-                <td colSpan={8} className="px-5 py-8 text-center text-ink-faint">
-                  Chargement…
-                </td>
-              </tr>
+              <tr><td colSpan={8} className="px-5 py-8 text-center text-white/40">Chargement…</td></tr>
             )}
             {!loading && filtered.length === 0 && (
-              <tr>
-                <td colSpan={8} className="px-5 py-8 text-center text-ink-faint">
-                  Aucun dossier. Clique sur « + Ajouter un dossier ».
-                </td>
-              </tr>
+              <tr><td colSpan={8} className="px-5 py-8 text-center text-white/40">
+                Aucun dossier. Importe un rapport ou clique sur « + Ajouter un dossier ».
+              </td></tr>
             )}
             {filtered.map((d) => {
               const url = rapportUrl(d.rapport_path);
@@ -109,22 +98,17 @@ export default function SinistresPage() {
                 <tr
                   key={d.id}
                   onClick={() => router.push(`/sinistres/${d.id}`)}
-                  className="border-t border-surface-line hover:bg-surface-muted cursor-pointer"
+                  className="border-t border-white/5 hover:bg-white/5 cursor-pointer"
                 >
-                  <td className="px-5 py-3 font-medium text-ink">
-                    {d.numero_sinistre || "—"}
+                  <td className="px-5 py-3 font-medium text-white">{d.numero_sinistre || "—"}</td>
+                  <td className="px-5 py-3 text-white/80">{d.client_nom || "—"}</td>
+                  <td className="px-5 py-3 text-white/80">
+                    {d.marque_modele || "—"}{d.immatriculation ? ` (${d.immatriculation})` : ""}
                   </td>
-                  <td className="px-5 py-3">{d.client_nom || "—"}</td>
-                  <td className="px-5 py-3">
-                    {d.marque_modele || "—"}
-                    {d.immatriculation ? ` (${d.immatriculation})` : ""}
-                  </td>
-                  <td className="px-5 py-3">{d.assureur || "—"}</td>
-                  <td className="px-5 py-3">{formatDate(d.date_sinistre)}</td>
-                  <td className="px-5 py-3">
-                    <StatutBadge statut={d.statut} />
-                  </td>
-                  <td className="px-5 py-3 text-right">{formatEuros(d.montant)}</td>
+                  <td className="px-5 py-3 text-white/80">{d.assureur || "—"}</td>
+                  <td className="px-5 py-3 text-white/80">{formatDate(d.date_sinistre)}</td>
+                  <td className="px-5 py-3"><StatutBadge statut={d.statut} /></td>
+                  <td className="px-5 py-3 text-right text-white/90">{formatEuros(d.montant)}</td>
                   <td className="px-5 py-3">
                     {url ? (
                       <a
@@ -132,12 +116,12 @@ export default function SinistresPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         onClick={(e) => e.stopPropagation()}
-                        className="text-brand hover:underline"
+                        className="text-accent-pink hover:underline"
                       >
                         📄 Voir
                       </a>
                     ) : (
-                      <span className="text-ink-faint">—</span>
+                      <span className="text-white/30">—</span>
                     )}
                   </td>
                 </tr>
@@ -147,9 +131,7 @@ export default function SinistresPage() {
         </table>
       </div>
 
-      {showForm && (
-        <DossierForm onClose={() => setShowForm(false)} onSaved={load} />
-      )}
+      {showForm && <DossierForm onClose={() => setShowForm(false)} onSaved={load} />}
     </div>
   );
 }

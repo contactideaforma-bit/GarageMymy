@@ -37,3 +37,29 @@ export type Evenement = {
   description: string | null;
   date_evenement: string;
 };
+
+export type DocumentType = "devis" | "facture";
+
+export type Document = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  type: DocumentType;
+  numero: string | null;
+  date_document: string | null;
+  statut: string; // brouillon|envoye|accepte|refuse|paye
+  tva: number | null;
+  notes: string | null;
+  total_ht: number | null;
+  total_tva: number | null;
+  total_ttc: number | null;
+};
+
+export type DocumentLigne = {
+  id: string;
+  document_id: string;
+  designation: string | null;
+  quantite: number | null;
+  prix_unitaire: number | null;
+  ordre: number | null;
+};

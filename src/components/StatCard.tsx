@@ -8,10 +8,10 @@ export default function StatCard({
   hint?: string;
 }) {
   return (
-    <div className="rounded-xl bg-white border border-slate-200 p-5 shadow-sm">
-      <div className="text-sm text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-slate-900">{value}</div>
-      {hint && <div className="mt-1 text-xs text-slate-400">{hint}</div>}
+    <div className="glass-card p-5">
+      <div className="text-sm text-white/60">{label}</div>
+      <div className="mt-1 text-2xl font-semibold text-white">{value}</div>
+      {hint && <div className="mt-1 text-xs text-white/40">{hint}</div>}
     </div>
   );
 }
