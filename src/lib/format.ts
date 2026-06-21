@@ -32,6 +32,7 @@ export const STATUTS_ORDRE = [
   "devis",
   "reparation",
   "facture",
+  "rendu",
   "paye",
   "cloture",
 ] as const;
@@ -47,6 +48,7 @@ export const STATUTS_INFO: Record<
   devis: { label: "Devis", badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
   reparation: { label: "Réparation", badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
   facture: { label: "Facturé", badge: "bg-cyan-100 text-cyan-700", dot: "bg-cyan-500" },
+  rendu: { label: "Véhicule rendu", badge: "bg-orange-100 text-orange-700", dot: "bg-orange-500" },
   paye: { label: "Payé", badge: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
   cloture: { label: "Clôturé", badge: "bg-slate-200 text-slate-500", dot: "bg-slate-400" },
   // valeurs héritées de la v0

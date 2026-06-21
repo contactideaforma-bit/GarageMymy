@@ -41,6 +41,7 @@ create table if not exists public.dossiers (
   reparation_debut date,
   reparation_fin date,
   reparateur text,
+  au_garage boolean not null default false,
 
   -- Rapport d'expertise (fichier stocké dans le bucket "rapports")
   rapport_path text,
@@ -183,6 +184,17 @@ drop policy if exists "experts_all_anon" on public.experts;
 create policy "experts_all_anon" on public.experts for all using (true) with check (true);
 drop policy if exists "assureurs_all_anon" on public.assureurs;
 create policy "assureurs_all_anon" on public.assureurs for all using (true) with check (true);
+
+-- ---------- Véhicules hors dossier ----------
+create table if not exists public.vehicules (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  immatriculation text, marque_modele text, proprietaire text,
+  au_garage boolean not null default true, notes text
+);
+alter table public.vehicules enable row level security;
+drop policy if exists "vehicules_all_anon" on public.vehicules;
+create policy "vehicules_all_anon" on public.vehicules for all using (true) with check (true);
 
 insert into storage.buckets (id, name, public)
 values ('entreprise', 'entreprise', true)

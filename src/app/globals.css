@@ -109,6 +109,7 @@ html.light .border-white\/5 { border-color: rgba(0,0,0,0.06); }
 html.light .divide-white\/10 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(0,0,0,0.08); }
 
 /* Fonds blancs translucides -> teinte claire */
+html.light .bg-white\/20 { background-color: rgba(0,0,0,0.10); }
 html.light .bg-white\/15 { background-color: rgba(0,0,0,0.06); }
 html.light .bg-white\/10 { background-color: rgba(0,0,0,0.05); }
 html.light .bg-white\/5 { background-color: rgba(0,0,0,0.03); }

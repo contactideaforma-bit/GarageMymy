@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { Dossier, Evenement, Document } from "@/lib/types";
+import { Dossier, Evenement, Document, Vehicule } from "@/lib/types";
 import { formatEuros, formatDate, formatDateTime, estActif } from "@/lib/format";
 import StatCard from "@/components/StatCard";
 import StatutBadge from "@/components/StatutBadge";
@@ -15,18 +15,21 @@ export default function DashboardPage() {
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
   const [evenements, setEvenements] = useState<Evenement[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [vehicules, setVehicules] = useState<Vehicule[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const [d, e, docs] = await Promise.all([
+      const [d, e, docs, v] = await Promise.all([
         supabase.from("dossiers").select("*").order("created_at", { ascending: false }),
         supabase.from("evenements").select("*").order("date_evenement", { ascending: true }),
         supabase.from("documents").select("*").eq("type", "facture"),
+        supabase.from("vehicules").select("*"),
       ]);
       if (d.data) setDossiers(d.data as Dossier[]);
       if (e.data) setEvenements(e.data as Evenement[]);
       if (docs.data) setDocuments(docs.data as Document[]);
+      if (v.data) setVehicules(v.data as Vehicule[]);
       setLoading(false);
     })();
   }, []);
@@ -34,13 +37,10 @@ export default function DashboardPage() {
   const enCours = dossiers.filter((d) => estActif(d.statut));
 
   const now = new Date();
-  const todayKey = now.toISOString().slice(0, 10);
-  // Véhicules présents au garage : réparation en cours aujourd'hui, ou statut "réparation"
-  const presents = dossiers.filter(
-    (d) =>
-      (d.reparation_debut && d.reparation_fin && d.reparation_debut <= todayKey && todayKey <= d.reparation_fin) ||
-      d.statut === "reparation"
-  );
+  // Véhicules présents au garage : cases "au garage" cochées (dossiers + véhicules hors dossier)
+  const presentsDossiers = dossiers.filter((d) => d.au_garage);
+  const presentsLibres = vehicules.filter((v) => v.au_garage);
+  const presentsCount = presentsDossiers.length + presentsLibres.length;
   // Total des factures créées le mois en cours
   const totalMois = documents
     .filter((f) => {
@@ -64,7 +64,7 @@ export default function DashboardPage() {
       <ConfigBanner />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Véhicules au garage" value={String(presents.length)} hint="en réparation" />
+        <StatCard label="Véhicules au garage" value={String(presentsCount)} hint="actuellement présents" />
         <StatCard label="Dossiers en cours" value={String(enCours.length)} />
         <StatCard
           label="Total facturé (mois en cours)"
@@ -78,13 +78,13 @@ export default function DashboardPage() {
       <section className="glass-card p-5 mb-8">
         <div className="flex items-center justify-between mb-3">
           <h2 className="font-semibold text-white">🚗 Véhicules présents au garage</h2>
-          <span className="text-sm text-white/50">{presents.length} véhicule{presents.length > 1 ? "s" : ""}</span>
+          <Link href="/vehicules" className="text-sm text-accent-pink hover:underline">Gérer</Link>
         </div>
-        {presents.length === 0 ? (
-          <p className="text-sm text-white/40">Aucun véhicule en réparation actuellement.</p>
+        {presentsCount === 0 ? (
+          <p className="text-sm text-white/40">Aucun véhicule présent. Coche « au garage » dans l&apos;onglet Véhicules.</p>
         ) : (
           <div className="flex flex-wrap gap-3">
-            {presents.map((d) => (
+            {presentsDossiers.map((d) => (
               <button
                 key={d.id}
                 onClick={() => router.push(`/sinistres/${d.id}`)}
@@ -98,6 +98,15 @@ export default function DashboardPage() {
                   {d.immatriculation || "—"}{d.reparateur ? ` · ${d.reparateur}` : ""}
                 </div>
               </button>
+            ))}
+            {presentsLibres.map((v) => (
+              <div key={v.id} className="glass-soft px-4 py-3 min-w-[12rem]">
+                <div className="text-2xl">🚗</div>
+                <div className="mt-1 text-sm font-medium text-white truncate">{v.marque_modele || "Véhicule"}</div>
+                <div className="text-xs text-white/50 truncate">
+                  {v.immatriculation || "—"}{v.proprietaire ? ` · ${v.proprietaire}` : ""} · hors dossier
+                </div>
+              </div>
             ))}
           </div>
         )}

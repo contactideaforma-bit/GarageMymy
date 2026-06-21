@@ -7,7 +7,8 @@ Stack : **Next.js 14** (App Router) + **Tailwind CSS** + **Supabase** (base + st
 
 - **Thème aurora** translucide (glassmorphism) animé + **bascule mode clair / sombre**.
 - **Tableau de bord** : dossiers en cours, agenda, total € du mois.
-- **Sinistres** : liste recherchable, fiche dossier complète, **pipeline de statut** (Nouveau → Expertise → Devis → Réparation → Facturé → Payé → Clôturé), édition/suppression, événements liés.
+- **Sinistres** : liste recherchable, fiche dossier complète, **pipeline de statut** (Nouveau → Expertise → Devis → Réparation → Facturé → Véhicule rendu → Payé → Clôturé), édition/suppression, événements liés.
+- **Véhicules** (`/vehicules`) : tous les véhicules des dossiers + véhicules **hors dossier**, case **« au garage »** par véhicule, filtre Présents/Absents, recherche. Le tableau de bord compte les véhicules présents selon ces cases.
 - **Importer un rapport (IA)** : on dépose le PDF d'expertise → l'API Claude en extrait véhicule, sinistre, client, expert, assurance → dossier pré-rempli. Disponible aussi **directement dans le formulaire d'ajout** (bouton « Analyser et pré-remplir »).
 - **Devis & Factures** : création depuis un dossier (lignes, TVA, totaux, statut) et **export PDF à la charte du garage**.
 - **Profil du garage** (`/profil`) : coordonnées, SIRET, TVA, IBAN/BIC, mentions, **logo** et **facture type** de référence → utilisés dans les PDF.
@@ -48,7 +49,8 @@ Dans **SQL Editor**, exécute (Run) :
    - [`supabase/migration_documents.sql`](supabase/migration_documents.sql) (devis/factures),
    - [`supabase/migration_profil_clients.sql`](supabase/migration_profil_clients.sql) (profil garage, clients, emails + bucket `entreprise`),
    - [`supabase/migration_v2.sql`](supabase/migration_v2.sql) (coordonnées expert/assurance, planning réparation, bases experts & assureurs),
-   - [`supabase/migration_v3.sql`](supabase/migration_v3.sql) (RDV agenda : catégorie + interlocuteur).
+   - [`supabase/migration_v3.sql`](supabase/migration_v3.sql) (RDV agenda : catégorie + interlocuteur),
+   - [`supabase/migration_v4.sql`](supabase/migration_v4.sql) (présence « au garage » + table `vehicules` hors dossier).
 
 Récupère URL + clé `anon` dans **Project Settings > API**.
 

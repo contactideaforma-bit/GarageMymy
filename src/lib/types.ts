@@ -41,10 +41,21 @@ export type Dossier = {
   reparation_debut: string | null;
   reparation_fin: string | null;
   reparateur: string | null;
+  au_garage: boolean | null;
 
   // Rapport
   rapport_path: string | null;
   rapport_nom: string | null;
+};
+
+export type Vehicule = {
+  id: string;
+  created_at: string;
+  immatriculation: string | null;
+  marque_modele: string | null;
+  proprietaire: string | null;
+  au_garage: boolean;
+  notes: string | null;
 };
 
 export type Expert = {
