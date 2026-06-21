@@ -83,6 +83,8 @@ export type Evenement = {
   titre: string;
   description: string | null;
   date_evenement: string;
+  categorie: string | null; // rdv_client | rdv_expert | autre
+  avec_qui: string | null;
 };
 
 export type DocumentType = "devis" | "facture";

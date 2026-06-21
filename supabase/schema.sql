@@ -54,7 +54,9 @@ create table if not exists public.evenements (
   dossier_id uuid references public.dossiers(id) on delete cascade,
   titre text not null,
   description text,
-  date_evenement timestamptz not null
+  date_evenement timestamptz not null,
+  categorie text,         -- rdv_client | rdv_expert | autre
+  avec_qui text
 );
 
 -- ---------- Sécurité (RLS) ----------

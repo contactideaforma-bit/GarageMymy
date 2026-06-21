@@ -34,6 +34,13 @@ export default function DashboardPage() {
   const enCours = dossiers.filter((d) => estActif(d.statut));
 
   const now = new Date();
+  const todayKey = now.toISOString().slice(0, 10);
+  // Véhicules présents au garage : réparation en cours aujourd'hui, ou statut "réparation"
+  const presents = dossiers.filter(
+    (d) =>
+      (d.reparation_debut && d.reparation_fin && d.reparation_debut <= todayKey && todayKey <= d.reparation_fin) ||
+      d.statut === "reparation"
+  );
   // Total des factures créées le mois en cours
   const totalMois = documents
     .filter((f) => {
@@ -56,7 +63,8 @@ export default function DashboardPage() {
 
       <ConfigBanner />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard label="Véhicules au garage" value={String(presents.length)} hint="en réparation" />
         <StatCard label="Dossiers en cours" value={String(enCours.length)} />
         <StatCard
           label="Total facturé (mois en cours)"
@@ -65,6 +73,35 @@ export default function DashboardPage() {
         />
         <StatCard label="Événements à venir" value={String(aVenir.length)} />
       </div>
+
+      {/* Visuel : véhicules présents au garage */}
+      <section className="glass-card p-5 mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-white">🚗 Véhicules présents au garage</h2>
+          <span className="text-sm text-white/50">{presents.length} véhicule{presents.length > 1 ? "s" : ""}</span>
+        </div>
+        {presents.length === 0 ? (
+          <p className="text-sm text-white/40">Aucun véhicule en réparation actuellement.</p>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            {presents.map((d) => (
+              <button
+                key={d.id}
+                onClick={() => router.push(`/sinistres/${d.id}`)}
+                className="glass-soft px-4 py-3 text-left hover:bg-white/10 transition-colors min-w-[12rem]"
+              >
+                <div className="text-2xl">🚗</div>
+                <div className="mt-1 text-sm font-medium text-white truncate">
+                  {d.marque_modele || d.numero_sinistre || "Véhicule"}
+                </div>
+                <div className="text-xs text-white/50 truncate">
+                  {d.immatriculation || "—"}{d.reparateur ? ` · ${d.reparateur}` : ""}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <section className="lg:col-span-2 glass-card">

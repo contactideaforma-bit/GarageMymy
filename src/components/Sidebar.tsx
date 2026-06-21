@@ -13,7 +13,6 @@ const SECTIONS: { titre: string; items: { href: string; label: string; icon: str
     titre: "Dossiers",
     items: [
       { href: "/sinistres", label: "Sinistres", icon: "🗂" },
-      { href: "/clients", label: "Clients", icon: "👥" },
       { href: "/annuaire", label: "Annuaire", icon: "📇" },
     ],
   },
