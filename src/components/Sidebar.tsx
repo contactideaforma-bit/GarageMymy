@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 const SECTIONS: { titre: string; items: { href: string; label: string; icon: string }[] }[] = [
   {
@@ -41,6 +43,16 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  const [email, setEmail] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
+  }, []);
+
+  async function deconnexion() {
+    await supabase.auth.signOut();
+  }
 
   return (
     <div className="glass-card h-full flex flex-col p-4">
@@ -99,7 +111,17 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           Profil du garage
         </Link>
         <ThemeToggle />
-        <div className="px-3 pt-2 text-xs text-white/30">v1.0</div>
+        {email && (
+          <button
+            onClick={deconnexion}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <span className="text-base">⎋</span>
+            Se déconnecter
+          </button>
+        )}
+        {email && <div className="px-3 pt-1 text-[11px] text-white/30 truncate">{email}</div>}
+        <div className="px-3 pt-2 text-xs text-white/30">v1.1</div>
       </div>
     </div>
   );
