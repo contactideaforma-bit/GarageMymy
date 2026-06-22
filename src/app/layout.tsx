@@ -8,8 +8,9 @@ export const metadata: Metadata = {
   description: "Suivi des dossiers de sinistres",
 };
 
-// Applique le thème avant le rendu pour éviter le flash
-const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(t==='light'){document.documentElement.classList.add('light');}}catch(e){}})();`;
+// Applique le thème avant le rendu pour éviter le flash.
+// Mode clair par défaut ; mode sombre seulement si explicitement choisi.
+const themeInit = `(function(){try{var t=localStorage.getItem('theme');if(t!=='dark'){document.documentElement.classList.add('light');}}catch(e){document.documentElement.classList.add('light');}})();`;
 
 export default function RootLayout({
   children,
