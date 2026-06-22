@@ -107,6 +107,7 @@ export type Document = {
   type: DocumentType;
   numero: string | null;
   date_document: string | null;
+  date_echeance: string | null;
   statut: string; // brouillon|envoye|accepte|refuse|paye
   tva: number | null;
   notes: string | null;
@@ -152,6 +153,28 @@ export type Client = {
   code_postal: string | null;
   ville: string | null;
   source: string;
+  notes: string | null;
+};
+
+export type Paiement = {
+  id: string;
+  created_at: string;
+  dossier_id: string | null;
+  document_id: string | null;
+  montant: number | null;
+  date_paiement: string | null;
+  moyen: string; // virement|cheque|cb|especes|autre
+  reference: string | null;
+  notes: string | null;
+};
+
+export type Relance = {
+  id: string;
+  created_at: string;
+  dossier_id: string | null;
+  document_id: string | null;
+  date_relance: string | null;
+  canal: string; // email|telephone|courrier|autre
   notes: string | null;
 };
 

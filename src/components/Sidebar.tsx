@@ -25,6 +25,10 @@ const SECTIONS: { titre: string; items: { href: string; label: string; icon: str
     ],
   },
   {
+    titre: "Finance",
+    items: [{ href: "/finance", label: "Paiements & relances", icon: "💶" }],
+  },
+  {
     titre: "Organisation",
     items: [
       { href: "/planning", label: "Planning", icon: "🛠" },
@@ -95,7 +99,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           Profil du garage
         </Link>
         <ThemeToggle />
-        <div className="px-3 pt-2 text-xs text-white/30">v0.8</div>
+        <div className="px-3 pt-2 text-xs text-white/30">v1.0</div>
       </div>
     </div>
   );

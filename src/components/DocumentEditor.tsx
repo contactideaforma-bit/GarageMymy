@@ -33,6 +33,7 @@ export default function DocumentEditor({
   const [dateDoc, setDateDoc] = useState(
     document?.date_document || new Date().toISOString().slice(0, 10)
   );
+  const [dateEcheance, setDateEcheance] = useState(document?.date_echeance || "");
   const [statut, setStatut] = useState(document?.statut || "brouillon");
   const [tva, setTva] = useState(String(document?.tva ?? 20));
   const [notes, setNotes] = useState(document?.notes || "");
@@ -69,6 +70,7 @@ export default function DocumentEditor({
         type,
         numero,
         date_document: dateDoc,
+        date_echeance: dateEcheance || null,
         statut,
         tva: Number(tva) || 0,
         notes: notes || null,
@@ -122,7 +124,7 @@ export default function DocumentEditor({
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
             <div>
               <label className="field-label">N° {titre.toLowerCase()}</label>
               <input className="field-input" value={numero} onChange={(e) => setNumero(e.target.value)} />
@@ -130,6 +132,10 @@ export default function DocumentEditor({
             <div>
               <label className="field-label">Date</label>
               <input type="date" className="field-input" value={dateDoc} onChange={(e) => setDateDoc(e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Échéance</label>
+              <input type="date" className="field-input" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
             </div>
             <div>
               <label className="field-label">TVA (%)</label>

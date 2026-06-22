@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { Dossier, Evenement, Document, Vehicule } from "@/lib/types";
+import { Dossier, Evenement, Document, Vehicule, Paiement } from "@/lib/types";
 import { formatEuros, formatDate, formatDateTime, estActif } from "@/lib/format";
+import { totalPaye, resteAPayer } from "@/lib/paiements";
 import StatCard from "@/components/StatCard";
 import StatutBadge from "@/components/StatutBadge";
 import ConfigBanner from "@/components/ConfigBanner";
@@ -16,20 +17,23 @@ export default function DashboardPage() {
   const [evenements, setEvenements] = useState<Evenement[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [vehicules, setVehicules] = useState<Vehicule[]>([]);
+  const [paiements, setPaiements] = useState<Paiement[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const [d, e, docs, v] = await Promise.all([
+      const [d, e, docs, v, p] = await Promise.all([
         supabase.from("dossiers").select("*").order("created_at", { ascending: false }),
         supabase.from("evenements").select("*").order("date_evenement", { ascending: true }),
         supabase.from("documents").select("*").eq("type", "facture"),
         supabase.from("vehicules").select("*"),
+        supabase.from("paiements").select("*"),
       ]);
       if (d.data) setDossiers(d.data as Dossier[]);
       if (e.data) setEvenements(e.data as Evenement[]);
       if (docs.data) setDocuments(docs.data as Document[]);
       if (v.data) setVehicules(v.data as Vehicule[]);
+      if (p.data) setPaiements(p.data as Paiement[]);
       setLoading(false);
     })();
   }, []);
@@ -51,6 +55,12 @@ export default function DashboardPage() {
     })
     .reduce((sum, f) => sum + (Number(f.total_ttc) || 0), 0);
 
+  // Reste à encaisser : somme des restes sur toutes les factures
+  const resteEncaisser = documents.reduce((sum, f) => {
+    const paye = totalPaye(paiements.filter((p) => p.document_id === f.id));
+    return sum + resteAPayer(f.total_ttc, paye);
+  }, 0);
+
   const aVenir = evenements.filter((e) => new Date(e.date_evenement) >= now);
   const passes = evenements.filter((e) => new Date(e.date_evenement) < now).reverse();
 
@@ -71,7 +81,9 @@ export default function DashboardPage() {
           value={formatEuros(totalMois)}
           hint={now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
         />
-        <StatCard label="Événements à venir" value={String(aVenir.length)} />
+        <Link href="/finance">
+          <StatCard label="Reste à encaisser" value={formatEuros(resteEncaisser)} hint="toutes factures" />
+        </Link>
       </div>
 
       {/* Visuel : véhicules présents au garage */}

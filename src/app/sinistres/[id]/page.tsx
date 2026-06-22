@@ -12,6 +12,7 @@ import StatutBadge from "@/components/StatutBadge";
 import StatutPipeline from "@/components/StatutPipeline";
 import DossierForm from "@/components/DossierForm";
 import DocumentEditor from "@/components/DocumentEditor";
+import PaiementsPanel from "@/components/PaiementsPanel";
 import ConfigBanner from "@/components/ConfigBanner";
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
@@ -272,6 +273,9 @@ export default function DossierDetailPage() {
           </table>
         </div>
       </section>
+
+      {/* Finance : paiements & relances */}
+      <PaiementsPanel dossierId={dossier.id} onChanged={load} />
 
       {/* Événements liés */}
       <Card title="Événements liés à ce dossier">
