@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Document, Paiement, Relance } from "@/lib/types";
+import { Document, Dossier, Paiement, Relance } from "@/lib/types";
 import { formatEuros, formatDate } from "@/lib/format";
+import EmailComposer from "@/components/EmailComposer";
 import {
   MOYENS,
   CANAUX,
@@ -19,12 +20,13 @@ import {
 type FactureFinance = Document & { paiements: Paiement[]; relances: Relance[] };
 
 export default function PaiementsPanel({
-  dossierId,
+  dossier,
   onChanged,
 }: {
-  dossierId: string;
+  dossier: Dossier;
   onChanged?: () => void;
 }) {
+  const dossierId = dossier.id;
   const [factures, setFactures] = useState<FactureFinance[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<
@@ -32,6 +34,7 @@ export default function PaiementsPanel({
     | { kind: "relance"; facture: FactureFinance }
     | null
   >(null);
+  const [emailFacture, setEmailFacture] = useState<FactureFinance | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,6 +143,12 @@ export default function PaiementsPanel({
                   >
                     + Relance
                   </button>
+                  <button
+                    onClick={() => setEmailFacture(f)}
+                    className="btn-ghost py-1.5 px-3 text-xs"
+                  >
+                    ✉ Relancer par email
+                  </button>
                 </div>
               </div>
 
@@ -212,6 +221,29 @@ export default function PaiementsPanel({
           onClose={() => setModal(null)}
           onSaved={() => {
             setModal(null);
+            refresh();
+          }}
+        />
+      )}
+      {emailFacture && (
+        <EmailComposer
+          dossier={dossier}
+          defaultTo={dossier.assureur_email || ""}
+          defaultSubject={`Relance — facture ${emailFacture.numero || ""} (${dossier.numero_sinistre || ""})`}
+          defaultBody={`Bonjour,\n\nSauf erreur de notre part, la facture ${
+            emailFacture.numero || ""
+          } d'un montant de ${formatEuros(emailFacture.total_ttc)} reste à régler${
+            emailFacture.date_echeance ? ` (échéance du ${formatDate(emailFacture.date_echeance)})` : ""
+          }.\n\nNous vous remercions de bien vouloir procéder à son règlement.\n\nCordialement.`}
+          onClose={() => setEmailFacture(null)}
+          onSent={async () => {
+            await supabase.from("relances").insert({
+              dossier_id: dossierId,
+              document_id: emailFacture.id,
+              date_relance: new Date().toISOString().slice(0, 10),
+              canal: "email",
+              notes: "Relance envoyée par email",
+            });
             refresh();
           }}
         />

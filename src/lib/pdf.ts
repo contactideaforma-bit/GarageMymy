@@ -57,6 +57,27 @@ export async function generateDocumentPdf(
   lignes: DocumentLigne[],
   dossier: Dossier
 ) {
+  const pdf = await buildDocumentPdf(doc, lignes, dossier);
+  const titre = doc.type === "devis" ? "DEVIS" : "FACTURE";
+  pdf.save(`${doc.numero || titre}.pdf`);
+}
+
+// Renvoie le PDF encodé en base64 (sans préfixe data:), pour pièce jointe email.
+export async function documentPdfBase64(
+  doc: Document,
+  lignes: DocumentLigne[],
+  dossier: Dossier
+): Promise<string> {
+  const pdf = await buildDocumentPdf(doc, lignes, dossier);
+  const uri = pdf.output("datauristring"); // data:application/pdf;...;base64,XXXX
+  return uri.substring(uri.indexOf(",") + 1);
+}
+
+async function buildDocumentPdf(
+  doc: Document,
+  lignes: DocumentLigne[],
+  dossier: Dossier
+): Promise<jsPDF> {
   const ent = await getEntreprise();
   const logo = await logoDataUrl(ent.logo_path);
 
@@ -202,5 +223,5 @@ export async function generateDocumentPdf(
     pdf.text(pdf.splitTextToSize(doc.notes, pageW - M * 2), M, ty + 5);
   }
 
-  pdf.save(`${doc.numero || titre}.pdf`);
+  return pdf;
 }

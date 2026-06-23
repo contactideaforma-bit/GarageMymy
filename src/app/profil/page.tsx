@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Entreprise } from "@/lib/types";
 import ConfigBanner from "@/components/ConfigBanner";
+import MailSettings from "@/components/MailSettings";
 
 type FormE = Omit<Entreprise, "id" | "created_at">;
 
@@ -173,6 +174,11 @@ export default function ProfilPage() {
             {saving ? "Enregistrement…" : "Enregistrer le profil"}
           </button>
         </div>
+      </div>
+
+      <div className="glass-card p-6 mt-6">
+        <h2 className="text-sm font-semibold text-accent-pink mb-3">Envoi des emails (SMTP)</h2>
+        <MailSettings />
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import StatutPipeline from "@/components/StatutPipeline";
 import DossierForm from "@/components/DossierForm";
 import DocumentEditor from "@/components/DocumentEditor";
 import PaiementsPanel from "@/components/PaiementsPanel";
+import EmailComposer from "@/components/EmailComposer";
 import ConfigBanner from "@/components/ConfigBanner";
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
@@ -49,6 +50,9 @@ export default function DossierDetailPage() {
   const [editor, setEditor] = useState<
     { type: DocumentType; document?: Document | null; lignes?: DocumentLigne[] } | null
   >(null);
+
+  // composer email (devis/facture)
+  const [emailDoc, setEmailDoc] = useState<Document | null>(null);
 
   // mini-form événement
   const [evTitre, setEvTitre] = useState("");
@@ -264,6 +268,7 @@ export default function DossierDetailPage() {
                   <td className="px-5 py-3 text-right text-white/90">{formatEuros(doc.total_ttc)}</td>
                   <td className="px-5 py-3 text-right whitespace-nowrap">
                     <button onClick={() => exporterPdf(doc)} className="text-accent-teal hover:underline mr-3">PDF</button>
+                    <button onClick={() => setEmailDoc(doc)} className="text-accent-teal hover:underline mr-3">Envoyer</button>
                     <button onClick={() => ouvrirEdition(doc)} className="text-accent-pink hover:underline mr-3">Modifier</button>
                     <button onClick={() => supprimerDoc(doc)} className="text-white/40 hover:text-rose-300">Suppr.</button>
                   </td>
@@ -275,7 +280,7 @@ export default function DossierDetailPage() {
       </section>
 
       {/* Finance : paiements & relances */}
-      <PaiementsPanel dossierId={dossier.id} onChanged={load} />
+      <PaiementsPanel dossier={dossier} onChanged={load} />
 
       {/* Événements liés */}
       <Card title="Événements liés à ce dossier">
@@ -310,6 +315,22 @@ export default function DossierDetailPage() {
           lignes={editor.lignes}
           onClose={() => setEditor(null)}
           onSaved={load}
+        />
+      )}
+      {emailDoc && (
+        <EmailComposer
+          dossier={dossier}
+          document={emailDoc}
+          defaultTo={dossier.assureur_email || ""}
+          defaultSubject={`${emailDoc.type === "devis" ? "Devis" : "Facture"} ${emailDoc.numero || ""} — ${
+            dossier.marque_modele || ""
+          }${dossier.immatriculation ? ` (${dossier.immatriculation})` : ""}`}
+          defaultBody={`Bonjour,\n\nVeuillez trouver ci-joint ${
+            emailDoc.type === "devis" ? "notre devis" : "notre facture"
+          } ${emailDoc.numero || ""} concernant le dossier ${dossier.numero_sinistre || ""}${
+            dossier.client_nom ? ` (${dossier.client_nom})` : ""
+          }.\n\nRestant à votre disposition,\nCordialement.`}
+          onClose={() => setEmailDoc(null)}
         />
       )}
     </div>
