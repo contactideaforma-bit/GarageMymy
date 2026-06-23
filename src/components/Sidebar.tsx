@@ -124,7 +124,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </button>
         )}
         {email && <div className="px-3 pt-1 text-[11px] text-white/30 truncate">{email}</div>}
-        <div className="px-3 pt-2 text-xs text-white/30">v1.4</div>
+        <div className="px-3 pt-2 text-xs text-white/30">v1.5</div>
       </div>
     </div>
   );
