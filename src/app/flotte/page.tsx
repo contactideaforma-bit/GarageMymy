@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier, FlotteVehicule } from "@/lib/types";
@@ -25,8 +25,11 @@ export default function FlottePage() {
   const [loading, setLoading] = useState(true);
   const [filtre, setFiltre] = useState<Filtre>("tous");
   const [recherche, setRecherche] = useState("");
-  const [editModal, setEditModal] = useState<{ vehicule?: FlotteVehicule } | null>(null);
+  const [editModal, setEditModal] = useState<{ vehicule?: FlotteVehicule; prefill?: Partial<FlotteVehicule> } | null>(null);
   const [locModal, setLocModal] = useState<FlotteVehicule | null>(null);
+  const [analyseCg, setAnalyseCg] = useState(false);
+  const [cgError, setCgError] = useState<string | null>(null);
+  const cgInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,6 +48,45 @@ export default function FlottePage() {
     if (!confirm(`Supprimer ${v.immatriculation} de la flotte ?`)) return;
     await supabase.from("flotte_vehicules").delete().eq("id", v.id);
     load();
+  }
+
+  // Photo de la carte grise → extraction IA → formulaire pré-rempli
+  async function importerCarteGrise(file: File) {
+    setAnalyseCg(true);
+    setCgError(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/extract-carte-grise", { method: "POST", body: fd });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.data) throw new Error(json.error || `Erreur (HTTP ${res.status}).`);
+      const d = json.data as {
+        immatriculation?: string | null;
+        marque?: string | null;
+        modele?: string | null;
+        numero_serie?: string | null;
+        premiere_circulation?: string | null;
+        titulaire?: string | null;
+      };
+      const infos = [
+        d.numero_serie ? `VIN ${d.numero_serie}` : "",
+        d.premiere_circulation ? `1ère circulation ${d.premiere_circulation}` : "",
+        d.titulaire ? `Titulaire carte grise : ${d.titulaire}` : "",
+      ].filter(Boolean).join(" · ");
+      setEditModal({
+        prefill: {
+          immatriculation: d.immatriculation || "",
+          marque_modele: [d.marque, d.modele].filter(Boolean).join(" ") || null,
+          conducteur: d.titulaire || null,
+          commentaire: infos || null,
+        },
+      });
+    } catch (err: unknown) {
+      setCgError(messageErreur(err, "Analyse impossible : réessaie avec une photo plus nette."));
+    } finally {
+      setAnalyseCg(false);
+      if (cgInputRef.current) cgInputRef.current.value = "";
+    }
   }
 
   async function rendreVehicule(v: FlotteVehicule) {
@@ -102,9 +144,30 @@ export default function FlottePage() {
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="text-2xl font-semibold text-white">Flotte du garage</h1>
-        <button onClick={() => setEditModal({})} className="btn-primary">+ Véhicule</button>
+        <div className="flex flex-wrap gap-2">
+          <input
+            ref={cgInputRef}
+            type="file"
+            accept="image/*,application/pdf"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) importerCarteGrise(f);
+            }}
+          />
+          <button onClick={() => cgInputRef.current?.click()} disabled={analyseCg} className="btn-ghost">
+            {analyseCg ? "Analyse de la carte grise…" : "Ajouter par carte grise"}
+          </button>
+          <button onClick={() => setEditModal({})} className="btn-primary">+ Véhicule</button>
+        </div>
       </div>
       <ConfigBanner />
+      {cgError && (
+        <div className="mb-4 rounded-lg bg-rose-500/15 border border-rose-400/30 px-3 py-2 text-sm text-rose-200">
+          {cgError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard label="Véhicules" value={String(kpi.total)} />
@@ -257,6 +320,7 @@ export default function FlottePage() {
       {editModal && (
         <VehiculeModal
           vehicule={editModal.vehicule}
+          prefill={editModal.prefill}
           onClose={() => setEditModal(null)}
           onSaved={() => { setEditModal(null); load(); }}
         />
@@ -289,25 +353,27 @@ function Pastille({ ok, label }: { ok: boolean; label: string }) {
 
 function VehiculeModal({
   vehicule,
+  prefill,
   onClose,
   onSaved,
 }: {
   vehicule?: FlotteVehicule;
+  prefill?: Partial<FlotteVehicule>;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [immat, setImmat] = useState(vehicule?.immatriculation || "");
-  const [modele, setModele] = useState(vehicule?.marque_modele || "");
+  const [immat, setImmat] = useState(vehicule?.immatriculation || prefill?.immatriculation || "");
+  const [modele, setModele] = useState(vehicule?.marque_modele || prefill?.marque_modele || "");
   const [assurance, setAssurance] = useState(vehicule?.assurance || "");
   const [dateAssurance, setDateAssurance] = useState(vehicule?.date_assurance || "");
   const [dateSinistre, setDateSinistre] = useState(vehicule?.date_sinistre || "");
-  const [conducteur, setConducteur] = useState(vehicule?.conducteur || "");
+  const [conducteur, setConducteur] = useState(vehicule?.conducteur || prefill?.conducteur || "");
   const [conducteurTel, setConducteurTel] = useState(vehicule?.conducteur_tel || "");
   const [ct, setCt] = useState(vehicule?.ct_ok ?? false);
   const [cg, setCg] = useState(vehicule?.cg_ok ?? false);
   const [entretien, setEntretien] = useState(vehicule?.entretien_ok ?? false);
   const [prixJour, setPrixJour] = useState(vehicule?.prix_jour != null ? String(vehicule.prix_jour) : "");
-  const [commentaire, setCommentaire] = useState(vehicule?.commentaire || "");
+  const [commentaire, setCommentaire] = useState(vehicule?.commentaire || prefill?.commentaire || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

@@ -6,40 +6,40 @@ import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
-const SECTIONS: { titre: string; items: { href: string; label: string; icon: string }[] }[] = [
+const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
   {
     titre: "Pilotage",
-    items: [{ href: "/", label: "Tableau de bord", icon: "▦" }],
+    items: [{ href: "/", label: "Tableau de bord" }],
   },
   {
     titre: "Dossiers",
     items: [
-      { href: "/sinistres", label: "Sinistres", icon: "🗂" },
-      { href: "/vehicules", label: "Véhicules", icon: "🚗" },
-      { href: "/flotte", label: "Flotte du garage", icon: "🚙" },
-      { href: "/annuaire", label: "Annuaire", icon: "📇" },
+      { href: "/sinistres", label: "Sinistres" },
+      { href: "/vehicules", label: "Véhicules" },
+      { href: "/flotte", label: "Flotte du garage" },
+      { href: "/annuaire", label: "Annuaire" },
     ],
   },
   {
     titre: "Documents",
     items: [
-      { href: "/devis", label: "Devis", icon: "📝" },
-      { href: "/factures", label: "Factures", icon: "🧾" },
+      { href: "/devis", label: "Devis" },
+      { href: "/factures", label: "Factures" },
     ],
   },
   {
     titre: "Finance",
     items: [
-      { href: "/finance", label: "Paiements & relances", icon: "💶" },
-      { href: "/banque", label: "Banque", icon: "🏦" },
-      { href: "/emails", label: "Emails", icon: "✉️" },
+      { href: "/finance", label: "Paiements & relances" },
+      { href: "/banque", label: "Banque" },
+      { href: "/emails", label: "Emails" },
     ],
   },
   {
     titre: "Organisation",
     items: [
-      { href: "/planning", label: "Planning", icon: "🛠" },
-      { href: "/agenda", label: "Agenda", icon: "📅" },
+      { href: "/planning", label: "Planning" },
+      { href: "/agenda", label: "Agenda" },
     ],
   },
 ];
@@ -69,7 +69,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <Link href="/import" onClick={onNavigate} className="btn-primary mt-2 mb-4 flex items-center justify-center gap-2">
-        ⬆ Importer un rapport
+        Importer un rapport
       </Link>
 
       <nav className="flex-1 space-y-5 overflow-y-auto">
@@ -92,7 +92,6 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                         : "text-white/70 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    <span className="text-base">{item.icon}</span>
                     {item.label}
                   </Link>
                 );
@@ -112,7 +111,6 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               : "text-white/70 hover:bg-white/10 hover:text-white"
           }`}
         >
-          <span className="text-base">⚙️</span>
           Profil du garage
         </Link>
         <ThemeToggle />
@@ -121,12 +119,11 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             onClick={deconnexion}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
-            <span className="text-base">⎋</span>
             Se déconnecter
           </button>
         )}
         {email && <div className="px-3 pt-1 text-[11px] text-white/30 truncate">{email}</div>}
-        <div className="px-3 pt-2 text-xs text-white/30">v2.1</div>
+        <div className="px-3 pt-2 text-xs text-white/30">v2.2</div>
       </div>
     </div>
   );

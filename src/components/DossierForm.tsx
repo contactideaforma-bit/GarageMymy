@@ -364,7 +364,7 @@ export default function DossierForm({
                 disabled={!file || analyzing}
                 className="btn-primary py-1.5 px-3 text-xs"
               >
-                {analyzing ? "Analyse en cours…" : "✨ Analyser et pré-remplir"}
+                {analyzing ? "Analyse en cours…" : "Analyser et pré-remplir"}
               </button>
             </div>
             {analyzeMsg && <p className="text-xs text-emerald-300 mt-2">{analyzeMsg}</p>}

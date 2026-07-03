@@ -46,6 +46,9 @@ export type Dossier = {
   // Rapport
   rapport_path: string | null;
   rapport_nom: string | null;
+
+  // Relances automatiques (cron) activées sur ce dossier
+  relance_auto?: boolean | null;
 };
 
 export type Vehicule = {

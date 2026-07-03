@@ -220,7 +220,7 @@ export default function DossierDetailPage() {
             <span className="text-sm text-white/50">Rapport d&apos;expertise</span>
             {url ? (
               <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-accent-teal hover:underline">
-                📄 {dossier.rapport_nom || "Voir le PDF"}
+                {dossier.rapport_nom || "Voir le PDF"}
               </a>
             ) : (
               <span className="text-sm text-white/40">Aucun</span>

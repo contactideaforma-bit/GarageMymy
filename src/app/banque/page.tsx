@@ -178,7 +178,7 @@ export default function BanquePage() {
             }}
           />
           <button onClick={() => fileRef.current?.click()} disabled={importing} className="btn-primary mt-4">
-            {importing ? "Import…" : "⬆ Importer le relevé"}
+            {importing ? "Import…" : "Importer le relevé"}
           </button>
           {importMsg && <p className="mt-3 text-sm text-white/70">{importMsg}</p>}
         </section>
@@ -200,7 +200,7 @@ export default function BanquePage() {
             même rapprochement.
           </p>
           <button className="btn-ghost mt-4 opacity-60 cursor-not-allowed" disabled>
-            🔗 Connecter ma banque {apiConfigured ? "" : "(à venir)"}
+            Connecter ma banque {apiConfigured ? "" : "(à venir)"}
           </button>
         </section>
       </div>
@@ -429,7 +429,7 @@ function RapprochementModal({
           </span>
           {montant > facture.reste + 0.01 && (
             <div className="mt-1 text-xs text-amber-300">
-              ⚠ Le montant reçu dépasse le reste à payer de cette facture.
+              Attention : le montant reçu dépasse le reste à payer de cette facture.
             </div>
           )}
         </div>

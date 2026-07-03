@@ -105,7 +105,7 @@ export default function AtelierPanel({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-white">🔧 {or.numero || "Ordre de réparation"}</span>
+                  <span className="font-medium text-white">{or.numero || "Ordre de réparation"}</span>
                   <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutAtelier(or.statut)}`}>
                     {labelStatutAtelier(or.statut)}
                   </span>
@@ -133,7 +133,7 @@ export default function AtelierPanel({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-white">💶 Cession de créance</span>
+                  <span className="font-medium text-white">Cession de créance</span>
                   <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutAtelier(c.statut)}`}>
                     {labelStatutAtelier(c.statut)}
                   </span>
@@ -163,7 +163,7 @@ export default function AtelierPanel({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-white">🔑 Restitution du véhicule</span>
+                  <span className="font-medium text-white">Restitution du véhicule</span>
                   <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutAtelier(rest.statut)}`}>
                     {labelStatutAtelier(rest.statut)}
                   </span>

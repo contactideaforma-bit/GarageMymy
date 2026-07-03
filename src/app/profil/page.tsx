@@ -156,7 +156,7 @@ export default function ProfilPage() {
                 className="text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-white" />
               {modeleUrl && (
                 <a href={modeleUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-sm text-accent-teal hover:underline">
-                  📄 Voir le modèle enregistré
+                  Voir le modèle enregistré
                 </a>
               )}
               <p className="text-xs text-white/40 mt-2">

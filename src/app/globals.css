@@ -71,12 +71,13 @@ body {
 =================================================================== */
 html.light body {
   color: #1f2433;
-  background-color: #eef0f6;
+  /* Fond très légèrement rosé (fini le gris) : pro, avec une touche de dynamisme */
+  background-color: #faf1f5;
   background-image:
-    radial-gradient(40rem 40rem at 10% 0%, rgba(139, 92, 246, 0.18), transparent 60%),
-    radial-gradient(38rem 38rem at 90% 10%, rgba(236, 72, 153, 0.16), transparent 60%),
-    radial-gradient(42rem 42rem at 80% 90%, rgba(45, 212, 191, 0.16), transparent 60%),
-    radial-gradient(40rem 40rem at 15% 95%, rgba(59, 130, 246, 0.16), transparent 60%);
+    radial-gradient(40rem 40rem at 10% 0%, rgba(139, 92, 246, 0.16), transparent 60%),
+    radial-gradient(38rem 38rem at 90% 10%, rgba(236, 72, 153, 0.20), transparent 60%),
+    radial-gradient(42rem 42rem at 80% 90%, rgba(45, 212, 191, 0.12), transparent 60%),
+    radial-gradient(40rem 40rem at 15% 95%, rgba(236, 72, 153, 0.10), transparent 60%);
 }
 
 /* Cartes / surfaces */

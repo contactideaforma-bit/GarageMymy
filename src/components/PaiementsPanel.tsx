@@ -37,6 +37,17 @@ export default function PaiementsPanel({
     | null
   >(null);
   const [emailFacture, setEmailFacture] = useState<FactureFinance | null>(null);
+  const [relanceAuto, setRelanceAuto] = useState<boolean>(Boolean(dossier.relance_auto));
+
+  async function toggleRelanceAuto() {
+    const next = !relanceAuto;
+    setRelanceAuto(next);
+    const { error } = await supabase.from("dossiers").update({ relance_auto: next }).eq("id", dossier.id);
+    if (error) {
+      setRelanceAuto(!next);
+      alert(messageErreur(error, "Impossible de modifier les relances automatiques (migration v13 exécutée ?)."));
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,8 +107,26 @@ export default function PaiementsPanel({
 
   return (
     <section className="glass-card">
-      <div className="px-5 py-3 border-b border-white/10">
+      <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-semibold text-white">Finance — paiements & relances</h2>
+        <button
+          onClick={toggleRelanceAuto}
+          className="flex items-center gap-2 text-xs text-white/60 hover:text-white transition-colors"
+          title="Quand c'est activé, l'appli envoie seule les relances n°1 et n°2 à l'assureur pour les factures échues de ce dossier (jamais la mise en demeure)."
+        >
+          Relances automatiques
+          <span
+            className={`relative h-5 w-9 rounded-full transition-colors ${
+              relanceAuto ? "bg-accent-violet" : "bg-white/20"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+                relanceAuto ? "left-[1.15rem]" : "left-0.5"
+              }`}
+            />
+          </span>
+        </button>
       </div>
       <div className="px-5 py-4 space-y-4">
         {loading && <p className="text-sm text-white/40">Chargement…</p>}
@@ -149,7 +178,7 @@ export default function PaiementsPanel({
                     onClick={() => setEmailFacture(f)}
                     className="btn-ghost py-1.5 px-3 text-xs"
                   >
-                    ✉ Relancer par email
+                    Relancer par email
                   </button>
                 </div>
               </div>

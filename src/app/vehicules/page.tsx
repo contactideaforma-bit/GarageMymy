@@ -131,7 +131,7 @@ export default function VehiculesPage() {
           ))}
         </div>
         <input className="field-input max-w-xs" placeholder="Rechercher…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <span className="text-sm text-white/50 ml-auto">🚗 {presentsCount} présent{presentsCount > 1 ? "s" : ""} au garage</span>
+        <span className="text-sm text-white/50 ml-auto">{presentsCount} présent{presentsCount > 1 ? "s" : ""} au garage</span>
       </div>
 
       <div className="glass-card overflow-x-auto">

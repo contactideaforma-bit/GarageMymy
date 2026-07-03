@@ -195,7 +195,7 @@ export default function FinancePage() {
                                   : "Première relance"
                             }
                           >
-                            ✉ Relancer
+                            Relancer
                           </button>
                         )}
                         <button
@@ -217,7 +217,7 @@ export default function FinancePage() {
       </div>
 
       <p className="mt-4 text-xs text-white/40">
-        « ✉ Relancer » adapte automatiquement le ton : 1ʳᵉ relance courtoise, 2ᵉ ferme, puis mise en demeure.
+        « Relancer » adapte automatiquement le ton : 1ʳᵉ relance courtoise, 2ᵉ ferme, puis mise en demeure.
         Les paiements se saisissent depuis la fiche du dossier (bouton « Gérer »).{" "}
         <Link href="/sinistres" className="text-accent-pink hover:underline">Voir les dossiers</Link>
       </p>

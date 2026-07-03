@@ -24,7 +24,6 @@ export default function ThemeToggle() {
       title="Changer de thème"
     >
       <span className="flex items-center gap-3">
-        <span className="text-base">{light ? "☀️" : "🌙"}</span>
         {light ? "Mode clair" : "Mode sombre"}
       </span>
       <span

@@ -69,7 +69,7 @@ export default function ImportPage() {
 
         <div className="mt-5 flex flex-wrap gap-3">
           <button onClick={analyser} disabled={!file || analyse} className="btn-primary">
-            {analyse ? "Analyse en cours…" : "✨ Analyser le rapport"}
+            {analyse ? "Analyse en cours…" : "Analyser le rapport"}
           </button>
           <button onClick={saisieManuelle} className="btn-ghost">
             Saisie manuelle

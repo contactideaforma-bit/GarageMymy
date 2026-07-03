@@ -51,7 +51,7 @@ export default function SinistresPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-white">Sinistres</h1>
         <div className="flex gap-2">
-          <Link href="/import" className="btn-ghost">⬆ Importer un rapport</Link>
+          <Link href="/import" className="btn-ghost">Importer un rapport</Link>
           <button onClick={() => setShowForm(true)} className="btn-primary">
             + Ajouter un dossier
           </button>
@@ -118,7 +118,7 @@ export default function SinistresPage() {
                         onClick={(e) => e.stopPropagation()}
                         className="text-accent-pink hover:underline"
                       >
-                        📄 Voir
+                        Voir
                       </a>
                     ) : (
                       <span className="text-white/30">—</span>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { Dossier, Evenement, Document, Vehicule, Paiement } from "@/lib/types";
+import { Dossier, Evenement, Document, Vehicule, Paiement, Relance } from "@/lib/types";
 import { formatEuros, formatDate, formatDateTime, estActif } from "@/lib/format";
 import { totalPaye, resteAPayer } from "@/lib/paiements";
 import StatCard from "@/components/StatCard";
@@ -18,22 +18,25 @@ export default function DashboardPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [vehicules, setVehicules] = useState<Vehicule[]>([]);
   const [paiements, setPaiements] = useState<Paiement[]>([]);
+  const [relances, setRelances] = useState<Relance[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const [d, e, docs, v, p] = await Promise.all([
+      const [d, e, docs, v, p, r] = await Promise.all([
         supabase.from("dossiers").select("*").order("created_at", { ascending: false }),
         supabase.from("evenements").select("*").order("date_evenement", { ascending: true }),
         supabase.from("documents").select("*").eq("type", "facture"),
         supabase.from("vehicules").select("*"),
         supabase.from("paiements").select("*"),
+        supabase.from("relances").select("*").order("date_relance", { ascending: false }),
       ]);
       if (d.data) setDossiers(d.data as Dossier[]);
       if (e.data) setEvenements(e.data as Evenement[]);
       if (docs.data) setDocuments(docs.data as Document[]);
       if (v.data) setVehicules(v.data as Vehicule[]);
       if (p.data) setPaiements(p.data as Paiement[]);
+      if (r.data) setRelances(r.data as Relance[]);
       setLoading(false);
     })();
   }, []);
@@ -64,11 +67,32 @@ export default function DashboardPage() {
   const aVenir = evenements.filter((e) => new Date(e.date_evenement) >= now);
   const passes = evenements.filter((e) => new Date(e.date_evenement) < now).reverse();
 
+  // À relancer aujourd'hui : échéance dépassée, reste à payer, et pas de
+  // relance depuis 7 jours (ou jamais relancée).
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const aRelancer = documents
+    .map((f) => {
+      const paye = totalPaye(paiements.filter((p) => p.document_id === f.id));
+      const reste = resteAPayer(f.total_ttc, paye);
+      const rels = relances.filter((r) => r.document_id === f.id);
+      const dossier = dossiers.find((d) => d.id === f.dossier_id) || null;
+      return { f, reste, rels, dossier };
+    })
+    .filter(({ f, reste, rels }) => {
+      if (reste <= 0 || !f.date_echeance) return false;
+      const ech = new Date(f.date_echeance);
+      if (isNaN(ech.getTime()) || ech >= today) return false;
+      const derniere = rels[0]?.date_relance ? new Date(rels[0].date_relance!) : null;
+      return !derniere || (today.getTime() - derniere.getTime()) / 86400000 >= 7;
+    })
+    .sort((a, b) => b.reste - a.reste);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-white">Tableau de bord</h1>
-        <Link href="/import" className="btn-primary">⬆ Importer un rapport</Link>
+        <Link href="/import" className="btn-primary">Importer un rapport</Link>
       </div>
 
       <ConfigBanner />
@@ -86,10 +110,49 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      {/* À relancer aujourd'hui */}
+      {aRelancer.length > 0 && (
+        <section className="glass-card p-5 mb-8 border border-amber-400/30">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-white">
+              À relancer aujourd&apos;hui
+              <span className="ml-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
+                {aRelancer.length}
+              </span>
+            </h2>
+            <Link href="/finance" className="text-sm text-accent-pink hover:underline">Tout gérer</Link>
+          </div>
+          <ul className="divide-y divide-white/10">
+            {aRelancer.slice(0, 5).map(({ f, reste, rels, dossier }) => {
+              const joursRetard = Math.floor((today.getTime() - new Date(f.date_echeance!).getTime()) / 86400000);
+              const niveau = rels.length + 1;
+              return (
+                <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-sm">
+                  <div>
+                    <span className="font-medium text-white">{f.numero || "Facture"}</span>
+                    <span className="text-white/50">
+                      {" "}· {dossier?.client_nom || "—"}{dossier?.assureur ? ` · ${dossier.assureur}` : ""}
+                    </span>
+                    <div className="text-xs text-white/40">
+                      En retard de {joursRetard} j · {rels.length === 0 ? "jamais relancée" : `${rels.length} relance${rels.length > 1 ? "s" : ""}`}
+                      {" "}· prochaine étape : {niveau >= 3 ? "mise en demeure" : `relance n°${niveau}`}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium text-amber-300">{formatEuros(reste)}</span>
+                    <Link href="/finance" className="text-accent-teal hover:underline">Relancer</Link>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       {/* Visuel : véhicules présents au garage */}
       <section className="glass-card p-5 mb-8">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-white">🚗 Véhicules présents au garage</h2>
+          <h2 className="font-semibold text-white">Véhicules présents au garage</h2>
           <Link href="/vehicules" className="text-sm text-accent-pink hover:underline">Gérer</Link>
         </div>
         {presentsCount === 0 ? (
@@ -102,7 +165,6 @@ export default function DashboardPage() {
                 onClick={() => router.push(`/sinistres/${d.id}`)}
                 className="glass-soft px-4 py-3 text-left hover:bg-white/10 transition-colors min-w-[12rem]"
               >
-                <div className="text-2xl">🚗</div>
                 <div className="mt-1 text-sm font-medium text-white truncate">
                   {d.marque_modele || d.numero_sinistre || "Véhicule"}
                 </div>
@@ -113,7 +175,6 @@ export default function DashboardPage() {
             ))}
             {presentsLibres.map((v) => (
               <div key={v.id} className="glass-soft px-4 py-3 min-w-[12rem]">
-                <div className="text-2xl">🚗</div>
                 <div className="mt-1 text-sm font-medium text-white truncate">{v.marque_modele || "Véhicule"}</div>
                 <div className="text-xs text-white/50 truncate">
                   {v.immatriculation || "—"}{v.proprietaire ? ` · ${v.proprietaire}` : ""} · hors dossier
