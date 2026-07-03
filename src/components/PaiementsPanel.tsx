@@ -16,6 +16,7 @@ import {
   resteAPayer,
   enRetard,
   STATUT_PAIEMENT,
+  templateRelance,
 } from "@/lib/paiements";
 
 type FactureFinance = Document & { paiements: Paiement[]; relances: Relance[] };
@@ -229,13 +230,10 @@ export default function PaiementsPanel({
       {emailFacture && (
         <EmailComposer
           dossier={dossier}
+          document={emailFacture}
           defaultTo={dossier.assureur_email || ""}
-          defaultSubject={`Relance — facture ${emailFacture.numero || ""} (${dossier.numero_sinistre || ""})`}
-          defaultBody={`Bonjour,\n\nSauf erreur de notre part, la facture ${
-            emailFacture.numero || ""
-          } d'un montant de ${formatEuros(emailFacture.total_ttc)} reste à régler${
-            emailFacture.date_echeance ? ` (échéance du ${formatDate(emailFacture.date_echeance)})` : ""
-          }.\n\nNous vous remercions de bien vouloir procéder à son règlement.\n\nCordialement.`}
+          defaultSubject={templateRelance(emailFacture.relances.length + 1, emailFacture, dossier).subject}
+          defaultBody={templateRelance(emailFacture.relances.length + 1, emailFacture, dossier).body}
           onClose={() => setEmailFacture(null)}
           onSent={async () => {
             await supabase.from("relances").insert({

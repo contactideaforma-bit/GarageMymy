@@ -13,9 +13,12 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;");
 }
 
+type Contact = { label: string; email: string };
+
 export default function EmailComposer({
   dossier,
   document,
+  attachment,
   defaultTo = "",
   defaultSubject = "",
   defaultBody = "",
@@ -24,6 +27,8 @@ export default function EmailComposer({
 }: {
   dossier: Dossier;
   document?: Document | null;
+  // Pièce jointe générique (ex. cession de créance) quand ce n'est pas un devis/facture
+  attachment?: { filename: string; getBase64: () => Promise<string> } | null;
   defaultTo?: string;
   defaultSubject?: string;
   defaultBody?: string;
@@ -36,9 +41,13 @@ export default function EmailComposer({
   const [to, setTo] = useState(defaultTo);
   const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState(defaultBody);
-  const [attachPdf, setAttachPdf] = useState(Boolean(document));
+  const [attachPdf, setAttachPdf] = useState(Boolean(document || attachment));
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Contacts du dossier (accès rapide) + annuaire complet (autocomplétion)
+  const [contactsDossier, setContactsDossier] = useState<Contact[]>([]);
+  const [annuaire, setAnnuaire] = useState<Contact[]>([]);
 
   useEffect(() => {
     supabase
@@ -60,6 +69,53 @@ export default function EmailComposer({
       .catch(() => {});
   }, []);
 
+  // Charge les destinataires possibles depuis la base
+  useEffect(() => {
+    (async () => {
+      const chips: Contact[] = [];
+      if (dossier.assureur_email) chips.push({ label: `Assurance${dossier.assureur ? ` (${dossier.assureur})` : ""}`, email: dossier.assureur_email });
+      if (dossier.expert_email) chips.push({ label: `Expert${dossier.expert_nom ? ` (${dossier.expert_nom})` : ""}`, email: dossier.expert_email });
+      if (dossier.cabinet_email) chips.push({ label: `Cabinet${dossier.cabinet_expert ? ` (${dossier.cabinet_expert})` : ""}`, email: dossier.cabinet_email });
+
+      const [cli, ass, exp] = await Promise.all([
+        supabase.from("clients").select("nom,email").not("email", "is", null),
+        supabase.from("assureurs").select("nom,email").not("email", "is", null),
+        supabase.from("experts").select("cabinet,expert_nom,email,expert_email"),
+      ]);
+
+      // Email du client du dossier (table clients, par nom)
+      const clients = (cli.data as { nom: string | null; email: string | null }[]) || [];
+      if (dossier.client_nom) {
+        const c = clients.find(
+          (x) => (x.nom || "").trim().toLowerCase() === dossier.client_nom!.trim().toLowerCase() && x.email
+        );
+        if (c?.email) chips.push({ label: `Client (${c.nom})`, email: c.email });
+      }
+
+      const tous: Contact[] = [];
+      for (const c of clients) if (c.email) tous.push({ label: c.nom || "Client", email: c.email });
+      for (const a of ((ass.data as { nom: string | null; email: string | null }[]) || []))
+        if (a.email) tous.push({ label: a.nom || "Assurance", email: a.email });
+      for (const e of ((exp.data as { cabinet: string | null; expert_nom: string | null; email: string | null; expert_email: string | null }[]) || [])) {
+        if (e.email) tous.push({ label: e.cabinet || "Cabinet", email: e.email });
+        if (e.expert_email) tous.push({ label: e.expert_nom || "Expert", email: e.expert_email });
+      }
+      // dédoublonne par email
+      const vus = new Set<string>();
+      setAnnuaire(tous.filter((c) => (vus.has(c.email.toLowerCase()) ? false : (vus.add(c.email.toLowerCase()), true))));
+      setContactsDossier(chips);
+    })();
+  }, [dossier]);
+
+  // Ajoute une adresse au champ (multi-destinataires séparés par des virgules)
+  function ajouterDestinataire(email: string) {
+    setTo((prev) => {
+      const list = prev.split(",").map((s) => s.trim()).filter(Boolean);
+      if (list.some((e) => e.toLowerCase() === email.toLowerCase())) return prev;
+      return [...list, email].join(", ");
+    });
+  }
+
   const fromLabel =
     mailFrom ||
     (ent?.nom && ent?.email ? `${ent.nom} <${ent.email}>` : ent?.email || "(à configurer)");
@@ -68,7 +124,7 @@ export default function EmailComposer({
     setSending(true);
     setError(null);
 
-    // Pièce jointe PDF (devis/facture) si demandé
+    // Pièce jointe PDF (devis/facture ou document fourni) si demandé
     let attachments: { filename: string; content: string }[] | undefined;
     try {
       if (attachPdf && document) {
@@ -80,6 +136,9 @@ export default function EmailComposer({
         const b64 = await documentPdfBase64(document, (lignes as DocumentLigne[]) || [], dossier);
         const titre = document.type === "devis" ? "Devis" : "Facture";
         attachments = [{ filename: `${document.numero || titre}.pdf`, content: b64 }];
+      } else if (attachPdf && attachment) {
+        const b64 = await attachment.getBase64();
+        attachments = [{ filename: attachment.filename, content: b64 }];
       }
     } catch {
       setError("Impossible de générer le PDF à joindre.");
@@ -146,14 +205,37 @@ export default function EmailComposer({
             </div>
           )}
           <div>
-            <label className="field-label">Destinataire</label>
+            <label className="field-label">Destinataire(s)</label>
             <input
-              type="email"
               className="field-input"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              placeholder="client@email.fr"
+              placeholder="adresse@email.fr, autre@email.fr"
+              list="contacts-annuaire"
             />
+            <datalist id="contacts-annuaire">
+              {annuaire.map((c) => (
+                <option key={c.email} value={c.email}>{c.label}</option>
+              ))}
+            </datalist>
+            {contactsDossier.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {contactsDossier.map((c) => (
+                  <button
+                    key={c.email + c.label}
+                    type="button"
+                    onClick={() => ajouterDestinataire(c.email)}
+                    className="rounded-full bg-white/10 hover:bg-white/20 px-3 py-1 text-xs text-white/80 transition-colors"
+                    title={c.email}
+                  >
+                    + {c.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="mt-1 text-xs text-white/40">
+              Clique sur un contact du dossier, ou tape pour chercher dans l&apos;annuaire. Plusieurs adresses possibles (virgules).
+            </p>
           </div>
           <div>
             <label className="field-label">Objet</label>
@@ -169,10 +251,12 @@ export default function EmailComposer({
             />
           </div>
 
-          {document && (
+          {(document || attachment) && (
             <label className="flex items-center gap-2 text-sm text-white/70">
               <input type="checkbox" checked={attachPdf} onChange={(e) => setAttachPdf(e.target.checked)} />
-              Joindre le PDF ({document.type === "devis" ? "devis" : "facture"} {document.numero || ""})
+              Joindre le PDF (
+              {document ? `${document.type === "devis" ? "devis" : "facture"} ${document.numero || ""}` : attachment?.filename}
+              )
             </label>
           )}
 

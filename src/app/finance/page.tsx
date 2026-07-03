@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -14,9 +14,11 @@ import {
   labelCanal,
   STATUT_PAIEMENT,
   StatutPaiementKey,
+  templateRelance,
 } from "@/lib/paiements";
 import StatCard from "@/components/StatCard";
 import ConfigBanner from "@/components/ConfigBanner";
+import EmailComposer from "@/components/EmailComposer";
 
 type Row = Document & {
   dossier: Dossier | null;
@@ -31,8 +33,9 @@ export default function FinancePage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtre, setFiltre] = useState<Filtre>("tous");
+  const [emailRow, setEmailRow] = useState<Row | null>(null);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     (async () => {
       setLoading(true);
       const [docsRes, payRes, relRes] = await Promise.all([
@@ -53,6 +56,8 @@ export default function FinancePage() {
       setLoading(false);
     })();
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const enrichies = useMemo(
     () =>
@@ -177,12 +182,29 @@ export default function FinancePage() {
                   </td>
                   <td className="px-5 py-3 text-right whitespace-nowrap">
                     {r.dossier ? (
-                      <button
-                        onClick={() => router.push(`/sinistres/${r.dossier!.id}`)}
-                        className="text-accent-teal hover:underline"
-                      >
-                        Gérer
-                      </button>
+                      <>
+                        {r.reste > 0 && (
+                          <button
+                            onClick={() => setEmailRow(r)}
+                            className="text-accent-pink hover:underline mr-3"
+                            title={
+                              r.relances.length >= 2
+                                ? "Mise en demeure"
+                                : r.relances.length === 1
+                                  ? "Relance ferme (n°2)"
+                                  : "Première relance"
+                            }
+                          >
+                            ✉ Relancer
+                          </button>
+                        )}
+                        <button
+                          onClick={() => router.push(`/sinistres/${r.dossier!.id}`)}
+                          className="text-accent-teal hover:underline"
+                        >
+                          Gérer
+                        </button>
+                      </>
                     ) : (
                       <span className="text-white/30">—</span>
                     )}
@@ -195,9 +217,31 @@ export default function FinancePage() {
       </div>
 
       <p className="mt-4 text-xs text-white/40">
-        Les paiements et relances se saisissent depuis la fiche du dossier (bouton « Gérer »).{" "}
+        « ✉ Relancer » adapte automatiquement le ton : 1ʳᵉ relance courtoise, 2ᵉ ferme, puis mise en demeure.
+        Les paiements se saisissent depuis la fiche du dossier (bouton « Gérer »).{" "}
         <Link href="/sinistres" className="text-accent-pink hover:underline">Voir les dossiers</Link>
       </p>
+
+      {emailRow && emailRow.dossier && (
+        <EmailComposer
+          dossier={emailRow.dossier}
+          document={emailRow}
+          defaultTo={emailRow.dossier.assureur_email || ""}
+          defaultSubject={templateRelance(emailRow.relances.length + 1, emailRow, emailRow.dossier).subject}
+          defaultBody={templateRelance(emailRow.relances.length + 1, emailRow, emailRow.dossier).body}
+          onClose={() => setEmailRow(null)}
+          onSent={async () => {
+            await supabase.from("relances").insert({
+              dossier_id: emailRow.dossier!.id,
+              document_id: emailRow.id,
+              date_relance: new Date().toISOString().slice(0, 10),
+              canal: "email",
+              notes: `Relance n°${emailRow.relances.length + 1} envoyée par email`,
+            });
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }

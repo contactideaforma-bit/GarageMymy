@@ -5,7 +5,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { CessionCreance, Dossier, OrdreReparation, Restitution, Document, DocumentLigne } from "@/lib/types";
 import { formatDate, formatEuros, messageErreur, STATUTS_ORDRE } from "@/lib/format";
 import { genNumeroOR, badgeStatutAtelier, labelStatutAtelier } from "@/lib/atelier";
-import { generateCessionPdf, generateOrdreReparationPdf, generateRestitutionPdf } from "@/lib/pdf";
+import { cessionPdfBase64, generateCessionPdf, generateOrdreReparationPdf, generateRestitutionPdf } from "@/lib/pdf";
+import EmailComposer from "@/components/EmailComposer";
 import SignaturePad from "@/components/SignaturePad";
 import ModalShell from "@/components/ModalShell";
 
@@ -31,6 +32,7 @@ export default function AtelierPanel({
     | { kind: "cession"; cession?: CessionCreance }
     | null
   >(null);
+  const [emailCession, setEmailCession] = useState<CessionCreance | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,6 +146,7 @@ export default function AtelierPanel({
               </div>
               <div className="flex gap-3 text-sm whitespace-nowrap">
                 <button onClick={() => generateCessionPdf(c, dossier)} className="text-accent-teal hover:underline">PDF</button>
+                <button onClick={() => setEmailCession(c)} className="text-accent-teal hover:underline">Envoyer</button>
                 {c.statut !== "signe" && (
                   <button onClick={() => setModal({ kind: "cession", cession: c })} className="text-accent-pink hover:underline">
                     Modifier / Signer
@@ -207,6 +210,25 @@ export default function AtelierPanel({
           cession={modal.cession}
           onClose={() => setModal(null)}
           onSaved={() => { setModal(null); refresh(); }}
+        />
+      )}
+      {emailCession && (
+        <EmailComposer
+          dossier={dossier}
+          attachment={{
+            filename: `cession-creance-${dossier.numero_sinistre || "dossier"}.pdf`,
+            getBase64: () => cessionPdfBase64(emailCession, dossier),
+          }}
+          defaultTo={dossier.assureur_email || ""}
+          defaultSubject={`Notification de cession de créance — sinistre ${dossier.numero_sinistre || ""}${
+            dossier.immatriculation ? ` (${dossier.immatriculation})` : ""
+          }`}
+          defaultBody={`Bonjour,\n\nNous vous notifions, conformément aux articles 1321 et suivants du Code civil, la cession de créance consentie par ${
+            dossier.client_nom || "notre client"
+          } à notre profit au titre du sinistre n° ${dossier.numero_sinistre || "—"}${
+            dossier.numero_police ? ` (police n° ${dossier.numero_police})` : ""
+          }.\n\nVous trouverez ci-joint l'acte de cession signé. En conséquence, nous vous remercions de bien vouloir procéder au règlement de l'indemnité directement entre nos mains.\n\nRestant à votre disposition,\nCordialement.`}
+          onClose={() => setEmailCession(null)}
         />
       )}
     </section>

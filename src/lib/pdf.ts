@@ -434,6 +434,18 @@ export async function generateOrdreReparationPdf(or: OrdreReparation, dossier: D
 }
 
 export async function generateCessionPdf(cession: CessionCreance, dossier: Dossier) {
+  const pdf = await buildCessionPdf(cession, dossier);
+  pdf.save(`cession-creance-${dossier.numero_sinistre || dossier.immatriculation || "dossier"}.pdf`);
+}
+
+// Base64 (sans préfixe data:) pour pièce jointe email.
+export async function cessionPdfBase64(cession: CessionCreance, dossier: Dossier): Promise<string> {
+  const pdf = await buildCessionPdf(cession, dossier);
+  const uri = pdf.output("datauristring");
+  return uri.substring(uri.indexOf(",") + 1);
+}
+
+async function buildCessionPdf(cession: CessionCreance, dossier: Dossier): Promise<jsPDF> {
   const ctx = await startAttestationPdf("CESSION DE CRÉANCE", null, cession.date_cession);
   const { ent } = ctx;
   drawBlocsClientVehicule(ctx, dossier);
@@ -470,7 +482,7 @@ export async function generateCessionPdf(cession: CessionCreance, dossier: Dossi
 
   drawSignatureBloc(ctx, cession.signataire_nom, cession.signature, cession.signe_le);
 
-  ctx.pdf.save(`cession-creance-${dossier.numero_sinistre || dossier.immatriculation || "dossier"}.pdf`);
+  return ctx.pdf;
 }
 
 export async function generateRestitutionPdf(rest: Restitution, dossier: Dossier) {
