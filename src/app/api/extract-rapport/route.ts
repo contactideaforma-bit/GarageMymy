@@ -55,7 +55,9 @@ export async function POST(req: NextRequest) {
     const base64 = bytes.toString("base64");
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 
-    const client = new Anthropic({ apiKey });
+    // maxRetries : le SDK réessaie automatiquement (backoff) sur 429 et 5xx,
+    // y compris 529 "overloaded" — souvent transitoire.
+    const client = new Anthropic({ apiKey, maxRetries: 4 });
     const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
     const documentBlock = isPdf
@@ -100,6 +102,21 @@ export async function POST(req: NextRequest) {
     const data = JSON.parse(match[0]);
     return NextResponse.json({ data });
   } catch (err: unknown) {
+    const anyErr = err as { status?: number; message?: string };
+    const status = anyErr?.status;
+    const overloaded =
+      status === 529 ||
+      status === 429 ||
+      (typeof anyErr?.message === "string" && anyErr.message.toLowerCase().includes("overloaded"));
+    if (overloaded) {
+      return NextResponse.json(
+        {
+          error:
+            "Le service d'analyse IA est momentanément surchargé. Réessaie dans quelques secondes.",
+        },
+        { status: 503 }
+      );
+    }
     const msg = err instanceof Error ? err.message : "Erreur d'extraction.";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

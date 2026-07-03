@@ -13,6 +13,7 @@ import StatutPipeline from "@/components/StatutPipeline";
 import DossierForm from "@/components/DossierForm";
 import DocumentEditor from "@/components/DocumentEditor";
 import PaiementsPanel from "@/components/PaiementsPanel";
+import AtelierPanel from "@/components/AtelierPanel";
 import EmailComposer from "@/components/EmailComposer";
 import ConfigBanner from "@/components/ConfigBanner";
 
@@ -278,6 +279,9 @@ export default function DossierDetailPage() {
           </table>
         </div>
       </section>
+
+      {/* Atelier : ordre de réparation & restitution signés */}
+      <AtelierPanel dossier={dossier} onChanged={load} />
 
       {/* Finance : paiements & relances */}
       <PaiementsPanel dossier={dossier} onChanged={load} />

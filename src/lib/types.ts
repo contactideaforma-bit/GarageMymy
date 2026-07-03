@@ -178,6 +178,35 @@ export type Relance = {
   notes: string | null;
 };
 
+export type OrdreReparation = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  numero: string | null;
+  date_or: string | null;
+  travaux: string | null;
+  date_debut: string | null;
+  date_fin: string | null;
+  montant_ht: number | null;
+  signataire_nom: string | null;
+  signature: string | null; // dataURL PNG
+  signe_le: string | null;
+  statut: string; // brouillon | signe
+};
+
+export type Restitution = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  date_restitution: string | null;
+  kilometrage: number | null;
+  observations: string | null;
+  signataire_nom: string | null;
+  signature: string | null; // dataURL PNG
+  signe_le: string | null;
+  statut: string; // brouillon | signe
+};
+
 export type Email = {
   id: string;
   created_at: string;
