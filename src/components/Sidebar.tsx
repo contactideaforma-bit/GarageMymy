@@ -16,6 +16,7 @@ const SECTIONS: { titre: string; items: { href: string; label: string; icon: str
     items: [
       { href: "/sinistres", label: "Sinistres", icon: "🗂" },
       { href: "/vehicules", label: "Véhicules", icon: "🚗" },
+      { href: "/flotte", label: "Flotte du garage", icon: "🚙" },
       { href: "/annuaire", label: "Annuaire", icon: "📇" },
     ],
   },
@@ -125,7 +126,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </button>
         )}
         {email && <div className="px-3 pt-1 text-[11px] text-white/30 truncate">{email}</div>}
-        <div className="px-3 pt-2 text-xs text-white/30">v1.8</div>
+        <div className="px-3 pt-2 text-xs text-white/30">v1.9</div>
       </div>
     </div>
   );

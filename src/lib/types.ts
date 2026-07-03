@@ -207,6 +207,28 @@ export type Restitution = {
   statut: string; // brouillon | signe
 };
 
+export type FlotteVehicule = {
+  id: string;
+  created_at: string;
+  immatriculation: string;
+  marque_modele: string | null;
+  assurance: string | null;
+  date_assurance: string | null;
+  date_sinistre: string | null;
+  conducteur: string | null;
+  conducteur_tel: string | null;
+  ct_ok: boolean;
+  cg_ok: boolean;
+  entretien_ok: boolean;
+  loue: boolean;
+  locataire: string | null;
+  locataire_tel: string | null;
+  location_debut: string | null;
+  location_fin: string | null;
+  prix_jour: number | null;
+  commentaire: string | null;
+};
+
 export type BankTransaction = {
   id: string;
   created_at: string;
