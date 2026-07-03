@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, DocumentLigne, Dossier, Entreprise } from "@/lib/types";
 import { documentPdfBase64 } from "@/lib/pdf";
+import ModalShell from "@/components/ModalShell";
 
 function escapeHtml(s: string): string {
   return s
@@ -135,14 +136,7 @@ export default function EmailComposer({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm">
-      <div className="w-full max-w-lg glass-card my-8 modal-panel">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <h2 className="text-lg font-semibold text-white">Envoyer un email</h2>
-          <button onClick={onClose} className="text-white/50 hover:text-white text-xl leading-none">×</button>
-        </div>
-
-        <div className="px-6 py-5 space-y-4">
+    <ModalShell title="Envoyer un email" onClose={onClose}>
           <div className="text-xs text-white/40">
             Expéditeur : <span className="text-white/70">{fromLabel}</span>
           </div>
@@ -198,8 +192,6 @@ export default function EmailComposer({
               {sending ? "Envoi…" : "Envoyer"}
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }

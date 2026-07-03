@@ -7,6 +7,7 @@ import { formatDate, STATUTS_ORDRE } from "@/lib/format";
 import { genNumeroOR, badgeStatutAtelier, labelStatutAtelier } from "@/lib/atelier";
 import { generateOrdreReparationPdf, generateRestitutionPdf } from "@/lib/pdf";
 import SignaturePad from "@/components/SignaturePad";
+import ModalShell from "@/components/ModalShell";
 
 /**
  * Atelier : ordre de réparation signé + PV de restitution signé.
@@ -403,29 +404,5 @@ function RestitutionModal({
         </button>
       </div>
     </ModalShell>
-  );
-}
-
-/* ----------------------------- ModalShell ----------------------------- */
-
-function ModalShell({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm">
-      <div className="w-full max-w-lg glass-card my-8 modal-panel">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
-          <button onClick={onClose} className="text-white/50 hover:text-white text-xl leading-none">×</button>
-        </div>
-        <div className="px-6 py-5 space-y-4">{children}</div>
-      </div>
-    </div>
   );
 }

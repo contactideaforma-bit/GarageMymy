@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Document, Dossier, Paiement, Relance } from "@/lib/types";
 import { formatEuros, formatDate } from "@/lib/format";
 import EmailComposer from "@/components/EmailComposer";
+import ModalShell from "@/components/ModalShell";
 import {
   MOYENS,
   CANAUX,
@@ -417,27 +418,5 @@ function RelanceModal({
         </button>
       </div>
     </ModalShell>
-  );
-}
-
-function ModalShell({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm">
-      <div className="w-full max-w-lg glass-card my-8 modal-panel">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
-          <button onClick={onClose} className="text-white/50 hover:text-white text-xl leading-none">×</button>
-        </div>
-        <div className="px-6 py-5 space-y-4">{children}</div>
-      </div>
-    </div>
   );
 }
