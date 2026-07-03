@@ -207,6 +207,21 @@ export type Restitution = {
   statut: string; // brouillon | signe
 };
 
+export type BankTransaction = {
+  id: string;
+  created_at: string;
+  date_transaction: string | null;
+  libelle: string | null;
+  montant: number | null; // crédit > 0, débit < 0
+  reference: string | null;
+  compte: string | null;
+  source: string; // csv | api
+  statut: string; // nouveau | rapproche | ignore
+  document_id: string | null;
+  paiement_id: string | null;
+  hash: string | null;
+};
+
 export type Email = {
   id: string;
   created_at: string;
