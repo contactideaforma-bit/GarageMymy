@@ -207,6 +207,18 @@ export type Restitution = {
   statut: string; // brouillon | signe
 };
 
+export type CessionCreance = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  date_cession: string | null;
+  montant: number | null; // créance cédée (TTC)
+  signataire_nom: string | null;
+  signature: string | null; // dataURL PNG
+  signe_le: string | null;
+  statut: string; // brouillon | signe
+};
+
 export type FlotteVehicule = {
   id: string;
   created_at: string;

@@ -25,6 +25,20 @@ export const AUTORISATION_OR =
   "nécessaires. En cas de travaux supplémentaires indispensables, le réparateur " +
   "s'engage à recueillir mon accord préalable.";
 
+// Texte juridique de la cession de créance (art. 1321 à 1326 du Code civil).
+// Les parties et montants sont injectés par le PDF.
+export const CESSION_OBJET =
+  "Par la présente, le cédant cède au cessionnaire, qui l'accepte, la créance " +
+  "d'indemnisation qu'il détient sur le débiteur cédé au titre du sinistre " +
+  "désigné ci-dessus, conformément aux articles 1321 et suivants du Code civil. " +
+  "Le cessionnaire est en conséquence autorisé à percevoir directement du " +
+  "débiteur cédé le règlement de l'indemnité, à hauteur du montant indiqué.";
+
+export const CESSION_NOTIFICATION =
+  "La présente cession sera notifiée au débiteur cédé, à qui elle est opposable " +
+  "à compter de cette notification (art. 1324 du Code civil). Le cédant garantit " +
+  "l'existence de la créance cédée mais non la solvabilité du débiteur.";
+
 // Texte de décharge imprimé sur le PV de restitution.
 export const DECHARGE_RESTITUTION =
   "Je soussigné(e), client(e) désigné(e) ci-dessus, reconnais avoir récupéré ce jour " +

@@ -69,3 +69,22 @@ export function badgeStatut(statut: string): string {
 export function estActif(statut: string): boolean {
   return statut !== "cloture";
 }
+
+// Message d'erreur lisible, y compris pour les erreurs Supabase
+// (objets simples, PAS des instances de Error → sinon message générique inutile).
+export function messageErreur(err: unknown, fallback = "Erreur lors de l'enregistrement."): string {
+  const brut =
+    err instanceof Error
+      ? err.message
+      : err && typeof err === "object" && "message" in err
+        ? String((err as { message?: unknown }).message || "")
+        : "";
+  if (!brut) return fallback;
+  if (/does not exist|schema cache/i.test(brut)) {
+    return `Table manquante côté Supabase — exécute la dernière migration SQL (dossier supabase/) dans SQL Editor. Détail : ${brut}`;
+  }
+  if (/row-level security|violates.*policy/i.test(brut)) {
+    return `Accès refusé par la sécurité (RLS) — vérifie que la migration des policies a bien été exécutée. Détail : ${brut}`;
+  }
+  return brut;
+}

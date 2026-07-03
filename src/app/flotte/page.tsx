@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier, FlotteVehicule } from "@/lib/types";
-import { formatDate, formatEuros } from "@/lib/format";
+import { formatDate, formatEuros, messageErreur } from "@/lib/format";
 import {
   alerteAssurance,
   ALERTE_INFO,
@@ -336,7 +336,7 @@ function VehiculeModal({
       if (e1) throw e1;
       onSaved();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
+      setError(messageErreur(err));
     } finally {
       setSaving(false);
     }
@@ -451,7 +451,7 @@ function LocationModal({
       if (e1) throw e1;
       onSaved();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
+      setError(messageErreur(err));
     } finally {
       setSaving(false);
     }

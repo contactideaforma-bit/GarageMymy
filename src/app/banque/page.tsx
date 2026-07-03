@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { BankTransaction, Document, Dossier, Paiement } from "@/lib/types";
-import { formatEuros, formatDate } from "@/lib/format";
+import { formatEuros, formatDate, messageErreur } from "@/lib/format";
 import {
   parseReleveCsv,
   hashTransaction,
@@ -90,7 +90,7 @@ export default function BanquePage() {
       );
       await load();
     } catch (err: unknown) {
-      setImportMsg(err instanceof Error ? `Erreur d'import : ${err.message}` : "Erreur d'import.");
+      setImportMsg(`Erreur d'import : ${messageErreur(err, "fichier illisible.")}`);
     } finally {
       setImporting(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -391,7 +391,7 @@ function RapprochementModal({
 
       onSaved();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors du rapprochement.");
+      setError(messageErreur(err, "Erreur lors du rapprochement."));
     } finally {
       setSaving(false);
     }

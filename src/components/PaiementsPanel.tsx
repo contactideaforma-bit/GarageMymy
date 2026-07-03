@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, Dossier, Paiement, Relance } from "@/lib/types";
-import { formatEuros, formatDate } from "@/lib/format";
+import { formatEuros, formatDate, messageErreur } from "@/lib/format";
 import EmailComposer from "@/components/EmailComposer";
 import ModalShell from "@/components/ModalShell";
 import {
@@ -300,7 +300,7 @@ function PaiementModal({
       }
       onSaved();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
+      setError(messageErreur(err));
     } finally {
       setSaving(false);
     }
@@ -382,7 +382,7 @@ function RelanceModal({
       if (e1) throw e1;
       onSaved();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
+      setError(messageErreur(err));
     } finally {
       setSaving(false);
     }

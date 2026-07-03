@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Dossier, OrdreReparation, Restitution, DocumentLigne } from "@/lib/types";
-import { formatDate, STATUTS_ORDRE } from "@/lib/format";
+import { CessionCreance, Dossier, OrdreReparation, Restitution, Document, DocumentLigne } from "@/lib/types";
+import { formatDate, formatEuros, messageErreur, STATUTS_ORDRE } from "@/lib/format";
 import { genNumeroOR, badgeStatutAtelier, labelStatutAtelier } from "@/lib/atelier";
-import { generateOrdreReparationPdf, generateRestitutionPdf } from "@/lib/pdf";
+import { generateCessionPdf, generateOrdreReparationPdf, generateRestitutionPdf } from "@/lib/pdf";
 import SignaturePad from "@/components/SignaturePad";
 import ModalShell from "@/components/ModalShell";
 
@@ -23,21 +23,25 @@ export default function AtelierPanel({
 }) {
   const [ordres, setOrdres] = useState<OrdreReparation[]>([]);
   const [restitutions, setRestitutions] = useState<Restitution[]>([]);
+  const [cessions, setCessions] = useState<CessionCreance[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<
     | { kind: "or"; or?: OrdreReparation }
     | { kind: "restitution"; rest?: Restitution }
+    | { kind: "cession"; cession?: CessionCreance }
     | null
   >(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [o, r] = await Promise.all([
+    const [o, r, c] = await Promise.all([
       supabase.from("ordres_reparation").select("*").eq("dossier_id", dossier.id).order("created_at", { ascending: false }),
       supabase.from("restitutions").select("*").eq("dossier_id", dossier.id).order("created_at", { ascending: false }),
+      supabase.from("cessions_creance").select("*").eq("dossier_id", dossier.id).order("created_at", { ascending: false }),
     ]);
     setOrdres((o.data as OrdreReparation[]) || []);
     setRestitutions((r.data as Restitution[]) || []);
+    setCessions((c.data as CessionCreance[]) || []);
     setLoading(false);
   }, [dossier.id]);
 
@@ -60,13 +64,22 @@ export default function AtelierPanel({
     refresh();
   }
 
+  async function supprimerCession(c: CessionCreance) {
+    if (!confirm("Supprimer cette cession de créance ?")) return;
+    await supabase.from("cessions_creance").delete().eq("id", c.id);
+    refresh();
+  }
+
   return (
     <section className="glass-card">
-      <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
-        <h2 className="font-semibold text-white">Atelier — ordre de réparation & restitution</h2>
-        <div className="flex gap-2">
+      <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold text-white">Atelier — documents à signer</h2>
+        <div className="flex flex-wrap gap-2">
           <button onClick={() => setModal({ kind: "or" })} className="btn-primary py-1.5 px-3 text-xs">
             + Ordre de réparation
+          </button>
+          <button onClick={() => setModal({ kind: "cession" })} className="btn-ghost py-1.5 px-3 text-xs">
+            + Cession de créance
           </button>
           <button onClick={() => setModal({ kind: "restitution" })} className="btn-ghost py-1.5 px-3 text-xs">
             + Restitution
@@ -77,10 +90,11 @@ export default function AtelierPanel({
       <div className="px-5 py-4 space-y-4">
         {loading && <p className="text-sm text-white/40">Chargement…</p>}
 
-        {!loading && ordres.length === 0 && restitutions.length === 0 && (
+        {!loading && ordres.length === 0 && restitutions.length === 0 && cessions.length === 0 && (
           <p className="text-sm text-white/40">
-            Fais signer l&apos;ordre de réparation avant les travaux, puis le PV de restitution
-            à la remise du véhicule — directement sur l&apos;écran (doigt ou souris).
+            Fais signer l&apos;ordre de réparation avant les travaux, la cession de créance pour être
+            payé directement par l&apos;assurance, puis le PV de restitution à la remise du véhicule —
+            directement sur l&apos;écran (doigt ou souris).
           </p>
         )}
 
@@ -107,6 +121,35 @@ export default function AtelierPanel({
                   </button>
                 )}
                 <button onClick={() => supprimerOR(or)} className="text-white/40 hover:text-rose-300">Suppr.</button>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        {cessions.map((c) => (
+          <div key={c.id} className="glass-soft p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-white">💶 Cession de créance</span>
+                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutAtelier(c.statut)}`}>
+                    {labelStatutAtelier(c.statut)}
+                  </span>
+                </div>
+                <div className="mt-1 text-xs text-white/50">
+                  Le {formatDate(c.date_cession)}
+                  {c.montant != null ? ` · ${formatEuros(c.montant)} TTC` : ""}
+                  {c.signe_le ? ` · signée par ${c.signataire_nom || "le client"}` : " · en attente de signature"}
+                </div>
+              </div>
+              <div className="flex gap-3 text-sm whitespace-nowrap">
+                <button onClick={() => generateCessionPdf(c, dossier)} className="text-accent-teal hover:underline">PDF</button>
+                {c.statut !== "signe" && (
+                  <button onClick={() => setModal({ kind: "cession", cession: c })} className="text-accent-pink hover:underline">
+                    Modifier / Signer
+                  </button>
+                )}
+                <button onClick={() => supprimerCession(c)} className="text-white/40 hover:text-rose-300">Suppr.</button>
               </div>
             </div>
           </div>
@@ -154,6 +197,14 @@ export default function AtelierPanel({
         <RestitutionModal
           dossier={dossier}
           rest={modal.rest}
+          onClose={() => setModal(null)}
+          onSaved={() => { setModal(null); refresh(); }}
+        />
+      )}
+      {modal?.kind === "cession" && (
+        <CessionModal
+          dossier={dossier}
+          cession={modal.cession}
           onClose={() => setModal(null)}
           onSaved={() => { setModal(null); refresh(); }}
         />
@@ -251,7 +302,7 @@ function ORModal({
       }
       onSaved();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
+      setError(messageErreur(err));
     } finally {
       setSaving(false);
     }
@@ -361,7 +412,7 @@ function RestitutionModal({
       }
       onSaved();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
+      setError(messageErreur(err));
     } finally {
       setSaving(false);
     }
@@ -401,6 +452,117 @@ function RestitutionModal({
         <button onClick={onClose} className="btn-ghost">Annuler</button>
         <button onClick={save} disabled={saving} className="btn-primary">
           {saving ? "Enregistrement…" : signature ? "Enregistrer signé ✓" : "Enregistrer (sans signature)"}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+/* -------------------------- Modal Cession de créance -------------------------- */
+
+function CessionModal({
+  dossier,
+  cession,
+  onClose,
+  onSaved,
+}: {
+  dossier: Dossier;
+  cession?: CessionCreance;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [date, setDate] = useState(cession?.date_cession || new Date().toISOString().slice(0, 10));
+  const [montant, setMontant] = useState(cession?.montant != null ? String(cession.montant) : "");
+  const [signataire, setSignataire] = useState(cession?.signataire_nom || dossier.client_nom || "");
+  const [signature, setSignature] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Pré-remplit le montant : dernière facture, sinon dernier devis (TTC).
+  useEffect(() => {
+    if (cession?.montant != null || montant !== "") return;
+    (async () => {
+      const { data } = await supabase
+        .from("documents")
+        .select("type,total_ttc,created_at")
+        .eq("dossier_id", dossier.id)
+        .order("created_at", { ascending: false });
+      const docs = (data as Pick<Document, "type" | "total_ttc" | "created_at">[]) || [];
+      const doc = docs.find((d) => d.type === "facture") || docs.find((d) => d.type === "devis");
+      if (doc?.total_ttc != null) setMontant(String(doc.total_ttc));
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      const signe = !!signature;
+      const payload = {
+        dossier_id: dossier.id,
+        date_cession: date || null,
+        montant: montant === "" ? null : Number(montant),
+        signataire_nom: signataire || null,
+        ...(signe
+          ? { signature, signe_le: new Date().toISOString(), statut: "signe" }
+          : {}),
+      };
+      const { error: e1 } = cession
+        ? await supabase.from("cessions_creance").update(payload).eq("id", cession.id)
+        : await supabase.from("cessions_creance").insert(payload);
+      if (e1) throw e1;
+
+      if (signe) {
+        await supabase.from("evenements").insert({
+          dossier_id: dossier.id,
+          titre: "Cession de créance signée",
+          description: `Signée par ${signataire || "le client"}${montant ? ` — ${Number(montant).toFixed(2)} € TTC` : ""}`,
+          date_evenement: new Date().toISOString(),
+          categorie: "autre",
+        });
+      }
+      onSaved();
+    } catch (err: unknown) {
+      setError(messageErreur(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Cession de créance" onClose={onClose}>
+      <p className="text-sm text-white/60">
+        Le client (cédant) cède au garage sa créance d&apos;indemnisation sur{" "}
+        <span className="text-white/90">{dossier.assureur || "l'assureur"}</span> : le garage est payé
+        directement par l&apos;assurance. Pense à notifier l&apos;assureur (envoi du PDF) pour la rendre opposable.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="field-label">Date</label>
+          <input type="date" className="field-input" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div>
+          <label className="field-label">Montant cédé (€ TTC)</label>
+          <input type="number" className="field-input" value={montant} onChange={(e) => setMontant(e.target.value)} />
+          <p className="mt-1 text-xs text-white/40">Pré-rempli depuis la facture (sinon le devis).</p>
+        </div>
+      </div>
+      <div>
+        <label className="field-label">Nom du signataire (cédant)</label>
+        <input className="field-input" value={signataire} onChange={(e) => setSignataire(e.target.value)} />
+      </div>
+      <div>
+        <label className="field-label">Signature du client</label>
+        <SignaturePad onChange={setSignature} />
+      </div>
+      {error && (
+        <div className="rounded-lg bg-rose-500/15 border border-rose-400/30 px-3 py-2 text-sm text-rose-200">{error}</div>
+      )}
+      <div className="flex justify-end gap-3">
+        <button onClick={onClose} className="btn-ghost">Annuler</button>
+        <button onClick={save} disabled={saving} className="btn-primary">
+          {saving ? "Enregistrement…" : signature ? "Enregistrer signée ✓" : "Enregistrer (sans signature)"}
         </button>
       </div>
     </ModalShell>

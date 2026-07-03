@@ -1,8 +1,8 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Document, DocumentLigne, Dossier, Entreprise, OrdreReparation, Restitution } from "./types";
+import { CessionCreance, Document, DocumentLigne, Dossier, Entreprise, OrdreReparation, Restitution } from "./types";
 import { computeTotaux } from "./documents";
-import { AUTORISATION_OR, DECHARGE_RESTITUTION } from "./atelier";
+import { AUTORISATION_OR, CESSION_OBJET, CESSION_NOTIFICATION, DECHARGE_RESTITUTION } from "./atelier";
 import { supabase } from "./supabaseClient";
 
 const DEFAUT: Partial<Entreprise> = {
@@ -271,6 +271,7 @@ type AttestationCtx = {
   M: number;
   right: number;
   y: number;
+  ent: Partial<Entreprise>;
 };
 
 // En-tête commun (charte entreprise) + pied de page, pour les documents
@@ -332,7 +333,7 @@ async function startAttestationPdf(
   if (numero) pdf.text(`N° ${numero}`, right, 29, { align: "right" });
   pdf.text(`Date : ${dateFr(date)}`, right, numero ? 34 : 29, { align: "right" });
 
-  return { pdf, pageW, pageH, M, right, y: 50 };
+  return { pdf, pageW, pageH, M, right, y: 50, ent };
 }
 
 // Blocs client / véhicule (mêmes infos que devis/factures).
@@ -430,6 +431,46 @@ export async function generateOrdreReparationPdf(or: OrdreReparation, dossier: D
   drawSignatureBloc(ctx, or.signataire_nom, or.signature, or.signe_le);
 
   ctx.pdf.save(`${or.numero || "ordre-reparation"}.pdf`);
+}
+
+export async function generateCessionPdf(cession: CessionCreance, dossier: Dossier) {
+  const ctx = await startAttestationPdf("CESSION DE CRÉANCE", null, cession.date_cession);
+  const { ent } = ctx;
+  drawBlocsClientVehicule(ctx, dossier);
+
+  const cedant = [
+    dossier.client_nom || "—",
+    [dossier.client_adresse, `${dossier.client_code_postal || ""} ${dossier.client_ville || ""}`.trim()]
+      .filter(Boolean).join(", "),
+  ].filter(Boolean).join(" — ");
+  const cessionnaire = [
+    ent.nom || "—",
+    [ent.adresse, `${ent.code_postal || ""} ${ent.ville || ""}`.trim()].filter(Boolean).join(", "),
+    ent.siret ? `SIRET ${ent.siret}` : "",
+  ].filter(Boolean).join(" — ");
+  const debiteur = [
+    dossier.assureur || "—",
+    dossier.assureur_adresse || "",
+    dossier.numero_police ? `Police n° ${dossier.numero_police}` : "",
+  ].filter(Boolean).join(" — ");
+
+  drawParagraphe(
+    ctx,
+    "Parties",
+    `Cédant (client) : ${cedant}\nCessionnaire (réparateur) : ${cessionnaire}\nDébiteur cédé (assureur) : ${debiteur}`
+  );
+
+  const objet =
+    `Sinistre n° ${dossier.numero_sinistre || "—"}` +
+    (dossier.date_sinistre ? ` du ${dateFr(dossier.date_sinistre)}` : "") +
+    (cession.montant != null ? ` — créance cédée : ${euros(Number(cession.montant) || 0)} TTC` : "") +
+    ".\n" + CESSION_OBJET;
+  drawParagraphe(ctx, "Objet de la cession", objet);
+  drawParagraphe(ctx, "Notification au débiteur cédé", CESSION_NOTIFICATION);
+
+  drawSignatureBloc(ctx, cession.signataire_nom, cession.signature, cession.signe_le);
+
+  ctx.pdf.save(`cession-creance-${dossier.numero_sinistre || dossier.immatriculation || "dossier"}.pdf`);
 }
 
 export async function generateRestitutionPdf(rest: Restitution, dossier: Dossier) {
