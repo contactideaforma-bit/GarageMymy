@@ -39,19 +39,24 @@ Règles pour "lignes" (IMPORTANT — le chiffrage est souvent ÉCLATÉ sur plusi
    "Postes / Temps / Taux Hor. / Total HT" (ex: T1, T2, T3, Peinture, Ingrédients (MV), Ingr.).
    Pour chaque poste : designation = nom du poste (ex: "Main d'œuvre T2", "Peinture",
    "Ingrédients peinture"), quantite = nombre d'heures, prix_unitaire = taux horaire HT.
-2. PIÈCES : cherche le tableau "LISTE DES PIECES" (souvent sur une page SUIVANTE, colonnes
-   du type Qté ! Libellé ! Réf. Constr. ! Opé. ! Mnt HT ! %Vét. ! %Rem. ! TVA, colonnes
-   séparées par des "!"). Une ligne extraite par pièce AYANT un montant (Mnt HT non vide) :
-   designation = libellé de la pièce (recolle les libellés coupés sur 2 lignes),
-   quantite = Qté, prix_unitaire = Mnt HT / Qté.
-   IGNORE les lignes du tableau SANS montant : ce sont des opérations (codes D, R, P, G, C…)
-   déjà comptées dans les heures de main d'œuvre — ne les facture pas à 0.
+2. PIÈCES — EXHAUSTIVITÉ OBLIGATOIRE : cherche le tableau "LISTE DES PIECES" (souvent sur
+   une page SUIVANTE, colonnes du type Qté ! Libellé ! Réf. Constr. ! Opé. ! Mnt HT ! %Vét.
+   ! %Rem. ! TVA, colonnes séparées par des "!"). Extrais TOUTES les lignes du tableau, sans
+   AUCUNE exception — qu'il y en ait 5 ou 50, chaque ligne du rapport = une ligne extraite :
+   - designation = libellé de la pièce (recolle les libellés coupés sur 2 lignes) suivi du
+     code opération entre parenthèses s'il existe, ex: "PORTE AR D (R P)", "CAPTEUR EXT. G D'AI (D)" ;
+   - quantite = Qté ; prix_unitaire = Mnt HT / Qté si un montant est indiqué, sinon 0
+     (les lignes sans montant sont des opérations déjà comprises dans la main d'œuvre :
+     elles doivent QUAND MÊME figurer, avec prix_unitaire 0).
 3. NE COMPTE PAS DEUX FOIS LES PIÈCES : si les conclusions contiennent une ligne globale
    "Pièces <montant>" ET que tu as trouvé le détail dans "LISTE DES PIECES", n'extrais QUE
    le détail (pas la ligne globale). Si tu n'as PAS trouvé le détail, mets une ligne
    {"designation":"Pièces selon rapport d'expertise","quantite":1,"prix_unitaire": montant_pieces}.
-4. VÉRIFICATION : la somme (quantite × prix_unitaire) de toutes les lignes doit être égale
-   (à ±1 € près) au TOTAL HT du rapport. Si ça ne colle pas, relis le rapport et corrige.
+4. VÉRIFICATIONS (fais-les avant de répondre) :
+   a) COMPLÉTUDE : compte les lignes du tableau "LISTE DES PIECES" du rapport ; ton JSON
+      doit contenir EXACTEMENT le même nombre de lignes de pièces. S'il en manque, recommence.
+   b) TOTAL : la somme (quantite × prix_unitaire) de toutes les lignes doit être égale
+      (à ±1 € près) au TOTAL HT du rapport (les lignes à 0 ne changent rien). Sinon, corrige.
 5. Si le rapport ne donne qu'un montant global sans détail : une seule ligne
    {"designation":"Réparations selon rapport d'expertise","quantite":1,"prix_unitaire": montant_global}.
    Si aucun montant : "lignes": [].`;
@@ -104,7 +109,7 @@ export async function POST(req: NextRequest) {
 
     const message = await client.messages.create({
       model,
-      max_tokens: 3000,
+      max_tokens: 6000,
       messages: [{ role: "user", content }],
     });
 

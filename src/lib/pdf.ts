@@ -199,12 +199,17 @@ async function buildDocumentPdf(
     margin: { top: 20, left: M, right: M, bottom: 26 },
     tableWidth: pageW - M * 2,
     head: [["Désignation", "Qté", "PU HT", "Total HT"]],
-    body: lignes.map((l) => [
-      l.designation || "",
-      String(l.quantite ?? 0),
-      euros(Number(l.prix_unitaire) || 0),
-      euros((Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0)),
-    ]),
+    body: lignes.map((l) => {
+      const total = (Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0);
+      // Lignes à 0 € = opérations du rapport (D, R, P, G…) comprises dans la
+      // main d'œuvre : on les affiche quand même, marquées "Inclus".
+      return [
+        l.designation || "",
+        String(l.quantite ?? 0),
+        total === 0 ? "—" : euros(Number(l.prix_unitaire) || 0),
+        total === 0 ? "Inclus" : euros(total),
+      ];
+    }),
     headStyles: { fillColor: accent, textColor: 255, fontStyle: "bold" },
     styles: { fontSize: 9, cellPadding: 2.5, overflow: "linebreak", valign: "middle" },
     alternateRowStyles: { fillColor: [245, 244, 250] },
