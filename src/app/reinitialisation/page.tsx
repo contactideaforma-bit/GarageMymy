@@ -11,7 +11,8 @@ import { supabase } from "@/lib/supabaseClient";
  */
 export default function ReinitialisationPage() {
   const router = useRouter();
-  const [pret, setPret] = useState(false);
+  const [etat, setEtat] = useState<"verif" | "ok" | "invalide">("verif");
+  const [erreurLien, setErreurLien] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [saving, setSaving] = useState(false);
@@ -19,12 +20,32 @@ export default function ReinitialisationPage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    // La session "recovery" est créée par Supabase à l'arrivée sur la page.
-    supabase.auth.getSession().then(({ data }) => setPret(Boolean(data.session)));
-    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
-      if (event === "PASSWORD_RECOVERY" || s) setPret(true);
+    // 1) Supabase renvoie les erreurs du lien dans le fragment d'URL (#error_code=…)
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const codeErreur = hash.get("error_code");
+    if (codeErreur) {
+      setEtat("invalide");
+      setErreurLien(
+        codeErreur === "otp_expired"
+          ? "Ce lien a expiré ou a déjà été utilisé (les liens sont à usage unique et valables 1 heure)."
+          : hash.get("error_description") || "Lien invalide."
+      );
+      return;
+    }
+
+    // 2) La session "recovery" est créée par Supabase à l'arrivée sur la page.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) setEtat("ok");
     });
-    return () => sub.subscription.unsubscribe();
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === "PASSWORD_RECOVERY" || s) setEtat("ok");
+    });
+    // 3) Au bout de 5 s sans session : lien invalide.
+    const t = setTimeout(() => setEtat((e) => (e === "verif" ? "invalide" : e)), 5000);
+    return () => {
+      sub.subscription.unsubscribe();
+      clearTimeout(t);
+    };
   }, []);
 
   async function enregistrer(e: React.FormEvent) {
@@ -54,20 +75,22 @@ export default function ReinitialisationPage() {
       <div className="w-full max-w-sm glass-card p-8">
         <h1 className="text-white mb-4">Nouveau mot de passe</h1>
 
-        {!pret && (
+        {etat === "verif" && <p className="text-sm text-white/60">Vérification du lien…</p>}
+
+        {etat === "invalide" && (
           <p className="text-sm text-white/60">
-            Ce lien de réinitialisation est invalide ou expiré. Retourne à l&apos;écran de
-            connexion et clique à nouveau sur « Mot de passe oublié ? ».
+            {erreurLien || "Ce lien de réinitialisation est invalide ou expiré."} Retourne à
+            l&apos;écran de connexion et clique à nouveau sur « Mot de passe oublié ? ».
           </p>
         )}
 
-        {pret && done && (
+        {etat === "ok" && done && (
           <div className="rounded-lg bg-emerald-500/15 border border-emerald-400/30 px-3 py-2 text-sm text-emerald-200">
             Mot de passe modifié ! Redirection vers l&apos;appli…
           </div>
         )}
 
-        {pret && !done && (
+        {etat === "ok" && !done && (
           <form onSubmit={enregistrer} className="space-y-4">
             <div>
               <label className="field-label">Nouveau mot de passe</label>
