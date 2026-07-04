@@ -36,6 +36,7 @@ export type Dossier = {
   client_adresse: string | null;
   client_code_postal: string | null;
   client_ville: string | null;
+  client_email?: string | null;
 
   // Réparation (planning)
   reparation_debut: string | null;

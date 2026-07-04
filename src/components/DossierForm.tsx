@@ -37,6 +37,7 @@ type FormState = {
   client_adresse: string;
   client_code_postal: string;
   client_ville: string;
+  client_email: string;
   reparation_debut: string;
   reparation_fin: string;
   reparateur: string;
@@ -69,6 +70,7 @@ function toForm(d?: Partial<Dossier> | null): FormState {
     client_adresse: d?.client_adresse ?? "",
     client_code_postal: d?.client_code_postal ?? "",
     client_ville: d?.client_ville ?? "",
+    client_email: d?.client_email ?? "",
     reparation_debut: d?.reparation_debut ?? "",
     reparation_fin: d?.reparation_fin ?? "",
     reparateur: d?.reparateur ?? "",
@@ -238,6 +240,7 @@ export default function DossierForm({
         assureur_email: form.assureur_email || null,
         client_nom: form.client_nom || null,
         client_adresse: form.client_adresse || null,
+        client_email: form.client_email || null,
         client_code_postal: form.client_code_postal || null,
         client_ville: form.client_ville || null,
         reparation_debut: form.reparation_debut || null,
@@ -272,11 +275,15 @@ export default function DossierForm({
           if (!existing) {
             await supabase.from("clients").insert({
               nom: form.client_nom,
+              email: form.client_email || null,
               adresse: form.client_adresse || null,
               code_postal: form.client_code_postal || null,
               ville: form.client_ville || null,
               source: "auto",
             });
+          } else if (form.client_email) {
+            // Complète l'annuaire si l'email y manquait
+            await supabase.from("clients").update({ email: form.client_email }).eq("id", existing.id).is("email", null);
           }
         }
 
@@ -423,6 +430,7 @@ export default function DossierForm({
             <h3 className="text-sm font-semibold text-accent-pink mb-3">3. Informations du client</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Nom et prénom" name="client_nom" value={form.client_nom} onChange={set} />
+              <Field label="Email" name="client_email" value={form.client_email} onChange={set} type="email" />
               <Field label="Adresse postale" name="client_adresse" value={form.client_adresse} onChange={set} />
               <Field label="Code postal" name="client_code_postal" value={form.client_code_postal} onChange={set} />
               <Field label="Ville" name="client_ville" value={form.client_ville} onChange={set} />

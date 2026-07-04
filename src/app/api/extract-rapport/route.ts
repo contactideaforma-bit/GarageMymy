@@ -19,6 +19,7 @@ Extrais TOUTES les informations utiles et renvoie UNIQUEMENT un objet JSON valid
   "numero_police": string|null,          // n° de police d'assurance
   "assureur": string|null,               // compagnie d'assurance
   "client_nom": string|null,             // nom et prénom du client / assuré
+  "client_email": string|null,           // email du client s'il figure au rapport
   "client_adresse": string|null,         // adresse (rue)
   "client_code_postal": string|null,
   "client_ville": string|null,

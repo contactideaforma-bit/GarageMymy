@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
+import SnakeGame from "@/components/SnakeGame";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
@@ -51,6 +52,21 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   const [email, setEmail] = useState<string | null>(null);
+
+  // EASTER EGG : 5 clics sur le logo → Snake
+  const [snakeOpen, setSnakeOpen] = useState(false);
+  const clics = useRef(0);
+  const dernierClic = useRef(0);
+  function clicLogo() {
+    const maintenant = Date.now();
+    if (maintenant - dernierClic.current > 2000) clics.current = 0; // série expirée
+    dernierClic.current = maintenant;
+    clics.current += 1;
+    if (clics.current >= 5) {
+      clics.current = 0;
+      setSnakeOpen(true);
+    }
+  }
   useEffect(() => {
     if (!isSupabaseConfigured) return;
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
@@ -63,13 +79,15 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="glass-card h-full flex flex-col p-4">
       <div className="px-2 py-3 flex items-center gap-3">
-        <Image
-          src="/logo.png"
-          alt="My Easy Auto"
-          width={44}
-          height={44}
-          className="rounded-md border-2 border-white/20 shrink-0"
-        />
+        <button onClick={clicLogo} className="shrink-0" aria-label="My Easy Auto" title="My Easy Auto">
+          <Image
+            src="/logo.png"
+            alt="My Easy Auto"
+            width={44}
+            height={44}
+            className="rounded-md border-2 border-white/20"
+          />
+        </button>
         <div>
           <div className="font-pixel text-[0.6rem] leading-[1.6] bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
             MY EASY AUTO
@@ -133,8 +151,10 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </button>
         )}
         {email && <div className="px-3 pt-1 text-[11px] text-white/30 truncate">{email}</div>}
-        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · v3.5</div>
+        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · v3.6</div>
       </div>
+
+      {snakeOpen && <SnakeGame onClose={() => setSnakeOpen(false)} />}
     </div>
   );
 }

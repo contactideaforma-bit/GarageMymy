@@ -317,6 +317,7 @@ export default function DossierDetailPage() {
 
         <Card title="Client">
           <InfoRow label="Nom et prénom" value={dossier.client_nom} />
+          <InfoRow label="Email" value={dossier.client_email} />
           <InfoRow label="Adresse" value={dossier.client_adresse} />
           <InfoRow label="Code postal" value={dossier.client_code_postal} />
           <InfoRow label="Ville" value={dossier.client_ville} />

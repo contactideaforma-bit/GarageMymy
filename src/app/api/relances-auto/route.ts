@@ -80,6 +80,8 @@ async function executer(req: Request) {
     let destinataire: string | null = null;
     if (enCession) {
       destinataire = dossier.assureur_email || null;
+    } else if (dossier.client_email) {
+      destinataire = dossier.client_email;
     } else if (dossier.client_nom) {
       const c = clients.find(
         (x) =>

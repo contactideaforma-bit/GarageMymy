@@ -85,9 +85,11 @@ export default function EmailComposer({
         supabase.from("experts").select("cabinet,expert_nom,email,expert_email"),
       ]);
 
-      // Email du client du dossier (table clients, par nom)
+      // Email du client : d'abord celui du dossier, sinon l'annuaire (par nom)
       const clients = (cli.data as { nom: string | null; email: string | null }[]) || [];
-      if (dossier.client_nom) {
+      if (dossier.client_email) {
+        chips.push({ label: `Client${dossier.client_nom ? ` (${dossier.client_nom})` : ""}`, email: dossier.client_email });
+      } else if (dossier.client_nom) {
         const c = clients.find(
           (x) => (x.nom || "").trim().toLowerCase() === dossier.client_nom!.trim().toLowerCase() && x.email
         );

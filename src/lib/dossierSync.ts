@@ -71,7 +71,8 @@ export async function destinataireRelance(
   }
   if (cession) return { to: dossier.assureur_email || "", pro: true };
 
-  // Cas normal : email du client (table clients, par nom)
+  // Cas normal : email du client (sur le dossier, sinon table clients par nom)
+  if (dossier.client_email) return { to: dossier.client_email, pro: false };
   let to = "";
   if (dossier.client_nom) {
     const { data } = await supabase
