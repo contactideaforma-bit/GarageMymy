@@ -50,17 +50,34 @@ function LoginScreen() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [modeOubli, setModeOubli] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
+    setInfo(null);
+
+    // Mot de passe oublié : envoi du lien de réinitialisation
+    if (modeOubli) {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reinitialisation`,
+      });
+      if (err) setError(err.message);
+      else setInfo("Email envoyé ! Clique sur le lien reçu pour choisir un nouveau mot de passe (regarde aussi les spams).");
+      setSubmitting(false);
+      return;
+    }
+
     const { error: err } = await supabase.auth.signInWithPassword({ email, password });
     if (err) {
       setError(
         err.message === "Invalid login credentials"
           ? "Email ou mot de passe incorrect."
-          : err.message
+          : err.message === "Email not confirmed"
+            ? "Email non confirmé : clique sur le lien reçu par email avant de te connecter."
+            : err.message
       );
       setSubmitting(false);
     }
@@ -92,31 +109,50 @@ function LoginScreen() {
               required
             />
           </div>
-          <div>
-            <label className="field-label">Mot de passe</label>
-            <input
-              type="password"
-              className="field-input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-            />
-          </div>
+          {!modeOubli && (
+            <div>
+              <label className="field-label">Mot de passe</label>
+              <input
+                type="password"
+                className="field-input"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
+              />
+            </div>
+          )}
 
           {error && (
             <div className="rounded-lg bg-rose-500/15 border border-rose-400/30 px-3 py-2 text-sm text-rose-200">
               {error}
             </div>
           )}
+          {info && (
+            <div className="rounded-lg bg-emerald-500/15 border border-emerald-400/30 px-3 py-2 text-sm text-emerald-200">
+              {info}
+            </div>
+          )}
 
           <button type="submit" disabled={submitting} className="btn-primary w-full justify-center">
-            {submitting ? "Connexion…" : "Se connecter"}
+            {submitting
+              ? "Un instant…"
+              : modeOubli
+                ? "M'envoyer le lien de réinitialisation"
+                : "Se connecter"}
           </button>
         </form>
 
-        <p className="mt-5 text-center text-xs text-white/30">
-          Compte créé par l&apos;administrateur dans Supabase.
+        <button
+          type="button"
+          onClick={() => { setModeOubli((m) => !m); setError(null); setInfo(null); }}
+          className="mt-4 w-full text-center text-sm text-accent-pink hover:underline"
+        >
+          {modeOubli ? "Retour à la connexion" : "Mot de passe oublié ?"}
+        </button>
+
+        <p className="mt-4 text-center text-xs text-white/30">
+          Compte créé par l&apos;administrateur.
         </p>
       </div>
     </div>
