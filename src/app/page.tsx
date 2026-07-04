@@ -4,9 +4,20 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { Dossier, Evenement, Document, Vehicule, Paiement, Relance } from "@/lib/types";
+import {
+  Dossier,
+  Evenement,
+  Document,
+  Vehicule,
+  Paiement,
+  Relance,
+  OrdreReparation,
+  Restitution,
+  CessionCreance,
+} from "@/lib/types";
 import { formatEuros, formatDate, formatDateTime, estActif } from "@/lib/format";
 import { totalPaye, resteAPayer } from "@/lib/paiements";
+import { calculeProchaineAction, URGENCE_STYLE } from "@/lib/actions";
 import StatCard from "@/components/StatCard";
 import StatutBadge from "@/components/StatutBadge";
 import ProgressionDossier from "@/components/ProgressionDossier";
@@ -21,17 +32,23 @@ export default function DashboardPage() {
   const [vehicules, setVehicules] = useState<Vehicule[]>([]);
   const [paiements, setPaiements] = useState<Paiement[]>([]);
   const [relances, setRelances] = useState<Relance[]>([]);
+  const [ordres, setOrdres] = useState<OrdreReparation[]>([]);
+  const [restitutions, setRestitutions] = useState<Restitution[]>([]);
+  const [cessions, setCessions] = useState<CessionCreance[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const [d, e, docs, v, p, r] = await Promise.all([
+      const [d, e, docs, v, p, r, ors, rests, cess] = await Promise.all([
         supabase.from("dossiers").select("*").order("created_at", { ascending: false }),
         supabase.from("evenements").select("*").order("date_evenement", { ascending: true }),
-        supabase.from("documents").select("*").eq("type", "facture"),
+        supabase.from("documents").select("*").order("created_at", { ascending: false }),
         supabase.from("vehicules").select("*"),
         supabase.from("paiements").select("*"),
         supabase.from("relances").select("*").order("date_relance", { ascending: false }),
+        supabase.from("ordres_reparation").select("*"),
+        supabase.from("restitutions").select("*"),
+        supabase.from("cessions_creance").select("*"),
       ]);
       if (d.data) setDossiers(d.data as Dossier[]);
       if (e.data) setEvenements(e.data as Evenement[]);
@@ -39,6 +56,9 @@ export default function DashboardPage() {
       if (v.data) setVehicules(v.data as Vehicule[]);
       if (p.data) setPaiements(p.data as Paiement[]);
       if (r.data) setRelances(r.data as Relance[]);
+      setOrdres((ors.data as OrdreReparation[]) || []);
+      setRestitutions((rests.data as Restitution[]) || []);
+      setCessions((cess.data as CessionCreance[]) || []);
       setLoading(false);
     })();
   }, []);
@@ -50,8 +70,9 @@ export default function DashboardPage() {
   const presentsDossiers = dossiers.filter((d) => d.au_garage);
   const presentsLibres = vehicules.filter((v) => v.au_garage);
   const presentsCount = presentsDossiers.length + presentsLibres.length;
+  const factures = documents.filter((f) => f.type === "facture");
   // Total des factures créées le mois en cours
-  const totalMois = documents
+  const totalMois = factures
     .filter((f) => {
       const ref = f.date_document || f.created_at;
       if (!ref) return false;
@@ -61,7 +82,7 @@ export default function DashboardPage() {
     .reduce((sum, f) => sum + (Number(f.total_ttc) || 0), 0);
 
   // Reste à encaisser : somme des restes sur toutes les factures
-  const resteEncaisser = documents.reduce((sum, f) => {
+  const resteEncaisser = factures.reduce((sum, f) => {
     const paye = totalPaye(paiements.filter((p) => p.document_id === f.id));
     return sum + resteAPayer(f.total_ttc, paye);
   }, 0);
@@ -78,26 +99,25 @@ export default function DashboardPage() {
   const aVenir = evenements.filter((e) => new Date(e.date_evenement) >= now);
   const passes = evenements.filter((e) => new Date(e.date_evenement) < now).reverse();
 
-  // À relancer aujourd'hui : échéance dépassée, reste à payer, et pas de
-  // relance depuis 7 jours (ou jamais relancée).
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const aRelancer = documents
-    .map((f) => {
-      const paye = totalPaye(paiements.filter((p) => p.document_id === f.id));
-      const reste = resteAPayer(f.total_ttc, paye);
-      const rels = relances.filter((r) => r.document_id === f.id);
-      const dossier = dossiers.find((d) => d.id === f.dossier_id) || null;
-      return { f, reste, rels, dossier };
-    })
-    .filter(({ f, reste, rels }) => {
-      if (reste <= 0 || !f.date_echeance) return false;
-      const ech = new Date(f.date_echeance);
-      if (isNaN(ech.getTime()) || ech >= today) return false;
-      const derniere = rels[0]?.date_relance ? new Date(rels[0].date_relance!) : null;
-      return !derniere || (today.getTime() - derniere.getTime()) / 86400000 >= 7;
-    })
-    .sort((a, b) => b.reste - a.reste);
+  // À FAIRE AUJOURD'HUI : le moteur « prochaine action » analyse chaque
+  // dossier en cours et remonte ce qui demande une intervention.
+  const aFaire = enCours
+    .map((d) => ({
+      dossier: d,
+      action: calculeProchaineAction({
+        dossier: d,
+        documents: documents.filter((x) => x.dossier_id === d.id),
+        paiements: paiements.filter((x) => x.dossier_id === d.id),
+        relances: relances.filter((x) => x.dossier_id === d.id),
+        ordres: ordres.filter((x) => x.dossier_id === d.id),
+        restitutions: restitutions.filter((x) => x.dossier_id === d.id),
+        cessions: cessions.filter((x) => x.dossier_id === d.id),
+      }),
+    }))
+    .filter((x): x is { dossier: Dossier; action: NonNullable<ReturnType<typeof calculeProchaineAction>> } =>
+      Boolean(x.action && x.action.urgence !== "attente")
+    )
+    .sort((a, b) => (a.action.urgence === "haute" ? -1 : 0) - (b.action.urgence === "haute" ? -1 : 0));
 
   return (
     <div>
@@ -134,42 +154,52 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* À relancer aujourd'hui */}
-      {aRelancer.length > 0 && (
-        <section className="glass-card p-5 mb-8 border border-amber-400/30">
+      {/* À faire aujourd'hui : guidage automatique selon le processus */}
+      {!loading && aFaire.length > 0 && (
+        <section className="glass-card p-5 mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-white">
-              À relancer aujourd&apos;hui
+              À faire aujourd&apos;hui
               <span className="ml-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
-                {aRelancer.length}
+                {aFaire.length}
               </span>
             </h2>
-            <Link href="/finance" className="text-sm text-accent-pink hover:underline">Tout gérer</Link>
+            <span className="font-pixel text-[0.5rem] text-white/40">GUIDE AUTO</span>
           </div>
           <ul className="divide-y divide-white/10">
-            {aRelancer.slice(0, 5).map(({ f, reste, rels, dossier }) => {
-              const joursRetard = Math.floor((today.getTime() - new Date(f.date_echeance!).getTime()) / 86400000);
-              const niveau = rels.length + 1;
+            {aFaire.slice(0, 6).map(({ dossier: d, action }) => {
+              const st = URGENCE_STYLE[action.urgence];
               return (
-                <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-sm">
-                  <div>
-                    <span className="font-medium text-white">{f.numero || "Facture"}</span>
-                    <span className="text-white/50">
-                      {" "}· {dossier?.client_nom || "—"}{dossier?.assureur ? ` · ${dossier.assureur}` : ""}
-                    </span>
-                    <div className="text-xs text-white/40">
-                      En retard de {joursRetard} j · {rels.length === 0 ? "jamais relancée" : `${rels.length} relance${rels.length > 1 ? "s" : ""}`}
-                      {" "}· prochaine étape : {niveau >= 3 ? "mise en demeure" : `relance n°${niveau}`}
+                <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-sm">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${st.badge}`}>
+                        {st.label}
+                      </span>
+                      <span className="font-medium text-white">{action.titre}</span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-white/50 truncate">
+                      {d.client_nom || "—"} · {d.marque_modele || ""}
+                      {d.immatriculation ? ` (${d.immatriculation})` : ""} · dossier {d.numero_sinistre || "—"}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-medium text-amber-300">{formatEuros(reste)}</span>
-                    <Link href="/finance" className="text-accent-teal hover:underline">Relancer</Link>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <Link href={`/sinistres/${d.id}`} className="text-white/50 hover:text-white hover:underline">
+                      Dossier
+                    </Link>
+                    <Link href={action.href} className="btn-ghost py-1.5 px-3 text-xs">
+                      {action.ctaLabel}
+                    </Link>
                   </div>
                 </li>
               );
             })}
           </ul>
+          {aFaire.length > 6 && (
+            <p className="mt-2 text-xs text-white/40">
+              + {aFaire.length - 6} autre{aFaire.length - 6 > 1 ? "s" : ""} action{aFaire.length - 6 > 1 ? "s" : ""} — ouvre les dossiers concernés depuis la liste ci-dessous.
+            </p>
+          )}
         </section>
       )}
 

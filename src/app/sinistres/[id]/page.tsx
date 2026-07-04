@@ -4,7 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import { Dossier, Evenement, Document, DocumentLigne, DocumentType } from "@/lib/types";
+import {
+  Dossier,
+  Evenement,
+  Document,
+  DocumentLigne,
+  DocumentType,
+  Paiement,
+  Relance,
+  OrdreReparation,
+  Restitution,
+  CessionCreance,
+} from "@/lib/types";
+import { calculeProchaineAction } from "@/lib/actions";
+import ProchaineActionCard from "@/components/ProchaineActionCard";
 import { formatEuros, formatDate, formatDateTime } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
 import { generateDocumentPdf } from "@/lib/pdf";
@@ -45,6 +58,11 @@ export default function DossierDetailPage() {
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [evenements, setEvenements] = useState<Evenement[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [paiements, setPaiements] = useState<Paiement[]>([]);
+  const [relances, setRelances] = useState<Relance[]>([]);
+  const [ordres, setOrdres] = useState<OrdreReparation[]>([]);
+  const [restitutions, setRestitutions] = useState<Restitution[]>([]);
+  const [cessions, setCessions] = useState<CessionCreance[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
 
@@ -63,14 +81,24 @@ export default function DossierDetailPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [d, e, docs] = await Promise.all([
+    const [d, e, docs, pay, rel, ors, rests, cess] = await Promise.all([
       supabase.from("dossiers").select("*").eq("id", id).single(),
       supabase.from("evenements").select("*").eq("dossier_id", id).order("date_evenement", { ascending: true }),
       supabase.from("documents").select("*").eq("dossier_id", id).order("created_at", { ascending: false }),
+      supabase.from("paiements").select("*").eq("dossier_id", id),
+      supabase.from("relances").select("*").eq("dossier_id", id).order("date_relance", { ascending: false }),
+      supabase.from("ordres_reparation").select("*").eq("dossier_id", id),
+      supabase.from("restitutions").select("*").eq("dossier_id", id),
+      supabase.from("cessions_creance").select("*").eq("dossier_id", id),
     ]);
     if (d.data) setDossier(d.data as Dossier);
     if (e.data) setEvenements(e.data as Evenement[]);
     if (docs.data) setDocuments(docs.data as Document[]);
+    setPaiements((pay.data as Paiement[]) || []);
+    setRelances((rel.data as Relance[]) || []);
+    setOrdres((ors.data as OrdreReparation[]) || []);
+    setRestitutions((rests.data as Restitution[]) || []);
+    setCessions((cess.data as CessionCreance[]) || []);
     setLoading(false);
   }, [id]);
 
@@ -140,6 +168,7 @@ export default function DossierDetailPage() {
   }
 
   const url = rapportUrl(dossier.rapport_path);
+  const action = calculeProchaineAction({ dossier, documents, paiements, relances, ordres, restitutions, cessions });
 
   return (
     <div className="space-y-6">
@@ -159,6 +188,9 @@ export default function DossierDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Prochaine action : le guide dit quoi faire maintenant */}
+      <ProchaineActionCard action={action} avecCta={action?.href !== `/sinistres/${dossier.id}`} />
 
       {/* Pipeline */}
       <section className="glass-card p-5">
