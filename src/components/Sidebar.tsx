@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -61,11 +62,20 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="glass-card h-full flex flex-col p-4">
-      <div className="px-2 py-3">
-        <div className="text-xl font-bold tracking-tight bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
-          GarageMYMY
+      <div className="px-2 py-3 flex items-center gap-3">
+        <Image
+          src="/logo.png"
+          alt="My Easy Auto"
+          width={44}
+          height={44}
+          className="rounded-md border-2 border-white/20 shrink-0"
+        />
+        <div>
+          <div className="font-pixel text-[0.6rem] leading-[1.6] bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
+            MY EASY AUTO
+          </div>
+          <div className="text-xs text-white/40">Gestion carrosserie</div>
         </div>
-        <div className="text-xs text-white/40">Gestion carrosserie</div>
       </div>
 
       <Link href="/import" onClick={onNavigate} className="btn-primary mt-2 mb-4 flex items-center justify-center gap-2">
@@ -123,7 +133,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </button>
         )}
         {email && <div className="px-3 pt-1 text-[11px] text-white/30 truncate">{email}</div>}
-        <div className="px-3 pt-2 text-xs text-white/30">v2.2</div>
+        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · v2.3</div>
       </div>
     </div>
   );

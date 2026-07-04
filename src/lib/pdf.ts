@@ -6,7 +6,7 @@ import { AUTORISATION_OR, CESSION_OBJET, CESSION_NOTIFICATION, DECHARGE_RESTITUT
 import { supabase } from "./supabaseClient";
 
 const DEFAUT: Partial<Entreprise> = {
-  nom: "GarageMYMY",
+  nom: "Mon garage",
   adresse: "", code_postal: "", ville: "", tel: "", email: "",
   siret: "", tva_intra: "", iban: "", bic: "", mentions: "",
 };
@@ -144,7 +144,7 @@ async function buildDocumentPdf(
   }
   pdf.setFontSize(16);
   pdf.setTextColor(...accent);
-  pdf.text(ent.nom || "GarageMYMY", headerX, 19);
+  pdf.text(ent.nom || "Mon garage", headerX, 19);
   pdf.setFontSize(9);
   pdf.setTextColor(90);
   pdf.text(
@@ -311,7 +311,7 @@ async function startAttestationPdf(
   }
   pdf.setFontSize(16);
   pdf.setTextColor(...accent);
-  pdf.text(ent.nom || "GarageMYMY", headerX, 19);
+  pdf.text(ent.nom || "Mon garage", headerX, 19);
   pdf.setFontSize(9);
   pdf.setTextColor(90);
   pdf.text(

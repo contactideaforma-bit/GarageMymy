@@ -1,11 +1,22 @@
 import type { Metadata } from "next";
+import { Press_Start_2P } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import AuthGate from "@/components/AuthGate";
 
+// Police pixel (titres uniquement — le corps de texte reste une police
+// classique très lisible, l'appli vise un public peu à l'aise avec l'informatique).
+const pixel = Press_Start_2P({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-pixel",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "GarageMYMY — Gestion carrosserie",
-  description: "Suivi des dossiers de sinistres",
+  title: "My Easy Auto — Gestion carrosserie",
+  description: "Suivi des sinistres, devis, factures et encaissements — simple comme un jeu.",
+  icons: { icon: "/logo.png" },
 };
 
 // Applique le thème avant le rendu pour éviter le flash.
@@ -18,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr">
+    <html lang="fr" className={pixel.variable}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>

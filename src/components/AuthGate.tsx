@@ -71,10 +71,12 @@ function LoginScreen() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-sm glass-card p-8">
         <div className="text-center mb-6">
-          <div className="text-2xl font-bold tracking-tight bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
-            GarageMYMY
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="My Easy Auto" className="mx-auto mb-3 h-20 w-20 rounded-lg border-2 border-white/20" />
+          <div className="font-pixel text-[0.75rem] leading-relaxed bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
+            MY EASY AUTO
           </div>
-          <div className="mt-1 text-sm text-white/50">Connexion à l&apos;espace gestion</div>
+          <div className="mt-2 text-sm text-white/50">Connexion à l&apos;espace gestion</div>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -18,8 +19,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           >
             ☰
           </button>
-          <span className="text-lg font-bold tracking-tight bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
-            GarageMYMY
+          <Image src="/logo.png" alt="" width={28} height={28} className="rounded border border-white/20" />
+          <span className="font-pixel text-[0.6rem] bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
+            MY EASY AUTO
           </span>
         </div>
       </div>
