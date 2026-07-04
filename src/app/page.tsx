@@ -10,6 +10,7 @@ import { totalPaye, resteAPayer } from "@/lib/paiements";
 import StatCard from "@/components/StatCard";
 import StatutBadge from "@/components/StatutBadge";
 import ProgressionDossier from "@/components/ProgressionDossier";
+import GuideProcedure from "@/components/GuideProcedure";
 import ConfigBanner from "@/components/ConfigBanner";
 
 export default function DashboardPage() {
@@ -255,6 +256,9 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
+
+        {/* Guide du processus sinistre (repliable) */}
+        <GuideProcedure />
       </div>
     </div>
   );

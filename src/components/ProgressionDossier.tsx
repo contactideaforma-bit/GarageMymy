@@ -6,6 +6,8 @@ import { progressionDossier } from "@/lib/format";
  * Barre de progression RÉTRO GAME du dossier (façon barre de vie) :
  * blocs segmentés, couleur qui évolue avec l'avancée, % en police pixel.
  * 100 % = dossier complet et payé.
+ * Contraste géré par les classes .retro-bar / .retro-bar-vide (globals.css),
+ * lisible dans les deux thèmes.
  */
 export default function ProgressionDossier({
   statut,
@@ -22,14 +24,14 @@ export default function ProgressionDossier({
 
   // Couleur façon barre de vie : rose (début) → ambre → teal → vert (payé)
   const color =
-    pct >= 100 ? "#10b981" : pct >= 70 ? "#2dd4bf" : pct >= 40 ? "#f59e0b" : "#ec4899";
+    pct >= 100 ? "#10b981" : pct >= 70 ? "#14b8a6" : pct >= 40 ? "#f59e0b" : "#ec4899";
 
-  const h = size === "sm" ? "h-2.5" : "h-4";
+  const h = size === "sm" ? "h-3.5" : "h-5";
 
   return (
     <div className="flex items-center gap-2">
       <div
-        className={`flex-1 min-w-[5rem] ${h} rounded-sm border-2 border-white/25 bg-black/30 p-[2px]`}
+        className={`retro-bar flex-1 min-w-[6rem] ${h} rounded-sm p-[2px]`}
         role="progressbar"
         aria-valuenow={pct}
         aria-valuemin={0}
@@ -41,11 +43,11 @@ export default function ProgressionDossier({
           {Array.from({ length: blocks }).map((_, i) => (
             <span
               key={i}
-              className="flex-1 rounded-[1px]"
+              className={`flex-1 rounded-[1px] ${i < filled ? "" : "retro-bar-vide"}`}
               style={
                 i < filled
-                  ? { backgroundColor: color, boxShadow: "inset 0 -1px 0 rgba(0,0,0,0.3)" }
-                  : { backgroundColor: "rgba(128, 128, 160, 0.18)" }
+                  ? { backgroundColor: color, boxShadow: "inset 0 -2px 0 rgba(0,0,0,0.35)" }
+                  : undefined
               }
             />
           ))}
@@ -53,8 +55,8 @@ export default function ProgressionDossier({
       </div>
       {showLabel && (
         <span
-          className={`font-pixel shrink-0 ${size === "sm" ? "text-[0.5rem]" : "text-[0.6rem]"}`}
-          style={{ color }}
+          className={`font-pixel shrink-0 ${size === "sm" ? "text-[0.6rem]" : "text-[0.7rem]"}`}
+          style={{ color, textShadow: "1px 1px 0 rgba(0,0,0,0.25)" }}
         >
           {pct >= 100 ? "PAYE !" : `${pct}%`}
         </span>

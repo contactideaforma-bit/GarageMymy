@@ -26,7 +26,8 @@ export default function AgendaPage() {
   const [events, setEvents] = useState<Evenement[]>([]);
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
   const [loading, setLoading] = useState(true);
-  const [vue, setVue] = useState<"semaine" | "mois">("semaine");
+  // Vue MOIS par défaut : meilleure visibilité d'ensemble.
+  const [vue, setVue] = useState<"semaine" | "mois">("mois");
   const [ref, setRef] = useState<Date>(startOfDay(new Date()));
 
   // modal RDV

@@ -130,6 +130,23 @@ h2 { font-size: 0.72rem !important; line-height: 1.9; }
   .modal-panel {
     background-color: #1d1836;
   }
+
+  /* Barre de progression rétro : cadre et fond bien contrastés dans les 2 thèmes */
+  .retro-bar {
+    border: 2px solid #6b5fae;
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+  .retro-bar-vide {
+    background-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+html.light .retro-bar {
+  border-color: #241f3d;
+  background-color: rgba(36, 31, 61, 0.14);
+}
+html.light .retro-bar-vide {
+  background-color: rgba(36, 31, 61, 0.18);
 }
 
 /* ===================================================================
