@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier } from "@/lib/types";
 import { formatDate } from "@/lib/format";
 import DossierForm from "@/components/DossierForm";
+import ModalShell from "@/components/ModalShell";
 import ConfigBanner from "@/components/ConfigBanner";
 
-// Lundi de la semaine contenant `d`
+/* ------------------------------ Dates ------------------------------ */
+
 function lundi(d: Date): Date {
   const x = new Date(d);
   const day = (x.getDay() + 6) % 7; // 0 = lundi
@@ -22,15 +24,31 @@ function addDays(d: Date, n: number): Date {
   return x;
 }
 function ymd(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const j = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${j}`;
 }
-const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+const JOURS_COURTS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+// Couleur stable par dossier (palette rétro)
+const PALETTE = ["#ec4899", "#8b5cf6", "#2dd4bf", "#f59e0b", "#3b82f6", "#10b981"];
+function couleurDossier(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return PALETTE[Math.abs(h) % PALETTE.length];
+}
+
+/* ------------------------------ Page ------------------------------ */
 
 export default function PlanningPage() {
   const router = useRouter();
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
   const [loading, setLoading] = useState(true);
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [mois, setMois] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
   const [showDossier, setShowDossier] = useState(false);
 
   // modal planification
@@ -49,18 +67,37 @@ export default function PlanningPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const base = lundi(addDays(new Date(), weekOffset * 7));
-  const jours = Array.from({ length: 7 }, (_, i) => addDays(base, i));
+  // Grille du mois : commence le lundi de la 1ère semaine, finit le dimanche de la dernière
+  const semaines = useMemo(() => {
+    const debut = lundi(mois);
+    const finMois = new Date(mois.getFullYear(), mois.getMonth() + 1, 0);
+    const out: Date[][] = [];
+    let cur = debut;
+    while (cur <= finMois || out.length === 0) {
+      out.push(Array.from({ length: 7 }, (_, i) => addDays(cur, i)));
+      cur = addDays(cur, 7);
+    }
+    return out;
+  }, [mois]);
 
-  function dossiersDuJour(d: Date): Dossier[] {
+  function reparationsDuJour(d: Date): Dossier[] {
     const key = ymd(d);
-    return dossiers.filter(
-      (x) => x.reparation_debut && x.reparation_fin && x.reparation_debut <= key && key <= x.reparation_fin
-    );
+    return dossiers.filter((x) => {
+      if (!x.reparation_debut) return false;
+      const fin = x.reparation_fin || x.reparation_debut;
+      return x.reparation_debut <= key && key <= fin;
+    });
   }
 
-  const planifies = dossiers
-    .filter((d) => d.reparation_debut)
+  // Réparations qui touchent le mois affiché (pour la liste sous le calendrier)
+  const moisDebut = ymd(mois);
+  const moisFin = ymd(new Date(mois.getFullYear(), mois.getMonth() + 1, 0));
+  const duMois = dossiers
+    .filter((d) => {
+      if (!d.reparation_debut) return false;
+      const fin = d.reparation_fin || d.reparation_debut;
+      return d.reparation_debut <= moisFin && fin >= moisDebut;
+    })
     .sort((a, b) => (a.reparation_debut || "").localeCompare(b.reparation_debut || ""));
 
   function ouvrirPlan(d?: Dossier) {
@@ -82,61 +119,102 @@ export default function PlanningPage() {
     load();
   }
 
+  const aujourdHui = ymd(new Date());
+  const labelMois = mois.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-white">Planning de réparations</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-semibold text-white">Planning atelier</h1>
         <div className="flex gap-2">
-          <button onClick={() => ouvrirPlan()} className="btn-ghost">＋ Planifier</button>
+          <button onClick={() => ouvrirPlan()} className="btn-ghost">Planifier</button>
           <button onClick={() => setShowDossier(true)} className="btn-primary">+ Nouveau dossier</button>
         </div>
       </div>
 
       <ConfigBanner />
 
-      {/* Navigation semaine */}
-      <div className="glass-card p-4 mb-5">
+      {/* Calendrier du mois */}
+      <div className="glass-card p-4 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <button onClick={() => setWeekOffset((w) => w - 1)} className="btn-ghost py-1 px-3 text-sm">‹ Préc.</button>
+          <button onClick={() => setMois((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))} className="btn-ghost py-1.5 px-4">
+            ← Mois préc.
+          </button>
           <div className="text-center">
-            <div className="font-semibold text-white">
-              {base.toLocaleDateString("fr-FR", { day: "2-digit", month: "long" })} —{" "}
-              {addDays(base, 6).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })}
-            </div>
-            <button onClick={() => setWeekOffset(0)} className="text-xs text-accent-pink hover:underline">Aujourd&apos;hui</button>
+            <div className="font-pixel text-[0.7rem] text-white capitalize">{labelMois}</div>
+            <button
+              onClick={() => { const d = new Date(); setMois(new Date(d.getFullYear(), d.getMonth(), 1)); }}
+              className="mt-1 text-xs text-accent-pink hover:underline"
+            >
+              Revenir à aujourd&apos;hui
+            </button>
           </div>
-          <button onClick={() => setWeekOffset((w) => w + 1)} className="btn-ghost py-1 px-3 text-sm">Suiv. ›</button>
+          <button onClick={() => setMois((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))} className="btn-ghost py-1.5 px-4">
+            Mois suiv. →
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
-          {jours.map((j, i) => {
-            const items = dossiersDuJour(j);
-            const isToday = ymd(j) === ymd(new Date());
-            return (
-              <div key={i} className={`glass-soft p-2 min-h-[7rem] ${isToday ? "ring-1 ring-accent-violet" : ""}`}>
-                <div className="text-xs font-semibold text-white/70 mb-2">
-                  {JOURS[i]} <span className="text-white/40">{j.getDate()}</span>
+        <div className="overflow-x-auto">
+          <div className="min-w-[840px]">
+            {/* En-têtes des jours */}
+            <div className="grid grid-cols-7 gap-1.5 mb-1.5">
+              {JOURS_COURTS.map((j) => (
+                <div key={j} className="px-2 py-1 text-center text-xs font-semibold uppercase tracking-wider text-white/45">
+                  {j}
                 </div>
-                <div className="space-y-1">
-                  {items.map((d) => (
-                    <button
-                      key={d.id}
-                      onClick={() => router.push(`/sinistres/${d.id}`)}
-                      className="w-full text-left rounded-md bg-gradient-to-r from-accent-violet/30 to-accent-pink/30 px-2 py-1 text-[11px] text-white hover:from-accent-violet/50 hover:to-accent-pink/50"
+              ))}
+            </div>
+            {/* Semaines */}
+            {semaines.map((sem, si) => (
+              <div key={si} className="grid grid-cols-7 gap-1.5 mb-1.5">
+                {sem.map((jour) => {
+                  const dansMois = jour.getMonth() === mois.getMonth();
+                  const estAujourdhui = ymd(jour) === aujourdHui;
+                  const items = reparationsDuJour(jour);
+                  return (
+                    <div
+                      key={ymd(jour)}
+                      className={`glass-soft p-1.5 min-h-[6.5rem] ${dansMois ? "" : "opacity-40"} ${
+                        estAujourdhui ? "outline outline-2 outline-accent-pink" : ""
+                      }`}
                     >
-                      <div className="font-medium truncate">{d.marque_modele || d.numero_sinistre || "Dossier"}</div>
-                      {d.reparateur && <div className="text-white/60 truncate">{d.reparateur}</div>}
-                    </button>
-                  ))}
-                </div>
+                      <div className={`mb-1 text-xs font-bold ${estAujourdhui ? "text-accent-pink" : "text-white/60"}`}>
+                        {jour.getDate()}
+                        {estAujourdhui && <span className="ml-1 font-pixel text-[0.45rem]">AUJ.</span>}
+                      </div>
+                      <div className="space-y-1">
+                        {items.slice(0, 3).map((d) => (
+                          <button
+                            key={d.id}
+                            onClick={() => router.push(`/sinistres/${d.id}`)}
+                            className="block w-full truncate rounded-sm px-1.5 py-0.5 text-left text-[11px] font-medium text-white hover:brightness-110"
+                            style={{ backgroundColor: couleurDossier(d.id), boxShadow: "inset 0 -2px 0 rgba(0,0,0,0.25)" }}
+                            title={`${d.marque_modele || ""} ${d.immatriculation || ""} — ${d.reparateur || "sans réparateur"} (du ${formatDate(d.reparation_debut)} au ${formatDate(d.reparation_fin || d.reparation_debut)})`}
+                          >
+                            {d.immatriculation || d.marque_modele || d.numero_sinistre || "Dossier"}
+                          </button>
+                        ))}
+                        {items.length > 3 && (
+                          <div className="px-1 text-[10px] text-white/50">+ {items.length - 3} autre{items.length - 3 > 1 ? "s" : ""}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
+        <p className="mt-2 text-xs text-white/40">
+          Chaque couleur = un véhicule. Clique sur un véhicule pour ouvrir son dossier, ou sur « Planifier » pour ajouter une réparation.
+        </p>
       </div>
 
-      {/* Liste des réparations planifiées */}
+      {/* Réparations du mois */}
       <div className="glass-card overflow-x-auto">
+        <div className="px-5 py-3 border-b border-white/10">
+          <h2 className="font-semibold text-white">Réparations — {labelMois}</h2>
+        </div>
         <table className="w-full text-sm">
           <thead className="text-left text-white/50">
             <tr>
@@ -150,12 +228,17 @@ export default function PlanningPage() {
           </thead>
           <tbody>
             {loading && <tr><td colSpan={6} className="px-5 py-8 text-center text-white/40">Chargement…</td></tr>}
-            {!loading && planifies.length === 0 && (
-              <tr><td colSpan={6} className="px-5 py-8 text-center text-white/40">Aucune réparation planifiée.</td></tr>
+            {!loading && duMois.length === 0 && (
+              <tr><td colSpan={6} className="px-5 py-8 text-center text-white/40">
+                Aucune réparation ce mois-ci. Clique sur « Planifier » pour en ajouter une.
+              </td></tr>
             )}
-            {planifies.map((d) => (
+            {duMois.map((d) => (
               <tr key={d.id} className="border-t border-white/5 hover:bg-white/5">
-                <td className="px-5 py-3 text-white">{d.marque_modele || "—"}{d.immatriculation ? ` (${d.immatriculation})` : ""}</td>
+                <td className="px-5 py-3 text-white">
+                  <span className="mr-2 inline-block h-2.5 w-2.5 rounded-sm align-middle" style={{ backgroundColor: couleurDossier(d.id) }} />
+                  {d.marque_modele || "—"}{d.immatriculation ? ` (${d.immatriculation})` : ""}
+                </td>
                 <td className="px-5 py-3 text-white/80">{d.numero_sinistre || "—"}</td>
                 <td className="px-5 py-3 text-white/80">{formatDate(d.reparation_debut)}</td>
                 <td className="px-5 py-3 text-white/80">{formatDate(d.reparation_fin)}</td>
@@ -172,45 +255,37 @@ export default function PlanningPage() {
 
       {/* Modal planification */}
       {planOpen && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm">
-          <div className="w-full max-w-lg glass-card my-8 modal-panel p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white">Planifier une réparation</h2>
-              <button onClick={() => setPlanOpen(false)} className="text-white/50 hover:text-white text-xl">×</button>
+        <ModalShell title="Planifier une réparation" onClose={() => setPlanOpen(false)}>
+          <div>
+            <label className="field-label">Dossier</label>
+            <select className="field-input" value={planId} onChange={(e) => setPlanId(e.target.value)}>
+              <option value="">— Choisir un dossier —</option>
+              {dossiers.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {(d.marque_modele || "Dossier")}{d.immatriculation ? ` (${d.immatriculation})` : ""} · {d.numero_sinistre || "—"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="field-label">Début</label>
+              <input type="date" className="field-input" value={planDebut} onChange={(e) => setPlanDebut(e.target.value)} />
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="field-label">Dossier</label>
-                <select className="field-input" value={planId} onChange={(e) => setPlanId(e.target.value)}>
-                  <option value="">— Choisir un dossier —</option>
-                  {dossiers.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {(d.marque_modele || "Dossier")}{d.immatriculation ? ` (${d.immatriculation})` : ""} · {d.numero_sinistre || "—"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="field-label">Début</label>
-                  <input type="date" className="field-input" value={planDebut} onChange={(e) => setPlanDebut(e.target.value)} />
-                </div>
-                <div>
-                  <label className="field-label">Fin</label>
-                  <input type="date" className="field-input" value={planFin} onChange={(e) => setPlanFin(e.target.value)} />
-                </div>
-              </div>
-              <div>
-                <label className="field-label">Réparateur attitré</label>
-                <input className="field-input" value={planRep} onChange={(e) => setPlanRep(e.target.value)} placeholder="Nom du réparateur" />
-              </div>
-              <div className="flex justify-end gap-2">
-                <button onClick={() => setPlanOpen(false)} className="btn-ghost">Annuler</button>
-                <button onClick={enregistrerPlan} disabled={!planId} className="btn-primary">Enregistrer</button>
-              </div>
+            <div>
+              <label className="field-label">Fin</label>
+              <input type="date" className="field-input" value={planFin} onChange={(e) => setPlanFin(e.target.value)} />
             </div>
           </div>
-        </div>
+          <div>
+            <label className="field-label">Réparateur attitré</label>
+            <input className="field-input" value={planRep} onChange={(e) => setPlanRep(e.target.value)} placeholder="Nom du réparateur" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setPlanOpen(false)} className="btn-ghost">Annuler</button>
+            <button onClick={enregistrerPlan} disabled={!planId} className="btn-primary">Enregistrer</button>
+          </div>
+        </ModalShell>
       )}
 
       {showDossier && <DossierForm onClose={() => setShowDossier(false)} onSaved={load} />}

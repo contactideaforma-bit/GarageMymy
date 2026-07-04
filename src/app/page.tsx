@@ -65,6 +65,15 @@ export default function DashboardPage() {
     return sum + resteAPayer(f.total_ttc, paye);
   }, 0);
 
+  // Total encaissé ce mois : somme des paiements du mois en cours
+  const encaisseMois = paiements
+    .filter((p) => {
+      if (!p.date_paiement) return false;
+      const dt = new Date(p.date_paiement);
+      return dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
+    })
+    .reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
+
   const aVenir = evenements.filter((e) => new Date(e.date_evenement) >= now);
   const passes = evenements.filter((e) => new Date(e.date_evenement) < now).reverse();
 
@@ -98,16 +107,29 @@ export default function DashboardPage() {
 
       <ConfigBanner />
 
+      {/* HUD : les 4 compteurs du garage */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Véhicules au garage" value={String(presentsCount)} hint="actuellement présents" />
-        <StatCard label="Dossiers en cours" value={String(enCours.length)} />
-        <StatCard
-          label="Total facturé (mois en cours)"
-          value={formatEuros(totalMois)}
-          hint={now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
-        />
+        <Link href="/vehicules">
+          <StatCard accent="teal" label="Véhicules au garage" value={String(presentsCount)} hint="actuellement présents" />
+        </Link>
+        <Link href="/sinistres">
+          <StatCard accent="violet" label="Dossiers en cours" value={String(enCours.length)} hint="sinistres actifs" />
+        </Link>
+        <Link href="/factures">
+          <StatCard
+            accent="pink"
+            label="Facturé ce mois"
+            value={formatEuros(totalMois)}
+            hint={now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+          />
+        </Link>
         <Link href="/finance">
-          <StatCard label="Reste à encaisser" value={formatEuros(resteEncaisser)} hint="toutes factures" />
+          <StatCard
+            accent="emerald"
+            label="Encaissé ce mois"
+            value={formatEuros(encaisseMois)}
+            hint={`reste à encaisser : ${formatEuros(resteEncaisser)}`}
+          />
         </Link>
       </div>
 
@@ -150,44 +172,8 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Visuel : véhicules présents au garage */}
-      <section className="glass-card p-5 mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold text-white">Véhicules présents au garage</h2>
-          <Link href="/vehicules" className="text-sm text-accent-pink hover:underline">Gérer</Link>
-        </div>
-        {presentsCount === 0 ? (
-          <p className="text-sm text-white/40">Aucun véhicule présent. Coche « au garage » dans l&apos;onglet Véhicules.</p>
-        ) : (
-          <div className="flex flex-wrap gap-3">
-            {presentsDossiers.map((d) => (
-              <button
-                key={d.id}
-                onClick={() => router.push(`/sinistres/${d.id}`)}
-                className="glass-soft px-4 py-3 text-left hover:bg-white/10 transition-colors min-w-[12rem]"
-              >
-                <div className="mt-1 text-sm font-medium text-white truncate">
-                  {d.marque_modele || d.numero_sinistre || "Véhicule"}
-                </div>
-                <div className="text-xs text-white/50 truncate">
-                  {d.immatriculation || "—"}{d.reparateur ? ` · ${d.reparateur}` : ""}
-                </div>
-              </button>
-            ))}
-            {presentsLibres.map((v) => (
-              <div key={v.id} className="glass-soft px-4 py-3 min-w-[12rem]">
-                <div className="mt-1 text-sm font-medium text-white truncate">{v.marque_modele || "Véhicule"}</div>
-                <div className="text-xs text-white/50 truncate">
-                  {v.immatriculation || "—"}{v.proprietaire ? ` · ${v.proprietaire}` : ""} · hors dossier
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <section className="lg:col-span-2 glass-card">
+      <div className="space-y-6">
+        <section className="glass-card">
           <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="font-semibold text-white">Dossiers en cours</h2>
             <Link href="/sinistres" className="text-sm text-accent-pink hover:underline">
@@ -238,10 +224,11 @@ export default function DashboardPage() {
         </section>
 
         <section className="glass-card">
-          <div className="px-5 py-4 border-b border-white/10">
+          <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="font-semibold text-white">Agenda</h2>
+            <Link href="/agenda" className="text-sm text-accent-pink hover:underline">Ouvrir l&apos;agenda</Link>
           </div>
-          <div className="p-5 space-y-4">
+          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <div className="text-xs font-semibold uppercase text-white/40 mb-2">À venir</div>
               {aVenir.length === 0 && <p className="text-sm text-white/40">Aucun événement.</p>}
