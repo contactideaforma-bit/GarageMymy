@@ -10,6 +10,7 @@ import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
 import { generateDocumentPdf } from "@/lib/pdf";
 import StatutBadge from "@/components/StatutBadge";
 import StatutPipeline from "@/components/StatutPipeline";
+import ProgressionDossier from "@/components/ProgressionDossier";
 import DossierForm from "@/components/DossierForm";
 import DocumentEditor from "@/components/DocumentEditor";
 import PaiementsPanel from "@/components/PaiementsPanel";
@@ -161,7 +162,10 @@ export default function DossierDetailPage() {
 
       {/* Pipeline */}
       <section className="glass-card p-5">
-        <div className="mb-4 text-sm font-medium text-white/60">Avancement du dossier</div>
+        <div className="mb-3 text-sm font-medium text-white/60">Avancement du dossier</div>
+        <div className="mb-4">
+          <ProgressionDossier statut={dossier.statut} size="md" />
+        </div>
         <StatutPipeline statut={dossier.statut} onChange={changeStatut} />
         <p className="mt-3 text-xs text-white/40">Clique sur une étape pour mettre à jour le statut.</p>
       </section>

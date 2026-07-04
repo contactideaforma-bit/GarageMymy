@@ -9,6 +9,7 @@ import { formatEuros, formatDate, formatDateTime, estActif } from "@/lib/format"
 import { totalPaye, resteAPayer } from "@/lib/paiements";
 import StatCard from "@/components/StatCard";
 import StatutBadge from "@/components/StatutBadge";
+import ProgressionDossier from "@/components/ProgressionDossier";
 import ConfigBanner from "@/components/ConfigBanner";
 
 export default function DashboardPage() {
@@ -222,7 +223,12 @@ export default function DashboardPage() {
                     <td className="px-5 py-3 text-white/80">
                       {d.marque_modele || "—"}{d.immatriculation ? ` (${d.immatriculation})` : ""}
                     </td>
-                    <td className="px-5 py-3"><StatutBadge statut={d.statut} /></td>
+                    <td className="px-5 py-3">
+                      <StatutBadge statut={d.statut} />
+                      <div className="mt-1.5 w-32">
+                        <ProgressionDossier statut={d.statut} size="sm" />
+                      </div>
+                    </td>
                     <td className="px-5 py-3 text-right text-white/90">{formatEuros(d.montant)}</td>
                   </tr>
                 ))}

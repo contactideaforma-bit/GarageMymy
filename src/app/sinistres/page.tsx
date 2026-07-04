@@ -8,6 +8,7 @@ import { Dossier } from "@/lib/types";
 import { formatEuros, formatDate } from "@/lib/format";
 import DossierForm from "@/components/DossierForm";
 import StatutBadge from "@/components/StatutBadge";
+import ProgressionDossier from "@/components/ProgressionDossier";
 import ConfigBanner from "@/components/ConfigBanner";
 
 export default function SinistresPage() {
@@ -107,7 +108,12 @@ export default function SinistresPage() {
                   </td>
                   <td className="px-5 py-3 text-white/80">{d.assureur || "—"}</td>
                   <td className="px-5 py-3 text-white/80">{formatDate(d.date_sinistre)}</td>
-                  <td className="px-5 py-3"><StatutBadge statut={d.statut} /></td>
+                  <td className="px-5 py-3">
+                    <StatutBadge statut={d.statut} />
+                    <div className="mt-1.5 w-32">
+                      <ProgressionDossier statut={d.statut} size="sm" />
+                    </div>
+                  </td>
                   <td className="px-5 py-3 text-right text-white/90">{formatEuros(d.montant)}</td>
                   <td className="px-5 py-3">
                     {url ? (

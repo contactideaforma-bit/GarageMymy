@@ -70,6 +70,27 @@ export function estActif(statut: string): boolean {
   return statut !== "cloture";
 }
 
+// ---------- Progression du dossier (barre rétro) ----------
+// 100 % = dossier complet ET payé.
+const PROGRESSION: Record<string, number> = {
+  nouveau: 5,
+  expertise: 20,
+  devis: 35,
+  reparation: 55,
+  facture: 70,
+  rendu: 85,
+  paye: 100,
+  cloture: 100,
+  // valeurs héritées de la v0
+  en_attente: 35,
+  en_cours: 55,
+  termine: 100,
+};
+
+export function progressionDossier(statut: string): number {
+  return PROGRESSION[statut] ?? 5;
+}
+
 // Message d'erreur lisible, y compris pour les erreurs Supabase
 // (objets simples, PAS des instances de Error → sinon message générique inutile).
 export function messageErreur(err: unknown, fallback = "Erreur lors de l'enregistrement."): string {
