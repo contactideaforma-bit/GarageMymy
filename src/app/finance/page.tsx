@@ -19,6 +19,7 @@ import {
 import StatCard from "@/components/StatCard";
 import ConfigBanner from "@/components/ConfigBanner";
 import EmailComposer from "@/components/EmailComposer";
+import { destinataireRelance } from "@/lib/dossierSync";
 
 type Row = Document & {
   dossier: Dossier | null;
@@ -33,7 +34,13 @@ export default function FinancePage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtre, setFiltre] = useState<Filtre>("tous");
-  const [emailRow, setEmailRow] = useState<Row | null>(null);
+  const [emailRow, setEmailRow] = useState<{ row: Row; to: string; pro: boolean } | null>(null);
+
+  async function ouvrirRelance(r: Row) {
+    if (!r.dossier) return;
+    const dest = await destinataireRelance(r.dossier);
+    setEmailRow({ row: r, ...dest });
+  }
 
   const load = useCallback(() => {
     (async () => {
@@ -185,7 +192,7 @@ export default function FinancePage() {
                       <>
                         {r.reste > 0 && (
                           <button
-                            onClick={() => setEmailRow(r)}
+                            onClick={() => ouvrirRelance(r)}
                             className="text-accent-pink hover:underline mr-3"
                             title={
                               r.relances.length >= 2
@@ -222,21 +229,25 @@ export default function FinancePage() {
         <Link href="/sinistres" className="text-accent-pink hover:underline">Voir les dossiers</Link>
       </p>
 
-      {emailRow && emailRow.dossier && (
+      {emailRow && emailRow.row.dossier && (
         <EmailComposer
-          dossier={emailRow.dossier}
-          document={emailRow}
-          defaultTo={emailRow.dossier.assureur_email || ""}
-          defaultSubject={templateRelance(emailRow.relances.length + 1, emailRow, emailRow.dossier).subject}
-          defaultBody={templateRelance(emailRow.relances.length + 1, emailRow, emailRow.dossier).body}
+          dossier={emailRow.row.dossier}
+          document={emailRow.row}
+          defaultTo={emailRow.to}
+          defaultSubject={
+            templateRelance(emailRow.row.relances.length + 1, emailRow.row, emailRow.row.dossier, emailRow.pro).subject
+          }
+          defaultBody={
+            templateRelance(emailRow.row.relances.length + 1, emailRow.row, emailRow.row.dossier, emailRow.pro).body
+          }
           onClose={() => setEmailRow(null)}
           onSent={async () => {
             await supabase.from("relances").insert({
-              dossier_id: emailRow.dossier!.id,
-              document_id: emailRow.id,
+              dossier_id: emailRow.row.dossier!.id,
+              document_id: emailRow.row.id,
               date_relance: new Date().toISOString().slice(0, 10),
               canal: "email",
-              notes: `Relance n°${emailRow.relances.length + 1} envoyée par email`,
+              notes: `Relance n°${emailRow.row.relances.length + 1} envoyée par email`,
             });
             load();
           }}

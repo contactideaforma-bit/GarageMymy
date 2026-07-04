@@ -6,6 +6,7 @@ import { Document, Dossier, Paiement, Relance } from "@/lib/types";
 import { formatEuros, formatDate, messageErreur } from "@/lib/format";
 import EmailComposer from "@/components/EmailComposer";
 import ModalShell from "@/components/ModalShell";
+import { destinataireRelance, majDossierSiSolde } from "@/lib/dossierSync";
 import {
   MOYENS,
   CANAUX,
@@ -36,7 +37,15 @@ export default function PaiementsPanel({
     | { kind: "relance"; facture: FactureFinance }
     | null
   >(null);
-  const [emailFacture, setEmailFacture] = useState<FactureFinance | null>(null);
+  const [emailFacture, setEmailFacture] = useState<
+    { facture: FactureFinance; to: string; pro: boolean } | null
+  >(null);
+
+  // Le débiteur dépend du mode : cession → assurance ; cas normal → client.
+  async function ouvrirRelance(f: FactureFinance) {
+    const dest = await destinataireRelance(dossier);
+    setEmailFacture({ facture: f, ...dest });
+  }
   const [relanceAuto, setRelanceAuto] = useState<boolean>(Boolean(dossier.relance_auto));
 
   async function toggleRelanceAuto() {
@@ -175,7 +184,7 @@ export default function PaiementsPanel({
                     + Relance
                   </button>
                   <button
-                    onClick={() => setEmailFacture(f)}
+                    onClick={() => ouvrirRelance(f)}
                     className="btn-ghost py-1.5 px-3 text-xs"
                   >
                     Relancer par email
@@ -259,15 +268,19 @@ export default function PaiementsPanel({
       {emailFacture && (
         <EmailComposer
           dossier={dossier}
-          document={emailFacture}
-          defaultTo={dossier.assureur_email || ""}
-          defaultSubject={templateRelance(emailFacture.relances.length + 1, emailFacture, dossier).subject}
-          defaultBody={templateRelance(emailFacture.relances.length + 1, emailFacture, dossier).body}
+          document={emailFacture.facture}
+          defaultTo={emailFacture.to}
+          defaultSubject={
+            templateRelance(emailFacture.facture.relances.length + 1, emailFacture.facture, dossier, emailFacture.pro).subject
+          }
+          defaultBody={
+            templateRelance(emailFacture.facture.relances.length + 1, emailFacture.facture, dossier, emailFacture.pro).body
+          }
           onClose={() => setEmailFacture(null)}
           onSent={async () => {
             await supabase.from("relances").insert({
               dossier_id: dossierId,
-              document_id: emailFacture.id,
+              document_id: emailFacture.facture.id,
               date_relance: new Date().toISOString().slice(0, 10),
               canal: "email",
               notes: "Relance envoyée par email",
@@ -320,10 +333,11 @@ function PaiementModal({
         notes: notes || null,
       });
       if (e1) throw e1;
-      // Facture soldée → statut payé
+      // Facture soldée → statut payé (+ dossier « Payé » si tout est soldé)
       const nouveauReste = resteAPayer(facture.total_ttc, dejaPaye + m);
       if (nouveauReste <= 0) {
         await supabase.from("documents").update({ statut: "paye" }).eq("id", facture.id);
+        await majDossierSiSolde(dossierId);
       }
       onSaved();
     } catch (err: unknown) {

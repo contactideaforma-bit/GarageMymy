@@ -22,6 +22,7 @@ import { calculeProchaineAction } from "@/lib/actions";
 import ProchaineActionCard from "@/components/ProchaineActionCard";
 import PiecesPanel from "@/components/PiecesPanel";
 import DemandesPanel from "@/components/DemandesPanel";
+import CommandesPanel from "@/components/CommandesPanel";
 import { ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
@@ -134,9 +135,28 @@ export default function DossierDetailPage() {
 
   async function supprimer() {
     if (!dossier) return;
-    if (!confirm("Supprimer définitivement ce dossier ?")) return;
+    if (!confirm("Supprimer définitivement ce dossier ? Les fichiers associés (rapport, pièces) seront aussi effacés.")) return;
+    // Purge du Storage AVANT la suppression (sinon fichiers orphelins + données perso conservées)
+    const cheminsPieces = pieces.map((p) => p.path);
+    if (cheminsPieces.length) await supabase.storage.from("pieces").remove(cheminsPieces);
+    if (dossier.rapport_path) await supabase.storage.from("rapports").remove([dossier.rapport_path]);
     await supabase.from("dossiers").delete().eq("id", dossier.id);
     router.push("/sinistres");
+  }
+
+  // Validation rapide du devis (étape clé du processus)
+  const devisEnvoye = documents.find((d) => d.type === "devis" && d.statut === "envoye") || null;
+  async function validerDevis() {
+    if (!devisEnvoye || !dossier) return;
+    await supabase.from("documents").update({ statut: "accepte" }).eq("id", devisEnvoye.id);
+    await supabase.from("evenements").insert({
+      dossier_id: dossier.id,
+      titre: "Devis validé par l'expert",
+      description: `${devisEnvoye.numero || "Devis"} accepté — rapport définitif attendu ou reçu.`,
+      date_evenement: new Date().toISOString(),
+      categorie: "autre",
+    });
+    load();
   }
 
   async function ajouterEvenement(e: React.FormEvent) {
@@ -212,6 +232,13 @@ export default function DossierDetailPage() {
 
       {/* Prochaine action : le guide dit quoi faire maintenant */}
       <ProchaineActionCard action={action} avecCta={action?.href !== `/sinistres/${dossier.id}`} />
+      {devisEnvoye && ["attente_validation", "relance_devis"].includes(action?.code || "") && (
+        <div className="flex justify-end -mt-3">
+          <button onClick={validerDevis} className="btn-ghost py-1.5 px-4 text-xs">
+            Le devis a été validé par l&apos;expert
+          </button>
+        </div>
+      )}
 
       {/* Pipeline */}
       <section className="glass-card p-5">
@@ -368,6 +395,9 @@ export default function DossierDetailPage() {
         </div>
       </section>
 
+      {/* Commande de pièces (suivi non bloquant) */}
+      <CommandesPanel dossier={dossier} />
+
       {/* Atelier : ordre de réparation & restitution signés */}
       <AtelierPanel dossier={dossier} onChanged={load} />
 
@@ -426,6 +456,7 @@ export default function DossierDetailPage() {
             dossier.client_nom ? ` (${dossier.client_nom})` : ""
           }.\n\nRestant à votre disposition,\nCordialement.`}
           onClose={() => setEmailDoc(null)}
+          onSent={load}
         />
       )}
     </div>

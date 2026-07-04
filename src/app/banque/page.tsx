@@ -15,6 +15,7 @@ import {
 import StatCard from "@/components/StatCard";
 import ConfigBanner from "@/components/ConfigBanner";
 import ModalShell from "@/components/ModalShell";
+import { majDossierSiSolde } from "@/lib/dossierSync";
 
 type Filtre = "a_rapprocher" | "rapproche" | "ignore" | "tous";
 
@@ -373,9 +374,10 @@ function RapprochementModal({
         .single();
       if (e1) throw e1;
 
-      // 2) Facture soldée → statut payé
+      // 2) Facture soldée → statut payé (+ dossier « Payé » si tout est soldé)
       if (facture.reste - montant <= 0.01) {
         await supabase.from("documents").update({ statut: "paye" }).eq("id", facture.id);
+        await majDossierSiSolde(facture.dossier_id);
       }
 
       // 3) Marque la transaction rapprochée

@@ -52,7 +52,10 @@ export function resteAPayer(totalTtc: number | null, paye: number): number {
 export function templateRelance(
   niveau: number,
   f: { numero?: string | null; total_ttc?: number | null; date_echeance?: string | null },
-  d: { numero_sinistre?: string | null; client_nom?: string | null }
+  d: { numero_sinistre?: string | null; client_nom?: string | null },
+  // pro = destinataire professionnel (assurance) → pénalités L441-10 applicables.
+  // false = particulier : formulation adaptée (pas d'indemnité forfaitaire de 40 €).
+  pro = true
 ): { subject: string; body: string } {
   const montant = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(
     Number(f.total_ttc) || 0
@@ -76,9 +79,12 @@ export function templateRelance(
       body: `Bonjour,\n\nMalgré notre précédente relance, la ${ref}, d'un montant de ${montant}, demeure impayée${ech}.\n\nNous vous demandons de procéder à son règlement sous 8 jours, ou à défaut de nous communiquer par retour le motif du blocage et la date de mise en paiement.\n\nDans cette attente,\nCordialement.`,
     };
   }
+  const consequences = pro
+    ? "À défaut, des pénalités de retard ainsi que l'indemnité forfaitaire de recouvrement de 40 € (art. L441-10 et D441-5 du Code de commerce) seront exigibles, et nous nous réservons le droit d'engager toute action en recouvrement."
+    : "À défaut, les sommes dues porteront intérêt au taux légal et nous nous réservons le droit d'engager toute action en recouvrement.";
   return {
     subject: `MISE EN DEMEURE — ${ref}`,
-    body: `Bonjour,\n\nMalgré nos relances restées sans effet, la ${ref}, d'un montant de ${montant}, demeure impayée${ech}.\n\nPar la présente, nous vous mettons en demeure de procéder à son règlement sous HUIT (8) JOURS à compter de la réception de ce courriel.\n\nÀ défaut, des pénalités de retard ainsi que l'indemnité forfaitaire de recouvrement de 40 € (art. L441-10 et D441-5 du Code de commerce) seront exigibles, et nous nous réservons le droit d'engager toute action en recouvrement.\n\nCordialement.`,
+    body: `Bonjour,\n\nMalgré nos relances restées sans effet, la ${ref}, d'un montant de ${montant}, demeure impayée${ech}.\n\nPar la présente, nous vous mettons en demeure de procéder à son règlement sous HUIT (8) JOURS à compter de la réception de ce courriel.\n\n${consequences}\n\nCordialement.`,
   };
 }
 

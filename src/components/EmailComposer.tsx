@@ -237,6 +237,23 @@ export default function EmailComposer({
       erreur: ok ? null : errMsg,
     });
 
+    if (ok) {
+      // Un devis/facture envoyé ne reste pas en brouillon
+      if (document && document.statut === "brouillon") {
+        await supabase.from("documents").update({ statut: "envoye" }).eq("id", document.id);
+      }
+      // Historique du dossier
+      await supabase.from("evenements").insert({
+        dossier_id: dossier.id,
+        titre: document
+          ? `${document.type === "devis" ? "Devis" : "Facture"} ${document.numero || ""} envoyé${document.type === "devis" ? "" : "e"}`
+          : "Email envoyé",
+        description: `À : ${to}${cci.trim() ? ` (cci : ${cci.trim()})` : ""} — ${subject}`,
+        date_evenement: new Date().toISOString(),
+        categorie: "autre",
+      });
+    }
+
     setSending(false);
     if (ok) {
       onSent?.();

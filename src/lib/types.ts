@@ -212,6 +212,16 @@ export type Restitution = {
   statut: string; // brouillon | signe
 };
 
+export type CommandePiece = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  designation: string;
+  prix_ht: number | null;
+  statut: string; // a_commander | commande | en_livraison | receptionne
+  commentaire: string | null;
+};
+
 export type DemandeAssurance = {
   id: string;
   created_at: string;

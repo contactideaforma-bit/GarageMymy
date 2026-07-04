@@ -54,21 +54,41 @@ async function executer(req: Request) {
   const docIds = factures.map((f) => f.id);
   const dossierIds = Array.from(new Set(factures.map((f) => f.dossier_id).filter(Boolean)));
 
-  const [dossiersRes, paiementsRes, relancesRes] = await Promise.all([
+  const [dossiersRes, paiementsRes, relancesRes, cessionsRes, clientsRes] = await Promise.all([
     admin.from("dossiers").select("*").in("id", dossierIds),
     admin.from("paiements").select("*").in("document_id", docIds),
     admin.from("relances").select("*").in("document_id", docIds).order("date_relance", { ascending: false }),
+    admin.from("cessions_creance").select("dossier_id,statut").in("dossier_id", dossierIds).eq("statut", "signe"),
+    admin.from("clients").select("owner_id,nom,email").not("email", "is", null),
   ]);
   const dossiers = dossiersRes.data || [];
   const paiements = paiementsRes.data || [];
   const relances = relancesRes.data || [];
+  const cessionsSignees = new Set((cessionsRes.data || []).map((c) => c.dossier_id));
+  const clients = clientsRes.data || [];
 
   let envoyees = 0;
   const details: string[] = [];
 
   for (const f of factures) {
     const dossier = dossiers.find((d) => d.id === f.dossier_id);
-    if (!dossier || !dossier.relance_auto || !dossier.assureur_email) continue;
+    if (!dossier || !dossier.relance_auto) continue;
+
+    // Destinataire selon le processus : cession → ASSURANCE ; cas normal → CLIENT
+    // (l'assurance rembourse le client, c'est lui qui doit le garage).
+    const enCession = Boolean(dossier.mode_cession) || cessionsSignees.has(dossier.id);
+    let destinataire: string | null = null;
+    if (enCession) {
+      destinataire = dossier.assureur_email || null;
+    } else if (dossier.client_nom) {
+      const c = clients.find(
+        (x) =>
+          x.owner_id === f.owner_id &&
+          (x.nom || "").trim().toLowerCase() === String(dossier.client_nom).trim().toLowerCase()
+      );
+      destinataire = c?.email || null;
+    }
+    if (!destinataire) continue;
 
     const paye = totalPaye(paiements.filter((p) => p.document_id === f.id));
     const reste = resteAPayer(f.total_ttc, paye);
@@ -80,21 +100,21 @@ async function executer(req: Request) {
     if (derniere && (today.getTime() - derniere.getTime()) / 86400000 < DELAI_ENTRE_RELANCES_JOURS) continue;
 
     const niveau = rels.length + 1;
-    const { subject, body } = templateRelance(niveau, f, dossier);
+    const { subject, body } = templateRelance(niveau, f, dossier, enCession);
     const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222;line-height:1.5">${escapeHtml(
       body
     ).replace(/\n/g, "<br>")}</div>`;
 
     // Config SMTP DU garage propriétaire de la facture (multi-garages)
     const res = await envoyerEmailServeur(
-      { to: dossier.assureur_email, subject, text: body, html },
+      { to: destinataire, subject, text: body, html },
       f.owner_id
     );
 
     // Journalisation (owner_id EXPLICITE : le service role n'a pas d'auth.uid())
     await admin.from("emails").insert({
       dossier_id: dossier.id,
-      destinataire: dossier.assureur_email,
+      destinataire,
       objet: subject,
       corps: body,
       statut: res.ok ? "envoye" : "echec",
@@ -111,7 +131,7 @@ async function executer(req: Request) {
         owner_id: f.owner_id,
       });
       envoyees++;
-      details.push(`${f.numero || f.id} → relance n°${niveau} (${dossier.assureur_email})`);
+      details.push(`${f.numero || f.id} → relance n°${niveau} (${destinataire})`);
     } else {
       details.push(`${f.numero || f.id} → ÉCHEC : ${res.error}`);
     }
