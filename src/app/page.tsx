@@ -36,11 +36,12 @@ export default function DashboardPage() {
   const [restitutions, setRestitutions] = useState<Restitution[]>([]);
   const [cessions, setCessions] = useState<CessionCreance[]>([]);
   const [pieces, setPieces] = useState<{ dossier_id: string; type: string }[]>([]);
+  const [demandes, setDemandes] = useState<{ dossier_id: string; demande: string; date_envoi: string | null }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const [d, e, docs, v, p, r, ors, rests, cess, pcs] = await Promise.all([
+      const [d, e, docs, v, p, r, ors, rests, cess, pcs, dem] = await Promise.all([
         supabase.from("dossiers").select("*").order("created_at", { ascending: false }),
         supabase.from("evenements").select("*").order("date_evenement", { ascending: true }),
         supabase.from("documents").select("*").order("created_at", { ascending: false }),
@@ -51,6 +52,7 @@ export default function DashboardPage() {
         supabase.from("restitutions").select("*"),
         supabase.from("cessions_creance").select("*"),
         supabase.from("pieces_dossier").select("dossier_id,type"),
+        supabase.from("demandes_assurance").select("dossier_id,demande,date_envoi"),
       ]);
       if (d.data) setDossiers(d.data as Dossier[]);
       if (e.data) setEvenements(e.data as Evenement[]);
@@ -62,6 +64,7 @@ export default function DashboardPage() {
       setRestitutions((rests.data as Restitution[]) || []);
       setCessions((cess.data as CessionCreance[]) || []);
       setPieces((pcs.data as { dossier_id: string; type: string }[]) || []);
+      setDemandes((dem.data as { dossier_id: string; demande: string; date_envoi: string | null }[]) || []);
       setLoading(false);
     })();
   }, []);
@@ -116,6 +119,7 @@ export default function DashboardPage() {
         restitutions: restitutions.filter((x) => x.dossier_id === d.id),
         cessions: cessions.filter((x) => x.dossier_id === d.id),
         pieces: pieces.filter((x) => x.dossier_id === d.id),
+        demandes: demandes.filter((x) => x.dossier_id === d.id),
       }),
     }))
     .filter((x): x is { dossier: Dossier; action: NonNullable<ReturnType<typeof calculeProchaineAction>> } =>

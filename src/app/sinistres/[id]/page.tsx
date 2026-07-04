@@ -16,10 +16,12 @@ import {
   Restitution,
   CessionCreance,
   PieceDossier,
+  DemandeAssurance,
 } from "@/lib/types";
 import { calculeProchaineAction } from "@/lib/actions";
 import ProchaineActionCard from "@/components/ProchaineActionCard";
 import PiecesPanel from "@/components/PiecesPanel";
+import DemandesPanel from "@/components/DemandesPanel";
 import { formatEuros, formatDate, formatDateTime } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
 import { generateDocumentPdf } from "@/lib/pdf";
@@ -66,6 +68,7 @@ export default function DossierDetailPage() {
   const [restitutions, setRestitutions] = useState<Restitution[]>([]);
   const [cessions, setCessions] = useState<CessionCreance[]>([]);
   const [pieces, setPieces] = useState<PieceDossier[]>([]);
+  const [demandes, setDemandes] = useState<DemandeAssurance[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
 
@@ -84,7 +87,7 @@ export default function DossierDetailPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [d, e, docs, pay, rel, ors, rests, cess, pcs] = await Promise.all([
+    const [d, e, docs, pay, rel, ors, rests, cess, pcs, dem] = await Promise.all([
       supabase.from("dossiers").select("*").eq("id", id).single(),
       supabase.from("evenements").select("*").eq("dossier_id", id).order("date_evenement", { ascending: true }),
       supabase.from("documents").select("*").eq("dossier_id", id).order("created_at", { ascending: false }),
@@ -94,6 +97,7 @@ export default function DossierDetailPage() {
       supabase.from("restitutions").select("*").eq("dossier_id", id),
       supabase.from("cessions_creance").select("*").eq("dossier_id", id),
       supabase.from("pieces_dossier").select("*").eq("dossier_id", id).order("created_at", { ascending: false }),
+      supabase.from("demandes_assurance").select("*").eq("dossier_id", id).order("created_at", { ascending: false }),
     ]);
     if (d.data) setDossier(d.data as Dossier);
     if (e.data) setEvenements(e.data as Evenement[]);
@@ -104,6 +108,7 @@ export default function DossierDetailPage() {
     setRestitutions((rests.data as Restitution[]) || []);
     setCessions((cess.data as CessionCreance[]) || []);
     setPieces((pcs.data as PieceDossier[]) || []);
+    setDemandes((dem.data as DemandeAssurance[]) || []);
     setLoading(false);
   }, [id]);
 
@@ -184,7 +189,7 @@ export default function DossierDetailPage() {
   }
 
   const url = rapportUrl(dossier.rapport_path);
-  const action = calculeProchaineAction({ dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces });
+  const action = calculeProchaineAction({ dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces, demandes });
 
   return (
     <div className="space-y-6">
@@ -370,6 +375,9 @@ export default function DossierDetailPage() {
 
       {/* Finance : paiements & relances */}
       <PaiementsPanel dossier={dossier} onChanged={load} />
+
+      {/* Demandes de documents complémentaires (assurance / expert) */}
+      <DemandesPanel dossier={dossier} demandes={demandes} onChanged={load} />
 
       {/* Événements liés */}
       <Card title="Événements liés à ce dossier">

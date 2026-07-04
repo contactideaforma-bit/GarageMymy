@@ -212,6 +212,17 @@ export type Restitution = {
   statut: string; // brouillon | signe
 };
 
+export type DemandeAssurance = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  demande: string;
+  demandeur: string; // assurance | expert | autre
+  date_demande: string | null;
+  date_envoi: string | null; // null = pas encore envoyé
+  notes: string | null;
+};
+
 export type PieceDossier = {
   id: string;
   created_at: string;

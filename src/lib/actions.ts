@@ -6,6 +6,7 @@
 
 import {
   CessionCreance,
+  DemandeAssurance,
   Document,
   Dossier,
   OrdreReparation,
@@ -43,9 +44,26 @@ export function calculeProchaineAction(args: {
   restitutions: Restitution[];
   cessions: CessionCreance[];
   pieces?: Pick<PieceDossier, "type">[];
+  demandes?: Pick<DemandeAssurance, "demande" | "date_envoi">[];
 }): ProchaineAction | null {
-  const { dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces } = args;
+  const { dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces, demandes } = args;
   if (dossier.statut === "cloture") return null;
+
+  // PRIORITÉ ABSOLUE : une demande de documents en attente bloque le paiement
+  const demandesEnAttente = (demandes || []).filter((d) => !d.date_envoi);
+  if (demandesEnAttente.length > 0) {
+    return {
+      code: "demande_assurance",
+      titre: `Envoie les documents demandés (${demandesEnAttente[0].demande})`,
+      detail:
+        demandesEnAttente.length > 1
+          ? `${demandesEnAttente.length} demandes en attente — chaque jour de retard repousse le paiement.`
+          : "Tant que ce n'est pas envoyé, l'assurance ne paiera pas.",
+      href: `/sinistres/${dossier.id}`,
+      ctaLabel: "Ouvrir le dossier",
+      urgence: "haute",
+    };
+  }
 
   // 0) Dossier tout neuf : rassembler les pièces du client d'abord
   if (pieces && ["nouveau", "expertise"].includes(dossier.statut)) {
