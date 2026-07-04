@@ -21,8 +21,14 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
       setSession(data.session);
       setLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      // Lien « mot de passe oublié » : où que la redirection atterrisse
+      // (même à la racine si les Redirect URLs Supabase sont incomplètes),
+      // on force l'ouverture de la page de réinitialisation.
+      if (event === "PASSWORD_RECOVERY" && window.location.pathname !== "/reinitialisation") {
+        window.location.replace("/reinitialisation");
+      }
     });
     return () => {
       mounted = false;
