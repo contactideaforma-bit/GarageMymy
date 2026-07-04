@@ -62,6 +62,11 @@ Règles pour "lignes" (IMPORTANT — le chiffrage est souvent ÉCLATÉ sur plusi
    Si aucun montant : "lignes": [].`;
 
 export async function POST(req: NextRequest) {
+  // SÉCURITÉ : analyse réservée aux utilisateurs connectés (crédits IA).
+  const { utilisateurDepuisRequete, REPONSE_401 } = await import("@/lib/apiAuth");
+  const user = await utilisateurDepuisRequete(req);
+  if (!user) return NextResponse.json(REPONSE_401, { status: 401 });
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(

@@ -10,6 +10,7 @@ import DossierForm from "@/components/DossierForm";
 import StatutBadge from "@/components/StatutBadge";
 import ProgressionDossier from "@/components/ProgressionDossier";
 import ConfigBanner from "@/components/ConfigBanner";
+import { ouvrirFichier } from "@/lib/storage";
 
 export default function SinistresPage() {
   const router = useRouter();
@@ -32,11 +33,6 @@ export default function SinistresPage() {
     load();
   }, [load]);
 
-  function rapportUrl(path: string | null): string | null {
-    if (!path) return null;
-    const { data } = supabase.storage.from("rapports").getPublicUrl(path);
-    return data.publicUrl;
-  }
 
   const term = q.trim().toLowerCase();
   const filtered = term
@@ -94,7 +90,6 @@ export default function SinistresPage() {
               </td></tr>
             )}
             {filtered.map((d) => {
-              const url = rapportUrl(d.rapport_path);
               return (
                 <tr
                   key={d.id}
@@ -121,16 +116,16 @@ export default function SinistresPage() {
                   </td>
                   <td className="px-5 py-3 text-right text-white/90">{formatEuros(d.montant)}</td>
                   <td className="px-5 py-3">
-                    {url ? (
-                      <a
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
+                    {d.rapport_path ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          ouvrirFichier("rapports", d.rapport_path!);
+                        }}
                         className="text-accent-pink hover:underline"
                       >
                         Voir
-                      </a>
+                      </button>
                     ) : (
                       <span className="text-white/30">—</span>
                     )}

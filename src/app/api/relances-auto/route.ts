@@ -85,7 +85,11 @@ async function executer(req: Request) {
       body
     ).replace(/\n/g, "<br>")}</div>`;
 
-    const res = await envoyerEmailServeur({ to: dossier.assureur_email, subject, text: body, html });
+    // Config SMTP DU garage propriétaire de la facture (multi-garages)
+    const res = await envoyerEmailServeur(
+      { to: dossier.assureur_email, subject, text: body, html },
+      f.owner_id
+    );
 
     // Journalisation (owner_id EXPLICITE : le service role n'a pas d'auth.uid())
     await admin.from("emails").insert({

@@ -6,6 +6,7 @@ import { Dossier } from "@/lib/types";
 import { LigneExtraite } from "@/lib/documents";
 import DossierForm from "@/components/DossierForm";
 import ConfigBanner from "@/components/ConfigBanner";
+import { fetchAuth } from "@/lib/apiClient";
 
 type Extraction = Partial<Dossier> & { lignes?: LigneExtraite[]; tva?: number | null };
 
@@ -24,7 +25,7 @@ export default function ImportPage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/extract-rapport", { method: "POST", body: fd });
+      const res = await fetchAuth("/api/extract-rapport", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Échec de l'analyse.");
       setPrefill(json.data as Extraction);

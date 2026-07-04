@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchAuth } from "@/lib/apiClient";
 
 type Cfg = {
   configured: boolean;
@@ -39,7 +40,7 @@ export default function MailSettings() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch("/api/mail-config");
+        const res = await fetchAuth("/api/mail-config");
         const d = (await res.json()) as Cfg & { error?: string };
         if (d && !d.error) {
           setConfigured(Boolean(d.configured));
@@ -73,7 +74,7 @@ export default function MailSettings() {
     setMsg(null);
     setError(null);
     try {
-      const res = await fetch("/api/mail-config", {
+      const res = await fetchAuth("/api/mail-config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

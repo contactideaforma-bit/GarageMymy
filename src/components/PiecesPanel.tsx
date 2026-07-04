@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Dossier, PieceDossier } from "@/lib/types";
 import { formatDate, messageErreur } from "@/lib/format";
 import { TYPES_PIECES, completudePieces } from "@/lib/pieces";
+import { ouvrirFichier } from "@/lib/storage";
 
 /**
  * Checklist des pièces du dossier : carte grise, constat amiable,
@@ -67,9 +68,6 @@ export default function PiecesPanel({
     onChanged?.();
   }
 
-  function urlPiece(path: string): string {
-    return supabase.storage.from("pieces").getPublicUrl(path).data.publicUrl;
-  }
 
   return (
     <section className="glass-card">
@@ -103,14 +101,12 @@ export default function PiecesPanel({
             <span className="text-sm font-medium text-white">Rapport d&apos;expertise</span>
           </div>
           {dossier.rapport_path ? (
-            <a
-              href={supabase.storage.from("rapports").getPublicUrl(dossier.rapport_path).data.publicUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => ouvrirFichier("rapports", dossier.rapport_path!)}
               className="text-sm text-accent-teal hover:underline"
             >
               Voir
-            </a>
+            </button>
           ) : (
             <span className="text-xs text-white/40">À importer (bouton « Importer un rapport »)</span>
           )}
@@ -139,14 +135,12 @@ export default function PiecesPanel({
                 <ul className="mt-2 divide-y divide-white/10 border-t border-white/10">
                   {liste.map((p) => (
                     <li key={p.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-                      <a
-                        href={urlPiece(p.path)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="truncate text-accent-teal hover:underline"
+                      <button
+                        onClick={() => ouvrirFichier("pieces", p.path)}
+                        className="truncate text-accent-teal hover:underline text-left"
                       >
                         {p.nom || p.type}
-                      </a>
+                      </button>
                       <span className="flex shrink-0 items-center gap-3 text-xs text-white/40">
                         {formatDate(p.created_at)}
                         <button onClick={() => supprimer(p)} className="text-white/40 hover:text-rose-300">

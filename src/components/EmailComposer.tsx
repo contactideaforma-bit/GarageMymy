@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, DocumentLigne, Dossier, Entreprise } from "@/lib/types";
 import { documentPdfBase64 } from "@/lib/pdf";
+import { fetchAuth } from "@/lib/apiClient";
 import ModalShell from "@/components/ModalShell";
 
 function escapeHtml(s: string): string {
@@ -57,7 +58,7 @@ export default function EmailComposer({
       .limit(1)
       .maybeSingle()
       .then(({ data }) => setEnt((data as Entreprise) || {}));
-    fetch("/api/mail-config")
+    fetchAuth("/api/mail-config")
       .then((r) => r.json())
       .then((d) => {
         if (d && !d.error) {
@@ -214,7 +215,7 @@ export default function EmailComposer({
     let ok = false;
     let errMsg: string | null = null;
     try {
-      const res = await fetch("/api/send-email", {
+      const res = await fetchAuth("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

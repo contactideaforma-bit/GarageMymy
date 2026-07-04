@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { fetchAuth } from "@/lib/apiClient";
 import { Dossier, FlotteVehicule } from "@/lib/types";
 import { formatDate, formatEuros, messageErreur } from "@/lib/format";
 import {
@@ -57,7 +58,7 @@ export default function FlottePage() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/extract-carte-grise", { method: "POST", body: fd });
+      const res = await fetchAuth("/api/extract-carte-grise", { method: "POST", body: fd });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.data) throw new Error(json.error || `Erreur (HTTP ${res.status}).`);
       const d = json.data as {

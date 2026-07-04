@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { fetchAuth } from "@/lib/apiClient";
 import { Dossier } from "@/lib/types";
 import { STATUTS_ORDRE, STATUTS_INFO } from "@/lib/format";
 import {
@@ -167,7 +168,7 @@ export default function DossierForm({
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/extract-rapport", { method: "POST", body: fd });
+      const res = await fetchAuth("/api/extract-rapport", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Échec de l'analyse.");
       const d = json.data as Partial<Dossier> & {

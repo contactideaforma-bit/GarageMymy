@@ -22,6 +22,7 @@ import { calculeProchaineAction } from "@/lib/actions";
 import ProchaineActionCard from "@/components/ProchaineActionCard";
 import PiecesPanel from "@/components/PiecesPanel";
 import DemandesPanel from "@/components/DemandesPanel";
+import { ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
 import { generateDocumentPdf } from "@/lib/pdf";
@@ -168,11 +169,6 @@ export default function DossierDetailPage() {
     load();
   }
 
-  function rapportUrl(path: string | null): string | null {
-    if (!path) return null;
-    const { data } = supabase.storage.from("rapports").getPublicUrl(path);
-    return data.publicUrl;
-  }
 
   if (loading) return <p className="text-white/40">Chargement…</p>;
 
@@ -188,7 +184,6 @@ export default function DossierDetailPage() {
     );
   }
 
-  const url = rapportUrl(dossier.rapport_path);
   const action = calculeProchaineAction({ dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces, demandes });
 
   return (
@@ -305,10 +300,13 @@ export default function DossierDetailPage() {
           <InfoRow label="Créé le" value={formatDate(dossier.created_at)} />
           <div className="flex justify-between gap-4 py-2">
             <span className="text-sm text-white/50">Rapport d&apos;expertise</span>
-            {url ? (
-              <a href={url} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-accent-teal hover:underline">
+            {dossier.rapport_path ? (
+              <button
+                onClick={() => ouvrirFichier("rapports", dossier.rapport_path!)}
+                className="text-sm font-medium text-accent-teal hover:underline text-right"
+              >
                 {dossier.rapport_nom || "Voir le PDF"}
-              </a>
+              </button>
             ) : (
               <span className="text-sm text-white/40">Aucun</span>
             )}

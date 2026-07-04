@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabaseAdmin";
+import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 
-// Renvoie la config SMTP SANS le mot de passe (juste un booléen hasPassword).
-export async function GET() {
+// Config SMTP DU GARAGE CONNECTÉ (owner_id = utilisateur authentifié).
+// Renvoyée SANS le mot de passe (juste un booléen hasPassword).
+
+export async function GET(req: Request) {
+  const user = await utilisateurDepuisRequete(req);
+  if (!user) return NextResponse.json(REPONSE_401, { status: 401 });
+
   const admin = getAdminClient();
   if (!admin) {
     return NextResponse.json(
@@ -10,7 +16,12 @@ export async function GET() {
       { status: 500 }
     );
   }
-  const { data, error } = await admin.from("mail_config").select("*").limit(1).maybeSingle();
+  const { data, error } = await admin
+    .from("mail_config")
+    .select("*")
+    .eq("owner_id", user.id)
+    .limit(1)
+    .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   if (!data) {
@@ -28,8 +39,12 @@ export async function GET() {
   });
 }
 
-// Crée / met à jour la config. Le mot de passe n'est mis à jour que s'il est fourni.
+// Crée / met à jour la config du garage connecté.
+// Le mot de passe n'est mis à jour que s'il est fourni.
 export async function POST(req: Request) {
+  const user = await utilisateurDepuisRequete(req);
+  if (!user) return NextResponse.json(REPONSE_401, { status: 401 });
+
   const admin = getAdminClient();
   if (!admin) {
     return NextResponse.json(
@@ -62,18 +77,22 @@ export async function POST(req: Request) {
     from_email: body.from_email?.trim() || null,
     updated_at: new Date().toISOString(),
   };
-  // Ne touche au mot de passe que s'il est fourni (champ laissé vide = inchangé).
   if (body.smtp_pass && body.smtp_pass.length > 0) {
     fields.smtp_pass = body.smtp_pass;
   }
 
-  const { data: existing } = await admin.from("mail_config").select("id").limit(1).maybeSingle();
+  const { data: existing } = await admin
+    .from("mail_config")
+    .select("id")
+    .eq("owner_id", user.id)
+    .limit(1)
+    .maybeSingle();
 
   if (existing) {
     const { error } = await admin.from("mail_config").update(fields).eq("id", existing.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   } else {
-    const { error } = await admin.from("mail_config").insert(fields);
+    const { error } = await admin.from("mail_config").insert({ ...fields, owner_id: user.id });
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ ok: true });

@@ -20,15 +20,18 @@ export type MailInput = {
 };
 
 export async function envoyerEmailServeur(
-  input: MailInput
+  input: MailInput,
+  ownerId?: string // config SMTP DU garage concerné (sécurité multi-garages)
 ): Promise<{ ok: boolean; via?: string; error?: string; status?: number }> {
   const to = (input.to || "").trim();
   if (!to) return { ok: false, error: "Destinataire manquant.", status: 400 };
 
-  // 1) SMTP configuré dans l'appli (boîte du garage)
+  // 1) SMTP configuré dans l'appli (boîte du garage appelant)
   const admin = getAdminClient();
   if (admin) {
-    const { data: cfg } = await admin.from("mail_config").select("*").limit(1).maybeSingle();
+    let query = admin.from("mail_config").select("*");
+    if (ownerId) query = query.eq("owner_id", ownerId);
+    const { data: cfg } = await query.limit(1).maybeSingle();
     if (cfg && cfg.smtp_host && cfg.smtp_user && cfg.smtp_pass) {
       const from =
         cfg.from_name && cfg.from_email
