@@ -6,6 +6,7 @@ export const runtime = "nodejs";
 export async function POST(req: Request) {
   let body: {
     to?: string;
+    bcc?: string;
     from?: string;
     replyTo?: string;
     subject?: string;
@@ -21,6 +22,7 @@ export async function POST(req: Request) {
 
   const result = await envoyerEmailServeur({
     to: body.to || "",
+    bcc: body.bcc || undefined,
     subject: body.subject || "",
     html: body.html,
     text: body.text,

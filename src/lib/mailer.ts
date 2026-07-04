@@ -10,6 +10,7 @@ export type MailAttachment = { filename: string; content: string }; // base64
 
 export type MailInput = {
   to: string; // une ou plusieurs adresses séparées par des virgules
+  bcc?: string; // copie cachée (CCI), même format
   subject: string;
   html?: string;
   text?: string;
@@ -43,6 +44,7 @@ export async function envoyerEmailServeur(
         await transporter.sendMail({
           from,
           to,
+          bcc: input.bcc || undefined,
           replyTo: input.replyTo || cfg.from_email || undefined,
           subject: input.subject,
           html: input.html || undefined,
@@ -85,6 +87,9 @@ export async function envoyerEmailServeur(
   const payload: Record<string, unknown> = {
     from,
     to: to.split(",").map((t) => t.trim()).filter(Boolean),
+    ...(input.bcc
+      ? { bcc: input.bcc.split(",").map((t) => t.trim()).filter(Boolean) }
+      : {}),
     subject: input.subject,
     html: input.html || undefined,
     text: input.text || undefined,

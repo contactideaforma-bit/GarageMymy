@@ -39,6 +39,7 @@ export default function EmailComposer({
   const [mailFrom, setMailFrom] = useState<string | null>(null);
   const [mailConfigured, setMailConfigured] = useState<boolean | null>(null);
   const [to, setTo] = useState(defaultTo);
+  const [cci, setCci] = useState("");
   const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState(defaultBody);
   const [attachPdf, setAttachPdf] = useState(Boolean(document || attachment));
@@ -107,13 +108,52 @@ export default function EmailComposer({
     })();
   }, [dossier]);
 
-  // Ajoute une adresse au champ (multi-destinataires séparés par des virgules)
-  function ajouterDestinataire(email: string) {
-    setTo((prev) => {
+  // Ajoute une adresse à un champ (multi-adresses séparées par des virgules)
+  function ajouterEmail(email: string, champ: "to" | "cci" = "to") {
+    const setter = champ === "to" ? setTo : setCci;
+    setter((prev) => {
       const list = prev.split(",").map((s) => s.trim()).filter(Boolean);
       if (list.some((e) => e.toLowerCase() === email.toLowerCase())) return prev;
       return [...list, email].join(", ");
     });
+  }
+
+  // Liste déroulante des adresses de la base : contacts du dossier en tête,
+  // puis tout l'annuaire (sans doublons).
+  function SelecteurContacts({ champ }: { champ: "to" | "cci" }) {
+    const dossierEmails = new Set(contactsDossier.map((c) => c.email.toLowerCase()));
+    const autres = annuaire.filter((c) => !dossierEmails.has(c.email.toLowerCase()));
+    if (contactsDossier.length === 0 && autres.length === 0) return null;
+    return (
+      <select
+        className="field-input mt-2"
+        value=""
+        onChange={(e) => {
+          if (e.target.value) ajouterEmail(e.target.value, champ);
+        }}
+        aria-label="Ajouter une adresse enregistrée"
+      >
+        <option value="">Ajouter une adresse enregistrée…</option>
+        {contactsDossier.length > 0 && (
+          <optgroup label="Contacts du dossier">
+            {contactsDossier.map((c) => (
+              <option key={`d-${c.email}-${c.label}`} value={c.email}>
+                {c.label} — {c.email}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {autres.length > 0 && (
+          <optgroup label="Annuaire (clients, assurances, experts)">
+            {autres.map((c) => (
+              <option key={`a-${c.email}`} value={c.email}>
+                {c.label} — {c.email}
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </select>
+    );
   }
 
   const fromLabel =
@@ -127,7 +167,7 @@ export default function EmailComposer({
   const alerteCession = Boolean(
     dossier.mode_cession &&
       document?.type === "facture" &&
-      to.split(",").some((t) => emailsClient.includes(t.trim().toLowerCase()))
+      `${to},${cci}`.split(",").some((t) => emailsClient.includes(t.trim().toLowerCase()))
   );
 
   async function envoyer() {
@@ -162,6 +202,7 @@ export default function EmailComposer({
 
     const payload = {
       to,
+      bcc: cci.trim() || undefined,
       from: ent?.nom && ent?.email ? `${ent.nom} <${ent.email}>` : ent?.email || undefined,
       replyTo: ent?.email || undefined,
       subject,
@@ -234,7 +275,7 @@ export default function EmailComposer({
                   <button
                     key={c.email + c.label}
                     type="button"
-                    onClick={() => ajouterDestinataire(c.email)}
+                    onClick={() => ajouterEmail(c.email, "to")}
                     className="rounded-full bg-white/10 hover:bg-white/20 px-3 py-1 text-xs text-white/80 transition-colors"
                     title={c.email}
                   >
@@ -243,8 +284,10 @@ export default function EmailComposer({
                 ))}
               </div>
             )}
+            <SelecteurContacts champ="to" />
             <p className="mt-1 text-xs text-white/40">
-              Clique sur un contact du dossier, ou tape pour chercher dans l&apos;annuaire. Plusieurs adresses possibles (virgules).
+              Choisis dans la liste (contacts du dossier en premier), clique sur un raccourci, ou tape
+              directement. Plusieurs adresses possibles (virgules).
             </p>
             {alerteCession && (
               <div className="mt-2 rounded-lg bg-amber-500/15 border border-amber-400/40 px-3 py-2 text-sm text-amber-200">
@@ -252,6 +295,18 @@ export default function EmailComposer({
                 l&apos;assurance{dossier.assureur ? ` (${dossier.assureur})` : ""}, pas au client.
               </div>
             )}
+          </div>
+
+          <div>
+            <label className="field-label">CCI — copie cachée (optionnel)</label>
+            <input
+              className="field-input"
+              value={cci}
+              onChange={(e) => setCci(e.target.value)}
+              placeholder="Reçoit une copie sans que les destinataires le voient"
+              list="contacts-annuaire"
+            />
+            <SelecteurContacts champ="cci" />
           </div>
           <div>
             <label className="field-label">Objet</label>
