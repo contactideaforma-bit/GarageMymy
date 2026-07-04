@@ -115,6 +115,17 @@ export default function DossierDetailPage() {
     await supabase.from("dossiers").update({ statut: s }).eq("id", dossier.id);
   }
 
+  async function toggleModeCession() {
+    if (!dossier) return;
+    const next = !dossier.mode_cession;
+    setDossier({ ...dossier, mode_cession: next });
+    const { error } = await supabase.from("dossiers").update({ mode_cession: next }).eq("id", dossier.id);
+    if (error) {
+      setDossier({ ...dossier, mode_cession: !next });
+      alert("Impossible de changer le mode cession (migration v15 exécutée ?).");
+    }
+  }
+
   async function supprimer() {
     if (!dossier) return;
     if (!confirm("Supprimer définitivement ce dossier ?")) return;
@@ -186,6 +197,11 @@ export default function DossierDetailPage() {
               Dossier {dossier.numero_sinistre || "sans numéro"}
             </h1>
             <StatutBadge statut={dossier.statut} />
+            {dossier.mode_cession && (
+              <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-teal-100 text-teal-700">
+                CESSION DE CRÉANCE
+              </span>
+            )}
           </div>
           <div className="flex gap-2">
             <button onClick={() => setShowEdit(true)} className="btn-ghost">Modifier</button>
@@ -205,6 +221,31 @@ export default function DossierDetailPage() {
         </div>
         <StatutPipeline statut={dossier.statut} onChange={changeStatut} />
         <p className="mt-3 text-xs text-white/40">Clique sur une étape pour mettre à jour le statut.</p>
+
+        <div className="mt-4 border-t border-white/10 pt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm text-white/70">
+            <span className="font-semibold text-white">Cession de créance</span>
+            <span className="text-white/50"> — l&apos;assurance paie directement le garage (facture envoyée à l&apos;assurance, pas au client).</span>
+          </div>
+          <button
+            onClick={toggleModeCession}
+            className="flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors"
+            aria-pressed={Boolean(dossier.mode_cession)}
+          >
+            {dossier.mode_cession ? "Activée" : "Désactivée"}
+            <span
+              className={`relative h-5 w-9 rounded-full transition-colors ${
+                dossier.mode_cession ? "bg-accent-teal" : "bg-white/20"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+                  dossier.mode_cession ? "left-[1.15rem]" : "left-0.5"
+                }`}
+              />
+            </span>
+          </button>
+        </div>
       </section>
 
       {/* Infos */}

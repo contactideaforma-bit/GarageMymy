@@ -152,6 +152,18 @@ export function calculeProchaineAction(args: {
     };
   }
 
+  // 4bis) Mode cession activé : la cession doit être signée avant la facture
+  if (dossier.mode_cession && !cessionSignee) {
+    return {
+      code: "cession_signature",
+      titre: "Fais signer la cession de créance",
+      detail: "Ce dossier est en mode cession : signature du client (bloc Atelier), puis la facture partira directement à l'assurance.",
+      href: fiche,
+      ctaLabel: "Ouvrir le dossier",
+      urgence: "normale",
+    };
+  }
+
   // 5) Pas encore de facture
   if (factures.length === 0) {
     return {
@@ -165,15 +177,16 @@ export function calculeProchaineAction(args: {
   }
 
   // 6) Facture en brouillon : à envoyer (destinataire selon cession)
+  const enCession = cessionSignee || Boolean(dossier.mode_cession);
   const factureBrouillon = factures.find((f) => f.statut === "brouillon");
   if (factureBrouillon) {
     return {
       code: "envoi_facture",
-      titre: cessionSignee
-        ? "Envoie la facture à l'assurance (cession signée)"
+      titre: enCession
+        ? "Envoie la facture à l'assurance (cession de créance)"
         : "Envoie la facture au client et à l'expert",
-      detail: cessionSignee
-        ? "La cession de créance est signée : l'assurance te paiera directement."
+      detail: enCession
+        ? "La cession est en place : l'assurance te paiera directement. N'envoie PAS la facture au client."
         : "Cas normal : le client transmettra la facture à son assurance. (Astuce : la cession de créance évite cette étape.)",
       href: fiche,
       ctaLabel: "Ouvrir le dossier",
@@ -224,8 +237,8 @@ export function calculeProchaineAction(args: {
     return {
       code: "attente_paiement",
       titre: "En attente du paiement",
-      detail: cessionSignee
-        ? "L'assurance doit te régler directement (cession signée)."
+      detail: cessionSignee || dossier.mode_cession
+        ? "L'assurance doit te régler directement (cession de créance)."
         : "L'assurance paie le client, qui te fait un virement. Pense au rapprochement bancaire à réception.",
       href: "/finance",
       ctaLabel: "Ouvrir Finance",

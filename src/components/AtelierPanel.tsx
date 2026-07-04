@@ -80,7 +80,11 @@ export default function AtelierPanel({
           <button onClick={() => setModal({ kind: "or" })} className="btn-primary py-1.5 px-3 text-xs">
             + Ordre de réparation
           </button>
-          <button onClick={() => setModal({ kind: "cession" })} className="btn-ghost py-1.5 px-3 text-xs">
+          <button
+            onClick={() => setModal({ kind: "cession" })}
+            className={`${dossier.mode_cession && cessions.length === 0 ? "btn-primary" : "btn-ghost"} py-1.5 px-3 text-xs`}
+            title={dossier.mode_cession && cessions.length === 0 ? "Mode cession activé : fais signer la cession" : undefined}
+          >
             + Cession de créance
           </button>
           <button onClick={() => setModal({ kind: "restitution" })} className="btn-ghost py-1.5 px-3 text-xs">

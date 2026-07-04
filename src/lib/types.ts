@@ -49,6 +49,8 @@ export type Dossier = {
 
   // Relances automatiques (cron) activées sur ce dossier
   relance_auto?: boolean | null;
+  // Mode cession de créance : le garage est payé directement par l'assurance
+  mode_cession?: boolean | null;
 };
 
 export type Vehicule = {

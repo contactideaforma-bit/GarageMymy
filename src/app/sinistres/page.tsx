@@ -110,6 +110,11 @@ export default function SinistresPage() {
                   <td className="px-5 py-3 text-white/80">{formatDate(d.date_sinistre)}</td>
                   <td className="px-5 py-3">
                     <StatutBadge statut={d.statut} />
+                    {d.mode_cession && (
+                      <span className="ml-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold bg-teal-100 text-teal-700">
+                        Cession
+                      </span>
+                    )}
                     <div className="mt-1.5 w-32">
                       <ProgressionDossier statut={d.statut} size="sm" />
                     </div>

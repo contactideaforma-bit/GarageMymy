@@ -120,6 +120,16 @@ export default function EmailComposer({
     mailFrom ||
     (ent?.nom && ent?.email ? `${ent.nom} <${ent.email}>` : ent?.email || "(à configurer)");
 
+  // GARDE-FOU cession de créance : la facture ne doit PAS partir au client
+  const emailsClient = contactsDossier
+    .filter((c) => c.label.startsWith("Client"))
+    .map((c) => c.email.toLowerCase());
+  const alerteCession = Boolean(
+    dossier.mode_cession &&
+      document?.type === "facture" &&
+      to.split(",").some((t) => emailsClient.includes(t.trim().toLowerCase()))
+  );
+
   async function envoyer() {
     setSending(true);
     setError(null);
@@ -236,6 +246,12 @@ export default function EmailComposer({
             <p className="mt-1 text-xs text-white/40">
               Clique sur un contact du dossier, ou tape pour chercher dans l&apos;annuaire. Plusieurs adresses possibles (virgules).
             </p>
+            {alerteCession && (
+              <div className="mt-2 rounded-lg bg-amber-500/15 border border-amber-400/40 px-3 py-2 text-sm text-amber-200">
+                Attention : ce dossier est en CESSION DE CRÉANCE. La facture doit être envoyée à
+                l&apos;assurance{dossier.assureur ? ` (${dossier.assureur})` : ""}, pas au client.
+              </div>
+            )}
           </div>
           <div>
             <label className="field-label">Objet</label>
