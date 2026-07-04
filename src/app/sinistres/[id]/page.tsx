@@ -15,9 +15,11 @@ import {
   OrdreReparation,
   Restitution,
   CessionCreance,
+  PieceDossier,
 } from "@/lib/types";
 import { calculeProchaineAction } from "@/lib/actions";
 import ProchaineActionCard from "@/components/ProchaineActionCard";
+import PiecesPanel from "@/components/PiecesPanel";
 import { formatEuros, formatDate, formatDateTime } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
 import { generateDocumentPdf } from "@/lib/pdf";
@@ -63,6 +65,7 @@ export default function DossierDetailPage() {
   const [ordres, setOrdres] = useState<OrdreReparation[]>([]);
   const [restitutions, setRestitutions] = useState<Restitution[]>([]);
   const [cessions, setCessions] = useState<CessionCreance[]>([]);
+  const [pieces, setPieces] = useState<PieceDossier[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
 
@@ -81,7 +84,7 @@ export default function DossierDetailPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [d, e, docs, pay, rel, ors, rests, cess] = await Promise.all([
+    const [d, e, docs, pay, rel, ors, rests, cess, pcs] = await Promise.all([
       supabase.from("dossiers").select("*").eq("id", id).single(),
       supabase.from("evenements").select("*").eq("dossier_id", id).order("date_evenement", { ascending: true }),
       supabase.from("documents").select("*").eq("dossier_id", id).order("created_at", { ascending: false }),
@@ -90,6 +93,7 @@ export default function DossierDetailPage() {
       supabase.from("ordres_reparation").select("*").eq("dossier_id", id),
       supabase.from("restitutions").select("*").eq("dossier_id", id),
       supabase.from("cessions_creance").select("*").eq("dossier_id", id),
+      supabase.from("pieces_dossier").select("*").eq("dossier_id", id).order("created_at", { ascending: false }),
     ]);
     if (d.data) setDossier(d.data as Dossier);
     if (e.data) setEvenements(e.data as Evenement[]);
@@ -99,6 +103,7 @@ export default function DossierDetailPage() {
     setOrdres((ors.data as OrdreReparation[]) || []);
     setRestitutions((rests.data as Restitution[]) || []);
     setCessions((cess.data as CessionCreance[]) || []);
+    setPieces((pcs.data as PieceDossier[]) || []);
     setLoading(false);
   }, [id]);
 
@@ -168,7 +173,7 @@ export default function DossierDetailPage() {
   }
 
   const url = rapportUrl(dossier.rapport_path);
-  const action = calculeProchaineAction({ dossier, documents, paiements, relances, ordres, restitutions, cessions });
+  const action = calculeProchaineAction({ dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces });
 
   return (
     <div className="space-y-6">
@@ -264,6 +269,9 @@ export default function DossierDetailPage() {
           </div>
         </Card>
       </div>
+
+      {/* Pièces du dossier (checklist) */}
+      <PiecesPanel dossier={dossier} pieces={pieces} onChanged={load} />
 
       {/* Devis & Factures */}
       <section className="glass-card">

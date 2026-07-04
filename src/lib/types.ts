@@ -210,6 +210,15 @@ export type Restitution = {
   statut: string; // brouillon | signe
 };
 
+export type PieceDossier = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  type: string; // carte_grise | constat | rapport_definitif | autre
+  nom: string | null;
+  path: string;
+};
+
 export type CessionCreance = {
   id: string;
   created_at: string;

@@ -35,11 +35,12 @@ export default function DashboardPage() {
   const [ordres, setOrdres] = useState<OrdreReparation[]>([]);
   const [restitutions, setRestitutions] = useState<Restitution[]>([]);
   const [cessions, setCessions] = useState<CessionCreance[]>([]);
+  const [pieces, setPieces] = useState<{ dossier_id: string; type: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const [d, e, docs, v, p, r, ors, rests, cess] = await Promise.all([
+      const [d, e, docs, v, p, r, ors, rests, cess, pcs] = await Promise.all([
         supabase.from("dossiers").select("*").order("created_at", { ascending: false }),
         supabase.from("evenements").select("*").order("date_evenement", { ascending: true }),
         supabase.from("documents").select("*").order("created_at", { ascending: false }),
@@ -49,6 +50,7 @@ export default function DashboardPage() {
         supabase.from("ordres_reparation").select("*"),
         supabase.from("restitutions").select("*"),
         supabase.from("cessions_creance").select("*"),
+        supabase.from("pieces_dossier").select("dossier_id,type"),
       ]);
       if (d.data) setDossiers(d.data as Dossier[]);
       if (e.data) setEvenements(e.data as Evenement[]);
@@ -59,6 +61,7 @@ export default function DashboardPage() {
       setOrdres((ors.data as OrdreReparation[]) || []);
       setRestitutions((rests.data as Restitution[]) || []);
       setCessions((cess.data as CessionCreance[]) || []);
+      setPieces((pcs.data as { dossier_id: string; type: string }[]) || []);
       setLoading(false);
     })();
   }, []);
@@ -112,6 +115,7 @@ export default function DashboardPage() {
         ordres: ordres.filter((x) => x.dossier_id === d.id),
         restitutions: restitutions.filter((x) => x.dossier_id === d.id),
         cessions: cessions.filter((x) => x.dossier_id === d.id),
+        pieces: pieces.filter((x) => x.dossier_id === d.id),
       }),
     }))
     .filter((x): x is { dossier: Dossier; action: NonNullable<ReturnType<typeof calculeProchaineAction>> } =>

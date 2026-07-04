@@ -10,10 +10,12 @@ import {
   Dossier,
   OrdreReparation,
   Paiement,
+  PieceDossier,
   Relance,
   Restitution,
 } from "./types";
 import { resteAPayer, totalPaye } from "./paiements";
+import { completudePieces } from "./pieces";
 
 export type ProchaineAction = {
   code: string;
@@ -40,9 +42,26 @@ export function calculeProchaineAction(args: {
   ordres: OrdreReparation[];
   restitutions: Restitution[];
   cessions: CessionCreance[];
+  pieces?: Pick<PieceDossier, "type">[];
 }): ProchaineAction | null {
-  const { dossier, documents, paiements, relances, ordres, restitutions, cessions } = args;
+  const { dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces } = args;
   if (dossier.statut === "cloture") return null;
+
+  // 0) Dossier tout neuf : rassembler les pièces du client d'abord
+  if (pieces && ["nouveau", "expertise"].includes(dossier.statut)) {
+    const comp = completudePieces(dossier, pieces);
+    const manquantesClient = comp.manquantes.filter((m) => m !== "rapport d'expertise");
+    if (manquantesClient.length > 0) {
+      return {
+        code: "pieces",
+        titre: `Complète les pièces du dossier (${manquantesClient.join(", ")})`,
+        detail: "Photographie-les directement depuis le téléphone : bloc « Pièces du dossier » de la fiche.",
+        href: `/sinistres/${dossier.id}`,
+        ctaLabel: "Ouvrir le dossier",
+        urgence: "normale",
+      };
+    }
+  }
 
   const fiche = `/sinistres/${dossier.id}`;
   const devis = documents.filter((d) => d.type === "devis");
