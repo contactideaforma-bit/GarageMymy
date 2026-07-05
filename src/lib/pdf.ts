@@ -254,7 +254,34 @@ async function buildDocumentPdf(
     pdf.setFontSize(9);
     pdf.setTextColor(90);
     pdf.text("Notes :", M, ty);
-    pdf.text(pdf.splitTextToSize(doc.notes, pageW - M * 2), M, ty + 5);
+    const lignesNotes = pdf.splitTextToSize(doc.notes, pageW - M * 2) as string[];
+    pdf.text(lignesNotes, M, ty + 5);
+    ty += 5 + lignesNotes.length * 4.2;
+  }
+
+  // ---------- Signature électronique du client ----------
+  if (doc.signature) {
+    ty += 14;
+    if (ty > pageH - 65) { pdf.addPage(); drawFooter(); ty = 25; }
+    const w = 70;
+    const h = 32;
+    const x = right - w;
+    pdf.setFontSize(9);
+    pdf.setTextColor(30);
+    pdf.text("Signature du client :", x, ty);
+    pdf.setDrawColor(180);
+    pdf.setLineWidth(0.3);
+    pdf.rect(x, ty + 3, w, h);
+    try {
+      pdf.addImage(doc.signature, "PNG", x + 2, ty + 5, w - 4, h - 4);
+    } catch { /* dataURL invalide */ }
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(90);
+    const infosSig = [
+      doc.signataire_nom ? `Nom : ${doc.signataire_nom}` : "",
+      doc.signe_le ? `Signé le ${dateFr(doc.signe_le)}` : "",
+    ].filter(Boolean);
+    if (infosSig.length) pdf.text(infosSig, x, ty + h + 8);
   }
 
   return pdf;

@@ -35,22 +35,19 @@ const ETAPES: Etape[] = [
     appli: { label: "Agenda, + RDV (type : RDV expert)", href: "/agenda" },
   },
   {
-    titre: "L'expert envoie son chiffrage",
-    detail: "Par email, quelques jours après l'expertise.",
-  },
-  {
-    titre: "Tu fais le devis et tu l'envoies à l'expert et au client",
-    detail: "Importe le rapport de l'expert : le dossier ET le devis se remplissent tout seuls, poste par poste.",
+    titre: "L'expert envoie son chiffrage (pré-rapport)",
+    detail: "Par email, quelques jours après l'expertise. Importe-le : le dossier, l'ordre de réparation et la facture se créent tout seuls, strictement conformes au chiffrage.",
     appli: { label: "Importer un rapport (analyse automatique)", href: "/import" },
   },
   {
-    titre: "Devis validé : l'expert envoie le rapport définitif",
-    detail: "Si le devis est conforme, l'expert transmet son rapport définitif.",
+    titre: "Fais signer l'ordre de réparation",
+    detail: "À l'écran si le client est là, ou envoie-lui le lien de signature : il signe depuis son téléphone.",
+    appli: { label: "Fiche du dossier, bloc Atelier", href: "/sinistres" },
   },
   {
-    titre: "Ordre de réparation + facture, envoyés à l'expert et au client",
-    detail: "Fais signer l'ordre de réparation au client (directement à l'écran), crée la facture et envoie-les.",
-    appli: { label: "Fiche du dossier, bloc Atelier et Devis & Factures", href: "/sinistres" },
+    titre: "3 jours ouvrés après le chiffrage : envoie la facture",
+    detail: "À l'expert et au client (cas normal), ou à l'expert et à l'assurance (cession de créance). Un rappel est créé automatiquement dans l'agenda, et le guidage te le signale au bon moment.",
+    appli: { label: "Fiche du dossier, bloc Devis & Factures", href: "/sinistres" },
   },
   {
     titre: "Réparations et commande des pièces",

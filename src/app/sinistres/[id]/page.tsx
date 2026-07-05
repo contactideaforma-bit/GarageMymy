@@ -23,6 +23,7 @@ import ProchaineActionCard from "@/components/ProchaineActionCard";
 import PiecesPanel from "@/components/PiecesPanel";
 import DemandesPanel from "@/components/DemandesPanel";
 import CommandesPanel from "@/components/CommandesPanel";
+import SignatureDocModal from "@/components/SignatureDocModal";
 import { ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
@@ -81,6 +82,9 @@ export default function DossierDetailPage() {
 
   // composer email (devis/facture)
   const [emailDoc, setEmailDoc] = useState<Document | null>(null);
+  // signature d'un document (à l'écran ou lien à distance)
+  const [signDoc, setSignDoc] = useState<Document | null>(null);
+  const [emailSignature, setEmailSignature] = useState<{ titre: string; token: string } | null>(null);
 
   // mini-form événement
   const [evTitre, setEvTitre] = useState("");
@@ -144,20 +148,6 @@ export default function DossierDetailPage() {
     router.push("/sinistres");
   }
 
-  // Validation rapide du devis (étape clé du processus)
-  const devisEnvoye = documents.find((d) => d.type === "devis" && d.statut === "envoye") || null;
-  async function validerDevis() {
-    if (!devisEnvoye || !dossier) return;
-    await supabase.from("documents").update({ statut: "accepte" }).eq("id", devisEnvoye.id);
-    await supabase.from("evenements").insert({
-      dossier_id: dossier.id,
-      titre: "Devis validé par l'expert",
-      description: `${devisEnvoye.numero || "Devis"} accepté — rapport définitif attendu ou reçu.`,
-      date_evenement: new Date().toISOString(),
-      categorie: "autre",
-    });
-    load();
-  }
 
   async function ajouterEvenement(e: React.FormEvent) {
     e.preventDefault();
@@ -205,6 +195,13 @@ export default function DossierDetailPage() {
   }
 
   const action = calculeProchaineAction({ dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces, demandes });
+  // Destinataires d'envoi des documents selon le processus :
+  // cas normal → expert + client ; cession de créance → expert + assurance.
+  const enCession = Boolean(dossier.mode_cession) || cessions.some((c) => c.statut === "signe");
+  const destinatairesDocument = (doc: Document): string =>
+    [dossier.expert_email || dossier.cabinet_email, doc.type === "facture" && enCession ? dossier.assureur_email : dossier.client_email]
+      .filter(Boolean)
+      .join(", ");
 
   return (
     <div className="space-y-6">
@@ -232,13 +229,6 @@ export default function DossierDetailPage() {
 
       {/* Prochaine action : le guide dit quoi faire maintenant */}
       <ProchaineActionCard action={action} avecCta={action?.href !== `/sinistres/${dossier.id}`} />
-      {devisEnvoye && ["attente_validation", "relance_devis"].includes(action?.code || "") && (
-        <div className="flex justify-end -mt-3">
-          <button onClick={validerDevis} className="btn-ghost py-1.5 px-4 text-xs">
-            Le devis a été validé par l&apos;expert
-          </button>
-        </div>
-      )}
 
       {/* Pipeline */}
       <section className="glass-card p-5">
@@ -318,6 +308,7 @@ export default function DossierDetailPage() {
         <Card title="Client">
           <InfoRow label="Nom et prénom" value={dossier.client_nom} />
           <InfoRow label="Email" value={dossier.client_email} />
+          <InfoRow label="Téléphone" value={dossier.client_tel} />
           <InfoRow label="Adresse" value={dossier.client_adresse} />
           <InfoRow label="Code postal" value={dossier.client_code_postal} />
           <InfoRow label="Ville" value={dossier.client_ville} />
@@ -386,6 +377,9 @@ export default function DossierDetailPage() {
                   <td className="px-5 py-3 text-right whitespace-nowrap">
                     <button onClick={() => exporterPdf(doc)} className="text-accent-teal hover:underline mr-3">PDF</button>
                     <button onClick={() => setEmailDoc(doc)} className="text-accent-teal hover:underline mr-3">Envoyer</button>
+                    <button onClick={() => setSignDoc(doc)} className="text-accent-teal hover:underline mr-3">
+                      {doc.signature ? "Signé ✓" : "Signer"}
+                    </button>
                     <button onClick={() => ouvrirEdition(doc)} className="text-accent-pink hover:underline mr-3">Modifier</button>
                     <button onClick={() => supprimerDoc(doc)} className="text-white/40 hover:text-rose-300">Suppr.</button>
                   </td>
@@ -447,7 +441,7 @@ export default function DossierDetailPage() {
         <EmailComposer
           dossier={dossier}
           document={emailDoc}
-          defaultTo={dossier.assureur_email || ""}
+          defaultTo={destinatairesDocument(emailDoc)}
           defaultSubject={`${emailDoc.type === "devis" ? "Devis" : "Facture"} ${emailDoc.numero || ""} — ${
             dossier.marque_modele || ""
           }${dossier.immatriculation ? ` (${dossier.immatriculation})` : ""}`}
@@ -457,6 +451,40 @@ export default function DossierDetailPage() {
             dossier.client_nom ? ` (${dossier.client_nom})` : ""
           }.\n\nRestant à votre disposition,\nCordialement.`}
           onClose={() => setEmailDoc(null)}
+          onSent={load}
+        />
+      )}
+      {signDoc && (
+        <SignatureDocModal
+          dossier={dossier}
+          document={signDoc}
+          onClose={() => setSignDoc(null)}
+          onSaved={() => { setSignDoc(null); load(); }}
+          onEnvoyerLien={() => {
+            const d = signDoc;
+            setSignDoc(null);
+            if (d?.sign_token) {
+              setEmailSignature({
+                titre: `${d.type === "devis" ? "le devis" : "la facture"} ${d.numero || ""}`,
+                token: d.sign_token,
+              });
+            }
+          }}
+        />
+      )}
+      {emailSignature && (
+        <EmailComposer
+          dossier={dossier}
+          defaultTo={dossier.client_email || ""}
+          defaultSubject={`Signature requise — ${dossier.marque_modele || "votre véhicule"}${
+            dossier.immatriculation ? ` (${dossier.immatriculation})` : ""
+          }`}
+          defaultBody={`Bonjour${dossier.client_nom ? ` ${dossier.client_nom}` : ""},\n\nMerci de signer ${
+            emailSignature.titre
+          } concernant votre dossier${dossier.numero_sinistre ? ` n° ${dossier.numero_sinistre}` : ""} en cliquant sur ce lien sécurisé :\n\n${
+            typeof window !== "undefined" ? window.location.origin : ""
+          }/signer/${emailSignature.token}\n\nLa signature se fait en 30 secondes, directement depuis votre téléphone.\n\nCordialement.`}
+          onClose={() => setEmailSignature(null)}
           onSent={load}
         />
       )}

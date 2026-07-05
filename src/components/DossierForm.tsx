@@ -4,7 +4,8 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchAuth } from "@/lib/apiClient";
 import { Dossier } from "@/lib/types";
-import { STATUTS_ORDRE, STATUTS_INFO } from "@/lib/format";
+import { STATUTS_ORDRE, STATUTS_INFO, addJoursOuvres } from "@/lib/format";
+import { genNumeroOR } from "@/lib/atelier";
 import {
   computeTotaux,
   genNumero,
@@ -38,6 +39,7 @@ type FormState = {
   client_code_postal: string;
   client_ville: string;
   client_email: string;
+  client_tel: string;
   reparation_debut: string;
   reparation_fin: string;
   reparateur: string;
@@ -71,6 +73,7 @@ function toForm(d?: Partial<Dossier> | null): FormState {
     client_code_postal: d?.client_code_postal ?? "",
     client_ville: d?.client_ville ?? "",
     client_email: d?.client_email ?? "",
+    client_tel: d?.client_tel ?? "",
     reparation_debut: d?.reparation_debut ?? "",
     reparation_fin: d?.reparation_fin ?? "",
     reparateur: d?.reparateur ?? "",
@@ -162,6 +165,96 @@ export default function DossierForm({
   const set = (name: keyof FormState, value: string) =>
     setForm((f) => ({ ...f, [name]: value }));
 
+  // Alimente / complète l'annuaire (clients, experts, assureurs) depuis le
+  // dossier — SANS doublon : si la fiche existe, on ne remplit que les champs
+  // vides (jamais d'écrasement).
+  async function synchroniserAnnuaire() {
+    // Client (doublon par nom, insensible à la casse)
+    if (form.client_nom) {
+      const { data: existing } = await supabase
+        .from("clients")
+        .select("id,email,telephone,adresse,code_postal,ville")
+        .ilike("nom", form.client_nom.trim())
+        .limit(1)
+        .maybeSingle();
+      if (!existing) {
+        await supabase.from("clients").insert({
+          nom: form.client_nom.trim(),
+          email: form.client_email || null,
+          telephone: form.client_tel || null,
+          adresse: form.client_adresse || null,
+          code_postal: form.client_code_postal || null,
+          ville: form.client_ville || null,
+          source: "auto",
+        });
+      } else {
+        const maj: Record<string, string> = {};
+        if (form.client_email && !existing.email) maj.email = form.client_email;
+        if (form.client_tel && !existing.telephone) maj.telephone = form.client_tel;
+        if (form.client_adresse && !existing.adresse) maj.adresse = form.client_adresse;
+        if (form.client_code_postal && !existing.code_postal) maj.code_postal = form.client_code_postal;
+        if (form.client_ville && !existing.ville) maj.ville = form.client_ville;
+        if (Object.keys(maj).length) await supabase.from("clients").update(maj).eq("id", existing.id);
+      }
+    }
+
+    // Expert (doublon par cabinet)
+    if (form.cabinet_expert) {
+      const { data: ex } = await supabase
+        .from("experts")
+        .select("id,adresse,tel,email,expert_nom,expert_tel,expert_email")
+        .ilike("cabinet", form.cabinet_expert.trim())
+        .limit(1)
+        .maybeSingle();
+      if (!ex) {
+        await supabase.from("experts").insert({
+          cabinet: form.cabinet_expert.trim(),
+          adresse: form.cabinet_adresse || null,
+          tel: form.cabinet_tel || null,
+          email: form.cabinet_email || null,
+          expert_nom: form.expert_nom || null,
+          expert_tel: form.expert_tel || null,
+          expert_email: form.expert_email || null,
+          source: "auto",
+        });
+      } else {
+        const maj: Record<string, string> = {};
+        if (form.cabinet_adresse && !ex.adresse) maj.adresse = form.cabinet_adresse;
+        if (form.cabinet_tel && !ex.tel) maj.tel = form.cabinet_tel;
+        if (form.cabinet_email && !ex.email) maj.email = form.cabinet_email;
+        if (form.expert_nom && !ex.expert_nom) maj.expert_nom = form.expert_nom;
+        if (form.expert_tel && !ex.expert_tel) maj.expert_tel = form.expert_tel;
+        if (form.expert_email && !ex.expert_email) maj.expert_email = form.expert_email;
+        if (Object.keys(maj).length) await supabase.from("experts").update(maj).eq("id", ex.id);
+      }
+    }
+
+    // Assureur (doublon par nom)
+    if (form.assureur) {
+      const { data: as } = await supabase
+        .from("assureurs")
+        .select("id,adresse,tel,email")
+        .ilike("nom", form.assureur.trim())
+        .limit(1)
+        .maybeSingle();
+      if (!as) {
+        await supabase.from("assureurs").insert({
+          nom: form.assureur.trim(),
+          adresse: form.assureur_adresse || null,
+          tel: form.assureur_tel || null,
+          email: form.assureur_email || null,
+          source: "auto",
+        });
+      } else {
+        const maj: Record<string, string> = {};
+        if (form.assureur_adresse && !as.adresse) maj.adresse = form.assureur_adresse;
+        if (form.assureur_tel && !as.tel) maj.tel = form.assureur_tel;
+        if (form.assureur_email && !as.email) maj.email = form.assureur_email;
+        if (Object.keys(maj).length) await supabase.from("assureurs").update(maj).eq("id", as.id);
+      }
+    }
+  }
+
   async function analyser() {
     if (!file) return;
     setAnalyzing(true);
@@ -241,6 +334,7 @@ export default function DossierForm({
         client_nom: form.client_nom || null,
         client_adresse: form.client_adresse || null,
         client_email: form.client_email || null,
+        client_tel: form.client_tel || null,
         client_code_postal: form.client_code_postal || null,
         client_ville: form.client_ville || null,
         reparation_debut: form.reparation_debut || null,
@@ -255,6 +349,7 @@ export default function DossierForm({
       if (isEdit && dossier) {
         const { error: updErr } = await supabase.from("dossiers").update(payload).eq("id", dossier.id);
         if (updErr) throw updErr;
+        await synchroniserAnnuaire();
       } else {
         const { data: created, error: insErr } = await supabase
           .from("dossiers")
@@ -264,71 +359,48 @@ export default function DossierForm({
         if (insErr) throw insErr;
         const newId = created?.id as string | undefined;
 
-        // Alimente automatiquement la base Clients (sans doublon nom+CP)
-        if (form.client_nom) {
-          const { data: existing } = await supabase
-            .from("clients")
-            .select("id")
-            .eq("nom", form.client_nom)
-            .eq("code_postal", form.client_code_postal || "")
-            .maybeSingle();
-          if (!existing) {
-            await supabase.from("clients").insert({
-              nom: form.client_nom,
-              email: form.client_email || null,
-              adresse: form.client_adresse || null,
-              code_postal: form.client_code_postal || null,
-              ville: form.client_ville || null,
-              source: "auto",
-            });
-          } else if (form.client_email) {
-            // Complète l'annuaire si l'email y manquait
-            await supabase.from("clients").update({ email: form.client_email }).eq("id", existing.id).is("email", null);
-          }
-        }
+        await synchroniserAnnuaire();
 
-        // Alimente l'annuaire Experts (sans doublon cabinet)
-        if (form.cabinet_expert) {
-          const { data: ex } = await supabase
-            .from("experts").select("id").eq("cabinet", form.cabinet_expert).maybeSingle();
-          if (!ex) {
-            await supabase.from("experts").insert({
-              cabinet: form.cabinet_expert,
-              adresse: form.cabinet_adresse || null,
-              tel: form.cabinet_tel || null,
-              email: form.cabinet_email || null,
-              expert_nom: form.expert_nom || null,
-              expert_tel: form.expert_tel || null,
-              expert_email: form.expert_email || null,
-              source: "auto",
-            });
-          }
-        }
-
-        // Alimente l'annuaire Assureurs (sans doublon nom)
-        if (form.assureur) {
-          const { data: existingAs } = await supabase
-            .from("assureurs").select("id").eq("nom", form.assureur).maybeSingle();
-          if (!existingAs) {
-            await supabase.from("assureurs").insert({
-              nom: form.assureur,
-              adresse: form.assureur_adresse || null,
-              tel: form.assureur_tel || null,
-              email: form.assureur_email || null,
-              source: "auto",
-            });
-          }
-        }
-
-        // Génère automatiquement un devis + une facture depuis le rapport
+        // NOUVEAU PROCESSUS : à réception du chiffrage (pré-rapport), on émet
+        // un ORDRE DE RÉPARATION strictement conforme au chiffrage + la facture
+        // (brouillon), et on programme le rappel d'envoi à J+3 OUVRÉS.
         if (newId && analysed) {
           const lignes = normaliseLignes(
             autoLignes,
             form.montant ? Number(form.montant) : null
           );
           if (lignes.length) {
-            await creerDocument("devis", newId, lignes, autoTva);
+            const totalHt = lignes.reduce((s, l) => s + l.quantite * l.prix_unitaire, 0);
+            const travaux =
+              "Conforme au chiffrage du rapport d'expertise :\n" +
+              lignes
+                .map((l) => {
+                  const total = l.quantite * l.prix_unitaire;
+                  return `- ${l.designation}${l.quantite !== 1 ? ` (x${l.quantite})` : ""}${
+                    total > 0 ? ` — ${total.toFixed(2)} € HT` : ""
+                  }`;
+                })
+                .join("\n");
+            await supabase.from("ordres_reparation").insert({
+              dossier_id: newId,
+              numero: genNumeroOR(),
+              date_or: new Date().toISOString().slice(0, 10),
+              travaux,
+              montant_ht: totalHt,
+              signataire_nom: form.client_nom || null,
+            });
             await creerDocument("facture", newId, lignes, autoTva);
+
+            // Rappel automatique : envoyer la facture 3 jours ouvrés plus tard
+            const dateEnvoi = addJoursOuvres(new Date(), 3);
+            await supabase.from("evenements").insert({
+              dossier_id: newId,
+              titre: "Envoyer la facture",
+              description:
+                "Rappel automatique : 3 jours ouvrés après réception du chiffrage, envoyer la facture à l'expert et au client (ou à l'expert et à l'assurance si cession de créance).",
+              date_evenement: dateEnvoi.toISOString(),
+              categorie: "autre",
+            });
           }
         }
       }
@@ -431,6 +503,7 @@ export default function DossierForm({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Nom et prénom" name="client_nom" value={form.client_nom} onChange={set} />
               <Field label="Email" name="client_email" value={form.client_email} onChange={set} type="email" />
+              <Field label="Téléphone" name="client_tel" value={form.client_tel} onChange={set} />
               <Field label="Adresse postale" name="client_adresse" value={form.client_adresse} onChange={set} />
               <Field label="Code postal" name="client_code_postal" value={form.client_code_postal} onChange={set} />
               <Field label="Ville" name="client_ville" value={form.client_ville} onChange={set} />

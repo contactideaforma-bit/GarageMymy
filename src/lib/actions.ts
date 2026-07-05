@@ -17,6 +17,7 @@ import {
 } from "./types";
 import { resteAPayer, totalPaye } from "./paiements";
 import { completudePieces } from "./pieces";
+import { addJoursOuvres } from "./format";
 
 export type ProchaineAction = {
   code: string;
@@ -82,9 +83,7 @@ export function calculeProchaineAction(args: {
   }
 
   const fiche = `/sinistres/${dossier.id}`;
-  const devis = documents.filter((d) => d.type === "devis");
   const factures = documents.filter((d) => d.type === "facture");
-  const dernierDevis = devis[0] || null; // les listes sont triées created_at desc
   const orSigne = ordres.some((o) => o.statut === "signe");
   const cessionSignee = cessions.some((c) => c.statut === "signe");
   const restitutionSignee = restitutions.some((r) => r.statut === "signe");
@@ -101,69 +100,36 @@ export function calculeProchaineAction(args: {
     }
   }
 
-  // 1) Pas de devis : soit on attend le chiffrage, soit il faut le faire
-  if (devis.length === 0) {
-    if (!dossier.rapport_path) {
-      return {
-        code: "chiffrage",
-        titre: "Importe le chiffrage de l'expert",
-        detail: "Dès réception du mail de l'expert, importe son rapport : le devis se créera tout seul.",
-        href: "/import",
-        ctaLabel: "Importer le rapport",
-        urgence: "normale",
-      };
-    }
+  // 1) Pas de chiffrage : on attend le pré-rapport de l'expert
+  if (!dossier.rapport_path && ordres.length === 0 && factures.length === 0) {
     return {
-      code: "devis",
-      titre: "Crée le devis",
-      detail: "Le rapport est là : crée le devis (bloc Devis & Factures de la fiche).",
+      code: "chiffrage",
+      titre: "Importe le chiffrage de l'expert (pré-rapport)",
+      detail: "Dès réception du mail de l'expert, importe son rapport : l'ordre de réparation et la facture se créent tout seuls, conformes au chiffrage.",
+      href: "/import",
+      ctaLabel: "Importer le rapport",
+      urgence: "normale",
+    };
+  }
+
+  // 2) Chiffrage reçu mais pas d'ordre de réparation (anciens dossiers)
+  if (ordres.length === 0) {
+    return {
+      code: "or_creer",
+      titre: "Émets l'ordre de réparation",
+      detail: "Strictement conforme au chiffrage de l'expert (bloc Atelier de la fiche).",
       href: fiche,
       ctaLabel: "Ouvrir le dossier",
       urgence: "normale",
     };
   }
 
-  // 2) Devis en brouillon : à envoyer à l'expert et au client
-  if (dernierDevis && dernierDevis.statut === "brouillon") {
-    return {
-      code: "envoi_devis",
-      titre: "Envoie le devis à l'expert et au client",
-      detail: "Bouton « Envoyer » sur le devis, dans la fiche du dossier.",
-      href: fiche,
-      ctaLabel: "Ouvrir le dossier",
-      urgence: "normale",
-    };
-  }
-
-  // 3) Devis envoyé mais pas encore accepté : on attend la validation
-  if (dernierDevis && dernierDevis.statut === "envoye") {
-    const j = joursDepuis(dernierDevis.date_document || dernierDevis.created_at) ?? 0;
-    if (j > 7) {
-      return {
-        code: "relance_devis",
-        titre: "Relance l'expert : devis sans réponse",
-        detail: `Devis envoyé il y a ${j} jours sans validation. Un petit rappel s'impose.`,
-        href: fiche,
-        ctaLabel: "Ouvrir le dossier",
-        urgence: "haute",
-      };
-    }
-    return {
-      code: "attente_validation",
-      titre: "En attente de validation du devis",
-      detail: "L'expert doit valider et envoyer son rapport définitif.",
-      href: fiche,
-      ctaLabel: "Ouvrir le dossier",
-      urgence: "attente",
-    };
-  }
-
-  // 4) Devis accepté : ordre de réparation signé avant les travaux
+  // 3) OR émis mais pas signé : signature du client avant les travaux
   if (!orSigne) {
     return {
       code: "or",
       titre: "Fais signer l'ordre de réparation",
-      detail: "Signature du client directement à l'écran (bloc Atelier), avant de commencer les travaux.",
+      detail: "Signature à l'écran, ou envoie le lien de signature au client (bloc Atelier).",
       href: fiche,
       ctaLabel: "Ouvrir le dossier",
       urgence: "normale",
@@ -194,18 +160,32 @@ export function calculeProchaineAction(args: {
     };
   }
 
-  // 6) Facture en brouillon : à envoyer (destinataire selon cession)
+  // 6) Facture en brouillon : envoi à J+3 OUVRÉS après le chiffrage
+  //    (destinataires : expert + client, ou expert + assurance si cession)
   const enCession = cessionSignee || Boolean(dossier.mode_cession);
   const factureBrouillon = factures.find((f) => f.statut === "brouillon");
   if (factureBrouillon) {
+    const dateEnvoi = addJoursOuvres(factureBrouillon.created_at, 3);
+    dateEnvoi.setHours(0, 0, 0, 0);
+    const aujourdhui = new Date();
+    if (aujourdhui < dateEnvoi) {
+      return {
+        code: "attente_envoi_facture",
+        titre: `Facture à envoyer le ${dateEnvoi.toLocaleDateString("fr-FR")}`,
+        detail: "Délai de 3 jours ouvrés après réception du chiffrage. Un rappel est déjà dans l'agenda.",
+        href: fiche,
+        ctaLabel: "Ouvrir le dossier",
+        urgence: "attente",
+      };
+    }
     return {
       code: "envoi_facture",
       titre: enCession
-        ? "Envoie la facture à l'assurance (cession de créance)"
-        : "Envoie la facture au client et à l'expert",
+        ? "Envoie la facture à l'expert et à l'assurance (cession)"
+        : "Envoie la facture à l'expert et au client",
       detail: enCession
-        ? "La cession est en place : l'assurance te paiera directement. N'envoie PAS la facture au client."
-        : "Cas normal : le client transmettra la facture à son assurance. (Astuce : la cession de créance évite cette étape.)",
+        ? "Les 3 jours ouvrés sont passés. La cession est en place : l'assurance te paiera directement — n'envoie PAS la facture au client."
+        : "Les 3 jours ouvrés sont passés. Cas normal : le client transmettra la facture à son assurance.",
       href: fiche,
       ctaLabel: "Ouvrir le dossier",
       urgence: "normale",

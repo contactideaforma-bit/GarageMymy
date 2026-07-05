@@ -91,6 +91,18 @@ export function progressionDossier(statut: string): number {
   return PROGRESSION[statut] ?? 5;
 }
 
+// Ajoute n jours OUVRÉS (lun-ven) à une date.
+export function addJoursOuvres(depart: Date | string, n: number): Date {
+  const d = new Date(depart);
+  let restants = n;
+  while (restants > 0) {
+    d.setDate(d.getDate() + 1);
+    const jour = d.getDay();
+    if (jour !== 0 && jour !== 6) restants--;
+  }
+  return d;
+}
+
 // Message d'erreur lisible, y compris pour les erreurs Supabase
 // (objets simples, PAS des instances de Error → sinon message générique inutile).
 export function messageErreur(err: unknown, fallback = "Erreur lors de l'enregistrement."): string {

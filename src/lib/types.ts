@@ -37,6 +37,7 @@ export type Dossier = {
   client_code_postal: string | null;
   client_ville: string | null;
   client_email?: string | null;
+  client_tel?: string | null;
 
   // Réparation (planning)
   reparation_debut: string | null;
@@ -120,6 +121,11 @@ export type Document = {
   total_ht: number | null;
   total_tva: number | null;
   total_ttc: number | null;
+  // Signature électronique (en bas du PDF)
+  signataire_nom?: string | null;
+  signature?: string | null;
+  signe_le?: string | null;
+  sign_token?: string | null;
 };
 
 export type DocumentLigne = {
@@ -198,6 +204,7 @@ export type OrdreReparation = {
   signature: string | null; // dataURL PNG
   signe_le: string | null;
   statut: string; // brouillon | signe
+  sign_token?: string | null;
 };
 
 export type Restitution = {
@@ -253,6 +260,7 @@ export type CessionCreance = {
   signature: string | null; // dataURL PNG
   signe_le: string | null;
   statut: string; // brouillon | signe
+  sign_token?: string | null;
 };
 
 export type FlotteVehicule = {

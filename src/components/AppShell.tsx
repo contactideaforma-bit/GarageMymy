@@ -2,10 +2,17 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Page publique de signature : pas de barre latérale ni de menu.
+  if (pathname?.startsWith("/signer/")) {
+    return <main className="min-h-screen">{children}</main>;
+  }
 
   return (
     <div className="lg:flex min-h-screen">

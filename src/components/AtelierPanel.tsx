@@ -33,6 +33,8 @@ export default function AtelierPanel({
     | null
   >(null);
   const [emailCession, setEmailCession] = useState<CessionCreance | null>(null);
+  // envoi d'un lien de signature à distance (OR ou cession)
+  const [emailSign, setEmailSign] = useState<{ titre: string; token: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,9 +124,19 @@ export default function AtelierPanel({
               <div className="flex gap-3 text-sm whitespace-nowrap">
                 <button onClick={() => generateOrdreReparationPdf(or, dossier)} className="text-accent-teal hover:underline">PDF</button>
                 {or.statut !== "signe" && (
-                  <button onClick={() => setModal({ kind: "or", or })} className="text-accent-pink hover:underline">
-                    Modifier / Signer
-                  </button>
+                  <>
+                    <button onClick={() => setModal({ kind: "or", or })} className="text-accent-pink hover:underline">
+                      Modifier / Signer
+                    </button>
+                    {or.sign_token && (
+                      <button
+                        onClick={() => setEmailSign({ titre: `l'ordre de réparation ${or.numero || ""}`, token: or.sign_token! })}
+                        className="text-accent-teal hover:underline"
+                      >
+                        Faire signer à distance
+                      </button>
+                    )}
+                  </>
                 )}
                 <button onClick={() => supprimerOR(or)} className="text-white/40 hover:text-rose-300">Suppr.</button>
               </div>
@@ -152,9 +164,19 @@ export default function AtelierPanel({
                 <button onClick={() => generateCessionPdf(c, dossier)} className="text-accent-teal hover:underline">PDF</button>
                 <button onClick={() => setEmailCession(c)} className="text-accent-teal hover:underline">Envoyer</button>
                 {c.statut !== "signe" && (
-                  <button onClick={() => setModal({ kind: "cession", cession: c })} className="text-accent-pink hover:underline">
-                    Modifier / Signer
-                  </button>
+                  <>
+                    <button onClick={() => setModal({ kind: "cession", cession: c })} className="text-accent-pink hover:underline">
+                      Modifier / Signer
+                    </button>
+                    {c.sign_token && (
+                      <button
+                        onClick={() => setEmailSign({ titre: "la cession de créance", token: c.sign_token! })}
+                        className="text-accent-teal hover:underline"
+                      >
+                        Faire signer à distance
+                      </button>
+                    )}
+                  </>
                 )}
                 <button onClick={() => supprimerCession(c)} className="text-white/40 hover:text-rose-300">Suppr.</button>
               </div>
@@ -233,6 +255,22 @@ export default function AtelierPanel({
             dossier.numero_police ? ` (police n° ${dossier.numero_police})` : ""
           }.\n\nVous trouverez ci-joint l'acte de cession signé. En conséquence, nous vous remercions de bien vouloir procéder au règlement de l'indemnité directement entre nos mains.\n\nRestant à votre disposition,\nCordialement.`}
           onClose={() => setEmailCession(null)}
+        />
+      )}
+      {emailSign && (
+        <EmailComposer
+          dossier={dossier}
+          defaultTo={dossier.client_email || ""}
+          defaultSubject={`Signature requise — ${dossier.marque_modele || "votre véhicule"}${
+            dossier.immatriculation ? ` (${dossier.immatriculation})` : ""
+          }`}
+          defaultBody={`Bonjour${dossier.client_nom ? ` ${dossier.client_nom}` : ""},\n\nMerci de signer ${
+            emailSign.titre
+          } concernant votre dossier${dossier.numero_sinistre ? ` n° ${dossier.numero_sinistre}` : ""} en cliquant sur ce lien sécurisé :\n\n${
+            typeof window !== "undefined" ? window.location.origin : ""
+          }/signer/${emailSign.token}\n\nLa signature se fait en 30 secondes, directement depuis votre téléphone.\n\nCordialement.`}
+          onClose={() => setEmailSign(null)}
+          onSent={() => refresh()}
         />
       )}
     </section>
