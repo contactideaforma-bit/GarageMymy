@@ -24,6 +24,7 @@ import PiecesPanel from "@/components/PiecesPanel";
 import DemandesPanel from "@/components/DemandesPanel";
 import CommandesPanel from "@/components/CommandesPanel";
 import SignatureDocModal from "@/components/SignatureDocModal";
+import ModalShell from "@/components/ModalShell";
 import { ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
@@ -41,8 +42,8 @@ import ConfigBanner from "@/components/ConfigBanner";
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex justify-between gap-4 py-2 border-b border-white/5 last:border-0">
-      <span className="text-sm text-white/50">{label}</span>
-      <span className="text-sm font-medium text-white text-right">{value || "—"}</span>
+      <span className="shrink-0 text-sm text-white/50">{label}</span>
+      <span className="min-w-0 break-words text-sm font-medium text-white text-right">{value || "—"}</span>
     </div>
   );
 }
@@ -85,6 +86,31 @@ export default function DossierDetailPage() {
   // signature d'un document (à l'écran ou lien à distance)
   const [signDoc, setSignDoc] = useState<Document | null>(null);
   const [emailSignature, setEmailSignature] = useState<{ titre: string; token: string } | null>(null);
+
+  // planification de la réparation (dates + réparateur) depuis la fiche
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planDebut, setPlanDebut] = useState("");
+  const [planFin, setPlanFin] = useState("");
+  const [planRep, setPlanRep] = useState("");
+
+  function ouvrirPlanif() {
+    if (!dossier) return;
+    setPlanDebut(dossier.reparation_debut || "");
+    setPlanFin(dossier.reparation_fin || "");
+    setPlanRep(dossier.reparateur || "");
+    setPlanOpen(true);
+  }
+
+  async function enregistrerPlanif() {
+    if (!dossier) return;
+    await supabase.from("dossiers").update({
+      reparation_debut: planDebut || null,
+      reparation_fin: planFin || null,
+      reparateur: planRep || null,
+    }).eq("id", dossier.id);
+    setPlanOpen(false);
+    load();
+  }
 
   // mini-form événement
   const [evTitre, setEvTitre] = useState("");
@@ -305,6 +331,14 @@ export default function DossierDetailPage() {
           <InfoRow label="Début" value={formatDate(dossier.reparation_debut)} />
           <InfoRow label="Fin" value={formatDate(dossier.reparation_fin)} />
           <InfoRow label="Réparateur" value={dossier.reparateur} />
+          <div className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+            <button onClick={ouvrirPlanif} className="btn-ghost py-1.5 px-3 text-xs">
+              {dossier.reparation_debut ? "Modifier la planification" : "Planifier la réparation"}
+            </button>
+            <Link href="/planning" className="text-sm text-accent-teal hover:underline">
+              Voir le planning
+            </Link>
+          </div>
         </Card>
 
         <Card title="Client">
@@ -480,6 +514,31 @@ export default function DossierDetailPage() {
             }
           }}
         />
+      )}
+      {planOpen && (
+        <ModalShell title="Planifier la réparation" onClose={() => setPlanOpen(false)}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="field-label">Début des travaux</label>
+              <input type="date" className="field-input" value={planDebut} onChange={(e) => setPlanDebut(e.target.value)} />
+            </div>
+            <div>
+              <label className="field-label">Fin prévue</label>
+              <input type="date" className="field-input" value={planFin} onChange={(e) => setPlanFin(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="field-label">Réparateur attitré</label>
+            <input className="field-input" value={planRep} onChange={(e) => setPlanRep(e.target.value)} placeholder="Nom du réparateur" />
+          </div>
+          <p className="text-xs text-white/40">
+            Le véhicule apparaîtra sur le calendrier du Planning atelier sur toute la période.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button onClick={() => setPlanOpen(false)} className="btn-ghost">Annuler</button>
+            <button onClick={enregistrerPlanif} className="btn-primary">Enregistrer</button>
+          </div>
+        </ModalShell>
       )}
       {emailSignature && (
         <EmailComposer

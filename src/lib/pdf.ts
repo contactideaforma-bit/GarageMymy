@@ -479,7 +479,8 @@ function lignesDepuisTravaux(travaux: string | null): {
   const intro: string[] = [];
   const lignes: { designation: string; montant: number | null }[] = [];
   const libre: string[] = [];
-  const regex = /^-\s*(.+?)\s*(?:—\s*([\d\s.,]+)\s*€\s*HT)?\s*$/;
+  // Tolère - – — comme séparateur et « € » avec ou sans « HT »
+  const regex = /^[-•]\s*(.+?)\s*(?:[—–-]\s*([\d\s.,]+)\s*€(?:\s*HT)?)?\s*$/;
   for (const brute of (travaux || "").split("\n")) {
     const t = brute.trim();
     if (!t) continue;
@@ -598,7 +599,8 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
       margin: { top: 20, left: M, right: M, bottom: 26 },
       tableWidth: pageW - M * 2,
       head: [["Désignation des travaux", "Montant HT"]],
-      body: lignes.map((l) => [l.designation, l.montant != null ? euros(l.montant) : "Inclus"]),
+      // Montants EXACTS du chiffrage ; pas de montant → cellule vide
+      body: lignes.map((l) => [l.designation, l.montant != null ? euros(l.montant) : ""]),
       headStyles: { fillColor: accent, textColor: 255, fontStyle: "bold" },
       styles: { fontSize: 9, cellPadding: 2.5, overflow: "linebreak", valign: "middle" },
       alternateRowStyles: { fillColor: [245, 244, 250] },

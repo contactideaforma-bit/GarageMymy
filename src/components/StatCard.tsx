@@ -24,8 +24,8 @@ export default function StatCard({
   return (
     <div className="glass-card relative overflow-hidden p-5">
       <span className="absolute inset-x-0 top-0 h-1.5" style={{ backgroundColor: color }} />
-      <div className="font-pixel text-[0.5rem] leading-relaxed text-white/60">{label}</div>
-      <div className="mt-2 text-2xl font-bold text-white tabular-nums">{value}</div>
+      <div className="font-pixel break-words text-[0.5rem] leading-relaxed text-white/60">{label}</div>
+      <div className="mt-2 break-words text-2xl font-bold leading-tight text-white tabular-nums">{value}</div>
       {hint && <div className="mt-1 text-xs text-white/40">{hint}</div>}
     </div>
   );

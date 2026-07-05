@@ -90,7 +90,7 @@ export default function DemandesPanel({
                   {d.notes ? ` — ${d.notes}` : ""}
                 </div>
               </div>
-              <div className="flex shrink-0 gap-3 text-sm">
+              <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
                 {!d.date_envoi && (
                   <>
                     <button onClick={() => setEmailDemande(d)} className="text-accent-teal hover:underline">

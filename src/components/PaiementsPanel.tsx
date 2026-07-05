@@ -170,7 +170,7 @@ export default function PaiementsPanel({
                     {f.date_echeance ? ` · échéance ${formatDate(f.date_echeance)}` : ""}
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setModal({ kind: "paiement", facture: f })}
                     className="btn-primary py-1.5 px-3 text-xs"

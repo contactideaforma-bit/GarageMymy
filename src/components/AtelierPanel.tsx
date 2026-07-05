@@ -128,7 +128,7 @@ export default function AtelierPanel({
                   {or.signe_le ? ` · signé le ${formatDate(or.signe_le)} par ${or.signataire_nom || "le client"}` : " · en attente de signature"}
                 </div>
               </div>
-              <div className="flex gap-3 text-sm whitespace-nowrap">
+              <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
                 <button onClick={() => apercuOrdreReparationPdf(or, dossier)} className="text-accent-teal hover:underline">PDF</button>
                 <button onClick={() => setEmailOR(or)} className="text-accent-teal hover:underline">Envoyer</button>
                 {or.statut !== "signe" && (
@@ -168,7 +168,7 @@ export default function AtelierPanel({
                   {c.signe_le ? ` · signée par ${c.signataire_nom || "le client"}` : " · en attente de signature"}
                 </div>
               </div>
-              <div className="flex gap-3 text-sm whitespace-nowrap">
+              <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
                 <button onClick={() => apercuCessionPdf(c, dossier)} className="text-accent-teal hover:underline">PDF</button>
                 <button onClick={() => setEmailCession(c)} className="text-accent-teal hover:underline">Envoyer</button>
                 {c.statut !== "signe" && (
@@ -208,7 +208,7 @@ export default function AtelierPanel({
                   {rest.signe_le ? ` · signé par ${rest.signataire_nom || "le client"}` : " · en attente de signature"}
                 </div>
               </div>
-              <div className="flex gap-3 text-sm whitespace-nowrap">
+              <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
                 <button onClick={() => apercuRestitutionPdf(rest, dossier)} className="text-accent-teal hover:underline">PDF</button>
                 {rest.statut !== "signe" && (
                   <button onClick={() => setModal({ kind: "restitution", rest })} className="text-accent-pink hover:underline">
@@ -354,8 +354,15 @@ function ORModal({
       if (!devis) return;
       const { data: lignes } = await supabase
         .from("document_lignes").select("*").eq("document_id", devis.id).order("ordre", { ascending: true });
-      const txt = ((lignes as DocumentLigne[]) || []).map((l) => `- ${l.designation}`).join("\n");
-      if (txt) setTravaux(txt);
+      // MONTANTS EXACTS du chiffrage repris ligne à ligne (vide si pas de montant)
+      const txt = ((lignes as DocumentLigne[]) || [])
+        .map((l) => {
+          const total = (Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0);
+          const qte = Number(l.quantite) || 1;
+          return `- ${l.designation}${qte !== 1 ? ` (x${qte})` : ""}${total > 0 ? ` — ${total.toFixed(2)} € HT` : ""}`;
+        })
+        .join("\n");
+      if (txt) setTravaux("Conforme au chiffrage du rapport d'expertise :\n" + txt);
       if (devis.total_ht != null && !montant) setMontant(String(devis.total_ht));
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

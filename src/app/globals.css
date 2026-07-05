@@ -49,6 +49,10 @@ h1, h2, .font-pixel {
   font-family: var(--font-pixel), "Courier New", monospace;
   text-transform: uppercase;
   letter-spacing: 0.02em;
+  /* La police pixel ne se coupe pas naturellement : on force le retour
+     à la ligne pour éviter tout texte hors champ (PC et mobile). */
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 h1 { font-size: 1.05rem !important; line-height: 1.8; }
 h2 { font-size: 0.72rem !important; line-height: 1.9; }

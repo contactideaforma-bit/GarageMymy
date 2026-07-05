@@ -28,8 +28,8 @@ export default function ProchaineActionCard({
             {st.label}
           </span>
         </div>
-        <div className="mt-1 font-semibold text-white">{action.titre}</div>
-        {action.detail && <div className="text-sm text-white/60">{action.detail}</div>}
+        <div className="mt-1 break-words font-semibold text-white">{action.titre}</div>
+        {action.detail && <div className="break-words text-sm text-white/60">{action.detail}</div>}
       </div>
       {avecCta && (
         <Link href={action.href} className="btn-primary shrink-0">
