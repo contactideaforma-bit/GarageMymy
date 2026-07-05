@@ -57,6 +57,18 @@ h1, h2, .font-pixel {
 h1 { font-size: 1.05rem !important; line-height: 1.8; }
 h2 { font-size: 0.72rem !important; line-height: 1.9; }
 
+/* Champs date/heure : iOS leur impose une largeur intrinsèque qui fait
+   déborder les cartes — on la neutralise. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 2.65rem; /* iOS écrase la hauteur sans contenu */
+}
+
 /* Focus toujours visible (navigation clavier / accessibilité) */
 :focus-visible {
   outline: 3px solid #ec4899;
@@ -135,6 +147,12 @@ h2 { font-size: 0.72rem !important; line-height: 1.9; }
     background-color: #1d1836;
   }
 
+  /* Barre du haut mobile : OPAQUE, sinon le contenu défile visiblement
+     derrière elle (padding transparent du wrapper sticky). */
+  .topbar-mobile {
+    background-color: rgba(20, 16, 43, 0.96);
+  }
+
   /* Barre de progression rétro : cadre et fond bien contrastés dans les 2 thèmes */
   .retro-bar {
     border: 2px solid #6b5fae;
@@ -188,6 +206,7 @@ html.light .glass-soft {
   box-shadow: 3px 3px 0 rgba(36, 31, 61, 0.16);
 }
 html.light .modal-panel { background-color: #fffdf4; }
+html.light .topbar-mobile { background-color: rgba(247, 239, 220, 0.97); }
 
 /* Boutons */
 html.light .btn-ghost {

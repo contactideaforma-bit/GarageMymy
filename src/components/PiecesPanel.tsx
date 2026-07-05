@@ -194,7 +194,7 @@ export default function PiecesPanel({
                     disabled={uploading}
                     className="btn-ghost py-1.5 px-3 text-xs"
                   >
-                    Fichier
+                    Importer un fichier
                   </button>
                 </div>
               </div>

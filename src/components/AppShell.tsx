@@ -16,8 +16,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="lg:flex min-h-screen">
-      {/* Barre du haut (mobile uniquement) */}
-      <div className="lg:hidden sticky top-0 z-30 p-3">
+      {/* Barre du haut (mobile uniquement) — fond opaque pour que le
+          contenu ne soit pas visible derrière en défilant */}
+      <div className="lg:hidden sticky top-0 z-30 p-3 topbar-mobile">
         <div className="glass-card flex items-center gap-3 px-3 py-2">
           <button
             onClick={() => setOpen(true)}

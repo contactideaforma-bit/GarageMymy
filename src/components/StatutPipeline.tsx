@@ -14,7 +14,9 @@ export default function StatutPipeline({
   const currentIndex = STATUTS_ORDRE.indexOf(statut as never);
 
   return (
-    <div className="flex w-full items-center">
+    // overflow-x-auto : sur mobile, le pipeline se fait défiler au doigt
+    // au lieu de déborder de la carte.
+    <div className="flex w-full items-center overflow-x-auto pb-2 -mb-2">
       {STATUTS_ORDRE.map((s, i) => {
         const info = STATUTS_INFO[s];
         const done = currentIndex >= 0 && i < currentIndex;
@@ -22,7 +24,7 @@ export default function StatutPipeline({
         const clickable = Boolean(onChange) && !disabled;
 
         return (
-          <div key={s} className="flex flex-1 items-center last:flex-none">
+          <div key={s} className="flex min-w-fit flex-1 items-center last:flex-none">
             <button
               type="button"
               disabled={!clickable}
