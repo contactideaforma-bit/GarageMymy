@@ -37,42 +37,69 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Importe les pièces tarifées du dernier devis (les lignes de MO sont écartées)
-  async function importerDepuisDevis() {
+  // Importe les pièces tarifées depuis l'ORDRE DE RÉPARATION (référence du
+  // chiffrage) ; repli sur la facture si l'OR ne détaille pas les lignes.
+  // Les lignes de main d'œuvre sont écartées.
+  async function importerDepuisOR() {
     setImporting(true);
     setError(null);
     try {
-      const { data: devis } = await supabase
-        .from("documents")
-        .select("id")
+      const { data: or } = await supabase
+        .from("ordres_reparation")
+        .select("id,travaux")
         .eq("dossier_id", dossier.id)
-        .eq("type", "devis")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (!devis) throw new Error("Aucun devis sur ce dossier : crée d'abord le devis.");
-      const { data: lignes } = await supabase
-        .from("document_lignes")
-        .select("*")
-        .eq("document_id", (devis as Document).id)
-        .order("ordre", { ascending: true });
+      if (!or) throw new Error("Aucun ordre de réparation sur ce dossier : émets-le d'abord (bloc Documents).");
 
       const dejaLa = new Set(commandes.map((c) => c.designation.toLowerCase()));
-      const aImporter = ((lignes as DocumentLigne[]) || [])
-        .filter((l) => {
-          const des = (l.designation || "").trim();
-          const total = (Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0);
-          return des && total > 0 && !MOTIFS_MO.test(des) && !dejaLa.has(des.toLowerCase());
-        })
-        .map((l) => ({
-          dossier_id: dossier.id,
-          designation: (l.designation || "").trim(),
-          prix_ht: (Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0),
-          statut: "a_commander",
-        }));
+      let aImporter: { dossier_id: string; designation: string; prix_ht: number; statut: string }[] = [];
+
+      // 1) Lignes de l'OR : format "- DÉSIGNATION (xN) — 123.45 € HT"
+      const regex = /^-\s*(.+?)(?:\s*\(x\d+\))?\s*—\s*([\d\s.,]+)\s*€\s*HT\s*$/;
+      for (const ligne of (or.travaux || "").split("\n")) {
+        const m = ligne.trim().match(regex);
+        if (!m) continue;
+        const des = m[1].trim();
+        const prix = Number(m[2].replace(/\s/g, "").replace(",", "."));
+        if (!des || !prix || MOTIFS_MO.test(des) || dejaLa.has(des.toLowerCase())) continue;
+        aImporter.push({ dossier_id: dossier.id, designation: des, prix_ht: prix, statut: "a_commander" });
+      }
+
+      // 2) Repli : lignes de la facture (même chiffrage) si l'OR est en texte libre
+      if (aImporter.length === 0) {
+        const { data: fac } = await supabase
+          .from("documents")
+          .select("id")
+          .eq("dossier_id", dossier.id)
+          .eq("type", "facture")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (fac) {
+          const { data: lignes } = await supabase
+            .from("document_lignes")
+            .select("*")
+            .eq("document_id", (fac as Document).id)
+            .order("ordre", { ascending: true });
+          aImporter = ((lignes as DocumentLigne[]) || [])
+            .filter((l) => {
+              const des = (l.designation || "").trim();
+              const total = (Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0);
+              return des && total > 0 && !MOTIFS_MO.test(des) && !dejaLa.has(des.toLowerCase());
+            })
+            .map((l) => ({
+              dossier_id: dossier.id,
+              designation: (l.designation || "").trim(),
+              prix_ht: (Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0),
+              statut: "a_commander",
+            }));
+        }
+      }
 
       if (aImporter.length === 0) {
-        setError("Rien à importer : les pièces tarifées du devis sont déjà dans la liste (ou le devis n'en contient pas).");
+        setError("Rien à importer : les pièces tarifées de l'ordre de réparation sont déjà dans la liste (ou il n'en contient pas).");
       } else {
         const { error: e1 } = await supabase.from("commandes_pieces").insert(aImporter);
         if (e1) throw e1;
@@ -118,8 +145,8 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
           )}
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={importerDepuisDevis} disabled={importing} className="btn-ghost py-1.5 px-3 text-xs">
-            {importing ? "Import…" : "Importer les pièces du devis"}
+          <button onClick={importerDepuisOR} disabled={importing} className="btn-ghost py-1.5 px-3 text-xs">
+            {importing ? "Import…" : "Importer les pièces de l'ordre de réparation"}
           </button>
           <button onClick={() => setAjoutOpen(true)} className="btn-ghost py-1.5 px-3 text-xs">
             + Pièce
@@ -131,8 +158,8 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
         {loading && <p className="text-sm text-white/40">Chargement…</p>}
         {!loading && commandes.length === 0 && (
           <p className="text-sm text-white/40">
-            Aucune pièce suivie. « Importer les pièces du devis » récupère automatiquement les pièces
-            tarifées du rapport (la main d&apos;œuvre est écartée).
+            Aucune pièce suivie. « Importer les pièces de l&apos;ordre de réparation » récupère
+            automatiquement les pièces tarifées du chiffrage (la main d&apos;œuvre est écartée).
           </p>
         )}
 

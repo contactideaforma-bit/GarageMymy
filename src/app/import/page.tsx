@@ -7,6 +7,7 @@ import { LigneExtraite } from "@/lib/documents";
 import DossierForm from "@/components/DossierForm";
 import ConfigBanner from "@/components/ConfigBanner";
 import { fetchAuth } from "@/lib/apiClient";
+import BarreChargement from "@/components/BarreChargement";
 
 type Extraction = Partial<Dossier> & { lignes?: LigneExtraite[]; tva?: number | null };
 
@@ -77,11 +78,7 @@ export default function ImportPage() {
           </button>
         </div>
 
-        {analyse && (
-          <p className="mt-3 text-xs text-white/50">
-            L&apos;IA lit le document, cela prend quelques secondes…
-          </p>
-        )}
+        <BarreChargement actif={analyse} />
       </div>
 
       {showForm && (

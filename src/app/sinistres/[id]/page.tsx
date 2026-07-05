@@ -27,7 +27,7 @@ import SignatureDocModal from "@/components/SignatureDocModal";
 import { ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
-import { generateDocumentPdf } from "@/lib/pdf";
+import { apercuDocumentPdf } from "@/lib/pdf";
 import StatutBadge from "@/components/StatutBadge";
 import StatutPipeline from "@/components/StatutPipeline";
 import ProgressionDossier from "@/components/ProgressionDossier";
@@ -166,11 +166,13 @@ export default function DossierDetailPage() {
     setEditor({ type: doc.type, document: doc, lignes: (data as DocumentLigne[]) || [] });
   }
 
+  // Ouvre le PDF dans un nouvel onglet (visualisation ; téléchargement
+  // possible depuis la visionneuse du navigateur).
   async function exporterPdf(doc: Document) {
     if (!dossier) return;
     const { data } = await supabase
       .from("document_lignes").select("*").eq("document_id", doc.id).order("ordre", { ascending: true });
-    await generateDocumentPdf(doc, (data as DocumentLigne[]) || [], dossier);
+    await apercuDocumentPdf(doc, (data as DocumentLigne[]) || [], dossier);
   }
 
   async function supprimerDoc(doc: Document) {
@@ -336,10 +338,17 @@ export default function DossierDetailPage() {
       {/* Pièces du dossier (checklist) */}
       <PiecesPanel dossier={dossier} pieces={pieces} onChanged={load} />
 
-      {/* Devis & Factures */}
+      {/* Documents du dossier : devis, facture, OR, cession, restitution —
+          générés automatiquement à l'import, conformes au chiffrage,
+          modifiables et signables (à l'écran ou à distance) */}
       <section className="glass-card">
-        <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
-          <h2 className="font-semibold text-white">Devis & Factures</h2>
+        <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-semibold text-white">Documents du dossier</h2>
+            <p className="text-xs text-white/40 normal-case">
+              Générés automatiquement à l&apos;import du chiffrage — modifiables, envoyables et signables.
+            </p>
+          </div>
           <div className="flex gap-2">
             <button onClick={() => setEditor({ type: "devis" })} className="btn-ghost py-1.5 px-3 text-xs">+ Devis</button>
             <button onClick={() => setEditor({ type: "facture" })} className="btn-primary py-1.5 px-3 text-xs">+ Facture</button>
@@ -388,13 +397,13 @@ export default function DossierDetailPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Ordre de réparation, cession de créance & restitution (même bloc) */}
+        <AtelierPanel dossier={dossier} onChanged={load} integre />
       </section>
 
       {/* Commande de pièces (suivi non bloquant) */}
       <CommandesPanel dossier={dossier} />
-
-      {/* Atelier : ordre de réparation & restitution signés */}
-      <AtelierPanel dossier={dossier} onChanged={load} />
 
       {/* Finance : paiements & relances */}
       <PaiementsPanel dossier={dossier} onChanged={load} />

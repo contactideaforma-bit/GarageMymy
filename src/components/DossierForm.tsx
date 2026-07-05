@@ -6,6 +6,7 @@ import { fetchAuth } from "@/lib/apiClient";
 import { Dossier } from "@/lib/types";
 import { STATUTS_ORDRE, STATUTS_INFO, addJoursOuvres } from "@/lib/format";
 import { genNumeroOR } from "@/lib/atelier";
+import BarreChargement from "@/components/BarreChargement";
 import {
   computeTotaux,
   genNumero,
@@ -285,7 +286,7 @@ export default function DossierForm({
       if (d.tva) setAutoTva(Number(d.tva) || 20);
       setAnalysed(true);
       setAnalyzeMsg(
-        "✓ Dossier pré-rempli. Un devis et une facture seront générés automatiquement à l'enregistrement."
+        "✓ Dossier pré-rempli. Devis, facture, ordre de réparation et cession de créance seront générés automatiquement à l'enregistrement, conformes au chiffrage."
       );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur d'analyse.");
@@ -389,7 +390,16 @@ export default function DossierForm({
               montant_ht: totalHt,
               signataire_nom: form.client_nom || null,
             });
+            await creerDocument("devis", newId, lignes, autoTva);
             await creerDocument("facture", newId, lignes, autoTva);
+            // Cession de créance prête à signer (montant = TTC du chiffrage)
+            const totauxAuto = computeTotaux(lignes, autoTva);
+            await supabase.from("cessions_creance").insert({
+              dossier_id: newId,
+              date_cession: new Date().toISOString().slice(0, 10),
+              montant: Math.round(totauxAuto.ttc * 100) / 100,
+              signataire_nom: form.client_nom || null,
+            });
 
             // Rappel automatique : envoyer la facture 3 jours ouvrés plus tard
             const dateEnvoi = addJoursOuvres(new Date(), 3);
@@ -447,10 +457,12 @@ export default function DossierForm({
                 {analyzing ? "Analyse en cours…" : "Analyser et pré-remplir"}
               </button>
             </div>
+            <BarreChargement actif={analyzing} />
             {analyzeMsg && <p className="text-xs text-emerald-300 mt-2">{analyzeMsg}</p>}
             {analysed && !analyzeMsg && (
               <p className="text-xs text-emerald-300 mt-2">
-                Un devis et une facture seront générés automatiquement à l&apos;enregistrement.
+                Devis, facture, ordre de réparation et cession de créance seront générés
+                automatiquement à l&apos;enregistrement, conformes au chiffrage.
               </p>
             )}
           </div>

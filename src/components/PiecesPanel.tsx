@@ -21,7 +21,8 @@ export default function PiecesPanel({
   pieces: PieceDossier[];
   onChanged?: () => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputPhotoRef = useRef<HTMLInputElement>(null);
+  const inputFichierRef = useRef<HTMLInputElement>(null);
   const [typeEnCours, setTypeEnCours] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,10 +30,11 @@ export default function PiecesPanel({
   const comp = completudePieces(dossier, pieces);
   const complet = comp.presentes === comp.total;
 
-  function demanderFichier(type: string) {
+  // mode "photo" = ouvre directement l'appareil photo ; "fichier" = explorateur
+  function demanderFichier(type: string, mode: "photo" | "fichier") {
     setTypeEnCours(type);
     setError(null);
-    inputRef.current?.click();
+    (mode === "photo" ? inputPhotoRef : inputFichierRef).current?.click();
   }
 
   async function uploader(file: File) {
@@ -57,7 +59,8 @@ export default function PiecesPanel({
     } finally {
       setUploading(false);
       setTypeEnCours(null);
-      if (inputRef.current) inputRef.current.value = "";
+      if (inputPhotoRef.current) inputPhotoRef.current.value = "";
+      if (inputFichierRef.current) inputFichierRef.current.value = "";
     }
   }
 
@@ -83,10 +86,20 @@ export default function PiecesPanel({
 
       <div className="px-5 py-4 space-y-3">
         <input
-          ref={inputRef}
+          ref={inputPhotoRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) uploader(f);
+          }}
+        />
+        <input
+          ref={inputFichierRef}
           type="file"
           accept="image/*,application/pdf"
-          capture="environment"
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -123,13 +136,22 @@ export default function PiecesPanel({
                   <span className="text-sm font-medium text-white">{t.label}</span>
                   {!t.essentiel && <span className="text-xs text-white/40">(si concerné)</span>}
                 </div>
-                <button
-                  onClick={() => demanderFichier(t.type)}
-                  disabled={uploading}
-                  className="btn-ghost py-1.5 px-3 text-xs"
-                >
-                  {uploading && typeEnCours === t.type ? "Envoi…" : "Ajouter (photo ou PDF)"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => demanderFichier(t.type, "photo")}
+                    disabled={uploading}
+                    className="btn-primary py-1.5 px-3 text-xs"
+                  >
+                    {uploading && typeEnCours === t.type ? "Envoi…" : "Prendre une photo"}
+                  </button>
+                  <button
+                    onClick={() => demanderFichier(t.type, "fichier")}
+                    disabled={uploading}
+                    className="btn-ghost py-1.5 px-3 text-xs"
+                  >
+                    Fichier
+                  </button>
+                </div>
               </div>
               {liste.length > 0 && (
                 <ul className="mt-2 divide-y divide-white/10 border-t border-white/10">

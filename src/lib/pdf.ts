@@ -81,6 +81,13 @@ async function logoDataUrl(path: string | null | undefined): Promise<string | nu
   }
 }
 
+// Ouvre un PDF dans un nouvel onglet (visualisation ; le téléchargement
+// reste possible depuis la visionneuse du navigateur).
+function ouvrirPdf(pdf: jsPDF) {
+  const url = pdf.output("bloburl");
+  window.open(String(url), "_blank", "noopener,noreferrer");
+}
+
 export async function generateDocumentPdf(
   doc: Document,
   lignes: DocumentLigne[],
@@ -89,6 +96,11 @@ export async function generateDocumentPdf(
   const pdf = await buildDocumentPdf(doc, lignes, dossier);
   const titre = doc.type === "devis" ? "DEVIS" : "FACTURE";
   pdf.save(`${doc.numero || titre}.pdf`);
+}
+
+// Visualisation dans le navigateur (sans téléchargement forcé)
+export async function apercuDocumentPdf(doc: Document, lignes: DocumentLigne[], dossier: Dossier) {
+  ouvrirPdf(await buildDocumentPdf(doc, lignes, dossier));
 }
 
 // Renvoie le PDF encodé en base64 (sans préfixe data:), pour pièce jointe email.
@@ -441,6 +453,15 @@ function drawSignatureBloc(
 }
 
 export async function generateOrdreReparationPdf(or: OrdreReparation, dossier: Dossier) {
+  const pdf = await buildOrdreReparationPdf(or, dossier);
+  pdf.save(`${or.numero || "ordre-reparation"}.pdf`);
+}
+
+export async function apercuOrdreReparationPdf(or: OrdreReparation, dossier: Dossier) {
+  ouvrirPdf(await buildOrdreReparationPdf(or, dossier));
+}
+
+async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): Promise<jsPDF> {
   const ctx = await startAttestationPdf("ORDRE DE RÉPARATION", or.numero, or.date_or);
   drawBlocsClientVehicule(ctx, dossier);
 
@@ -457,7 +478,7 @@ export async function generateOrdreReparationPdf(or: OrdreReparation, dossier: D
   drawParagraphe(ctx, "Autorisation", AUTORISATION_OR);
   drawSignatureBloc(ctx, or.signataire_nom, or.signature, or.signe_le);
 
-  ctx.pdf.save(`${or.numero || "ordre-reparation"}.pdf`);
+  return ctx.pdf;
 }
 
 export async function generateCessionPdf(cession: CessionCreance, dossier: Dossier) {
@@ -513,6 +534,19 @@ async function buildCessionPdf(cession: CessionCreance, dossier: Dossier): Promi
 }
 
 export async function generateRestitutionPdf(rest: Restitution, dossier: Dossier) {
+  const pdf = await buildRestitutionPdf(rest, dossier);
+  pdf.save(`restitution-${dossier.immatriculation || dossier.numero_sinistre || "vehicule"}.pdf`);
+}
+
+export async function apercuRestitutionPdf(rest: Restitution, dossier: Dossier) {
+  ouvrirPdf(await buildRestitutionPdf(rest, dossier));
+}
+
+export async function apercuCessionPdf(cession: CessionCreance, dossier: Dossier) {
+  ouvrirPdf(await buildCessionPdf(cession, dossier));
+}
+
+async function buildRestitutionPdf(rest: Restitution, dossier: Dossier): Promise<jsPDF> {
   const ctx = await startAttestationPdf("PV DE RESTITUTION", null, rest.date_restitution);
   drawBlocsClientVehicule(ctx, dossier);
 
@@ -527,5 +561,5 @@ export async function generateRestitutionPdf(rest: Restitution, dossier: Dossier
   drawParagraphe(ctx, "Décharge", DECHARGE_RESTITUTION);
   drawSignatureBloc(ctx, rest.signataire_nom, rest.signature, rest.signe_le);
 
-  ctx.pdf.save(`restitution-${dossier.immatriculation || dossier.numero_sinistre || "vehicule"}.pdf`);
+  return ctx.pdf;
 }

@@ -15,9 +15,18 @@ Extrais TOUTES les informations utiles et renvoie UNIQUEMENT un objet JSON valid
   "date_sinistre": string|null,          // format AAAA-MM-JJ
   "numero_sinistre": string|null,
   "cabinet_expert": string|null,         // nom du cabinet d'expertise
+  "cabinet_adresse": string|null,        // adresse du cabinet (souvent dans l'EN-TÊTE du rapport)
+  "cabinet_tel": string|null,            // téléphone du cabinet
+  "cabinet_email": string|null,          // email du cabinet
+  "expert_nom": string|null,             // nom de l'EXPERT en charge (souvent "Vu par" ou signature)
+  "expert_tel": string|null,             // téléphone de l'expert s'il est distinct du cabinet
+  "expert_email": string|null,           // email de l'expert s'il est distinct du cabinet
   "date_expertise": string|null,         // format AAAA-MM-JJ
   "numero_police": string|null,          // n° de police d'assurance
-  "assureur": string|null,               // compagnie d'assurance
+  "assureur": string|null,               // compagnie d'assurance (souvent bloc "MANDANT")
+  "assureur_adresse": string|null,       // adresse de l'assurance (bloc MANDANT)
+  "assureur_tel": string|null,           // téléphone de l'assurance
+  "assureur_email": string|null,         // email de l'assurance
   "client_nom": string|null,             // nom et prénom du client / assuré
   "client_email": string|null,           // email du client s'il figure au rapport
   "client_tel": string|null,             // téléphone du client s'il figure au rapport
@@ -35,6 +44,16 @@ Règles générales :
 - dates au format AAAA-MM-JJ ;
 - "montant", "prix_unitaire", "quantite" = nombres sans symbole ni espace, point décimal (ex: 2450.50) ;
 - N'invente rien.
+
+Règles pour les COORDONNÉES (IMPORTANT — extrais-les TOUTES quand elles figurent au rapport) :
+- CABINET D'EXPERTISE : ses coordonnées (adresse, tél, email) sont presque toujours dans
+  l'EN-TÊTE du rapport (logo/adresse en haut). L'expert en charge est souvent indiqué par
+  "Vu par", "Expert :" ou dans la signature.
+- ASSURANCE : cherche le bloc "MANDANT" (nom + adresse de la compagnie, parfois tél/fax).
+- CLIENT : cherche le bloc "ASSURÉ" ou "LÉSÉ" (nom, adresse, CP, ville, tél, email).
+- ATTENTION à ne PAS confondre : le bloc "RÉPARATEUR" est le GARAGE (ne le mets nulle part),
+  et l'adresse du cabinet n'est pas celle de l'assurance.
+- Les téléphones au format lisible (ex: 04 69 42 01 80 ou 0469420180, garde tel quel).
 
 Règles pour "lignes" (IMPORTANT — le chiffrage est souvent ÉCLATÉ sur plusieurs pages) :
 1. MAIN D'ŒUVRE : cherche le bloc "CONCLUSIONS" (souvent page 1) avec les postes du type

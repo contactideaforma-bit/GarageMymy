@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { CessionCreance, Dossier, OrdreReparation, Restitution, Document, DocumentLigne } from "@/lib/types";
 import { formatDate, formatEuros, messageErreur, STATUTS_ORDRE } from "@/lib/format";
 import { genNumeroOR, badgeStatutAtelier, labelStatutAtelier } from "@/lib/atelier";
-import { cessionPdfBase64, generateCessionPdf, generateOrdreReparationPdf, generateRestitutionPdf } from "@/lib/pdf";
+import { apercuCessionPdf, apercuOrdreReparationPdf, apercuRestitutionPdf, cessionPdfBase64 } from "@/lib/pdf";
 import EmailComposer from "@/components/EmailComposer";
 import SignaturePad from "@/components/SignaturePad";
 import ModalShell from "@/components/ModalShell";
@@ -18,9 +18,11 @@ import ModalShell from "@/components/ModalShell";
 export default function AtelierPanel({
   dossier,
   onChanged,
+  integre = false, // true = rendu à l'intérieur du bloc « Documents du dossier »
 }: {
   dossier: Dossier;
   onChanged?: () => void;
+  integre?: boolean;
 }) {
   const [ordres, setOrdres] = useState<OrdreReparation[]>([]);
   const [restitutions, setRestitutions] = useState<Restitution[]>([]);
@@ -75,9 +77,13 @@ export default function AtelierPanel({
   }
 
   return (
-    <section className="glass-card">
+    <section className={integre ? "border-t-2 border-white/10" : "glass-card"}>
       <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold text-white">Atelier — documents à signer</h2>
+        {integre ? (
+          <div className="text-sm font-semibold text-white/70">Ordre de réparation · Cession de créance · Restitution</div>
+        ) : (
+          <h2 className="font-semibold text-white">Atelier — documents à signer</h2>
+        )}
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setModal({ kind: "or" })} className="btn-primary py-1.5 px-3 text-xs">
             + Ordre de réparation
@@ -122,7 +128,7 @@ export default function AtelierPanel({
                 </div>
               </div>
               <div className="flex gap-3 text-sm whitespace-nowrap">
-                <button onClick={() => generateOrdreReparationPdf(or, dossier)} className="text-accent-teal hover:underline">PDF</button>
+                <button onClick={() => apercuOrdreReparationPdf(or, dossier)} className="text-accent-teal hover:underline">PDF</button>
                 {or.statut !== "signe" && (
                   <>
                     <button onClick={() => setModal({ kind: "or", or })} className="text-accent-pink hover:underline">
@@ -161,7 +167,7 @@ export default function AtelierPanel({
                 </div>
               </div>
               <div className="flex gap-3 text-sm whitespace-nowrap">
-                <button onClick={() => generateCessionPdf(c, dossier)} className="text-accent-teal hover:underline">PDF</button>
+                <button onClick={() => apercuCessionPdf(c, dossier)} className="text-accent-teal hover:underline">PDF</button>
                 <button onClick={() => setEmailCession(c)} className="text-accent-teal hover:underline">Envoyer</button>
                 {c.statut !== "signe" && (
                   <>
@@ -201,7 +207,7 @@ export default function AtelierPanel({
                 </div>
               </div>
               <div className="flex gap-3 text-sm whitespace-nowrap">
-                <button onClick={() => generateRestitutionPdf(rest, dossier)} className="text-accent-teal hover:underline">PDF</button>
+                <button onClick={() => apercuRestitutionPdf(rest, dossier)} className="text-accent-teal hover:underline">PDF</button>
                 {rest.statut !== "signe" && (
                   <button onClick={() => setModal({ kind: "restitution", rest })} className="text-accent-pink hover:underline">
                     Modifier / Signer
