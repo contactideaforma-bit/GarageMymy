@@ -1,0 +1,25 @@
+{
+  "name": "My Easy Auto — Gestion carrosserie",
+  "short_name": "My Easy Auto",
+  "description": "Suivi des sinistres, devis, factures et encaissements — simple comme un jeu.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7efdc",
+  "theme_color": "#241f3d",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

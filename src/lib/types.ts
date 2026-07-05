@@ -220,6 +220,20 @@ export type Restitution = {
   statut: string; // brouillon | signe
 };
 
+export type TransfertGarantie = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  vehicule_immat: string | null;
+  vehicule_modele: string | null;
+  date_debut: string | null;
+  date_fin: string | null;
+  date_demande: string | null;
+  date_accord: string | null;
+  statut: string; // a_demander | demande | accorde | refuse
+  notes: string | null;
+};
+
 export type CommandePiece = {
   id: string;
   created_at: string;

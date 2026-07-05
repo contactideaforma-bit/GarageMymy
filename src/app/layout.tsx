@@ -16,7 +16,23 @@ const pixel = Press_Start_2P({
 export const metadata: Metadata = {
   title: "My Easy Auto — Gestion carrosserie",
   description: "Suivi des sinistres, devis, factures et encaissements — simple comme un jeu.",
-  icons: { icon: "/logo.png" },
+  // PWA : installable sur l'écran d'accueil du téléphone
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/icon-192.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "My Easy Auto",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport = {
+  themeColor: "#241f3d",
+  width: "device-width",
+  initialScale: 1,
 };
 
 // Applique le thème avant le rendu pour éviter le flash.

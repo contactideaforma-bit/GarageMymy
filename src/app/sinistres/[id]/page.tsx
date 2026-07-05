@@ -25,6 +25,7 @@ import DemandesPanel from "@/components/DemandesPanel";
 import CommandesPanel from "@/components/CommandesPanel";
 import SignatureDocModal from "@/components/SignatureDocModal";
 import ModalShell from "@/components/ModalShell";
+import TransfertGarantiePanel from "@/components/TransfertGarantiePanel";
 import { ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
@@ -444,6 +445,9 @@ export default function DossierDetailPage() {
 
       {/* Demandes de documents complémentaires (assurance / expert) */}
       <DemandesPanel dossier={dossier} demandes={demandes} onChanged={load} />
+
+      {/* Véhicule de prêt & transfert de garantie */}
+      <TransfertGarantiePanel dossier={dossier} onChanged={load} />
 
       {/* Événements liés */}
       <Card title="Événements liés à ce dossier">

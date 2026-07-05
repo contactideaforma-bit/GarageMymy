@@ -5,6 +5,7 @@ import { Dossier, PieceDossier } from "./types";
 export const TYPES_PIECES: { type: string; label: string; essentiel: boolean }[] = [
   { type: "carte_grise", label: "Carte grise", essentiel: true },
   { type: "constat", label: "Constat amiable", essentiel: true },
+  { type: "permis", label: "Permis de conduire", essentiel: false },
   { type: "rapport_definitif", label: "Rapport définitif de l'expert", essentiel: false },
   { type: "autre", label: "Autres pièces", essentiel: false },
 ];

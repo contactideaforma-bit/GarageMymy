@@ -6,6 +6,8 @@ import { Dossier, PieceDossier } from "@/lib/types";
 import { formatDate, messageErreur } from "@/lib/format";
 import { TYPES_PIECES, completudePieces } from "@/lib/pieces";
 import { ouvrirFichier } from "@/lib/storage";
+import { fichierVersPdf, imageDataUrlVersPdf } from "@/lib/photoPdf";
+import CameraModal from "@/components/CameraModal";
 
 /**
  * Checklist des pièces du dossier : carte grise, constat amiable,
@@ -30,26 +32,40 @@ export default function PiecesPanel({
   const comp = completudePieces(dossier, pieces);
   const complet = comp.presentes === comp.total;
 
-  // mode "photo" = ouvre directement l'appareil photo ; "fichier" = explorateur
+  const [cameraOuverte, setCameraOuverte] = useState(false);
+
+  // mode "photo" = caméra DANS l'appli (autorisation demandée au téléphone) ;
+  // "fichier" = explorateur classique.
   function demanderFichier(type: string, mode: "photo" | "fichier") {
     setTypeEnCours(type);
     setError(null);
-    (mode === "photo" ? inputPhotoRef : inputFichierRef).current?.click();
+    if (mode === "photo") {
+      // Caméra in-app si disponible, sinon repli sur l'appareil photo natif
+      if (typeof navigator !== "undefined" && typeof navigator.mediaDevices?.getUserMedia === "function") {
+        setCameraOuverte(true);
+      } else {
+        inputPhotoRef.current?.click();
+      }
+    } else {
+      inputFichierRef.current?.click();
+    }
   }
 
-  async function uploader(file: File) {
-    if (!typeEnCours) return;
+  // Enregistre un Blob PDF dans le dossier
+  async function uploaderPdf(blob: Blob, type: string) {
     setUploading(true);
     setError(null);
     try {
-      const ext = (file.name.split(".").pop() || "bin").toLowerCase();
-      const path = `${dossier.id}/${typeEnCours}-${Date.now()}.${ext}`;
-      const { error: e1 } = await supabase.storage.from("pieces").upload(path, file);
+      const path = `${dossier.id}/${type}-${Date.now()}.pdf`;
+      const { error: e1 } = await supabase.storage
+        .from("pieces")
+        .upload(path, blob, { contentType: "application/pdf" });
       if (e1) throw e1;
+      const label = TYPES_PIECES.find((t) => t.type === type)?.label || type;
       const { error: e2 } = await supabase.from("pieces_dossier").insert({
         dossier_id: dossier.id,
-        type: typeEnCours,
-        nom: file.name,
+        type,
+        nom: `${label} — ${new Date().toLocaleDateString("fr-FR")}.pdf`,
         path,
       });
       if (e2) throw e2;
@@ -61,6 +77,35 @@ export default function PiecesPanel({
       setTypeEnCours(null);
       if (inputPhotoRef.current) inputPhotoRef.current.value = "";
       if (inputFichierRef.current) inputFichierRef.current.value = "";
+    }
+  }
+
+  // Fichier choisi (image → converti en PDF ; PDF conservé tel quel)
+  async function uploader(file: File) {
+    if (!typeEnCours) return;
+    const type = typeEnCours;
+    setUploading(true);
+    setError(null);
+    try {
+      const { blob } = await fichierVersPdf(file);
+      await uploaderPdf(blob, type);
+    } catch (err: unknown) {
+      setError(messageErreur(err, "Conversion impossible : réessaie avec une autre photo."));
+      setUploading(false);
+      setTypeEnCours(null);
+    }
+  }
+
+  // Photo capturée dans l'appli → PDF
+  async function photoCapturee(dataUrl: string) {
+    if (!typeEnCours) return;
+    const type = typeEnCours;
+    try {
+      const blob = await imageDataUrlVersPdf(dataUrl);
+      await uploaderPdf(blob, type);
+    } catch (err: unknown) {
+      setError(messageErreur(err, "Conversion impossible : réessaie."));
+      setTypeEnCours(null);
     }
   }
 
@@ -181,9 +226,18 @@ export default function PiecesPanel({
           <div className="rounded-lg bg-rose-500/15 border border-rose-400/30 px-3 py-2 text-sm text-rose-200">{error}</div>
         )}
         <p className="text-xs text-white/40">
-          Sur téléphone, « Ajouter » ouvre directement l&apos;appareil photo : photographie la pièce, c&apos;est rangé.
+          « Prendre une photo » ouvre l&apos;appareil photo (l&apos;autorisation t&apos;est demandée la première
+          fois) : la photo est automatiquement enregistrée en PDF dans le dossier.
         </p>
       </div>
+
+      {cameraOuverte && (
+        <CameraModal
+          titre={`Photo — ${TYPES_PIECES.find((t) => t.type === typeEnCours)?.label || "pièce"}`}
+          onCapture={photoCapturee}
+          onClose={() => setCameraOuverte(false)}
+        />
+      )}
     </section>
   );
 }
