@@ -461,24 +461,252 @@ export async function apercuOrdreReparationPdf(or: OrdreReparation, dossier: Dos
   ouvrirPdf(await buildOrdreReparationPdf(or, dossier));
 }
 
+// Base64 (sans préfixe data:) pour pièce jointe email.
+export async function ordreReparationPdfBase64(or: OrdreReparation, dossier: Dossier): Promise<string> {
+  const pdf = await buildOrdreReparationPdf(or, dossier);
+  const uri = pdf.output("datauristring");
+  return uri.substring(uri.indexOf(",") + 1);
+}
+
+// Le champ travaux généré par l'appli est structuré :
+// "- DÉSIGNATION (xN) — 123.45 € HT". On le re-parse pour dresser un vrai
+// tableau ; les lignes libres restent en paragraphe.
+function lignesDepuisTravaux(travaux: string | null): {
+  intro: string;
+  lignes: { designation: string; montant: number | null }[];
+  libre: string;
+} {
+  const intro: string[] = [];
+  const lignes: { designation: string; montant: number | null }[] = [];
+  const libre: string[] = [];
+  const regex = /^-\s*(.+?)\s*(?:—\s*([\d\s.,]+)\s*€\s*HT)?\s*$/;
+  for (const brute of (travaux || "").split("\n")) {
+    const t = brute.trim();
+    if (!t) continue;
+    if (!t.startsWith("-")) {
+      (lignes.length === 0 ? intro : libre).push(t);
+      continue;
+    }
+    const m = t.match(regex);
+    if (m) {
+      lignes.push({
+        designation: m[1].trim(),
+        montant: m[2] ? Number(m[2].replace(/\s/g, "").replace(",", ".")) : null,
+      });
+    } else {
+      libre.push(t.replace(/^-\s*/, ""));
+    }
+  }
+  return { intro: intro.join(" "), lignes, libre: libre.join("\n") };
+}
+
+// ORDRE DE RÉPARATION : mise en page calquée sur la facture — charte du
+// garage, tableau du chiffrage, total, conditions, autorisation légale et
+// signature, avec sauts de page propres (aucun bloc orphelin).
 async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): Promise<jsPDF> {
-  const ctx = await startAttestationPdf("ORDRE DE RÉPARATION", or.numero, or.date_or);
-  drawBlocsClientVehicule(ctx, dossier);
+  const ent = await getEntreprise();
+  const logo = await logoDataUrl(ent.logo_path);
 
-  drawParagraphe(ctx, "Travaux à réaliser", or.travaux || "Réparations selon devis accepté et rapport d'expertise.");
+  const pdf = new jsPDF();
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const M = 14;
+  const right = pageW - M;
+  const accent: [number, number, number] = [124, 92, 246];
 
-  const details = [
-    or.date_debut ? `Début prévu : ${dateFr(or.date_debut)}` : "",
-    or.date_fin ? `Fin prévue : ${dateFr(or.date_fin)}` : "",
-    dossier.reparateur ? `Réparateur : ${dossier.reparateur}` : "",
-    or.montant_ht != null ? `Montant estimé HT : ${euros(Number(or.montant_ht) || 0)}` : "",
+  const pied = [
+    [ent.nom, ent.siret ? `SIRET ${ent.siret}` : "", ent.tva_intra ? `TVA ${ent.tva_intra}` : ""]
+      .filter(Boolean).join("  -  "),
+    ent.mentions || "",
   ].filter(Boolean);
-  if (details.length) drawParagraphe(ctx, "Conditions", details.join("   ·   "));
 
-  drawParagraphe(ctx, "Autorisation", AUTORISATION_OR);
-  drawSignatureBloc(ctx, or.signataire_nom, or.signature, or.signe_le);
+  function drawFooter() {
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(150);
+    pied.forEach((line, i) => {
+      pdf.text(line, pageW / 2, pageH - 14 + i * 4, { align: "center" });
+    });
+  }
 
-  return ctx.pdf;
+  // ---------- En-tête (charte du garage, comme la facture) ----------
+  let headerX = M;
+  if (logo) {
+    try {
+      pdf.addImage(logo, "PNG", M, 12, 26, 26);
+      headerX = M + 32;
+    } catch { /* format non supporté */ }
+  }
+  pdf.setFontSize(16);
+  pdf.setTextColor(...accent);
+  pdf.text(ent.nom || "Mon garage", headerX, 19);
+  pdf.setFontSize(9);
+  pdf.setTextColor(90);
+  pdf.text(
+    [
+      ent.adresse || "",
+      `${ent.code_postal || ""} ${ent.ville || ""}`.trim(),
+      ent.tel ? `Tel : ${ent.tel}` : "",
+      ent.email || "",
+    ].filter(Boolean),
+    headerX,
+    26
+  );
+
+  pdf.setFontSize(17);
+  pdf.setTextColor(30);
+  pdf.text("ORDRE DE RÉPARATION", right, 21, { align: "right" });
+  pdf.setFontSize(10);
+  pdf.setTextColor(90);
+  pdf.text(`N° ${or.numero || "—"}`, right, 29, { align: "right" });
+  pdf.text(`Date : ${dateFr(or.date_or)}`, right, 34, { align: "right" });
+
+  // ---------- Blocs client / véhicule ----------
+  const yBlocs = 50;
+  pdf.setFontSize(10);
+  pdf.setTextColor(30);
+  pdf.text("Client (donneur d'ordre)", M, yBlocs);
+  pdf.text("Véhicule & sinistre", pageW / 2 + 6, yBlocs);
+  pdf.setTextColor(70);
+  pdf.setFontSize(9);
+  pdf.text(
+    [
+      dossier.client_nom || "—",
+      dossier.client_adresse || "",
+      `${dossier.client_code_postal || ""} ${dossier.client_ville || ""}`.trim(),
+      dossier.client_tel ? `Tel : ${dossier.client_tel}` : "",
+    ].filter(Boolean),
+    M, yBlocs + 6
+  );
+  pdf.text(
+    [
+      dossier.marque_modele || "—",
+      `Immat. : ${dossier.immatriculation || "—"}`,
+      `N° sinistre : ${dossier.numero_sinistre || "—"}`,
+      `Assureur : ${dossier.assureur || "—"}`,
+      dossier.reparateur ? `Réparateur attitré : ${dossier.reparateur}` : "",
+    ].filter(Boolean),
+    pageW / 2 + 6, yBlocs + 6
+  );
+
+  // ---------- Tableau des travaux (conforme au chiffrage) ----------
+  const { intro, lignes, libre } = lignesDepuisTravaux(or.travaux);
+  let ty: number;
+
+  if (lignes.length > 0) {
+    autoTable(pdf, {
+      startY: yBlocs + 34,
+      margin: { top: 20, left: M, right: M, bottom: 26 },
+      tableWidth: pageW - M * 2,
+      head: [["Désignation des travaux", "Montant HT"]],
+      body: lignes.map((l) => [l.designation, l.montant != null ? euros(l.montant) : "Inclus"]),
+      headStyles: { fillColor: accent, textColor: 255, fontStyle: "bold" },
+      styles: { fontSize: 9, cellPadding: 2.5, overflow: "linebreak", valign: "middle" },
+      alternateRowStyles: { fillColor: [245, 244, 250] },
+      columnStyles: {
+        0: { cellWidth: "auto" },
+        1: { cellWidth: 36, halign: "right" },
+      },
+      didDrawPage: () => drawFooter(),
+    });
+    ty = ((pdf as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? yBlocs + 60) + 8;
+    if (intro) {
+      if (ty > pageH - 40) { pdf.addPage(); drawFooter(); ty = 25; }
+      pdf.setFontSize(8.5);
+      pdf.setTextColor(110);
+      pdf.text(intro, M, ty);
+      ty += 8;
+    }
+  } else {
+    // Travaux en texte libre (OR réécrit à la main)
+    drawFooter();
+    pdf.setFontSize(10);
+    pdf.setTextColor(30);
+    pdf.text("Travaux à réaliser", M, yBlocs + 34);
+    pdf.setFontSize(9);
+    pdf.setTextColor(70);
+    const txt = pdf.splitTextToSize(or.travaux || "Réparations selon rapport d'expertise.", pageW - M * 2) as string[];
+    pdf.text(txt, M, yBlocs + 41);
+    ty = yBlocs + 41 + txt.length * 4.2 + 8;
+  }
+
+  if (libre) {
+    if (ty > pageH - 45) { pdf.addPage(); drawFooter(); ty = 25; }
+    pdf.setFontSize(9);
+    pdf.setTextColor(70);
+    const txt = pdf.splitTextToSize(libre, pageW - M * 2) as string[];
+    pdf.text(txt, M, ty);
+    ty += txt.length * 4.2 + 6;
+  }
+
+  // ---------- Total (jamais orphelin) ----------
+  const totalHt = or.montant_ht != null
+    ? Number(or.montant_ht) || 0
+    : lignes.reduce((s, l) => s + (l.montant || 0), 0);
+  if (ty > pageH - 50) { pdf.addPage(); drawFooter(); ty = 25; }
+  const labelX = right - 55;
+  pdf.setDrawColor(...accent);
+  pdf.setLineWidth(0.4);
+  pdf.line(labelX - 5, ty, right, ty);
+  pdf.setFontSize(12);
+  pdf.setTextColor(...accent);
+  pdf.text("Total HT", labelX, ty + 6, { align: "right" });
+  pdf.text(euros(totalHt), right, ty + 6, { align: "right" });
+  pdf.setFontSize(8);
+  pdf.setTextColor(110);
+  pdf.text("Montant conforme au chiffrage du rapport d'expertise. TVA en sus — détail sur la facture.", right, ty + 12, { align: "right" });
+  ty += 20;
+
+  // ---------- Conditions ----------
+  const conditions = [
+    or.date_debut ? `Début prévu des travaux : ${dateFr(or.date_debut)}` : "",
+    or.date_fin ? `Fin prévue : ${dateFr(or.date_fin)}` : "",
+    "Tous travaux supplémentaires feront l'objet d'un accord préalable du client.",
+    "Le véhicule sera restitué contre signature d'un procès-verbal de restitution.",
+  ].filter(Boolean);
+  if (ty + 6 + conditions.length * 4.6 > pageH - 30) { pdf.addPage(); drawFooter(); ty = 25; }
+  pdf.setFontSize(10);
+  pdf.setTextColor(30);
+  pdf.text("Conditions", M, ty);
+  pdf.setFontSize(9);
+  pdf.setTextColor(70);
+  pdf.text(conditions, M, ty + 6);
+  ty += 6 + conditions.length * 4.6 + 8;
+
+  // ---------- Autorisation + signature : BLOC INSÉCABLE ----------
+  const autorisation = pdf.splitTextToSize(AUTORISATION_OR, pageW - M * 2) as string[];
+  const hBloc = 6 + autorisation.length * 4.2 + 8 + 45;
+  if (ty + hBloc > pageH - 26) { pdf.addPage(); drawFooter(); ty = 25; }
+  pdf.setFontSize(10);
+  pdf.setTextColor(30);
+  pdf.text("Autorisation du client", M, ty);
+  pdf.setFontSize(9);
+  pdf.setTextColor(70);
+  pdf.text(autorisation, M, ty + 6);
+  ty += 6 + autorisation.length * 4.2 + 8;
+
+  const w = 70;
+  const h = 32;
+  const x = right - w;
+  pdf.setFontSize(9);
+  pdf.setTextColor(30);
+  pdf.text("Bon pour accord — signature du client :", M, ty + 8);
+  pdf.setDrawColor(180);
+  pdf.setLineWidth(0.3);
+  pdf.rect(x, ty + 3, w, h);
+  if (or.signature) {
+    try {
+      pdf.addImage(or.signature, "PNG", x + 2, ty + 5, w - 4, h - 4);
+    } catch { /* dataURL invalide */ }
+  }
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(90);
+  const infosSig = [
+    or.signataire_nom ? `Nom : ${or.signataire_nom}` : "",
+    or.signe_le ? `Signé le ${dateFr(or.signe_le)}` : "",
+  ].filter(Boolean);
+  if (infosSig.length) pdf.text(infosSig, x, ty + h + 8);
+
+  return pdf;
 }
 
 export async function generateCessionPdf(cession: CessionCreance, dossier: Dossier) {

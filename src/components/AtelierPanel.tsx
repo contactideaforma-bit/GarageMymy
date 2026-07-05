@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { CessionCreance, Dossier, OrdreReparation, Restitution, Document, DocumentLigne } from "@/lib/types";
 import { formatDate, formatEuros, messageErreur, STATUTS_ORDRE } from "@/lib/format";
 import { genNumeroOR, badgeStatutAtelier, labelStatutAtelier } from "@/lib/atelier";
-import { apercuCessionPdf, apercuOrdreReparationPdf, apercuRestitutionPdf, cessionPdfBase64 } from "@/lib/pdf";
+import { apercuCessionPdf, apercuOrdreReparationPdf, apercuRestitutionPdf, cessionPdfBase64, ordreReparationPdfBase64 } from "@/lib/pdf";
 import EmailComposer from "@/components/EmailComposer";
 import SignaturePad from "@/components/SignaturePad";
 import ModalShell from "@/components/ModalShell";
@@ -35,6 +35,7 @@ export default function AtelierPanel({
     | null
   >(null);
   const [emailCession, setEmailCession] = useState<CessionCreance | null>(null);
+  const [emailOR, setEmailOR] = useState<OrdreReparation | null>(null);
   // envoi d'un lien de signature à distance (OR ou cession)
   const [emailSign, setEmailSign] = useState<{ titre: string; token: string } | null>(null);
 
@@ -129,6 +130,7 @@ export default function AtelierPanel({
               </div>
               <div className="flex gap-3 text-sm whitespace-nowrap">
                 <button onClick={() => apercuOrdreReparationPdf(or, dossier)} className="text-accent-teal hover:underline">PDF</button>
+                <button onClick={() => setEmailOR(or)} className="text-accent-teal hover:underline">Envoyer</button>
                 {or.statut !== "signe" && (
                   <>
                     <button onClick={() => setModal({ kind: "or", or })} className="text-accent-pink hover:underline">
@@ -261,6 +263,28 @@ export default function AtelierPanel({
             dossier.numero_police ? ` (police n° ${dossier.numero_police})` : ""
           }.\n\nVous trouverez ci-joint l'acte de cession signé. En conséquence, nous vous remercions de bien vouloir procéder au règlement de l'indemnité directement entre nos mains.\n\nRestant à votre disposition,\nCordialement.`}
           onClose={() => setEmailCession(null)}
+        />
+      )}
+      {emailOR && (
+        <EmailComposer
+          dossier={dossier}
+          attachment={{
+            filename: `${emailOR.numero || "ordre-reparation"}.pdf`,
+            getBase64: () => ordreReparationPdfBase64(emailOR, dossier),
+          }}
+          defaultTo={[dossier.expert_email || dossier.cabinet_email, dossier.client_email]
+            .filter(Boolean)
+            .join(", ")}
+          defaultSubject={`Ordre de réparation ${emailOR.numero || ""} — ${dossier.marque_modele || ""}${
+            dossier.immatriculation ? ` (${dossier.immatriculation})` : ""
+          }`}
+          defaultBody={`Bonjour,\n\nVeuillez trouver ci-joint l'ordre de réparation ${
+            emailOR.numero || ""
+          } concernant le dossier ${dossier.numero_sinistre || "—"}${
+            dossier.client_nom ? ` (${dossier.client_nom})` : ""
+          }, établi conformément au chiffrage du rapport d'expertise.\n\nRestant à votre disposition,\nCordialement.`}
+          onClose={() => setEmailOR(null)}
+          onSent={() => refresh()}
         />
       )}
       {emailSign && (
