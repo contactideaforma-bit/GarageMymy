@@ -14,6 +14,7 @@ const EMPTY: FormE = {
   nom: "", adresse: "", code_postal: "", ville: "", tel: "", email: "",
   siret: "", tva_intra: "", iban: "", bic: "", mentions: "",
   logo_path: null, modele_facture_path: null,
+  signature_mail: "", rib_path: null,
 };
 
 function Field({
@@ -32,6 +33,7 @@ export default function ProfilPage() {
   const [form, setForm] = useState<FormE>(EMPTY);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [modeleFile, setModeleFile] = useState<File | null>(null);
+  const [ribFile, setRibFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -49,6 +51,7 @@ export default function ProfilPage() {
           siret: e.siret ?? "", tva_intra: e.tva_intra ?? "", iban: e.iban ?? "",
           bic: e.bic ?? "", mentions: e.mentions ?? "",
           logo_path: e.logo_path, modele_facture_path: e.modele_facture_path,
+          signature_mail: e.signature_mail ?? "", rib_path: e.rib_path ?? null,
         });
       }
       setLoading(false);
@@ -72,10 +75,12 @@ export default function ProfilPage() {
     try {
       let logo_path = form.logo_path;
       let modele_facture_path = form.modele_facture_path;
+      let rib_path = form.rib_path;
       if (logoFile) logo_path = await upload(logoFile, "logo");
       if (modeleFile) modele_facture_path = await upload(modeleFile, "modele");
+      if (ribFile) rib_path = await upload(ribFile, "rib");
 
-      const payload = { ...form, logo_path, modele_facture_path };
+      const payload = { ...form, logo_path, modele_facture_path, rib_path };
 
       if (id) {
         const { error: e } = await supabase.from("entreprise").update(payload).eq("id", id);
@@ -85,9 +90,10 @@ export default function ProfilPage() {
         if (e) throw e;
         setId(data!.id);
       }
-      setForm((f) => ({ ...f, logo_path, modele_facture_path }));
+      setForm((f) => ({ ...f, logo_path, modele_facture_path, rib_path }));
       setLogoFile(null);
       setModeleFile(null);
+      setRibFile(null);
       setMsg("✓ Profil enregistré. Les devis et factures utiliseront ces informations.");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
@@ -163,6 +169,67 @@ export default function ProfilPage() {
               )}
               <p className="text-xs text-white/40 mt-2">
                 Stocké comme référence. Les PDF sont générés à ta charte (logo + infos ci-dessus).
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-sm font-semibold text-accent-pink mb-3">Emails — signature & RIB</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="glass-soft p-4">
+              <label className="field-label">Signature ajoutée en bas de chaque email</label>
+              <textarea
+                className="field-input"
+                rows={5}
+                value={form.signature_mail ?? ""}
+                onChange={(e) => set("signature_mail", e.target.value)}
+                placeholder={"Ex.\nJean Dupont\nCarrosserie Dupont\n12 rue des Ateliers, 75000 Paris\n01 23 45 67 89"}
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  set(
+                    "signature_mail",
+                    [
+                      form.nom,
+                      form.adresse,
+                      `${form.code_postal || ""} ${form.ville || ""}`.trim(),
+                      form.tel,
+                      form.email,
+                    ].filter(Boolean).join("\n")
+                  )
+                }
+                className="mt-2 text-sm text-accent-teal hover:underline"
+              >
+                Remplir automatiquement depuis les infos du garage
+              </button>
+              <p className="text-xs text-white/40 mt-1">
+                Elle s&apos;ajoute toute seule à la fin de chaque nouvel email (modifiable avant envoi).
+              </p>
+            </div>
+            <div className="glass-soft p-4">
+              <label className="field-label">RIB officiel (PDF) — joint aux emails</label>
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => setRibFile(e.target.files?.[0] || null)}
+                className="text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-white"
+              />
+              {form.rib_path && !ribFile && (
+                <a
+                  href={supabase.storage.from("entreprise").getPublicUrl(form.rib_path).data.publicUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-block text-sm text-accent-teal hover:underline"
+                >
+                  Voir le RIB enregistré
+                </a>
+              )}
+              {ribFile && <p className="mt-2 text-xs text-emerald-300">Nouveau RIB prêt : {ribFile.name} (enregistre le profil)</p>}
+              <p className="text-xs text-white/40 mt-2">
+                Quand tu coches « RIB du garage » en pièce jointe d&apos;un email, c&apos;est CE fichier
+                qui part. Sans fichier, un RIB est généré depuis l&apos;IBAN/BIC ci-dessus.
               </p>
             </div>
           </div>

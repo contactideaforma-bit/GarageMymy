@@ -71,7 +71,16 @@ export default function EmailComposer({
       .select("*")
       .limit(1)
       .maybeSingle()
-      .then(({ data }) => setEnt((data as Entreprise) || {}));
+      .then(({ data }) => {
+        const e = (data as Entreprise) || {};
+        setEnt(e);
+        // SIGNATURE : ajoutée automatiquement en bas du message (Profil du
+        // garage > Signature d'email). L'utilisateur peut la modifier/effacer.
+        const sig = (e.signature_mail || "").trim();
+        if (sig) {
+          setBody((b) => (b.includes(sig) ? b : `${b.replace(/\s+$/, "")}\n\n${sig}`));
+        }
+      });
     fetchAuth("/api/mail-config")
       .then((r) => r.json())
       .then((d) => {

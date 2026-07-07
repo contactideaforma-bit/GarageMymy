@@ -475,6 +475,25 @@ export async function documentPdfBase64Auto(doc: Document, dossier: Dossier): Pr
 // RIB du garage (coordonnées bancaires du profil) en PDF, pour pièce jointe.
 export async function ribPdfBase64(): Promise<string> {
   const ent = await getEntreprise();
+
+  // RIB OFFICIEL uploadé dans le Profil du garage → prioritaire sur le RIB
+  // généré depuis IBAN/BIC (v26).
+  if (ent.rib_path) {
+    try {
+      const { data } = await supabase.storage.from("entreprise").download(ent.rib_path);
+      if (data) {
+        const bytes = new Uint8Array(await data.arrayBuffer());
+        let bin = "";
+        for (let i = 0; i < bytes.length; i += 1) {
+          bin += String.fromCharCode(bytes[i]);
+        }
+        return btoa(bin);
+      }
+    } catch {
+      /* fichier introuvable → on retombe sur le RIB généré */
+    }
+  }
+
   const logo = await logoDataUrl(ent.logo_path);
   const pdf = new jsPDF();
   const pageW = pdf.internal.pageSize.getWidth();

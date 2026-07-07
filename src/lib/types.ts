@@ -157,6 +157,8 @@ export type Entreprise = {
   mentions: string | null;
   logo_path: string | null;
   modele_facture_path: string | null;
+  signature_mail?: string | null; // signature ajoutée en bas des emails (v26)
+  rib_path?: string | null; // RIB PDF officiel uploadé (bucket entreprise, v26)
 };
 
 export type Client = {
