@@ -29,16 +29,19 @@ export default function EmailComposer({
   document,
   piecesJointes,
   defaultTo = "",
+  defaultCci = "",
   defaultSubject = "",
   defaultBody = "",
   onClose,
   onSent,
 }: {
-  dossier: Dossier;
+  // Optionnel : email « libre » possible sans dossier (journal non rattaché)
+  dossier?: Dossier | null;
   document?: Document | null;
   // Pièces jointes proposées (cochables) : cession, facture, RIB, OR…
   piecesJointes?: PieceJointeOption[];
   defaultTo?: string;
+  defaultCci?: string;
   defaultSubject?: string;
   defaultBody?: string;
   onClose: () => void;
@@ -48,7 +51,7 @@ export default function EmailComposer({
   const [mailFrom, setMailFrom] = useState<string | null>(null);
   const [mailConfigured, setMailConfigured] = useState<boolean | null>(null);
   const [to, setTo] = useState(defaultTo);
-  const [cci, setCci] = useState("");
+  const [cci, setCci] = useState(defaultCci);
   const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState(defaultBody);
   const [attachPdf, setAttachPdf] = useState(Boolean(document));
@@ -86,9 +89,9 @@ export default function EmailComposer({
   useEffect(() => {
     (async () => {
       const chips: Contact[] = [];
-      if (dossier.assureur_email) chips.push({ label: `Assurance${dossier.assureur ? ` (${dossier.assureur})` : ""}`, email: dossier.assureur_email });
-      if (dossier.expert_email) chips.push({ label: `Expert${dossier.expert_nom ? ` (${dossier.expert_nom})` : ""}`, email: dossier.expert_email });
-      if (dossier.cabinet_email) chips.push({ label: `Cabinet${dossier.cabinet_expert ? ` (${dossier.cabinet_expert})` : ""}`, email: dossier.cabinet_email });
+      if (dossier?.assureur_email) chips.push({ label: `Assurance${dossier.assureur ? ` (${dossier.assureur})` : ""}`, email: dossier.assureur_email });
+      if (dossier?.expert_email) chips.push({ label: `Expert${dossier.expert_nom ? ` (${dossier.expert_nom})` : ""}`, email: dossier.expert_email });
+      if (dossier?.cabinet_email) chips.push({ label: `Cabinet${dossier.cabinet_expert ? ` (${dossier.cabinet_expert})` : ""}`, email: dossier.cabinet_email });
 
       const [cli, ass, exp] = await Promise.all([
         supabase.from("clients").select("nom,email").not("email", "is", null),
@@ -98,9 +101,9 @@ export default function EmailComposer({
 
       // Email du client : d'abord celui du dossier, sinon l'annuaire (par nom)
       const clients = (cli.data as { nom: string | null; email: string | null }[]) || [];
-      if (dossier.client_email) {
+      if (dossier?.client_email) {
         chips.push({ label: `Client${dossier.client_nom ? ` (${dossier.client_nom})` : ""}`, email: dossier.client_email });
-      } else if (dossier.client_nom) {
+      } else if (dossier?.client_nom) {
         const c = clients.find(
           (x) => (x.nom || "").trim().toLowerCase() === dossier.client_nom!.trim().toLowerCase() && x.email
         );
@@ -179,7 +182,7 @@ export default function EmailComposer({
     .filter((c) => c.label.startsWith("Client"))
     .map((c) => c.email.toLowerCase());
   const alerteCession = Boolean(
-    dossier.mode_cession &&
+    dossier?.mode_cession &&
       document?.type === "facture" &&
       `${to},${cci}`.split(",").some((t) => emailsClient.includes(t.trim().toLowerCase()))
   );
@@ -192,7 +195,7 @@ export default function EmailComposer({
     let attachments: { filename: string; content: string }[] | undefined;
     try {
       const liste: { filename: string; content: string }[] = [];
-      if (attachPdf && document) {
+      if (attachPdf && document && dossier) {
         const { data: lignes } = await supabase
           .from("document_lignes")
           .select("*")
@@ -246,7 +249,7 @@ export default function EmailComposer({
 
     // Journal des envois
     await supabase.from("emails").insert({
-      dossier_id: dossier.id,
+      dossier_id: dossier?.id ?? null,
       destinataire: to,
       objet: subject,
       corps: body,
@@ -259,8 +262,8 @@ export default function EmailComposer({
       if (document && document.statut === "brouillon") {
         await supabase.from("documents").update({ statut: "envoye" }).eq("id", document.id);
       }
-      // Historique du dossier
-      await supabase.from("evenements").insert({
+      // Historique du dossier (uniquement si l'email y est rattaché)
+      if (dossier) await supabase.from("evenements").insert({
         dossier_id: dossier.id,
         titre: document
           ? `${document.type === "devis" ? "Devis" : "Facture"} ${document.numero || ""} envoyé${document.type === "devis" ? "" : "e"}`
@@ -327,7 +330,7 @@ export default function EmailComposer({
             {alerteCession && (
               <div className="mt-2 rounded-lg bg-amber-500/15 border border-amber-400/40 px-3 py-2 text-sm text-amber-200">
                 Attention : ce dossier est en CESSION DE CRÉANCE. La facture doit être envoyée à
-                l&apos;assurance{dossier.assureur ? ` (${dossier.assureur})` : ""}, pas au client.
+                l&apos;assurance{dossier?.assureur ? ` (${dossier.assureur})` : ""}, pas au client.
               </div>
             )}
           </div>

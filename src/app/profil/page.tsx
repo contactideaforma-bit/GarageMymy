@@ -6,6 +6,7 @@ import { Entreprise } from "@/lib/types";
 import ConfigBanner from "@/components/ConfigBanner";
 import MailSettings from "@/components/MailSettings";
 import CompteSettings from "@/components/CompteSettings";
+import ConsommationIA from "@/components/ConsommationIA";
 
 type FormE = Omit<Entreprise, "id" | "created_at">;
 
@@ -180,6 +181,11 @@ export default function ProfilPage() {
       <div className="glass-card p-6 mt-6">
         <h2 className="text-sm font-semibold text-accent-pink mb-3">Envoi des emails (SMTP)</h2>
         <MailSettings />
+      </div>
+
+      <div className="glass-card p-6 mt-6">
+        <h2 className="text-sm font-semibold text-accent-pink mb-3">Assistant IA — consommation</h2>
+        <ConsommationIA />
       </div>
 
       <div className="glass-card p-6 mt-6">

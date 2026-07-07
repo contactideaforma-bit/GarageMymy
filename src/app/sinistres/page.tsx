@@ -35,13 +35,15 @@ export default function SinistresPage() {
 
 
   const term = q.trim().toLowerCase();
+  // Les dossiers archivés vivent dans l'onglet Archives
+  const actifs = dossiers.filter((d) => !d.archive);
   const filtered = term
-    ? dossiers.filter((d) =>
+    ? actifs.filter((d) =>
         [d.numero_sinistre, d.client_nom, d.marque_modele, d.immatriculation, d.assureur]
           .filter(Boolean)
           .some((v) => (v as string).toLowerCase().includes(term))
       )
-    : dossiers;
+    : actifs;
 
   return (
     <div>

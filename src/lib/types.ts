@@ -53,6 +53,9 @@ export type Dossier = {
   relance_auto?: boolean | null;
   // Mode cession de créance : le garage est payé directement par l'assurance
   mode_cession?: boolean | null;
+  // Archivé : contenu téléchargé en ZIP puis purgé du serveur (trace seule)
+  archive?: boolean | null;
+  archive_le?: string | null;
 };
 
 export type Vehicule = {
@@ -313,6 +316,13 @@ export type BankTransaction = {
   document_id: string | null;
   paiement_id: string | null;
   hash: string | null;
+};
+
+export type ListeDiffusion = {
+  id: string;
+  created_at: string;
+  nom: string;
+  emails: string; // adresses séparées par des virgules
 };
 
 export type Email = {

@@ -27,6 +27,13 @@ export async function POST(req: NextRequest) {
   const user = await utilisateurDepuisRequete(req);
   if (!user) return NextResponse.json(REPONSE_401, { status: 401 });
 
+  // QUOTA : 15 €/mois par utilisateur (+ crédits achetés)
+  const { etatQuota, enregistrerUsage, MESSAGE_QUOTA_DEPASSE } = await import("@/lib/quotaIA");
+  const quota = await etatQuota(user.id);
+  if (quota.depasse) {
+    return NextResponse.json({ error: MESSAGE_QUOTA_DEPASSE }, { status: 402 });
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -63,6 +70,8 @@ export async function POST(req: NextRequest) {
       max_tokens: 500,
       messages: [{ role: "user", content }],
     });
+
+    await enregistrerUsage(user.id, message.usage?.input_tokens || 0, message.usage?.output_tokens || 0);
 
     const textPart = message.content.find((c) => c.type === "text");
     const raw = textPart && "text" in textPart ? textPart.text : "";

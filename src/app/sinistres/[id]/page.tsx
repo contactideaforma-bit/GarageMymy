@@ -26,8 +26,9 @@ import CommandesPanel from "@/components/CommandesPanel";
 import SignatureDocModal from "@/components/SignatureDocModal";
 import ModalShell from "@/components/ModalShell";
 import TransfertGarantiePanel from "@/components/TransfertGarantiePanel";
+import { archiverDossier } from "@/lib/archive";
 import { ouvrirFichier } from "@/lib/storage";
-import { formatEuros, formatDate, formatDateTime } from "@/lib/format";
+import { formatEuros, formatDate, formatDateTime, messageErreur } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
 import { apercuDocumentPdf, cessionPdfBase64, documentPdfBase64Auto, ordreReparationPdfBase64, ribPdfBase64 } from "@/lib/pdf";
 import type { PieceJointeOption } from "@/components/EmailComposer";
@@ -165,6 +166,26 @@ export default function DossierDetailPage() {
     }
   }
 
+  const [archivage, setArchivage] = useState<string | null>(null);
+
+  async function archiver() {
+    if (!dossier) return;
+    if (
+      !confirm(
+        "Archiver ce dossier ?\n\nUn ZIP complet (documents PDF, rapport, pièces, historique) va être téléchargé, puis les fichiers seront retirés du serveur. Le dossier restera visible dans l'onglet Archives.\n\nConserve bien le ZIP : c'est ta copie de référence."
+      )
+    )
+      return;
+    try {
+      await archiverDossier(dossier, setArchivage);
+      setArchivage(null);
+      router.push("/archives");
+    } catch (err: unknown) {
+      setArchivage(null);
+      alert(messageErreur(err, "Archivage impossible (migration v24 + npm install jszip ?)."));
+    }
+  }
+
   async function supprimer() {
     if (!dossier) return;
     if (!confirm("Supprimer définitivement ce dossier ? Les fichiers associés (rapport, pièces) seront aussi effacés.")) return;
@@ -276,7 +297,12 @@ export default function DossierDetailPage() {
               </span>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {dossier.statut === "cloture" && !dossier.archive && (
+              <button onClick={archiver} disabled={Boolean(archivage)} className="btn-ghost">
+                {archivage || "Archiver (ZIP)"}
+              </button>
+            )}
             <button onClick={() => setShowEdit(true)} className="btn-ghost">Modifier</button>
             <button onClick={supprimer} className="btn-danger">Supprimer</button>
           </div>

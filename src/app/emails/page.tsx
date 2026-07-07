@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Email } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import ConfigBanner from "@/components/ConfigBanner";
+import EmailLibre from "@/components/EmailLibre";
 
 const STATUT: Record<string, { label: string; badge: string }> = {
   envoye: { label: "Envoyé", badge: "bg-emerald-100 text-emerald-700" },
@@ -17,21 +18,29 @@ export default function EmailsPage() {
   const router = useRouter();
   const [emails, setEmails] = useState<(Email & { dossier_id: string | null })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [nouvelEmail, setNouvelEmail] = useState(false);
+
+  async function load() {
+    const { data } = await supabase
+      .from("emails")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (data) setEmails(data as Email[]);
+    setLoading(false);
+  }
 
   useEffect(() => {
-    (async () => {
-      const { data } = await supabase
-        .from("emails")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (data) setEmails(data as Email[]);
-      setLoading(false);
-    })();
+    load();
   }, []);
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-white mb-6">Journal des emails</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold text-white">Journal des emails</h1>
+        <button onClick={() => setNouvelEmail(true)} className="btn-primary">
+          + Nouvel email
+        </button>
+      </div>
       <ConfigBanner />
 
       <div className="glass-card overflow-x-auto">
@@ -89,6 +98,13 @@ export default function EmailsPage() {
           </tbody>
         </table>
       </div>
+
+      {nouvelEmail && (
+        <EmailLibre
+          onClose={() => setNouvelEmail(false)}
+          onSent={load}
+        />
+      )}
     </div>
   );
 }
