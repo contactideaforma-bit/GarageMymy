@@ -442,48 +442,52 @@ export default function DossierDetailPage() {
             <button onClick={() => setEditor({ type: "facture" })} className="btn-primary py-1.5 px-3 text-xs">+ Facture</button>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-white/50">
-              <tr>
-                <th className="px-5 py-2 font-medium">Type</th>
-                <th className="px-5 py-2 font-medium">N°</th>
-                <th className="px-5 py-2 font-medium">Date</th>
-                <th className="px-5 py-2 font-medium">Statut</th>
-                <th className="px-5 py-2 font-medium text-right">Total TTC</th>
-                <th className="px-5 py-2 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {documents.length === 0 && (
-                <tr><td colSpan={6} className="px-5 py-6 text-center text-white/40">
-                  Aucun document. Génère un devis ou une facture.
-                </td></tr>
-              )}
-              {documents.map((doc) => (
-                <tr key={doc.id} className="border-t border-white/5">
-                  <td className="px-5 py-3 capitalize text-white/80">{doc.type}</td>
-                  <td className="px-5 py-3 font-medium text-white">{doc.numero || "—"}</td>
-                  <td className="px-5 py-3 text-white/80">{formatDate(doc.date_document)}</td>
-                  <td className="px-5 py-3">
-                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutDoc(doc.statut)}`}>
-                      {labelStatutDoc(doc.statut)}
-                    </span>
-                  </td>
-                  <td className="px-5 py-3 text-right text-white/90">{formatEuros(doc.total_ttc)}</td>
-                  <td className="px-5 py-3 text-right whitespace-nowrap">
-                    <button onClick={() => exporterPdf(doc)} className="text-accent-teal hover:underline mr-3">PDF</button>
-                    <button onClick={() => setEmailDoc(doc)} className="text-accent-teal hover:underline mr-3">Envoyer</button>
-                    <button onClick={() => setSignDoc(doc)} className="text-accent-teal hover:underline mr-3">
-                      {doc.signature ? "Signé ✓" : "Signer"}
-                    </button>
-                    <button onClick={() => ouvrirEdition(doc)} className="text-accent-pink hover:underline mr-3">Modifier</button>
+        {/* Devis & factures : mêmes cartouches que l'OR et la cession, avec un
+            statut lisible en un coup d'œil (Généré / Envoyé / Signé / Payé). */}
+        <div className="px-5 py-4 space-y-4">
+          {documents.length === 0 && (
+            <p className="text-sm text-white/40">Aucun document. Génère un devis ou une facture.</p>
+          )}
+          {documents.map((doc) => {
+            const fem = doc.type === "facture"; // accords : émise / signée
+            return (
+              <div key={doc.id} className="glass-soft p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-white">
+                        {fem ? "Facture" : "Devis"} {doc.numero || ""}
+                      </span>
+                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutDoc(doc.statut)}`}>
+                        {labelStatutDoc(doc.statut)}
+                      </span>
+                      {doc.signature && (
+                        <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">
+                          Signé{fem ? "e" : ""}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 text-xs text-white/50">
+                      {fem ? "Émise" : "Émis"} le {formatDate(doc.date_document)}
+                      {doc.total_ttc != null ? ` · ${formatEuros(doc.total_ttc)} TTC` : ""}
+                      {doc.signe_le
+                        ? ` · signé${fem ? "e" : ""} le ${formatDate(doc.signe_le)} par ${doc.signataire_nom || "le client"}`
+                        : " · en attente de signature"}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
+                    <button onClick={() => exporterPdf(doc)} className="text-accent-teal hover:underline">PDF</button>
+                    <button onClick={() => setEmailDoc(doc)} className="text-accent-teal hover:underline">Envoyer</button>
+                    {!doc.signature && (
+                      <button onClick={() => setSignDoc(doc)} className="text-accent-teal hover:underline">Signer</button>
+                    )}
+                    <button onClick={() => ouvrirEdition(doc)} className="text-accent-pink hover:underline">Modifier</button>
                     <button onClick={() => supprimerDoc(doc)} className="text-white/40 hover:text-rose-300">Suppr.</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Ordre de réparation, cession de créance & restitution (même bloc) */}

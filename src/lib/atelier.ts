@@ -7,7 +7,7 @@ export function genNumeroOR(): string {
 }
 
 export const STATUTS_ATELIER: Record<string, { label: string; badge: string }> = {
-  brouillon: { label: "Brouillon", badge: "bg-slate-100 text-slate-700" },
+  brouillon: { label: "Généré", badge: "bg-slate-100 text-slate-700" },
   signe: { label: "Signé", badge: "bg-emerald-100 text-emerald-700" },
 };
 

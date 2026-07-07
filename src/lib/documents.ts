@@ -27,7 +27,7 @@ export function genNumero(type: DocumentType): string {
 }
 
 export const STATUTS_DOC: Record<string, { label: string; badge: string }> = {
-  brouillon: { label: "Brouillon", badge: "bg-slate-100 text-slate-700" },
+  brouillon: { label: "Généré", badge: "bg-slate-100 text-slate-700" },
   envoye: { label: "Envoyé", badge: "bg-blue-100 text-blue-700" },
   accepte: { label: "Accepté", badge: "bg-emerald-100 text-emerald-700" },
   refuse: { label: "Refusé", badge: "bg-rose-100 text-rose-700" },
