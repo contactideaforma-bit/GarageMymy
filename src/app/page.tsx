@@ -149,7 +149,7 @@ export default function DashboardPage() {
             accent="pink"
             label="Facturé ce mois"
             value={formatEuros(totalMois)}
-            hint={now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+            hint={`${now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })} · TTC`}
           />
         </Link>
         <Link href="/finance">
@@ -157,7 +157,7 @@ export default function DashboardPage() {
             accent="emerald"
             label="Encaissé ce mois"
             value={formatEuros(encaisseMois)}
-            hint={`reste à encaisser : ${formatEuros(resteEncaisser)}`}
+            hint={`TTC · reste à encaisser : ${formatEuros(resteEncaisser)}`}
           />
         </Link>
       </div>
@@ -174,8 +174,9 @@ export default function DashboardPage() {
             </h2>
             <span className="font-pixel text-[0.5rem] text-white/40">GUIDE AUTO</span>
           </div>
-          <ul className="divide-y divide-white/10">
-            {aFaire.slice(0, 6).map(({ dossier: d, action }) => {
+          {/* Liste déroulante : ~5 lignes visibles, le reste au défilement */}
+          <ul className="divide-y divide-white/10 max-h-[300px] overflow-y-auto pr-1">
+            {aFaire.map(({ dossier: d, action }) => {
               const st = URGENCE_STYLE[action.urgence];
               return (
                 <li key={d.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5 text-sm">
@@ -203,10 +204,8 @@ export default function DashboardPage() {
               );
             })}
           </ul>
-          {aFaire.length > 6 && (
-            <p className="mt-2 text-xs text-white/40">
-              + {aFaire.length - 6} autre{aFaire.length - 6 > 1 ? "s" : ""} action{aFaire.length - 6 > 1 ? "s" : ""} — ouvre les dossiers concernés depuis la liste ci-dessous.
-            </p>
+          {aFaire.length > 5 && (
+            <p className="mt-2 text-xs text-white/40">Fais défiler pour voir les {aFaire.length} actions.</p>
           )}
         </section>
       )}
@@ -219,15 +218,16 @@ export default function DashboardPage() {
               Voir tout
             </Link>
           </div>
-          <div className="overflow-x-auto">
+          {/* ~5 dossiers visibles, le reste au défilement */}
+          <div className="overflow-x-auto max-h-[330px] overflow-y-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-white/50">
+              <thead className="text-left text-white/50 sticky top-0 bg-inherit">
                 <tr>
                   <th className="px-5 py-2 font-medium">N° sinistre</th>
                   <th className="px-5 py-2 font-medium">Client</th>
                   <th className="px-5 py-2 font-medium">Véhicule</th>
                   <th className="px-5 py-2 font-medium">Statut</th>
-                  <th className="px-5 py-2 font-medium text-right">Montant</th>
+                  <th className="px-5 py-2 font-medium text-right">Montant HT</th>
                 </tr>
               </thead>
               <tbody>

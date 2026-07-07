@@ -126,6 +126,7 @@ export type Document = {
   signature?: string | null;
   signe_le?: string | null;
   sign_token?: string | null;
+  favori?: boolean | null;
 };
 
 export type DocumentLigne = {

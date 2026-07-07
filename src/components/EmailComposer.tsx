@@ -16,10 +16,18 @@ function escapeHtml(s: string): string {
 
 type Contact = { label: string; email: string };
 
+// Pièce jointe proposée : cochée ou non par défaut, générée à l'envoi.
+export type PieceJointeOption = {
+  label: string;
+  filename: string;
+  getBase64: () => Promise<string>;
+  coche?: boolean; // true par défaut
+};
+
 export default function EmailComposer({
   dossier,
   document,
-  attachment,
+  piecesJointes,
   defaultTo = "",
   defaultSubject = "",
   defaultBody = "",
@@ -28,8 +36,8 @@ export default function EmailComposer({
 }: {
   dossier: Dossier;
   document?: Document | null;
-  // Pièce jointe générique (ex. cession de créance) quand ce n'est pas un devis/facture
-  attachment?: { filename: string; getBase64: () => Promise<string> } | null;
+  // Pièces jointes proposées (cochables) : cession, facture, RIB, OR…
+  piecesJointes?: PieceJointeOption[];
   defaultTo?: string;
   defaultSubject?: string;
   defaultBody?: string;
@@ -43,7 +51,10 @@ export default function EmailComposer({
   const [cci, setCci] = useState("");
   const [subject, setSubject] = useState(defaultSubject);
   const [body, setBody] = useState(defaultBody);
-  const [attachPdf, setAttachPdf] = useState(Boolean(document || attachment));
+  const [attachPdf, setAttachPdf] = useState(Boolean(document));
+  const [pjCochees, setPjCochees] = useState<boolean[]>(() =>
+    (piecesJointes || []).map((p) => p.coche !== false)
+  );
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -177,9 +188,10 @@ export default function EmailComposer({
     setSending(true);
     setError(null);
 
-    // Pièce jointe PDF (devis/facture ou document fourni) si demandé
+    // Pièces jointes PDF : document principal + pièces cochées
     let attachments: { filename: string; content: string }[] | undefined;
     try {
+      const liste: { filename: string; content: string }[] = [];
       if (attachPdf && document) {
         const { data: lignes } = await supabase
           .from("document_lignes")
@@ -188,11 +200,14 @@ export default function EmailComposer({
           .order("ordre", { ascending: true });
         const b64 = await documentPdfBase64(document, (lignes as DocumentLigne[]) || [], dossier);
         const titre = document.type === "devis" ? "Devis" : "Facture";
-        attachments = [{ filename: `${document.numero || titre}.pdf`, content: b64 }];
-      } else if (attachPdf && attachment) {
-        const b64 = await attachment.getBase64();
-        attachments = [{ filename: attachment.filename, content: b64 }];
+        liste.push({ filename: `${document.numero || titre}.pdf`, content: b64 });
       }
+      for (let i = 0; i < (piecesJointes || []).length; i++) {
+        if (!pjCochees[i]) continue;
+        const pj = piecesJointes![i];
+        liste.push({ filename: pj.filename, content: await pj.getBase64() });
+      }
+      if (liste.length) attachments = liste;
     } catch {
       setError("Impossible de générer le PDF à joindre.");
       setSending(false);
@@ -342,13 +357,28 @@ export default function EmailComposer({
             />
           </div>
 
-          {(document || attachment) && (
-            <label className="flex items-center gap-2 text-sm text-white/70">
-              <input type="checkbox" checked={attachPdf} onChange={(e) => setAttachPdf(e.target.checked)} />
-              Joindre le PDF (
-              {document ? `${document.type === "devis" ? "devis" : "facture"} ${document.numero || ""}` : attachment?.filename}
-              )
-            </label>
+          {(document || (piecesJointes && piecesJointes.length > 0)) && (
+            <div className="space-y-1.5">
+              <div className="field-label">Pièces jointes</div>
+              {document && (
+                <label className="flex items-center gap-2 text-sm text-white/70">
+                  <input type="checkbox" checked={attachPdf} onChange={(e) => setAttachPdf(e.target.checked)} />
+                  {document.type === "devis" ? "Devis" : "Facture"} {document.numero || ""} (PDF)
+                </label>
+              )}
+              {(piecesJointes || []).map((pj, i) => (
+                <label key={pj.filename + i} className="flex items-center gap-2 text-sm text-white/70">
+                  <input
+                    type="checkbox"
+                    checked={pjCochees[i] || false}
+                    onChange={(e) =>
+                      setPjCochees((prev) => prev.map((v, j) => (j === i ? e.target.checked : v)))
+                    }
+                  />
+                  {pj.label}
+                </label>
+              ))}
+            </div>
           )}
 
           {error && (

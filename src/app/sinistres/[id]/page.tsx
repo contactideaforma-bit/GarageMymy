@@ -29,7 +29,8 @@ import TransfertGarantiePanel from "@/components/TransfertGarantiePanel";
 import { ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
-import { apercuDocumentPdf } from "@/lib/pdf";
+import { apercuDocumentPdf, cessionPdfBase64, documentPdfBase64Auto, ordreReparationPdfBase64, ribPdfBase64 } from "@/lib/pdf";
+import type { PieceJointeOption } from "@/components/EmailComposer";
 import StatutBadge from "@/components/StatutBadge";
 import StatutPipeline from "@/components/StatutPipeline";
 import ProgressionDossier from "@/components/ProgressionDossier";
@@ -227,6 +228,32 @@ export default function DossierDetailPage() {
   // Destinataires d'envoi des documents selon le processus :
   // cas normal → expert + client ; cession de créance → expert + assurance.
   const enCession = Boolean(dossier.mode_cession) || cessions.some((c) => c.statut === "signe");
+
+  // Autres pièces joignables au même email (cochables, décochées par défaut)
+  const pjPourDoc = (docCourant: Document): PieceJointeOption[] => [
+    ...documents
+      .filter((d) => d.id !== docCourant.id)
+      .map((d) => ({
+        label: `${d.type === "devis" ? "Devis" : "Facture"} ${d.numero || ""} (PDF)`,
+        filename: `${d.numero || d.type}.pdf`,
+        getBase64: () => documentPdfBase64Auto(d, dossier),
+        coche: false,
+      })),
+    ...ordres.map((o) => ({
+      label: `Ordre de réparation ${o.numero || ""} (PDF)`,
+      filename: `${o.numero || "ordre-reparation"}.pdf`,
+      getBase64: () => ordreReparationPdfBase64(o, dossier),
+      coche: false,
+    })),
+    ...cessions.map((c) => ({
+      label: "Cession de créance (PDF)",
+      filename: `cession-creance-${dossier.numero_sinistre || "dossier"}.pdf`,
+      getBase64: () => cessionPdfBase64(c, dossier),
+      coche: false,
+    })),
+    { label: "RIB du garage", filename: "RIB.pdf", getBase64: ribPdfBase64, coche: false },
+  ];
+
   const destinatairesDocument = (doc: Document): string =>
     [dossier.expert_email || dossier.cabinet_email, doc.type === "facture" && enCession ? dossier.assureur_email : dossier.client_email]
       .filter(Boolean)
@@ -352,7 +379,7 @@ export default function DossierDetailPage() {
         </Card>
 
         <Card title="Suivi & documents">
-          <InfoRow label="Montant" value={formatEuros(dossier.montant)} />
+          <InfoRow label="Montant (HT)" value={formatEuros(dossier.montant)} />
           <InfoRow label="Créé le" value={formatDate(dossier.created_at)} />
           <div className="flex justify-between gap-4 py-2">
             <span className="text-sm text-white/50">Rapport d&apos;expertise</span>
@@ -434,7 +461,7 @@ export default function DossierDetailPage() {
         </div>
 
         {/* Ordre de réparation, cession de créance & restitution (même bloc) */}
-        <AtelierPanel dossier={dossier} onChanged={load} integre />
+        <AtelierPanel dossier={dossier} onChanged={load} integre documents={documents} />
       </section>
 
       {/* Commande de pièces (suivi non bloquant) */}
@@ -488,6 +515,7 @@ export default function DossierDetailPage() {
         <EmailComposer
           dossier={dossier}
           document={emailDoc}
+          piecesJointes={pjPourDoc(emailDoc)}
           defaultTo={destinatairesDocument(emailDoc)}
           defaultSubject={`${emailDoc.type === "devis" ? "Devis" : "Facture"} ${emailDoc.numero || ""} — ${
             dossier.marque_modele || ""

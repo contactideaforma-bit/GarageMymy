@@ -110,7 +110,8 @@ export default function DossierForm({
   prefillTva,
 }: {
   onClose: () => void;
-  onSaved: () => void;
+  // Reçoit l'id du dossier créé/modifié (pour ouvrir sa fiche directement)
+  onSaved: (id?: string) => void;
   dossier?: Dossier | null;
   prefill?: Partial<Dossier> | null;
   prefillFile?: File | null;
@@ -347,9 +348,11 @@ export default function DossierForm({
         rapport_nom,
       };
 
+      let idFinal: string | undefined;
       if (isEdit && dossier) {
         const { error: updErr } = await supabase.from("dossiers").update(payload).eq("id", dossier.id);
         if (updErr) throw updErr;
+        idFinal = dossier.id;
         await synchroniserAnnuaire();
       } else {
         const { data: created, error: insErr } = await supabase
@@ -359,6 +362,7 @@ export default function DossierForm({
           .single();
         if (insErr) throw insErr;
         const newId = created?.id as string | undefined;
+        idFinal = newId;
 
         await synchroniserAnnuaire();
 
@@ -415,7 +419,7 @@ export default function DossierForm({
         }
       }
 
-      onSaved();
+      onSaved(idFinal);
       onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");

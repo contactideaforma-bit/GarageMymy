@@ -461,6 +461,74 @@ export async function apercuOrdreReparationPdf(or: OrdreReparation, dossier: Dos
   ouvrirPdf(await buildOrdreReparationPdf(or, dossier));
 }
 
+// Comme documentPdfBase64, mais va chercher les lignes tout seul
+// (pour joindre facilement d'AUTRES documents du dossier à un email).
+export async function documentPdfBase64Auto(doc: Document, dossier: Dossier): Promise<string> {
+  const { data } = await supabase
+    .from("document_lignes")
+    .select("*")
+    .eq("document_id", doc.id)
+    .order("ordre", { ascending: true });
+  return documentPdfBase64(doc, (data as DocumentLigne[]) || [], dossier);
+}
+
+// RIB du garage (coordonnées bancaires du profil) en PDF, pour pièce jointe.
+export async function ribPdfBase64(): Promise<string> {
+  const ent = await getEntreprise();
+  const logo = await logoDataUrl(ent.logo_path);
+  const pdf = new jsPDF();
+  const pageW = pdf.internal.pageSize.getWidth();
+  const M = 14;
+
+  let headerX = M;
+  if (logo) {
+    try {
+      pdf.addImage(logo, "PNG", M, 12, 26, 26);
+      headerX = M + 32;
+    } catch { /* format non supporté */ }
+  }
+  pdf.setFontSize(16);
+  pdf.setTextColor(124, 92, 246);
+  pdf.text(ent.nom || "Mon garage", headerX, 19);
+  pdf.setFontSize(9);
+  pdf.setTextColor(90);
+  pdf.text(
+    [
+      ent.adresse || "",
+      `${ent.code_postal || ""} ${ent.ville || ""}`.trim(),
+      ent.siret ? `SIRET ${ent.siret}` : "",
+    ].filter(Boolean),
+    headerX,
+    26
+  );
+
+  pdf.setFontSize(15);
+  pdf.setTextColor(30);
+  pdf.text("RELEVÉ D'IDENTITÉ BANCAIRE", pageW / 2, 60, { align: "center" });
+
+  pdf.setDrawColor(124, 92, 246);
+  pdf.setLineWidth(0.5);
+  pdf.rect(M + 10, 70, pageW - (M + 10) * 2, 46);
+
+  pdf.setFontSize(10);
+  pdf.setTextColor(90);
+  pdf.text("Titulaire :", M + 18, 82);
+  pdf.text("IBAN :", M + 18, 92);
+  pdf.text("BIC :", M + 18, 102);
+  pdf.setFontSize(11);
+  pdf.setTextColor(30);
+  pdf.text(ent.nom || "—", M + 48, 82);
+  pdf.text(ent.iban || "—", M + 48, 92);
+  pdf.text(ent.bic || "—", M + 48, 102);
+
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(120);
+  pdf.text("Merci d'utiliser ces coordonnées pour vos règlements par virement.", pageW / 2, 126, { align: "center" });
+
+  const uri = pdf.output("datauristring");
+  return uri.substring(uri.indexOf(",") + 1);
+}
+
 // Base64 (sans préfixe data:) pour pièce jointe email.
 export async function ordreReparationPdfBase64(or: OrdreReparation, dossier: Dossier): Promise<string> {
   const pdf = await buildOrdreReparationPdf(or, dossier);

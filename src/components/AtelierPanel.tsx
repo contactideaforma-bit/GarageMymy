@@ -5,8 +5,16 @@ import { supabase } from "@/lib/supabaseClient";
 import { CessionCreance, Dossier, OrdreReparation, Restitution, Document, DocumentLigne } from "@/lib/types";
 import { formatDate, formatEuros, messageErreur, STATUTS_ORDRE } from "@/lib/format";
 import { genNumeroOR, badgeStatutAtelier, labelStatutAtelier } from "@/lib/atelier";
-import { apercuCessionPdf, apercuOrdreReparationPdf, apercuRestitutionPdf, cessionPdfBase64, ordreReparationPdfBase64 } from "@/lib/pdf";
-import EmailComposer from "@/components/EmailComposer";
+import {
+  apercuCessionPdf,
+  apercuOrdreReparationPdf,
+  apercuRestitutionPdf,
+  cessionPdfBase64,
+  documentPdfBase64Auto,
+  ordreReparationPdfBase64,
+  ribPdfBase64,
+} from "@/lib/pdf";
+import EmailComposer, { PieceJointeOption } from "@/components/EmailComposer";
 import SignaturePad from "@/components/SignaturePad";
 import ModalShell from "@/components/ModalShell";
 
@@ -19,11 +27,20 @@ export default function AtelierPanel({
   dossier,
   onChanged,
   integre = false, // true = rendu à l'intérieur du bloc « Documents du dossier »
+  documents = [], // devis/factures du dossier (pour les pièces jointes d'email)
 }: {
   dossier: Dossier;
   onChanged?: () => void;
   integre?: boolean;
+  documents?: Document[];
 }) {
+  const derniereFacture = documents.find((d) => d.type === "facture") || null;
+  const pjRib: PieceJointeOption = {
+    label: "RIB du garage",
+    filename: "RIB.pdf",
+    getBase64: ribPdfBase64,
+    coche: false,
+  };
   const [ordres, setOrdres] = useState<OrdreReparation[]>([]);
   const [restitutions, setRestitutions] = useState<Restitution[]>([]);
   const [cessions, setCessions] = useState<CessionCreance[]>([]);
@@ -249,10 +266,21 @@ export default function AtelierPanel({
       {emailCession && (
         <EmailComposer
           dossier={dossier}
-          attachment={{
-            filename: `cession-creance-${dossier.numero_sinistre || "dossier"}.pdf`,
-            getBase64: () => cessionPdfBase64(emailCession, dossier),
-          }}
+          piecesJointes={[
+            {
+              label: "Cession de créance (PDF)",
+              filename: `cession-creance-${dossier.numero_sinistre || "dossier"}.pdf`,
+              getBase64: () => cessionPdfBase64(emailCession, dossier),
+            },
+            ...(derniereFacture
+              ? [{
+                  label: `Facture ${derniereFacture.numero || ""} (PDF)`,
+                  filename: `${derniereFacture.numero || "facture"}.pdf`,
+                  getBase64: () => documentPdfBase64Auto(derniereFacture, dossier),
+                }]
+              : []),
+            pjRib,
+          ]}
           defaultTo={dossier.assureur_email || ""}
           defaultSubject={`Notification de cession de créance — sinistre ${dossier.numero_sinistre || ""}${
             dossier.immatriculation ? ` (${dossier.immatriculation})` : ""
@@ -268,10 +296,14 @@ export default function AtelierPanel({
       {emailOR && (
         <EmailComposer
           dossier={dossier}
-          attachment={{
-            filename: `${emailOR.numero || "ordre-reparation"}.pdf`,
-            getBase64: () => ordreReparationPdfBase64(emailOR, dossier),
-          }}
+          piecesJointes={[
+            {
+              label: `Ordre de réparation ${emailOR.numero || ""} (PDF)`,
+              filename: `${emailOR.numero || "ordre-reparation"}.pdf`,
+              getBase64: () => ordreReparationPdfBase64(emailOR, dossier),
+            },
+            pjRib,
+          ]}
           defaultTo={[dossier.expert_email || dossier.cabinet_email, dossier.client_email]
             .filter(Boolean)
             .join(", ")}

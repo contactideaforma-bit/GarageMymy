@@ -88,7 +88,7 @@ export default function ImportPage() {
           prefillLignes={prefill?.lignes}
           prefillTva={prefill?.tva ?? null}
           onClose={() => setShowForm(false)}
-          onSaved={() => router.push("/sinistres")}
+          onSaved={(id) => router.push(id ? `/sinistres/${id}` : "/sinistres")}
         />
       )}
     </div>

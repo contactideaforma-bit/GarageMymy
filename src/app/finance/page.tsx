@@ -112,9 +112,9 @@ export default function FinancePage() {
       <ConfigBanner />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total facturé" value={formatEuros(kpi.facture)} hint="toutes factures" />
-        <StatCard label="Encaissé" value={formatEuros(kpi.encaisse)} />
-        <StatCard label="Reste à encaisser" value={formatEuros(kpi.reste)} />
+        <StatCard label="Total facturé" value={formatEuros(kpi.facture)} hint="toutes factures · TTC" />
+        <StatCard label="Encaissé" value={formatEuros(kpi.encaisse)} hint="TTC" />
+        <StatCard label="Reste à encaisser" value={formatEuros(kpi.reste)} hint="TTC" />
         <StatCard
           label="En retard"
           value={formatEuros(kpi.retardMontant)}

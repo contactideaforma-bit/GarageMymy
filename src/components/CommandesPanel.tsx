@@ -14,8 +14,10 @@ export const STATUTS_COMMANDE: Record<string, { label: string; badge: string }> 
   receptionne: { label: "Réceptionné", badge: "bg-emerald-100 text-emerald-700" },
 };
 
-// Lignes de main d'œuvre à écarter lors de l'import depuis le devis
-const MOTIFS_MO = /^(main d'?œuvre|main d'?oeuvre|peinture$|ingr[ée]dient|t[123]\b)/i;
+// Lignes de main d'œuvre / peinture à écarter : ce ne sont PAS des pièces
+// à commander (temps de MO, peinture, ingrédients, forfaits de préparation…)
+const MOTIFS_MO =
+  /^(main[- ]d'?œuvre|main[- ]d'?oeuvre|mo\b|t[123]\b|peinture\b|ingr[ée]dients?\b|petites? fournitures?|forfait)/i;
 
 export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
   const [commandes, setCommandes] = useState<CommandePiece[]>([]);
@@ -211,7 +213,7 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
               </tbody>
               <tfoot>
                 <tr className="border-t border-white/10">
-                  <td className="py-2 pr-4 text-white/50">Total pièces</td>
+                  <td className="py-2 pr-4 text-white/50">Total pièces HT</td>
                   <td className="py-2 pr-4 text-right font-medium text-white">{formatEuros(totalHt)}</td>
                   <td colSpan={3} />
                 </tr>

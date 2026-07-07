@@ -288,7 +288,12 @@ export default function PlanningPage() {
         </ModalShell>
       )}
 
-      {showDossier && <DossierForm onClose={() => setShowDossier(false)} onSaved={load} />}
+      {showDossier && (
+        <DossierForm
+          onClose={() => setShowDossier(false)}
+          onSaved={(id) => (id ? router.push(`/sinistres/${id}`) : load())}
+        />
+      )}
     </div>
   );
 }

@@ -70,14 +70,15 @@ export default function SinistresPage() {
         <table className="w-full text-sm">
           <thead className="text-left text-white/50">
             <tr>
-              <th className="px-5 py-3 font-medium">N° sinistre</th>
-              <th className="px-5 py-3 font-medium">Client</th>
-              <th className="px-5 py-3 font-medium">Véhicule</th>
-              <th className="px-5 py-3 font-medium">Assureur</th>
-              <th className="px-5 py-3 font-medium">Date sinistre</th>
-              <th className="px-5 py-3 font-medium">Statut</th>
-              <th className="px-5 py-3 font-medium text-right">Montant</th>
-              <th className="px-5 py-3 font-medium">Rapport</th>
+              <th className="px-4 py-3 font-medium">N° sinistre</th>
+              <th className="px-4 py-3 font-medium">Client</th>
+              <th className="px-4 py-3 font-medium hidden md:table-cell">Véhicule</th>
+              <th className="px-4 py-3 font-medium">Immatriculation</th>
+              <th className="px-4 py-3 font-medium hidden xl:table-cell">Assureur</th>
+              <th className="px-4 py-3 font-medium hidden lg:table-cell">Date sinistre</th>
+              <th className="px-4 py-3 font-medium">Statut</th>
+              <th className="px-4 py-3 font-medium text-right">Montant HT</th>
+              <th className="px-4 py-3 font-medium hidden sm:table-cell">Rapport</th>
             </tr>
           </thead>
           <tbody>
@@ -96,13 +97,12 @@ export default function SinistresPage() {
                   onClick={() => router.push(`/sinistres/${d.id}`)}
                   className="border-t border-white/5 hover:bg-white/5 cursor-pointer"
                 >
-                  <td className="px-5 py-3 font-medium text-white">{d.numero_sinistre || "—"}</td>
-                  <td className="px-5 py-3 text-white/80">{d.client_nom || "—"}</td>
-                  <td className="px-5 py-3 text-white/80">
-                    {d.marque_modele || "—"}{d.immatriculation ? ` (${d.immatriculation})` : ""}
-                  </td>
-                  <td className="px-5 py-3 text-white/80">{d.assureur || "—"}</td>
-                  <td className="px-5 py-3 text-white/80">{formatDate(d.date_sinistre)}</td>
+                  <td className="px-4 py-3 font-medium text-white">{d.numero_sinistre || "—"}</td>
+                  <td className="px-4 py-3 text-white/80">{d.client_nom || "—"}</td>
+                  <td className="px-4 py-3 text-white/80 hidden md:table-cell">{d.marque_modele || "—"}</td>
+                  <td className="px-4 py-3 text-white/80 whitespace-nowrap">{d.immatriculation || "—"}</td>
+                  <td className="px-4 py-3 text-white/80 hidden xl:table-cell">{d.assureur || "—"}</td>
+                  <td className="px-4 py-3 text-white/80 hidden lg:table-cell">{formatDate(d.date_sinistre)}</td>
                   <td className="px-5 py-3">
                     <StatutBadge statut={d.statut} />
                     {d.mode_cession && (
@@ -114,8 +114,8 @@ export default function SinistresPage() {
                       <ProgressionDossier statut={d.statut} size="sm" />
                     </div>
                   </td>
-                  <td className="px-5 py-3 text-right text-white/90">{formatEuros(d.montant)}</td>
-                  <td className="px-5 py-3">
+                  <td className="px-4 py-3 text-right text-white/90 whitespace-nowrap">{formatEuros(d.montant)}</td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
                     {d.rapport_path ? (
                       <button
                         onClick={(e) => {
@@ -137,7 +137,12 @@ export default function SinistresPage() {
         </table>
       </div>
 
-      {showForm && <DossierForm onClose={() => setShowForm(false)} onSaved={load} />}
+      {showForm && (
+        <DossierForm
+          onClose={() => setShowForm(false)}
+          onSaved={(id) => (id ? router.push(`/sinistres/${id}`) : load())}
+        />
+      )}
     </div>
   );
 }
