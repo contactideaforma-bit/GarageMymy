@@ -8,11 +8,14 @@ import DossierForm from "@/components/DossierForm";
 import ConfigBanner from "@/components/ConfigBanner";
 import { fetchAuth } from "@/lib/apiClient";
 import BarreChargement from "@/components/BarreChargement";
+import { useMetier } from "@/components/MetierProvider";
 
 type Extraction = Partial<Dossier> & { lignes?: LigneExtraite[]; tva?: number | null };
 
 export default function ImportPage() {
   const router = useRouter();
+  const { metier } = useMetier();
+  const estVitrage = metier === "vitrage";
   const [file, setFile] = useState<File | null>(null);
   const [analyse, setAnalyse] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,16 +48,21 @@ export default function ImportPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold text-white mb-2">Importer un rapport d&apos;expertise</h1>
+      <h1 className="text-2xl font-semibold text-white mb-2">
+        {estVitrage ? "Importer une prise en charge" : "Importer un rapport d'expertise"}
+      </h1>
       <p className="text-white/60 mb-6">
-        Dépose le rapport reçu du cabinet d&apos;expert. L&apos;IA en extrait les informations
-        (véhicule, sinistre, client, expert, assurance) et pré-remplit un dossier complet.
+        {estVitrage
+          ? "Dépose un document reçu de l'assureur (ordre de mission, accord de prise en charge). L'IA en extrait les informations (véhicule, client, assurance) et pré-remplit un dossier. Tu peux aussi partir d'une saisie manuelle."
+          : "Dépose le rapport reçu du cabinet d'expert. L'IA en extrait les informations (véhicule, sinistre, client, expert, assurance) et pré-remplit un dossier complet."}
       </p>
 
       <ConfigBanner />
 
       <div className="glass-card p-6">
-        <label className="field-label">Rapport d&apos;expertise (PDF ou image)</label>
+        <label className="field-label">
+          {estVitrage ? "Document de prise en charge (PDF ou image)" : "Rapport d'expertise (PDF ou image)"}
+        </label>
         <input
           type="file"
           accept="application/pdf,image/*"
@@ -71,7 +79,7 @@ export default function ImportPage() {
 
         <div className="mt-5 flex flex-wrap gap-3">
           <button onClick={analyser} disabled={!file || analyse} className="btn-primary">
-            {analyse ? "Analyse en cours…" : "Analyser le rapport"}
+            {analyse ? "Analyse en cours…" : estVitrage ? "Analyser le document" : "Analyser le rapport"}
           </button>
           <button onClick={saisieManuelle} className="btn-ghost">
             Saisie manuelle

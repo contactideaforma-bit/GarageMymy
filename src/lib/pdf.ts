@@ -36,6 +36,20 @@ async function getEntreprise(): Promise<Partial<Entreprise>> {
   }
 }
 
+// Métier du compte (carrosserie | vitrage), lu depuis l'Auth pour adapter le
+// libellé des documents (ordre de réparation vs ordre d'intervention).
+async function getMetierPdf(): Promise<"carrosserie" | "vitrage"> {
+  try {
+    const { data } = await supabase.auth.getUser();
+    const m =
+      (data.user?.app_metadata as { metier?: string } | undefined)?.metier ??
+      (data.user?.user_metadata as { metier?: string } | undefined)?.metier;
+    return m === "vitrage" ? "vitrage" : "carrosserie";
+  } catch {
+    return "carrosserie";
+  }
+}
+
 // Réduit une image (dataURL) à maxDim px de côté max, ré-encodée en PNG.
 // Évite d'embarquer un logo pleine résolution qui ferait exploser la taille
 // du PDF (et donc dépasser la limite de 4,5 Mo des requêtes Vercel à l'envoi).
@@ -593,6 +607,8 @@ function lignesDepuisTravaux(travaux: string | null): {
 // signature, avec sauts de page propres (aucun bloc orphelin).
 async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): Promise<jsPDF> {
   const ent = await getEntreprise();
+  const estVitrage = (await getMetierPdf()) === "vitrage";
+  const titreDoc = estVitrage ? "ORDRE D'INTERVENTION" : "ORDRE DE RÉPARATION";
   const logo = await logoDataUrl(ent.logo_path);
 
   const pdf = new jsPDF();
@@ -642,7 +658,7 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
 
   pdf.setFontSize(17);
   pdf.setTextColor(30);
-  pdf.text("ORDRE DE RÉPARATION", right, 21, { align: "right" });
+  pdf.text(titreDoc, right, 21, { align: "right" });
   pdf.setFontSize(10);
   pdf.setTextColor(90);
   pdf.text(`N° ${or.numero || "—"}`, right, 29, { align: "right" });
@@ -742,7 +758,14 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
   pdf.text(euros(totalHt), right, ty + 6, { align: "right" });
   pdf.setFontSize(8);
   pdf.setTextColor(110);
-  pdf.text("Montant conforme au chiffrage du rapport d'expertise. TVA en sus — détail sur la facture.", right, ty + 12, { align: "right" });
+  pdf.text(
+    estVitrage
+      ? "Montant conforme au devis. TVA en sus — détail sur la facture."
+      : "Montant conforme au chiffrage du rapport d'expertise. TVA en sus — détail sur la facture.",
+    right,
+    ty + 12,
+    { align: "right" }
+  );
   ty += 20;
 
   // ---------- Conditions ----------
