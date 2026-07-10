@@ -18,6 +18,7 @@ import {
 import { resteAPayer, totalPaye } from "./paiements";
 import { completudePieces } from "./pieces";
 import { addJoursOuvres } from "./format";
+import { calibrageEnAttente } from "./vitrage";
 
 export type ProchaineAction = {
   code: string;
@@ -46,7 +47,12 @@ export function calculeProchaineAction(args: {
   cessions: CessionCreance[];
   pieces?: Pick<PieceDossier, "type">[];
   demandes?: Pick<DemandeAssurance, "demande" | "date_envoi">[];
+  metier?: string | null;
 }): ProchaineAction | null {
+  // Le métier vitrage suit un processus différent (pas d'ordre de réparation
+  // imposé, calibrage ADAS, pas de délai d'envoi de facture).
+  if (args.metier === "vitrage") return actionVitrage(args);
+
   const { dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces, demandes } = args;
   if (dossier.statut === "cloture") return null;
 
@@ -259,6 +265,219 @@ export function calculeProchaineAction(args: {
     code: "cloture",
     titre: "Clôture le dossier",
     detail: "Tout est fait : véhicule rendu et facture soldée. Passe le statut en Clôturé.",
+    href: fiche,
+    ctaLabel: "Ouvrir le dossier",
+    urgence: "normale",
+  };
+}
+
+// ---------- Processus VITRAGE (bris de glace) ----------
+// Diagnostic → devis → (cession) → planification → intervention + calibrage
+// ADAS → facture → paiement (relances) → restitution → clôture.
+function actionVitrage(args: {
+  dossier: Dossier;
+  documents: Document[];
+  paiements: Paiement[];
+  relances: Relance[];
+  restitutions: Restitution[];
+  cessions: CessionCreance[];
+  pieces?: Pick<PieceDossier, "type">[];
+  demandes?: Pick<DemandeAssurance, "demande" | "date_envoi">[];
+}): ProchaineAction | null {
+  const { dossier, documents, paiements, relances, restitutions, cessions, pieces, demandes } = args;
+  if (dossier.statut === "cloture") return null;
+  const fiche = `/sinistres/${dossier.id}`;
+
+  // PRIORITÉ ABSOLUE : une demande de documents en attente bloque le paiement
+  const demandesEnAttente = (demandes || []).filter((d) => !d.date_envoi);
+  if (demandesEnAttente.length > 0) {
+    return {
+      code: "demande_assurance",
+      titre: `Envoie les documents demandés (${demandesEnAttente[0].demande})`,
+      detail:
+        demandesEnAttente.length > 1
+          ? `${demandesEnAttente.length} demandes en attente — chaque jour de retard repousse le paiement.`
+          : "Tant que ce n'est pas envoyé, l'assurance ne paiera pas.",
+      href: fiche,
+      ctaLabel: "Ouvrir le dossier",
+      urgence: "haute",
+    };
+  }
+
+  // 0) Pièces du client (carte grise, constat) avant tout
+  if (pieces && ["nouveau", "expertise"].includes(dossier.statut)) {
+    const comp = completudePieces(dossier, pieces);
+    const manquantesClient = comp.manquantes.filter((m) => m !== "rapport d'expertise");
+    if (manquantesClient.length > 0) {
+      return {
+        code: "pieces",
+        titre: `Complète les pièces du dossier (${manquantesClient.join(", ")})`,
+        detail: "Photographie-les directement depuis le téléphone : bloc « Pièces du dossier ».",
+        href: fiche,
+        ctaLabel: "Ouvrir le dossier",
+        urgence: "normale",
+      };
+    }
+  }
+
+  const factures = documents.filter((d) => d.type === "facture");
+  const devisList = documents.filter((d) => d.type === "devis");
+  const cessionSignee = cessions.some((c) => c.statut === "signe");
+  const restitutionSignee = restitutions.some((r) => r.statut === "signe");
+  const enCession = cessionSignee || Boolean(dossier.mode_cession);
+
+  let resteTotal = 0;
+  let factureEchue: Document | null = null;
+  for (const f of factures) {
+    const paye = totalPaye(paiements.filter((p) => p.document_id === f.id));
+    const reste = resteAPayer(f.total_ttc, paye);
+    resteTotal += reste;
+    if (reste > 0 && f.date_echeance && new Date(f.date_echeance) < new Date()) {
+      factureEchue = f;
+    }
+  }
+
+  // 1) Diagnostic fait : établir le devis (impact réparable ou remplacement)
+  if (devisList.length === 0 && factures.length === 0) {
+    return {
+      code: "devis",
+      titre: "Établis le devis de l'intervention",
+      detail:
+        "Après diagnostic (réparation d'impact ou remplacement) : crée le devis dans « Documents du dossier ».",
+      href: fiche,
+      ctaLabel: "Ouvrir le dossier",
+      urgence: "normale",
+    };
+  }
+
+  // 2) Tiers payant : la cession doit être signée
+  if (dossier.mode_cession && !cessionSignee) {
+    return {
+      code: "cession_signature",
+      titre: "Fais signer la cession de créance",
+      detail:
+        "Tiers payant : le client signe la cession, l'assurance te règle directement (bloc Documents).",
+      href: fiche,
+      ctaLabel: "Ouvrir le dossier",
+      urgence: "normale",
+    };
+  }
+
+  // 3) Intervention non planifiée : réserver le créneau + commander le vitrage
+  if (!dossier.reparation_debut && ["nouveau", "expertise", "devis"].includes(dossier.statut)) {
+    return {
+      code: "planning",
+      titre: "Planifie l'intervention",
+      detail:
+        "Réserve le créneau et commande le vitrage (référence selon options : capteurs, chauffant, acoustique…).",
+      href: "/planning",
+      ctaLabel: "Ouvrir le planning",
+      urgence: "normale",
+    };
+  }
+
+  // 4) Calibrage ADAS obligatoire avant restitution
+  if (calibrageEnAttente(dossier) && dossier.reparation_debut) {
+    return {
+      code: "calibrage",
+      titre: "Réalise et enregistre le calibrage ADAS",
+      detail:
+        "Caméra derrière le pare-brise : le calibrage est obligatoire avant de rendre le véhicule. Coche « Calibrage réalisé » sur la fiche.",
+      href: fiche,
+      ctaLabel: "Ouvrir le dossier",
+      urgence: "haute",
+    };
+  }
+
+  // 5) Pas encore de facture
+  if (factures.length === 0) {
+    return {
+      code: "facture",
+      titre: "Crée la facture",
+      detail: "Bloc « Documents du dossier » : + Facture (reprend les lignes du devis).",
+      href: fiche,
+      ctaLabel: "Ouvrir le dossier",
+      urgence: "normale",
+    };
+  }
+
+  // 6) Facture en brouillon : envoi immédiat (assurance si tiers payant, sinon client)
+  const factureBrouillon = factures.find((f) => f.statut === "brouillon");
+  if (factureBrouillon) {
+    return {
+      code: "envoi_facture",
+      titre: enCession
+        ? "Envoie la facture à l'assurance (tiers payant)"
+        : "Envoie la facture au client",
+      detail: enCession
+        ? "Cession en place : l'assurance te règle directement. Le client ne paie que sa franchise éventuelle."
+        : "Le client règle l'intervention (franchise éventuelle) puis se fait rembourser par son assurance.",
+      href: fiche,
+      ctaLabel: "Ouvrir le dossier",
+      urgence: "normale",
+    };
+  }
+
+  // 7) Facture échue impayée : relancer
+  if (factureEchue) {
+    const rels = relances.filter((r) => r.document_id === factureEchue!.id);
+    const derniere = rels[0]?.date_relance || null;
+    const j = joursDepuis(derniere);
+    if (j === null || j >= 7) {
+      const niveau = rels.length + 1;
+      return {
+        code: "relance",
+        titre: niveau >= 3 ? "Envoie la mise en demeure" : `Relance le paiement (n°${niveau})`,
+        detail: `Facture ${factureEchue.numero || ""} échue, reste ${resteTotal
+          .toFixed(2)
+          .replace(".", ",")} €. Page Finance : bouton Relancer.`,
+        href: "/finance",
+        ctaLabel: "Ouvrir Finance",
+        urgence: "haute",
+      };
+    }
+    return {
+      code: "attente_paiement",
+      titre: "En attente du paiement (relancé récemment)",
+      detail: "Dernière relance il y a moins de 7 jours.",
+      href: "/finance",
+      ctaLabel: "Ouvrir Finance",
+      urgence: "attente",
+    };
+  }
+
+  // 8) Facture envoyée, pas encore échue : attente
+  if (resteTotal > 0) {
+    return {
+      code: "attente_paiement",
+      titre: "En attente du paiement",
+      detail: enCession
+        ? "L'assurance doit te régler directement (tiers payant / cession)."
+        : "Le client règle l'intervention (virement à réception). Pense au rapprochement bancaire.",
+      href: "/finance",
+      ctaLabel: "Ouvrir Finance",
+      urgence: "attente",
+    };
+  }
+
+  // 9) Payé : restitution du véhicule (PV facultatif)
+  if (!restitutionSignee && dossier.statut !== "rendu") {
+    return {
+      code: "restitution",
+      titre: "Restitue le véhicule au client",
+      detail:
+        "Intervention payée : rends le véhicule. Tu peux faire signer un PV (bloc Documents), sinon passe le statut en « Véhicule restitué ».",
+      href: fiche,
+      ctaLabel: "Ouvrir le dossier",
+      urgence: "normale",
+    };
+  }
+
+  // 10) Tout est fait : clôture
+  return {
+    code: "cloture",
+    titre: "Clôture le dossier",
+    detail: "Véhicule rendu et facture soldée. Passe le statut en Clôturé.",
     href: fiche,
     ctaLabel: "Ouvrir le dossier",
     urgence: "normale",

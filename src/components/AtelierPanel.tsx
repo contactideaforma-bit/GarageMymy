@@ -17,6 +17,12 @@ import {
 import EmailComposer, { PieceJointeOption } from "@/components/EmailComposer";
 import SignaturePad from "@/components/SignaturePad";
 import ModalShell from "@/components/ModalShell";
+import { useMetier } from "@/components/MetierProvider";
+
+// Libellé du document d'ordre selon le métier.
+function labelOrdre(metier: string) {
+  return metier === "vitrage" ? "Ordre d'intervention" : "Ordre de réparation";
+}
 
 /**
  * Atelier : ordre de réparation signé + PV de restitution signé.
@@ -34,6 +40,8 @@ export default function AtelierPanel({
   integre?: boolean;
   documents?: Document[];
 }) {
+  const { metier } = useMetier();
+  const labelOR = labelOrdre(metier);
   const derniereFacture = documents.find((d) => d.type === "facture") || null;
   const pjRib: PieceJointeOption = {
     label: "RIB du garage",
@@ -77,7 +85,7 @@ export default function AtelierPanel({
   }
 
   async function supprimerOR(or: OrdreReparation) {
-    if (!confirm("Supprimer cet ordre de réparation ?")) return;
+    if (!confirm(`Supprimer cet ${labelOR.toLowerCase()} ?`)) return;
     await supabase.from("ordres_reparation").delete().eq("id", or.id);
     refresh();
   }
@@ -98,13 +106,13 @@ export default function AtelierPanel({
     <section className={integre ? "border-t-2 border-white/10" : "glass-card"}>
       <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
         {integre ? (
-          <div className="text-sm font-semibold text-white/70">Ordre de réparation · Cession de créance · Restitution</div>
+          <div className="text-sm font-semibold text-white/70">{labelOR} · Cession de créance · Restitution</div>
         ) : (
           <h2 className="font-semibold text-white">Atelier — documents à signer</h2>
         )}
         <div className="flex flex-wrap gap-2">
           <button onClick={() => setModal({ kind: "or" })} className="btn-primary py-1.5 px-3 text-xs">
-            + Ordre de réparation
+            + {labelOR}
           </button>
           <button
             onClick={() => setModal({ kind: "cession" })}
@@ -124,7 +132,7 @@ export default function AtelierPanel({
 
         {!loading && ordres.length === 0 && restitutions.length === 0 && cessions.length === 0 && (
           <p className="text-sm text-white/40">
-            Fais signer l&apos;ordre de réparation avant les travaux, la cession de créance pour être
+            Fais signer {labelOR.toLowerCase()} avant les travaux, la cession de créance pour être
             payé directement par l&apos;assurance, puis le PV de restitution à la remise du véhicule —
             directement sur l&apos;écran (doigt ou souris).
           </p>
@@ -135,7 +143,7 @@ export default function AtelierPanel({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-white">{or.numero || "Ordre de réparation"}</span>
+                  <span className="font-medium text-white">{or.numero || labelOR}</span>
                   <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutAtelier(or.statut)}`}>
                     {labelStatutAtelier(or.statut)}
                   </span>
@@ -155,7 +163,7 @@ export default function AtelierPanel({
                     </button>
                     {or.sign_token && (
                       <button
-                        onClick={() => setEmailSign({ titre: `l'ordre de réparation ${or.numero || ""}`, token: or.sign_token! })}
+                        onClick={() => setEmailSign({ titre: `${labelOR.toLowerCase()} ${or.numero || ""}`, token: or.sign_token! })}
                         className="text-accent-teal hover:underline"
                       >
                         Faire signer à distance
@@ -298,8 +306,8 @@ export default function AtelierPanel({
           dossier={dossier}
           piecesJointes={[
             {
-              label: `Ordre de réparation ${emailOR.numero || ""} (PDF)`,
-              filename: `${emailOR.numero || "ordre-reparation"}.pdf`,
+              label: `${labelOR} ${emailOR.numero || ""} (PDF)`,
+              filename: `${emailOR.numero || "ordre-intervention"}.pdf`,
               getBase64: () => ordreReparationPdfBase64(emailOR, dossier),
             },
             pjRib,
@@ -307,14 +315,14 @@ export default function AtelierPanel({
           defaultTo={[dossier.expert_email || dossier.cabinet_email, dossier.client_email]
             .filter(Boolean)
             .join(", ")}
-          defaultSubject={`Ordre de réparation ${emailOR.numero || ""} — ${dossier.marque_modele || ""}${
+          defaultSubject={`${labelOR} ${emailOR.numero || ""} — ${dossier.marque_modele || ""}${
             dossier.immatriculation ? ` (${dossier.immatriculation})` : ""
           }`}
-          defaultBody={`Bonjour,\n\nVeuillez trouver ci-joint l'ordre de réparation ${
+          defaultBody={`Bonjour,\n\nVeuillez trouver ci-joint ${labelOR.toLowerCase()} ${
             emailOR.numero || ""
           } concernant le dossier ${dossier.numero_sinistre || "—"}${
             dossier.client_nom ? ` (${dossier.client_nom})` : ""
-          }, établi conformément au chiffrage du rapport d'expertise.\n\nRestant à votre disposition,\nCordialement.`}
+          }.\n\nRestant à votre disposition,\nCordialement.`}
           onClose={() => setEmailOR(null)}
           onSent={() => refresh()}
         />
@@ -365,6 +373,8 @@ function ORModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { metier } = useMetier();
+  const labelOR = labelOrdre(metier);
   const [numero] = useState(or?.numero || genNumeroOR());
   const [dateOr, setDateOr] = useState(or?.date_or || new Date().toISOString().slice(0, 10));
   const [travaux, setTravaux] = useState(or?.travaux || "");
@@ -427,7 +437,7 @@ function ORModal({
         await avancerStatut(dossier, "reparation");
         await supabase.from("evenements").insert({
           dossier_id: dossier.id,
-          titre: "Ordre de réparation signé",
+          titre: `${labelOR} signé`,
           description: `${numero} signé par ${signataire || "le client"}`,
           date_evenement: new Date().toISOString(),
           categorie: "autre",
@@ -442,7 +452,7 @@ function ORModal({
   }
 
   return (
-    <ModalShell title={`Ordre de réparation — ${numero}`} onClose={onClose}>
+    <ModalShell title={`${labelOR} — ${numero}`} onClose={onClose}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="field-label">Date</label>

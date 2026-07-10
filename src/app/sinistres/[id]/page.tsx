@@ -251,7 +251,7 @@ export default function DossierDetailPage() {
     );
   }
 
-  const action = calculeProchaineAction({ dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces, demandes });
+  const action = calculeProchaineAction({ dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces, demandes, metier });
   // Destinataires d'envoi des documents selon le processus :
   // cas normal → expert + client ; cession de créance → expert + assurance.
   const enCession = Boolean(dossier.mode_cession) || cessions.some((c) => c.statut === "signe");

@@ -18,6 +18,8 @@ import {
 import { formatEuros, formatDate, formatDateTime, estActif } from "@/lib/format";
 import { totalPaye, resteAPayer } from "@/lib/paiements";
 import { calculeProchaineAction, URGENCE_STYLE } from "@/lib/actions";
+import { useMetier } from "@/components/MetierProvider";
+import { termes } from "@/lib/metier";
 import StatCard from "@/components/StatCard";
 import StatutBadge from "@/components/StatutBadge";
 import ProgressionDossier from "@/components/ProgressionDossier";
@@ -26,6 +28,8 @@ import ConfigBanner from "@/components/ConfigBanner";
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { metier } = useMetier();
+  const t = termes(metier);
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
   const [evenements, setEvenements] = useState<Evenement[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -120,6 +124,7 @@ export default function DashboardPage() {
         cessions: cessions.filter((x) => x.dossier_id === d.id),
         pieces: pieces.filter((x) => x.dossier_id === d.id),
         demandes: demandes.filter((x) => x.dossier_id === d.id),
+        metier,
       }),
     }))
     .filter((x): x is { dossier: Dossier; action: NonNullable<ReturnType<typeof calculeProchaineAction>> } =>
@@ -131,7 +136,7 @@ export default function DashboardPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold text-white">Tableau de bord</h1>
-        <Link href="/import" className="btn-primary">Importer un rapport</Link>
+        <Link href="/import" className="btn-primary">{t.importer}</Link>
       </div>
 
       <ConfigBanner />
