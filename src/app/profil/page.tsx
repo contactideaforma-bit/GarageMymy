@@ -7,6 +7,8 @@ import ConfigBanner from "@/components/ConfigBanner";
 import MailSettings from "@/components/MailSettings";
 import CompteSettings from "@/components/CompteSettings";
 import ConsommationIA from "@/components/ConsommationIA";
+import { useMetier } from "@/components/MetierProvider";
+import { METIER_INFOS, Metier, normaliseMetier } from "@/lib/metier";
 
 type FormE = Omit<Entreprise, "id" | "created_at">;
 
@@ -14,7 +16,7 @@ const EMPTY: FormE = {
   nom: "", adresse: "", code_postal: "", ville: "", tel: "", email: "",
   siret: "", tva_intra: "", iban: "", bic: "", mentions: "",
   logo_path: null, modele_facture_path: null,
-  signature_mail: "", rib_path: null,
+  signature_mail: "", rib_path: null, metier: "carrosserie",
 };
 
 function Field({
@@ -29,6 +31,7 @@ function Field({
 }
 
 export default function ProfilPage() {
+  const { refresh: refreshMetier } = useMetier();
   const [id, setId] = useState<string | null>(null);
   const [form, setForm] = useState<FormE>(EMPTY);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -52,6 +55,7 @@ export default function ProfilPage() {
           bic: e.bic ?? "", mentions: e.mentions ?? "",
           logo_path: e.logo_path, modele_facture_path: e.modele_facture_path,
           signature_mail: e.signature_mail ?? "", rib_path: e.rib_path ?? null,
+          metier: normaliseMetier(e.metier),
         });
       }
       setLoading(false);
@@ -94,6 +98,7 @@ export default function ProfilPage() {
       setLogoFile(null);
       setModeleFile(null);
       setRibFile(null);
+      await refreshMetier(); // met à jour le branding (sidebar) si le métier a changé
       setMsg("✓ Profil enregistré. Les devis et factures utiliseront ces informations.");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
@@ -120,6 +125,33 @@ export default function ProfilPage() {
       <ConfigBanner />
 
       <div className="glass-card p-6 space-y-6">
+        <section>
+          <h2 className="text-sm font-semibold text-accent-pink mb-3">Type de garage</h2>
+          <p className="text-xs text-white/40 mb-3">
+            Détermine le vocabulaire et le parcours de l&apos;appli. Chaque compte est d&apos;un
+            seul type ; pour gérer les deux, créez un compte carrosserie ET un compte vitrage.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {(Object.keys(METIER_INFOS) as Metier[]).map((m) => {
+              const actif = normaliseMetier(form.metier) === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => set("metier", m)}
+                  className={`glass-soft p-4 text-left transition-colors ${
+                    actif ? "ring-2 ring-accent-teal" : "opacity-70 hover:opacity-100"
+                  }`}
+                >
+                  <div className="font-pixel text-[0.7rem] text-white">{METIER_INFOS[m].label}</div>
+                  <div className="mt-1 text-xs text-white/50">{METIER_INFOS[m].accroche}</div>
+                  {actif && <div className="mt-2 text-xs text-accent-teal">✓ Sélectionné</div>}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
         <section>
           <h2 className="text-sm font-semibold text-accent-pink mb-3">Identité</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

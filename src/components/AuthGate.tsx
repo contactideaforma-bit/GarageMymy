@@ -4,11 +4,15 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
+import LandingPage from "@/components/LandingPage";
+import { METIER_INFOS, Metier } from "@/lib/metier";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
+  // Espace choisi sur la page d'accueil (null = on affiche l'accueil).
+  const [espace, setEspace] = useState<Metier | null>(null);
 
   useEffect(() => {
     // Si Supabase n'est pas configuré, on n'impose pas l'authentification
@@ -52,19 +56,24 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   if (isSupabaseConfigured && !session) {
-    return <LoginScreen />;
+    // Pas connecté : d'abord la page d'accueil, puis l'écran de connexion
+    // de l'espace choisi (avec possibilité de revenir à l'accueil).
+    if (!espace) return <LandingPage onChoisir={setEspace} />;
+    return <LoginScreen metier={espace} onRetour={() => setEspace(null)} />;
   }
 
   return <>{children}</>;
 }
 
-function LoginScreen() {
+function LoginScreen({ metier, onRetour }: { metier: Metier; onRetour: () => void }) {
+  const info = METIER_INFOS[metier];
+  const accentText = info.accent === "teal" ? "text-accent-teal" : "text-accent-pink";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [modeOubli, setModeOubli] = useState(false);
-  const [info, setInfo] = useState<string | null>(null);
+  const [info2, setInfo] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -106,6 +115,7 @@ function LoginScreen() {
           <div className="font-pixel text-[0.75rem] leading-relaxed bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
             MY EASY AUTO
           </div>
+          <div className={`mt-2 font-pixel text-[0.55rem] ${accentText}`}>{info.espace.toUpperCase()}</div>
           <div className="mt-2 text-sm text-white/50">Connexion à l&apos;espace gestion</div>
         </div>
 
@@ -141,9 +151,9 @@ function LoginScreen() {
               {error}
             </div>
           )}
-          {info && (
+          {info2 && (
             <div className="rounded-lg bg-emerald-500/15 border border-emerald-400/30 px-3 py-2 text-sm text-emerald-200">
-              {info}
+              {info2}
             </div>
           )}
 
@@ -162,6 +172,14 @@ function LoginScreen() {
           className="mt-4 w-full text-center text-sm text-accent-pink hover:underline"
         >
           {modeOubli ? "Retour à la connexion" : "Mot de passe oublié ?"}
+        </button>
+
+        <button
+          type="button"
+          onClick={onRetour}
+          className="mt-3 w-full text-center text-xs text-white/40 hover:text-white/70"
+        >
+          ← Retour à l&apos;accueil
         </button>
 
         <p className="mt-4 text-center text-xs text-white/30">

@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
 import SnakeGame from "@/components/SnakeGame";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
+import { useMetier } from "@/components/MetierProvider";
+import { METIER_INFOS } from "@/lib/metier";
 
 const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
   {
@@ -50,6 +52,8 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
   const [email, setEmail] = useState<string | null>(null);
+  const { metier } = useMetier();
+  const sousTitre = METIER_INFOS[metier].sousTitre;
 
   // EASTER EGG : 5 clics sur le logo → Snake
   const [snakeOpen, setSnakeOpen] = useState(false);
@@ -90,7 +94,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <div className="font-pixel text-[0.6rem] leading-[1.6] bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
             MY EASY AUTO
           </div>
-          <div className="text-xs text-white/40">Gestion carrosserie</div>
+          <div className="text-xs text-white/40">{sousTitre}</div>
         </div>
       </div>
 
@@ -149,7 +153,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </button>
         )}
         {email && <div className="px-3 pt-1 text-[11px] text-white/30 truncate">{email}</div>}
-        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · v4.8</div>
+        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · v4.9</div>
       </div>
 
       {snakeOpen && <SnakeGame onClose={() => setSnakeOpen(false)} />}

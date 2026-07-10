@@ -3,6 +3,7 @@ import { Press_Start_2P } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import AuthGate from "@/components/AuthGate";
+import MetierProvider from "@/components/MetierProvider";
 
 // Police pixel (titres uniquement — le corps de texte reste une police
 // classique très lisible, l'appli vise un public peu à l'aise avec l'informatique).
@@ -14,7 +15,7 @@ const pixel = Press_Start_2P({
 });
 
 export const metadata: Metadata = {
-  title: "My Easy Auto — Gestion carrosserie",
+  title: "My Easy Auto — Gestion carrosserie & vitrage",
   description: "Suivi des sinistres, devis, factures et encaissements — simple comme un jeu.",
   // PWA : installable sur l'écran d'accueil du téléphone
   manifest: "/manifest.json",
@@ -51,7 +52,9 @@ export default function RootLayout({
       </head>
       <body>
         <AuthGate>
-          <AppShell>{children}</AppShell>
+          <MetierProvider>
+            <AppShell>{children}</AppShell>
+          </MetierProvider>
         </AuthGate>
       </body>
     </html>
