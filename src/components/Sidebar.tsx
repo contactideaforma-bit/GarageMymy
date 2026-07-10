@@ -8,7 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import SnakeGame from "@/components/SnakeGame";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { useMetier } from "@/components/MetierProvider";
-import { METIER_INFOS } from "@/lib/metier";
+import { METIER_INFOS, termes } from "@/lib/metier";
 
 const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
   {
@@ -54,6 +54,10 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const [email, setEmail] = useState<string | null>(null);
   const { metier } = useMetier();
   const sousTitre = METIER_INFOS[metier].sousTitre;
+  const t = termes(metier);
+  // Libellé de la rubrique "Sinistres" adapté au métier (route inchangée).
+  const labelNav = (href: string, label: string) =>
+    href === "/sinistres" ? t.dossiers : label;
 
   // EASTER EGG : 5 clics sur le logo → Snake
   const [snakeOpen, setSnakeOpen] = useState(false);
@@ -99,7 +103,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <Link href="/import" onClick={onNavigate} className="btn-primary mt-2 mb-4 flex items-center justify-center gap-2">
-        Importer un rapport
+        {t.importer}
       </Link>
 
       <nav className="flex-1 space-y-5 overflow-y-auto">
@@ -122,7 +126,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                         : "text-white/70 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    {item.label}
+                    {labelNav(item.href, item.label)}
                   </Link>
                 );
               })}
@@ -153,7 +157,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </button>
         )}
         {email && <div className="px-3 pt-1 text-[11px] text-white/30 truncate">{email}</div>}
-        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · v4.9</div>
+        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · v5.0</div>
       </div>
 
       {snakeOpen && <SnakeGame onClose={() => setSnakeOpen(false)} />}

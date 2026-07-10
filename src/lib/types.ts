@@ -45,6 +45,13 @@ export type Dossier = {
   reparateur: string | null;
   au_garage: boolean | null;
 
+  // Vitrage / bris de glace (métier vitrage — v28)
+  type_vitrage?: string | null; // pare_brise | lunette_arriere | vitre_laterale | toit_ouvrant | autre
+  nature_intervention?: string | null; // reparation | remplacement
+  calibrage_requis?: boolean | null; // calibrage ADAS nécessaire
+  calibrage_fait?: boolean | null;
+  franchise?: number | null; // reste à charge client
+
   // Rapport
   rapport_path: string | null;
   rapport_nom: string | null;

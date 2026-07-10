@@ -53,3 +53,45 @@ export const METIER_INFOS: Record<Metier, MetierInfo> = {
 export function metierInfo(m: string | null | undefined): MetierInfo {
   return METIER_INFOS[normaliseMetier(m)];
 }
+
+// Vocabulaire adaptatif : mêmes concepts, mots différents selon le métier.
+export type Termes = {
+  dossiers: string; // libellé de la rubrique / liste
+  dossier: string; // un dossier (au singulier, minuscule)
+  numeroDossier: string; // en-tête de colonne "N° …"
+  dateDossier: string; // en-tête "Date …"
+  reparation: string; // "Réparation" / "Intervention"
+  reparateur: string; // "Réparateur" / "Technicien"
+  importer: string; // CTA d'import
+  ajouter: string; // bouton "+ Ajouter …"
+  rapport: string; // document importable
+};
+
+const TERMES: Record<Metier, Termes> = {
+  carrosserie: {
+    dossiers: "Sinistres",
+    dossier: "dossier",
+    numeroDossier: "N° sinistre",
+    dateDossier: "Date sinistre",
+    reparation: "Réparation",
+    reparateur: "Réparateur",
+    importer: "Importer un rapport",
+    ajouter: "Ajouter un dossier",
+    rapport: "Rapport d'expertise",
+  },
+  vitrage: {
+    dossiers: "Bris de glace",
+    dossier: "dossier",
+    numeroDossier: "N° dossier",
+    dateDossier: "Date du bris",
+    reparation: "Intervention",
+    reparateur: "Technicien",
+    importer: "Importer une prise en charge",
+    ajouter: "Nouveau bris de glace",
+    rapport: "Document de prise en charge",
+  },
+};
+
+export function termes(m: string | null | undefined): Termes {
+  return TERMES[normaliseMetier(m)];
+}

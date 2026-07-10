@@ -4,8 +4,11 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchAuth } from "@/lib/apiClient";
 import { Dossier } from "@/lib/types";
-import { STATUTS_ORDRE, STATUTS_INFO, addJoursOuvres } from "@/lib/format";
+import { STATUTS_ORDRE, addJoursOuvres, libelleStatut } from "@/lib/format";
 import { genNumeroOR } from "@/lib/atelier";
+import { useMetier } from "@/components/MetierProvider";
+import { termes } from "@/lib/metier";
+import { TYPES_VITRAGE, NATURES_INTERVENTION } from "@/lib/vitrage";
 import BarreChargement from "@/components/BarreChargement";
 import {
   computeTotaux,
@@ -46,6 +49,10 @@ type FormState = {
   reparateur: string;
   montant: string;
   statut: string;
+  // Vitrage (métier vitrage)
+  type_vitrage: string;
+  nature_intervention: string;
+  franchise: string;
 };
 
 function toForm(d?: Partial<Dossier> | null): FormState {
@@ -80,6 +87,9 @@ function toForm(d?: Partial<Dossier> | null): FormState {
     reparateur: d?.reparateur ?? "",
     montant: d?.montant != null ? String(d.montant) : "",
     statut: d?.statut ?? "nouveau",
+    type_vitrage: d?.type_vitrage ?? "",
+    nature_intervention: d?.nature_intervention ?? "",
+    franchise: d?.franchise != null ? String(d.franchise) : "",
   };
 }
 
@@ -119,7 +129,22 @@ export default function DossierForm({
   prefillTva?: number | null;
 }) {
   const isEdit = Boolean(dossier);
+  const { metier } = useMetier();
+  const t = termes(metier);
+  const estVitrage = metier === "vitrage";
   const [form, setForm] = useState<FormState>(toForm(dossier ?? prefill));
+  // Calibrage ADAS (booléens gérés à part du FormState texte)
+  const [calibrageRequis, setCalibrageRequis] = useState<boolean>(
+    Boolean(dossier?.calibrage_requis ?? prefill?.calibrage_requis)
+  );
+  const [calibrageFait, setCalibrageFait] = useState<boolean>(
+    Boolean(dossier?.calibrage_fait ?? prefill?.calibrage_fait)
+  );
+  // En vitrage, l'expert est rare : sections masquées sauf si déjà renseignées.
+  const [expertOuvert, setExpertOuvert] = useState<boolean>(
+    !estVitrage ||
+      Boolean(dossier?.cabinet_expert || dossier?.expert_nom || dossier?.date_expertise)
+  );
   const [file, setFile] = useState<File | null>(prefillFile ?? null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -344,6 +369,12 @@ export default function DossierForm({
         reparateur: form.reparateur || null,
         montant: form.montant ? Number(form.montant) : 0,
         statut: form.statut,
+        // Vitrage (renseigné pour les comptes vitrage, vide sinon)
+        type_vitrage: form.type_vitrage || null,
+        nature_intervention: form.nature_intervention || null,
+        franchise: form.franchise ? Number(form.franchise) : null,
+        calibrage_requis: calibrageRequis,
+        calibrage_fait: calibrageFait,
         rapport_path,
         rapport_nom,
       };
@@ -440,7 +471,9 @@ export default function DossierForm({
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-6">
           <div className="glass-soft p-4">
-            <label className="field-label">Rapport d&apos;expertise (PDF) — analyse IA + enregistrement</label>
+            <label className="field-label">
+              {t.rapport} (PDF{estVitrage ? ", optionnel" : ""}) — analyse IA + enregistrement
+            </label>
             <input
               type="file"
               accept="application/pdf,image/*"
@@ -481,29 +514,92 @@ export default function DossierForm({
             </div>
           </section>
 
+          {estVitrage && (
+            <section>
+              <h3 className="text-sm font-semibold text-accent-teal mb-3">Vitrage & intervention</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="field-label">Vitrage concerné</label>
+                  <select className="field-input" value={form.type_vitrage} onChange={(e) => set("type_vitrage", e.target.value)}>
+                    <option value="">—</option>
+                    {TYPES_VITRAGE.map((v) => (
+                      <option key={v.key} value={v.key}>{v.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label">Nature de l&apos;intervention</label>
+                  <select className="field-input" value={form.nature_intervention} onChange={(e) => set("nature_intervention", e.target.value)}>
+                    <option value="">—</option>
+                    {NATURES_INTERVENTION.map((n) => (
+                      <option key={n.key} value={n.key}>{n.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <Field label="Franchise client (€)" name="franchise" value={form.franchise} onChange={set} type="number" />
+                <div className="flex flex-col justify-center gap-2 pt-1">
+                  <label className="flex items-center gap-2 text-sm text-white/80">
+                    <input type="checkbox" checked={calibrageRequis} onChange={(e) => setCalibrageRequis(e.target.checked)} />
+                    Calibrage ADAS nécessaire
+                  </label>
+                  {calibrageRequis && (
+                    <label className="flex items-center gap-2 text-sm text-white/80">
+                      <input type="checkbox" checked={calibrageFait} onChange={(e) => setCalibrageFait(e.target.checked)} />
+                      Calibrage réalisé
+                    </label>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
           <section>
-            <h3 className="text-sm font-semibold text-accent-pink mb-3">2. Informations du sinistre</h3>
+            <h3 className="text-sm font-semibold text-accent-pink mb-3">
+              {estVitrage ? "2. Sinistre & assurance" : "2. Informations du sinistre"}
+            </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Date du sinistre" name="date_sinistre" value={form.date_sinistre} onChange={set} type="date" />
-              <Field label="N° de sinistre" name="numero_sinistre" value={form.numero_sinistre} onChange={set} />
-              <Field label="Cabinet d'expert" name="cabinet_expert" value={form.cabinet_expert} onChange={set} />
-              <Field label="Date de l'expertise" name="date_expertise" value={form.date_expertise} onChange={set} type="date" />
+              <Field label={estVitrage ? "Date du bris de glace" : "Date du sinistre"} name="date_sinistre" value={form.date_sinistre} onChange={set} type="date" />
+              <Field label="N° de dossier / sinistre" name="numero_sinistre" value={form.numero_sinistre} onChange={set} />
+              {!estVitrage && (
+                <Field label="Cabinet d'expert" name="cabinet_expert" value={form.cabinet_expert} onChange={set} />
+              )}
+              {!estVitrage && (
+                <Field label="Date de l'expertise" name="date_expertise" value={form.date_expertise} onChange={set} type="date" />
+              )}
               <Field label="N° police d'assurance" name="numero_police" value={form.numero_police} onChange={set} />
               <Field label="Assureur" name="assureur" value={form.assureur} onChange={set} />
             </div>
           </section>
 
-          <section>
-            <h3 className="text-sm font-semibold text-accent-pink mb-3">Cabinet d&apos;expert & expert</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Adresse du cabinet" name="cabinet_adresse" value={form.cabinet_adresse} onChange={set} />
-              <Field label="Téléphone cabinet" name="cabinet_tel" value={form.cabinet_tel} onChange={set} />
-              <Field label="Email cabinet" name="cabinet_email" value={form.cabinet_email} onChange={set} />
-              <Field label="Nom de l'expert" name="expert_nom" value={form.expert_nom} onChange={set} />
-              <Field label="Téléphone expert" name="expert_tel" value={form.expert_tel} onChange={set} />
-              <Field label="Email expert" name="expert_email" value={form.expert_email} onChange={set} />
-            </div>
-          </section>
+          {estVitrage && !expertOuvert && (
+            <button
+              type="button"
+              onClick={() => setExpertOuvert(true)}
+              className="text-sm text-accent-teal hover:underline"
+            >
+              + Ce dossier passe par un expert (optionnel)
+            </button>
+          )}
+
+          {expertOuvert && (
+            <section>
+              <h3 className="text-sm font-semibold text-accent-pink mb-3">Cabinet d&apos;expert & expert</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {estVitrage && (
+                  <Field label="Cabinet d'expert" name="cabinet_expert" value={form.cabinet_expert} onChange={set} />
+                )}
+                {estVitrage && (
+                  <Field label="Date de l'expertise" name="date_expertise" value={form.date_expertise} onChange={set} type="date" />
+                )}
+                <Field label="Adresse du cabinet" name="cabinet_adresse" value={form.cabinet_adresse} onChange={set} />
+                <Field label="Téléphone cabinet" name="cabinet_tel" value={form.cabinet_tel} onChange={set} />
+                <Field label="Email cabinet" name="cabinet_email" value={form.cabinet_email} onChange={set} />
+                <Field label="Nom de l'expert" name="expert_nom" value={form.expert_nom} onChange={set} />
+                <Field label="Téléphone expert" name="expert_tel" value={form.expert_tel} onChange={set} />
+                <Field label="Email expert" name="expert_email" value={form.expert_email} onChange={set} />
+              </div>
+            </section>
+          )}
 
           <section>
             <h3 className="text-sm font-semibold text-accent-pink mb-3">Coordonnées assurance</h3>
@@ -527,11 +623,11 @@ export default function DossierForm({
           </section>
 
           <section>
-            <h3 className="text-sm font-semibold text-accent-pink mb-3">Réparation (planning)</h3>
+            <h3 className="text-sm font-semibold text-accent-pink mb-3">{t.reparation} (planning)</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <Field label="Début réparation" name="reparation_debut" value={form.reparation_debut} onChange={set} type="date" />
-              <Field label="Fin réparation" name="reparation_fin" value={form.reparation_fin} onChange={set} type="date" />
-              <Field label="Réparateur attitré" name="reparateur" value={form.reparateur} onChange={set} />
+              <Field label={`Début ${t.reparation.toLowerCase()}`} name="reparation_debut" value={form.reparation_debut} onChange={set} type="date" />
+              <Field label={`Fin ${t.reparation.toLowerCase()}`} name="reparation_fin" value={form.reparation_fin} onChange={set} type="date" />
+              <Field label={`${t.reparateur} attitré`} name="reparateur" value={form.reparateur} onChange={set} />
             </div>
           </section>
 
@@ -543,7 +639,7 @@ export default function DossierForm({
                 <label className="field-label">Statut</label>
                 <select className="field-input" value={form.statut} onChange={(e) => set("statut", e.target.value)}>
                   {STATUTS_ORDRE.map((s) => (
-                    <option key={s} value={s}>{STATUTS_INFO[s].label}</option>
+                    <option key={s} value={s}>{libelleStatut(s, metier)}</option>
                   ))}
                 </select>
               </div>

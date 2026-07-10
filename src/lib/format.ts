@@ -61,6 +61,21 @@ export function labelStatut(statut: string): string {
   return STATUTS_INFO[statut]?.label || statut;
 }
 
+// Libellés de statut spécifiques au métier vitrage (mêmes codes, autres mots).
+const STATUTS_LABEL_VITRAGE: Record<string, string> = {
+  expertise: "Diagnostic",
+  reparation: "Intervention",
+  rendu: "Véhicule restitué",
+};
+
+// Libellé de statut adapté au métier (carrosserie par défaut).
+export function libelleStatut(statut: string, metier?: string | null): string {
+  if (metier === "vitrage" && STATUTS_LABEL_VITRAGE[statut]) {
+    return STATUTS_LABEL_VITRAGE[statut];
+  }
+  return labelStatut(statut);
+}
+
 export function badgeStatut(statut: string): string {
   return STATUTS_INFO[statut]?.badge || "bg-slate-100 text-slate-700";
 }

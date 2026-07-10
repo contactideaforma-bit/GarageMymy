@@ -1,6 +1,7 @@
 "use client";
 
-import { STATUTS_ORDRE, STATUTS_INFO } from "@/lib/format";
+import { STATUTS_ORDRE, libelleStatut } from "@/lib/format";
+import { useMetier } from "@/components/MetierProvider";
 
 export default function StatutPipeline({
   statut,
@@ -11,6 +12,7 @@ export default function StatutPipeline({
   onChange?: (s: string) => void;
   disabled?: boolean;
 }) {
+  const { metier } = useMetier();
   const currentIndex = STATUTS_ORDRE.indexOf(statut as never);
 
   return (
@@ -18,7 +20,7 @@ export default function StatutPipeline({
     // au lieu de déborder de la carte.
     <div className="flex w-full items-center overflow-x-auto pb-2 -mb-2">
       {STATUTS_ORDRE.map((s, i) => {
-        const info = STATUTS_INFO[s];
+        const label = libelleStatut(s, metier);
         const done = currentIndex >= 0 && i < currentIndex;
         const active = i === currentIndex;
         const clickable = Boolean(onChange) && !disabled;
@@ -32,7 +34,7 @@ export default function StatutPipeline({
               className={`group flex flex-col items-center gap-1 ${
                 clickable ? "cursor-pointer" : "cursor-default"
               }`}
-              title={info.label}
+              title={label}
             >
               <span
                 className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold transition-colors ${
@@ -50,7 +52,7 @@ export default function StatutPipeline({
                   active ? "font-semibold text-white" : "text-white/50"
                 }`}
               >
-                {info.label}
+                {label}
               </span>
             </button>
 

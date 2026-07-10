@@ -41,6 +41,9 @@ import PaiementsPanel from "@/components/PaiementsPanel";
 import AtelierPanel from "@/components/AtelierPanel";
 import EmailComposer from "@/components/EmailComposer";
 import ConfigBanner from "@/components/ConfigBanner";
+import { useMetier } from "@/components/MetierProvider";
+import { termes } from "@/lib/metier";
+import { labelTypeVitrage, labelNatureIntervention } from "@/lib/vitrage";
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -65,6 +68,9 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 export default function DossierDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { metier } = useMetier();
+  const t = termes(metier);
+  const estVitrage = metier === "vitrage";
 
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [evenements, setEvenements] = useState<Evenement[]>([]);
@@ -284,7 +290,7 @@ export default function DossierDetailPage() {
     <div className="space-y-6">
       {/* En-tête */}
       <div>
-        <Link href="/sinistres" className="text-sm text-accent-pink hover:underline">← Sinistres</Link>
+        <Link href="/sinistres" className="text-sm text-accent-pink hover:underline">← {t.dossiers}</Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold text-white">
@@ -356,22 +362,42 @@ export default function DossierDetailPage() {
           <InfoRow label="1ère mise en circulation" value={formatDate(dossier.premiere_circulation)} />
         </Card>
 
-        <Card title="Sinistre">
-          <InfoRow label="Date du sinistre" value={formatDate(dossier.date_sinistre)} />
-          <InfoRow label="N° de sinistre" value={dossier.numero_sinistre} />
-          <InfoRow label="Date d'expertise" value={formatDate(dossier.date_expertise)} />
+        {estVitrage && (
+          <Card title="Vitrage & intervention">
+            <InfoRow label="Vitrage concerné" value={labelTypeVitrage(dossier.type_vitrage)} />
+            <InfoRow label="Nature" value={labelNatureIntervention(dossier.nature_intervention)} />
+            <InfoRow
+              label="Calibrage ADAS"
+              value={
+                dossier.calibrage_requis
+                  ? dossier.calibrage_fait
+                    ? "Requis — réalisé"
+                    : "Requis — à faire"
+                  : "Non nécessaire"
+              }
+            />
+            <InfoRow label="Franchise client" value={dossier.franchise != null ? formatEuros(dossier.franchise) : "—"} />
+          </Card>
+        )}
+
+        <Card title={estVitrage ? "Bris de glace" : "Sinistre"}>
+          <InfoRow label={estVitrage ? "Date du bris" : "Date du sinistre"} value={formatDate(dossier.date_sinistre)} />
+          <InfoRow label="N° de dossier" value={dossier.numero_sinistre} />
+          {!estVitrage && <InfoRow label="Date d'expertise" value={formatDate(dossier.date_expertise)} />}
           <InfoRow label="N° police" value={dossier.numero_police} />
         </Card>
 
-        <Card title="Cabinet d'expert & expert">
-          <InfoRow label="Cabinet" value={dossier.cabinet_expert} />
-          <InfoRow label="Adresse cabinet" value={dossier.cabinet_adresse} />
-          <InfoRow label="Tél cabinet" value={dossier.cabinet_tel} />
-          <InfoRow label="Email cabinet" value={dossier.cabinet_email} />
-          <InfoRow label="Expert" value={dossier.expert_nom} />
-          <InfoRow label="Tél expert" value={dossier.expert_tel} />
-          <InfoRow label="Email expert" value={dossier.expert_email} />
-        </Card>
+        {(!estVitrage || dossier.cabinet_expert || dossier.expert_nom || dossier.date_expertise) && (
+          <Card title="Cabinet d'expert & expert">
+            <InfoRow label="Cabinet" value={dossier.cabinet_expert} />
+            <InfoRow label="Adresse cabinet" value={dossier.cabinet_adresse} />
+            <InfoRow label="Tél cabinet" value={dossier.cabinet_tel} />
+            <InfoRow label="Email cabinet" value={dossier.cabinet_email} />
+            <InfoRow label="Expert" value={dossier.expert_nom} />
+            <InfoRow label="Tél expert" value={dossier.expert_tel} />
+            <InfoRow label="Email expert" value={dossier.expert_email} />
+          </Card>
+        )}
 
         <Card title="Assurance">
           <InfoRow label="Assureur" value={dossier.assureur} />
@@ -381,13 +407,13 @@ export default function DossierDetailPage() {
           <InfoRow label="N° police" value={dossier.numero_police} />
         </Card>
 
-        <Card title="Réparation">
+        <Card title={t.reparation}>
           <InfoRow label="Début" value={formatDate(dossier.reparation_debut)} />
           <InfoRow label="Fin" value={formatDate(dossier.reparation_fin)} />
-          <InfoRow label="Réparateur" value={dossier.reparateur} />
+          <InfoRow label={t.reparateur} value={dossier.reparateur} />
           <div className="flex flex-wrap items-center justify-between gap-2 py-2.5">
             <button onClick={ouvrirPlanif} className="btn-ghost py-1.5 px-3 text-xs">
-              {dossier.reparation_debut ? "Modifier la planification" : "Planifier la réparation"}
+              {dossier.reparation_debut ? "Modifier la planification" : `Planifier ${t.reparation === "Intervention" ? "l'intervention" : "la réparation"}`}
             </button>
             <Link href="/planning" className="text-sm text-accent-teal hover:underline">
               Voir le planning
@@ -408,7 +434,7 @@ export default function DossierDetailPage() {
           <InfoRow label="Montant (HT)" value={formatEuros(dossier.montant)} />
           <InfoRow label="Créé le" value={formatDate(dossier.created_at)} />
           <div className="flex justify-between gap-4 py-2">
-            <span className="text-sm text-white/50">Rapport d&apos;expertise</span>
+            <span className="text-sm text-white/50">{t.rapport}</span>
             {dossier.rapport_path ? (
               <button
                 onClick={() => ouvrirFichier("rapports", dossier.rapport_path!)}

@@ -11,9 +11,13 @@ import StatutBadge from "@/components/StatutBadge";
 import ProgressionDossier from "@/components/ProgressionDossier";
 import ConfigBanner from "@/components/ConfigBanner";
 import { ouvrirFichier } from "@/lib/storage";
+import { useMetier } from "@/components/MetierProvider";
+import { termes } from "@/lib/metier";
 
 export default function SinistresPage() {
   const router = useRouter();
+  const { metier } = useMetier();
+  const t = termes(metier);
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -48,11 +52,11 @@ export default function SinistresPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-semibold text-white">Sinistres</h1>
+        <h1 className="text-2xl font-semibold text-white">{t.dossiers}</h1>
         <div className="flex gap-2">
-          <Link href="/import" className="btn-ghost">Importer un rapport</Link>
+          <Link href="/import" className="btn-ghost">{t.importer}</Link>
           <button onClick={() => setShowForm(true)} className="btn-primary">
-            + Ajouter un dossier
+            + {t.ajouter}
           </button>
         </div>
       </div>
@@ -72,12 +76,12 @@ export default function SinistresPage() {
         <table className="w-full text-sm">
           <thead className="text-left text-white/50">
             <tr>
-              <th className="px-4 py-3 font-medium">N° sinistre</th>
+              <th className="px-4 py-3 font-medium">{t.numeroDossier}</th>
               <th className="px-4 py-3 font-medium">Client</th>
               <th className="px-4 py-3 font-medium hidden md:table-cell">Véhicule</th>
               <th className="px-4 py-3 font-medium">Immatriculation</th>
               <th className="px-4 py-3 font-medium hidden xl:table-cell">Assureur</th>
-              <th className="px-4 py-3 font-medium hidden lg:table-cell">Date sinistre</th>
+              <th className="px-4 py-3 font-medium hidden lg:table-cell">{t.dateDossier}</th>
               <th className="px-4 py-3 font-medium">Statut</th>
               <th className="px-4 py-3 font-medium text-right">Montant HT</th>
               <th className="px-4 py-3 font-medium hidden sm:table-cell">Rapport</th>
@@ -89,7 +93,7 @@ export default function SinistresPage() {
             )}
             {!loading && filtered.length === 0 && (
               <tr><td colSpan={8} className="px-5 py-8 text-center text-white/40">
-                Aucun dossier. Importe un rapport ou clique sur « + Ajouter un dossier ».
+                Aucun dossier. Clique sur « + {t.ajouter} »{metier === "carrosserie" ? " ou importe un rapport" : ""}.
               </td></tr>
             )}
             {filtered.map((d) => {
