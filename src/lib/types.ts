@@ -159,7 +159,6 @@ export type Entreprise = {
   modele_facture_path: string | null;
   signature_mail?: string | null; // signature ajoutée en bas des emails (v26)
   rib_path?: string | null; // RIB PDF officiel uploadé (bucket entreprise, v26)
-  metier?: string | null; // 'carrosserie' | 'vitrage' (v27) — pilote le vocabulaire/parcours
 };
 
 export type Client = {
