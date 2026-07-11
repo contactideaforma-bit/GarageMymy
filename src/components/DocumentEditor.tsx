@@ -9,7 +9,7 @@ import {
   genNumero,
   lignesToDb,
 } from "@/lib/documents";
-import { formatEuros } from "@/lib/format";
+import { formatEuros, messageErreur } from "@/lib/format";
 
 export default function DocumentEditor({
   dossier,
@@ -37,6 +37,7 @@ export default function DocumentEditor({
   const [statut, setStatut] = useState(document?.statut || "brouillon");
   const [tva, setTva] = useState(String(document?.tva ?? 20));
   const [notes, setNotes] = useState(document?.notes || "");
+  const [acquitte, setAcquitte] = useState(Boolean(document?.acquitte));
   const [items, setItems] = useState<LigneSaisie[]>(
     lignes && lignes.length
       ? lignes.map((l) => ({
@@ -77,6 +78,7 @@ export default function DocumentEditor({
         total_ht: totaux.ht,
         total_tva: totaux.tva,
         total_ttc: totaux.ttc,
+        acquitte: type === "facture" ? acquitte : false,
       };
 
       let docId = document?.id;
@@ -107,7 +109,7 @@ export default function DocumentEditor({
       onSaved();
       onClose();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
+      setError(messageErreur(err, "Erreur lors de l'enregistrement."));
     } finally {
       setSaving(false);
     }
@@ -203,6 +205,23 @@ export default function DocumentEditor({
               })}
             </div>
           </div>
+
+          {type === "facture" && (
+            <label className="flex items-start gap-2.5 text-sm text-white/80 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={acquitte}
+                onChange={(e) => setAcquitte(e.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-emerald-500"
+              />
+              <span>
+                Mention « Acquittée » sur le PDF
+                <span className="block text-xs text-white/40 normal-case">
+                  Atteste que la facture a été réglée — un tampon vert « ACQUITTÉE » est apposé près du total.
+                </span>
+              </span>
+            </label>
+          )}
 
           <div>
             <label className="field-label">Notes</label>

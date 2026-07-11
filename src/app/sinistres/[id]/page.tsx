@@ -236,6 +236,19 @@ export default function DossierDetailPage() {
     load();
   }
 
+  // Coche/décoche la mention « Acquittée » (apposée sur le PDF de la facture)
+  async function toggleAcquitte(doc: Document) {
+    const { error } = await supabase
+      .from("documents")
+      .update({ acquitte: !doc.acquitte })
+      .eq("id", doc.id);
+    if (error) {
+      alert(messageErreur(error, "Impossible de mettre à jour la mention « Acquittée »."));
+      return;
+    }
+    load();
+  }
+
 
   if (loading) return <p className="text-white/40">Chargement…</p>;
 
@@ -491,6 +504,20 @@ export default function DossierDetailPage() {
                         <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">
                           Signé{fem ? "e" : ""}
                         </span>
+                      )}
+                      {fem && (
+                        <label
+                          className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-0.5 text-xs text-white/70 cursor-pointer select-none hover:border-emerald-400/50"
+                          title="Coche pour apposer la mention « Acquittée » sur le PDF de la facture"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={Boolean(doc.acquitte)}
+                            onChange={() => toggleAcquitte(doc)}
+                            className="h-3.5 w-3.5 accent-emerald-500"
+                          />
+                          Acquittée
+                        </label>
                       )}
                     </div>
                     <div className="mt-1 text-xs text-white/50">

@@ -137,6 +137,8 @@ export type Document = {
   signe_le?: string | null;
   sign_token?: string | null;
   favori?: boolean | null;
+  // Facture réglée : mention "Acquittée" apposée sur le PDF (v29)
+  acquitte?: boolean | null;
 };
 
 export type DocumentLigne = {

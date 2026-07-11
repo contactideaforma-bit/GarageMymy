@@ -102,6 +102,96 @@ function ouvrirPdf(pdf: jsPDF) {
   window.open(String(url), "_blank", "noopener,noreferrer");
 }
 
+/* ==================================================================
+ *  Tampon du garage & mention "Acquittée"
+ * ================================================================== */
+
+// Dimensions du tampon (utilisées aussi pour les gardes de saut de page)
+export const TAMPON_W = 66;
+export const TAMPON_H = 34;
+
+// Tampon AUTO-GÉNÉRÉ du garage (encre bleue, double liseré arrondi) :
+// nom + adresse + tel + SIRET depuis le profil entreprise. Dessiné en bas
+// des documents (facture, devis, OR, cession, restitution, RIB).
+function drawTampon(pdf: jsPDF, ent: Partial<Entreprise>, x: number, y: number) {
+  const ink: [number, number, number] = [37, 78, 170]; // bleu "encre de tampon"
+  const w = TAMPON_W;
+  const h = TAMPON_H;
+
+  pdf.setDrawColor(...ink);
+  pdf.setLineWidth(0.8);
+  pdf.roundedRect(x, y, w, h, 3, 3);
+  pdf.setLineWidth(0.3);
+  pdf.roundedRect(x + 1.7, y + 1.7, w - 3.4, h - 3.4, 2.2, 2.2);
+
+  const cx = x + w / 2;
+  const nom = (ent.nom || "Mon garage").toUpperCase();
+  const infos = [
+    ent.adresse || "",
+    `${ent.code_postal || ""} ${ent.ville || ""}`.trim(),
+    ent.tel ? `Tél : ${ent.tel}` : "",
+    ent.siret ? `SIRET ${ent.siret}` : "",
+  ].filter(Boolean);
+
+  pdf.setTextColor(...ink);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(nom.length > 26 ? 7 : 8.5);
+  // Nom éventuellement sur 2 lignes si très long
+  const nomLignes = (pdf.splitTextToSize(nom, w - 8) as string[]).slice(0, 2);
+  let yy = y + 7.5;
+  nomLignes.forEach((l) => {
+    pdf.text(l, cx, yy, { align: "center" });
+    yy += 4;
+  });
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(6.6);
+  // Espace restant réparti pour les lignes d'infos (max 4)
+  infos.slice(0, 4).forEach((l) => {
+    pdf.text(l, cx, yy, { align: "center", maxWidth: w - 6 });
+    yy += 3.6;
+  });
+
+  // Reset styles pour la suite du document
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(30);
+  pdf.setDrawColor(0);
+}
+
+// Tampon "ACQUITTÉE" (encre verte, légèrement incliné) apposé sur la facture
+// réglée. cx/cy = centre du tampon.
+function drawAcquittee(pdf: jsPDF, cx: number, cy: number) {
+  const vert: [number, number, number] = [21, 128, 61];
+  const w = 56;
+  const h = 15;
+  const deg = 8; // inclinaison visuelle (sens anti-horaire)
+  const rad = (deg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  // Rotation anti-horaire VISUELLE dans le repère jsPDF (y vers le bas)
+  const pt = (dx: number, dy: number): [number, number] => [
+    cx + dx * cos + dy * sin,
+    cy - dx * sin + dy * cos,
+  ];
+  const corners = [pt(-w / 2, -h / 2), pt(w / 2, -h / 2), pt(w / 2, h / 2), pt(-w / 2, h / 2)];
+  pdf.setDrawColor(...vert);
+  pdf.setLineWidth(0.9);
+  for (let i = 0; i < 4; i += 1) {
+    const [x1, y1] = corners[i];
+    const [x2, y2] = corners[(i + 1) % 4];
+    pdf.line(x1, y1, x2, y2);
+  }
+  pdf.setTextColor(...vert);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(14);
+  const [tx, tyy] = pt(0, 1.9); // baseline centrée dans le cadre
+  pdf.text("ACQUITTÉE", tx, tyy, { align: "center", angle: deg });
+  // Reset
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(30);
+  pdf.setDrawColor(0);
+}
+
 export async function generateDocumentPdf(
   doc: Document,
   lignes: DocumentLigne[],
@@ -273,6 +363,11 @@ async function buildDocumentPdf(
   pdf.text("Total TTC", labelX, ty, { align: "right" });
   pdf.text(euros(totaux.ttc), right, ty, { align: "right" });
 
+  // ---------- Mention "Acquittée" (facture réglée, case cochée) ----------
+  if (doc.type === "facture" && doc.acquitte) {
+    drawAcquittee(pdf, M + 42, ty - 5);
+  }
+
   // ---------- Notes ----------
   if (doc.notes) {
     ty += 14;
@@ -285,10 +380,14 @@ async function buildDocumentPdf(
     ty += 5 + lignesNotes.length * 4.2;
   }
 
-  // ---------- Signature électronique du client ----------
+  // ---------- Signature du client (droite) + tampon du garage (gauche) ----------
+  ty += 14;
+  if (ty > pageH - 70) { pdf.addPage(); drawFooter(); ty = 25; }
+
+  // Tampon auto-généré du garage, en bas de page à gauche
+  drawTampon(pdf, ent, M, ty + 3);
+
   if (doc.signature) {
-    ty += 14;
-    if (ty > pageH - 65) { pdf.addPage(); drawFooter(); ty = 25; }
     const w = 70;
     const h = 32;
     const x = right - w;
@@ -435,6 +534,7 @@ function drawParagraphe(ctx: AttestationCtx, titre: string | null, texte: string
 }
 
 // Cadre signature (image si signée) + nom + date. Avance y.
+// Dessine aussi le tampon auto-généré du garage à gauche.
 function drawSignatureBloc(
   ctx: AttestationCtx,
   signataire: string | null,
@@ -445,6 +545,7 @@ function drawSignatureBloc(
   const w = 70;
   const h = 32;
   const x = right - w;
+  drawTampon(pdf, ctx.ent, ctx.M, ctx.y + 3);
   pdf.setFontSize(9);
   pdf.setTextColor(30);
   pdf.text("Signature du client :", x, ctx.y);
@@ -557,6 +658,9 @@ export async function ribPdfBase64(): Promise<string> {
   pdf.setFontSize(8.5);
   pdf.setTextColor(120);
   pdf.text("Merci d'utiliser ces coordonnées pour vos règlements par virement.", pageW / 2, 126, { align: "center" });
+
+  // Tampon auto-généré du garage (authentifie le RIB)
+  drawTampon(pdf, ent, (pageW - TAMPON_W) / 2, 136);
 
   const uri = pdf.output("datauristring");
   return uri.substring(uri.indexOf(",") + 1);
@@ -786,7 +890,7 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
 
   // ---------- Autorisation + signature : BLOC INSÉCABLE ----------
   const autorisation = pdf.splitTextToSize(AUTORISATION_OR, pageW - M * 2) as string[];
-  const hBloc = 6 + autorisation.length * 4.2 + 8 + 45;
+  const hBloc = 6 + autorisation.length * 4.2 + 8 + 52;
   if (ty + hBloc > pageH - 26) { pdf.addPage(); drawFooter(); ty = 25; }
   pdf.setFontSize(10);
   pdf.setTextColor(30);
@@ -802,6 +906,8 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
   pdf.setFontSize(9);
   pdf.setTextColor(30);
   pdf.text("Bon pour accord — signature du client :", M, ty + 8);
+  // Tampon auto-généré du garage, sous le libellé, face à la signature
+  drawTampon(pdf, ent, M, ty + 12);
   pdf.setDrawColor(180);
   pdf.setLineWidth(0.3);
   pdf.rect(x, ty + 3, w, h);
