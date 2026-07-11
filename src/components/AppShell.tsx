@@ -9,8 +9,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
-  // Page publique de signature : pas de barre latérale ni de menu.
-  if (pathname?.startsWith("/signer/")) {
+  // Pages publiques (signature à distance, mentions légales) : pas de barre
+  // latérale ni de menu.
+  if (pathname?.startsWith("/signer/") || pathname === "/mentions-legales") {
     return <main className="min-h-screen">{children}</main>;
   }
 

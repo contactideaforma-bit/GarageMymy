@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Images libres de droits (banque Unsplash) affichées sur la page d'accueil
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
+  },
   // En-têtes de sécurité (audit v3.2)
   async headers() {
     return [

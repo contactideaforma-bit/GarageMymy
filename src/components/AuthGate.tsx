@@ -42,8 +42,9 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Page PUBLIQUE de signature à distance (accès par jeton) : pas de login.
-  if (pathname?.startsWith("/signer/")) {
+  // Pages PUBLIQUES : signature à distance (accès par jeton) et mentions
+  // légales (liées depuis la page d'accueil) — pas de login.
+  if (pathname?.startsWith("/signer/") || pathname === "/mentions-legales") {
     return <>{children}</>;
   }
 
