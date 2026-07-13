@@ -22,6 +22,7 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
       { href: "/vehicules", label: "Véhicules" },
       { href: "/flotte", label: "Flotte du garage" },
       { href: "/annuaire", label: "Annuaire" },
+      { href: "/extranets", label: "Espaces experts" },
       { href: "/archives", label: "Archives" },
     ],
   },
@@ -157,7 +158,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </button>
         )}
         {email && <div className="px-3 pt-1 text-[11px] text-white/30 truncate">{email}</div>}
-        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · v5.4</div>
+        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · v5.5</div>
       </div>
 
       {snakeOpen && <SnakeGame onClose={() => setSnakeOpen(false)} />}
