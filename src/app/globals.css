@@ -268,11 +268,11 @@ html.light .file\:text-white::file-selector-button { color: #241f3d; }
 ==================================================================== */
 body:has(.landing-pro),
 html.light body:has(.landing-pro) {
-  color: #e7e9f4;
-  background-color: #0b0e1a;
+  color: #1e2233;
+  background-color: #f6f7fb;
   background-image:
-    radial-gradient(60rem 40rem at 75% -10%, rgba(139, 92, 246, 0.14), transparent 60%),
-    radial-gradient(50rem 35rem at -10% 110%, rgba(20, 184, 166, 0.09), transparent 60%);
+    radial-gradient(60rem 40rem at 75% -10%, rgba(139, 92, 246, 0.1), transparent 60%),
+    radial-gradient(50rem 35rem at -10% 110%, rgba(20, 184, 166, 0.07), transparent 60%);
   background-size: 100% 100%;
   background-attachment: fixed;
 }
@@ -294,9 +294,10 @@ html.light body:has(.landing-pro)::after {
 
 /* Cartes fines et sobres */
 .lp-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid #e4e6f0;
+  background: #ffffff;
   border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(30, 34, 51, 0.05), 0 10px 30px rgba(30, 34, 51, 0.04);
 }
 .lp-card-hover { transition: border-color 0.2s, transform 0.2s; }
 .lp-card-hover:hover { border-color: rgba(139, 92, 246, 0.45); transform: translateY(-2px); }
@@ -326,11 +327,12 @@ html.light body:has(.landing-pro)::after {
   padding: 0.65rem 1.35rem;
   font-weight: 600;
   font-size: 0.95rem;
-  color: #e7e9f4;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #3b3f52;
+  border: 1px solid #d5d8e6;
+  background: #ffffff;
   transition: background 0.15s, border-color 0.15s;
 }
-.lp-btn-ghost:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.3); }
+.lp-btn-ghost:hover { background: #f0f1f8; border-color: #b9bdd2; }
 
 /* Étiquette de section */
 .lp-chip {
@@ -339,5 +341,5 @@ html.light body:has(.landing-pro)::after {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #a78bfa;
+  color: #6d28d9;
 }

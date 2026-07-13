@@ -1,10 +1,11 @@
 "use client";
 
-// Page d'accueil PUBLIQUE (avant connexion) — vitrine PROFESSIONNELLE.
+// Page d'accueil PUBLIQUE (avant connexion) — vitrine PROFESSIONNELLE, MODE CLAIR.
 // Design volontairement distinct du thème rétro interne (classes .lp-* et
-// .landing-pro définies dans globals.css) : fond sobre, typographie classique,
-// cartes fines. Plus AUCUNE photo de banque d'images : l'appli est illustrée
-// par une maquette de fiche dossier dessinée en HTML, fidèle au produit.
+// .landing-pro définies dans globals.css) : fond clair sobre, typographie
+// classique, cartes blanches fines. Aucune photo de banque d'images : l'appli
+// est illustrée par une maquette de fiche dossier en HTML (volontairement
+// sombre, comme un écran produit, pour contraster avec la page claire).
 
 import Image from "next/image";
 import Link from "next/link";
@@ -129,13 +130,15 @@ function Icone({ nom, className = "h-5 w-5" }: { nom: keyof typeof ICONES; class
 }
 
 /* ----------------------- Maquette de fiche dossier ----------------------- */
-// Illustration FIDÈLE du produit (pas une photo générique) : un aperçu
-// statique et simplifié de la fiche dossier telle qu'elle existe dans l'appli.
+// Illustration FIDÈLE du produit : un aperçu statique et simplifié de la
+// fiche dossier. Carte volontairement SOMBRE (écran produit) sur page claire.
+// NB : éviter ici les classes surchargées par le mode clair de l'appli
+// (text-amber-300, text-emerald-300…) — on utilise les nuances 400.
 
 function ApercuFicheDossier() {
   return (
     <div
-      className="lp-card p-5 shadow-2xl shadow-violet-950/40"
+      className="rounded-2xl border border-white/10 bg-[#181534] p-5 text-[#eef0fb] shadow-2xl shadow-violet-900/25"
       aria-label="Aperçu simplifié d'une fiche dossier dans My Easy Auto"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -143,7 +146,7 @@ function ApercuFicheDossier() {
           <div className="text-sm font-semibold">Dossier 2026-0847</div>
           <div className="text-xs text-white/45">Renault Clio V · AB-123-CD · AXA</div>
         </div>
-        <span className="rounded-full bg-amber-400/15 px-2.5 py-1 text-[11px] font-medium text-amber-300">
+        <span className="rounded-full bg-amber-400/15 px-2.5 py-1 text-[11px] font-medium text-amber-400">
           En réparation
         </span>
       </div>
@@ -162,7 +165,7 @@ function ApercuFicheDossier() {
       </div>
 
       <div className="mt-4 rounded-lg border-l-4 border-violet-500 bg-violet-500/10 px-3 py-2.5">
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-300">
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-violet-400">
           Prochaine action
         </div>
         <div className="mt-0.5 text-xs text-white/80">
@@ -172,13 +175,13 @@ function ApercuFicheDossier() {
 
       <div className="mt-4 space-y-2 text-xs">
         {[
-          ["Ordre de réparation OR-202606-041", "Signé", "text-emerald-300", "bg-emerald-400/15"],
-          ["Facture FAC-2026-112 · 4 236 € TTC", "Envoyée", "text-sky-300", "bg-sky-400/15"],
-          ["Cession de créance", "Signée", "text-emerald-300", "bg-emerald-400/15"],
+          ["Ordre de réparation OR-202606-041", "Signé", "text-emerald-400", "bg-emerald-400/15"],
+          ["Facture FAC-2026-112 · 4 236 € TTC", "Envoyée", "text-sky-400", "bg-sky-400/15"],
+          ["Cession de créance", "Signée", "text-emerald-400", "bg-emerald-400/15"],
         ].map(([doc, statut, couleur, fond]) => (
           <div
             key={doc}
-            className="flex items-center justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2"
+            className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2"
           >
             <span className="truncate text-white/75">{doc}</span>
             <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${couleur} ${fond}`}>
@@ -207,7 +210,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
   return (
     <div className="landing-pro min-h-screen">
       {/* ============================ Barre du haut ============================ */}
-      <nav className="sticky top-0 z-40 border-b border-white/8 bg-[#0b0e1a]/85 backdrop-blur">
+      <nav className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-3">
             <Image
@@ -221,10 +224,10 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
             <span className="text-sm font-semibold tracking-tight">My Easy Auto</span>
           </div>
           <div className="flex items-center gap-5">
-            <a href="#fonctions" className="hidden text-sm text-white/60 hover:text-white sm:block">
+            <a href="#fonctions" className="hidden text-sm text-slate-500 hover:text-slate-900 sm:block">
               Fonctionnalités
             </a>
-            <a href="#etapes" className="hidden text-sm text-white/60 hover:text-white sm:block">
+            <a href="#etapes" className="hidden text-sm text-slate-500 hover:text-slate-900 sm:block">
               Comment ça marche
             </a>
             <a href="#espaces" className="lp-btn !px-4 !py-2 text-sm">
@@ -241,12 +244,12 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
             <span className="lp-chip">Carrosserie · Vitrage · Gestion des sinistres</span>
             <h1 className="mt-4">
               Du rapport d&apos;expertise à l&apos;encaissement,{" "}
-              <span className="bg-gradient-to-r from-violet-400 via-fuchsia-400 to-teal-300 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-teal-500 bg-clip-text text-transparent">
                 sans ressaisie
               </span>
               .
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-white/60">
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-500">
               My Easy Auto centralise chaque dossier de sinistre sur une seule page :
               import du chiffrage par IA, documents générés automatiquement, signature
               électronique et relances qui font rentrer l&apos;argent.
@@ -257,7 +260,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
                 Demander une démonstration
               </a>
             </div>
-            <p className="mt-5 text-xs text-white/35">
+            <p className="mt-5 text-xs text-slate-400">
               Conçu avec des carrossiers, pour le travail réel de l&apos;atelier — sur ordinateur, tablette et téléphone.
             </p>
           </div>
@@ -269,7 +272,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
           {CHIFFRES.map(([chiffre, texte]) => (
             <div key={chiffre} className="lp-card px-5 py-4">
               <div className="text-xl font-bold tracking-tight">{chiffre}</div>
-              <div className="mt-1 text-xs leading-relaxed text-white/50">{texte}</div>
+              <div className="mt-1 text-xs leading-relaxed text-slate-500">{texte}</div>
             </div>
           ))}
         </section>
@@ -283,11 +286,11 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {ETAPES.map((e, i) => (
               <div key={e.titre} className="lp-card lp-card-hover p-5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-400/40 text-sm font-bold text-violet-300">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-300 bg-violet-50 text-sm font-bold text-violet-700">
                   {i + 1}
                 </div>
                 <div className="mt-4 font-semibold">{e.titre}</div>
-                <p className="mt-2 text-sm leading-relaxed text-white/55">{e.texte}</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">{e.texte}</p>
               </div>
             ))}
           </div>
@@ -302,11 +305,11 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FONCTIONS.map((f) => (
               <div key={f.titre} className="lp-card lp-card-hover p-5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
                   <Icone nom={f.icone} />
                 </div>
                 <div className="mt-4 font-semibold">{f.titre}</div>
-                <p className="mt-2 text-sm leading-relaxed text-white/55">{f.texte}</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-500">{f.texte}</p>
               </div>
             ))}
           </div>
@@ -316,7 +319,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
         <section id="espaces" className="scroll-mt-20 pb-16 sm:pb-20">
           <span className="lp-chip">Votre espace</span>
           <h2 className="mt-3 max-w-2xl">Deux métiers, deux espaces dédiés.</h2>
-          <p className="mt-3 max-w-2xl text-sm text-white/55">
+          <p className="mt-3 max-w-2xl text-sm text-slate-500">
             Le vocabulaire, les statuts et les documents s&apos;adaptent à votre activité.
           </p>
           <div className="mt-8 grid gap-5 sm:grid-cols-2">
@@ -324,11 +327,11 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               <EspaceCard key={m} metier={m} onChoisir={onChoisir} />
             ))}
           </div>
-          <p className="mt-6 text-center text-xs text-white/35">
+          <p className="mt-6 text-center text-xs text-slate-400">
             Les comptes sont créés par l&apos;administrateur —{" "}
             <a
               href="mailto:contact.ideaforma@gmail.com?subject=Demande de démonstration — My Easy Auto"
-              className="text-violet-300 hover:underline"
+              className="text-violet-700 hover:underline"
             >
               demander une démonstration
             </a>
@@ -340,11 +343,11 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
         <section className="pb-16 sm:pb-20">
           <div className="lp-card relative overflow-hidden p-8 text-center sm:p-12">
             <div
-              className="pointer-events-none absolute inset-0 bg-gradient-to-r from-violet-600/15 via-fuchsia-600/10 to-teal-500/15"
+              className="pointer-events-none absolute inset-0 bg-gradient-to-r from-violet-600/10 via-fuchsia-600/5 to-teal-500/10"
               aria-hidden="true"
             />
             <h2 className="relative">Voyez My Easy Auto sur vos propres dossiers.</h2>
-            <p className="relative mx-auto mt-3 max-w-xl text-sm text-white/55">
+            <p className="relative mx-auto mt-3 max-w-xl text-sm text-slate-500">
               Une démonstration avec l&apos;un de vos rapports d&apos;expertise vaut mieux
               qu&apos;un long discours : le dossier, les documents et la facture se créent
               devant vous.
@@ -360,10 +363,10 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
       </div>
 
       {/* ============================== Pied de page ============================== */}
-      <footer className="border-t border-white/8">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-white/35">
+      <footer className="border-t border-slate-200">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-slate-400">
           <p>© {new Date().getFullYear()} My Easy Auto — Tous droits réservés</p>
-          <Link href="/mentions-legales" className="hover:text-white/70 hover:underline">
+          <Link href="/mentions-legales" className="hover:text-slate-700 hover:underline">
             Mentions légales
           </Link>
         </div>
@@ -377,8 +380,8 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
 function EspaceCard({ metier, onChoisir }: { metier: Metier; onChoisir: (m: Metier) => void }) {
   const info = METIER_INFOS[metier];
   const teal = info.accent === "teal";
-  const couleurTexte = teal ? "text-teal-300" : "text-fuchsia-300";
-  const couleurFond = teal ? "bg-teal-400/12" : "bg-fuchsia-400/12";
+  const couleurTexte = teal ? "text-teal-700" : "text-fuchsia-700";
+  const couleurFond = teal ? "bg-teal-100" : "bg-fuchsia-100";
   return (
     <div className="lp-card lp-card-hover flex flex-col p-6">
       <div className="flex items-center gap-3">
@@ -387,12 +390,12 @@ function EspaceCard({ metier, onChoisir }: { metier: Metier; onChoisir: (m: Meti
         </div>
         <div>
           <div className="font-semibold">{info.espace}</div>
-          <div className="text-xs text-white/45">{info.accroche}</div>
+          <div className="text-xs text-slate-400">{info.accroche}</div>
         </div>
       </div>
       <ul className="mt-5 flex-1 space-y-2.5">
         {info.points.map((p) => (
-          <li key={p} className="flex items-start gap-2.5 text-sm text-white/65">
+          <li key={p} className="flex items-start gap-2.5 text-sm text-slate-600">
             <span className={`mt-0.5 shrink-0 ${couleurTexte}`}>
               <Icone nom="check" className="h-4 w-4" />
             </span>
