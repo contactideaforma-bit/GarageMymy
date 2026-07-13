@@ -259,3 +259,85 @@ html.light .text-emerald-300, html.light .text-emerald-200 { color: #047857; }
 html.light .text-rose-200, html.light .text-rose-300 { color: #be123c; }
 html.light .text-accent-teal { color: #0d9488; }
 html.light .file\:text-white::file-selector-button { color: #241f3d; }
+
+/* ====================================================================
+   PAGE D'ACCUEIL PUBLIQUE (.landing-pro) — vitrine professionnelle.
+   Volontairement HORS du thème rétro interne : fond propre (pas de
+   quadrillage ni de scanlines), typographie classique, cartes fines.
+   S'applique quel que soit le mode clair/sombre de l'appli.
+==================================================================== */
+body:has(.landing-pro),
+html.light body:has(.landing-pro) {
+  color: #e7e9f4;
+  background-color: #0b0e1a;
+  background-image:
+    radial-gradient(60rem 40rem at 75% -10%, rgba(139, 92, 246, 0.14), transparent 60%),
+    radial-gradient(50rem 35rem at -10% 110%, rgba(20, 184, 166, 0.09), transparent 60%);
+  background-size: 100% 100%;
+  background-attachment: fixed;
+}
+body:has(.landing-pro)::after,
+html.light body:has(.landing-pro)::after {
+  display: none; /* pas d'effet CRT sur la vitrine */
+}
+
+/* Titres : police classique (pas de pixel), tailles marketing */
+.landing-pro h1,
+.landing-pro h2,
+.landing-pro h3 {
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: -0.02em;
+}
+.landing-pro h1 { font-size: clamp(1.9rem, 4.5vw, 3rem) !important; line-height: 1.12; font-weight: 700; }
+.landing-pro h2 { font-size: clamp(1.35rem, 2.6vw, 1.8rem) !important; line-height: 1.25; font-weight: 700; }
+
+/* Cartes fines et sobres */
+.lp-card {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 1rem;
+}
+.lp-card-hover { transition: border-color 0.2s, transform 0.2s; }
+.lp-card-hover:hover { border-color: rgba(139, 92, 246, 0.45); transform: translateY(-2px); }
+
+/* Boutons vitrine */
+.lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.6rem;
+  padding: 0.65rem 1.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #db2777);
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+  transition: filter 0.15s, transform 0.15s;
+}
+.lp-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+.lp-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.6rem;
+  padding: 0.65rem 1.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #e7e9f4;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  transition: background 0.15s, border-color 0.15s;
+}
+.lp-btn-ghost:hover { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.3); }
+
+/* Étiquette de section */
+.lp-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a78bfa;
+}

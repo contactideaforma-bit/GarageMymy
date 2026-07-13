@@ -145,19 +145,6 @@ export default function MentionsLegalesPage() {
               de la propriété intellectuelle. Toute reproduction ou représentation, totale ou
               partielle, sans autorisation écrite préalable est interdite.
             </p>
-            <p>
-              Les photographies d&apos;illustration de la page d&apos;accueil proviennent de la
-              banque d&apos;images gratuite{" "}
-              <a
-                href="https://unsplash.com/license"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent-pink hover:underline"
-              >
-                Unsplash
-              </a>{" "}
-              et sont utilisées conformément à la licence Unsplash.
-            </p>
           </Bloc>
 
           <Bloc titre="Responsabilité">
