@@ -9,6 +9,7 @@ import CompteSettings from "@/components/CompteSettings";
 import ConsommationIA from "@/components/ConsommationIA";
 import { useMetier } from "@/components/MetierProvider";
 import { METIER_INFOS } from "@/lib/metier";
+import { MODELES_PDF, COULEURS_PDF, MODELE_PDF_DEFAUT, COULEUR_PDF_DEFAUT } from "@/lib/pdfTheme";
 
 type FormE = Omit<Entreprise, "id" | "created_at">;
 
@@ -17,6 +18,7 @@ const EMPTY: FormE = {
   siret: "", tva_intra: "", iban: "", bic: "", mentions: "",
   logo_path: null, modele_facture_path: null,
   signature_mail: "", rib_path: null,
+  modele_pdf: MODELE_PDF_DEFAUT, couleur_pdf: COULEUR_PDF_DEFAUT,
 };
 
 function Field({
@@ -55,6 +57,8 @@ export default function ProfilPage() {
           bic: e.bic ?? "", mentions: e.mentions ?? "",
           logo_path: e.logo_path, modele_facture_path: e.modele_facture_path,
           signature_mail: e.signature_mail ?? "", rib_path: e.rib_path ?? null,
+          modele_pdf: e.modele_pdf ?? MODELE_PDF_DEFAUT,
+          couleur_pdf: e.couleur_pdf ?? COULEUR_PDF_DEFAUT,
         });
       }
       setLoading(false);
@@ -190,6 +194,91 @@ export default function ProfilPage() {
               <p className="text-xs text-white/40 mt-2">
                 Stocké comme référence. Les PDF sont générés à ta charte (logo + infos ci-dessus).
               </p>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="text-sm font-semibold text-accent-pink mb-3">Apparence des factures & documents PDF</h2>
+          <p className="text-xs text-white/50 mb-3">
+            Choisis le modèle et la couleur de tes PDF (devis, factures, ordres, cession…).
+            Quel que soit le modèle, la facture reste conforme : toutes les mentions
+            obligatoires (échéance, pénalités de retard, indemnité de recouvrement,
+            escompte, SIRET, TVA…) sont toujours imprimées.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {MODELES_PDF.map((m) => {
+              const actif = (form.modele_pdf ?? MODELE_PDF_DEFAUT) === m.code;
+              const c = form.couleur_pdf ?? COULEUR_PDF_DEFAUT;
+              return (
+                <button
+                  key={m.code}
+                  type="button"
+                  onClick={() => set("modele_pdf", m.code)}
+                  className={`glass-soft p-3 text-left transition ${actif ? "ring-2 ring-accent-teal" : "opacity-80 hover:opacity-100"}`}
+                >
+                  {/* Mini-aperçu du modèle */}
+                  <div className="h-20 rounded bg-white overflow-hidden border border-black/20">
+                    {m.code === "bandeau" && <div className="h-5" style={{ background: c }} />}
+                    {m.code === "classique" && (
+                      <div className="flex items-center justify-between px-2 pt-2">
+                        <div className="h-2 w-10 rounded-sm" style={{ background: c }} />
+                        <div className="h-2 w-6 rounded-sm bg-neutral-800" />
+                      </div>
+                    )}
+                    {m.code === "epure" && (
+                      <>
+                        <div className="flex items-center justify-between px-2 pt-2">
+                          <div className="h-2 w-10 rounded-sm bg-neutral-800" />
+                          <div className="h-2 w-6 rounded-sm bg-neutral-400" />
+                        </div>
+                        <div className="mx-2 mt-1.5 h-[2px]" style={{ background: c }} />
+                      </>
+                    )}
+                    <div className="px-2 mt-2 space-y-1">
+                      <div
+                        className="h-2 rounded-sm"
+                        style={{ background: m.code === "epure" ? "#e5e5ea" : c, opacity: m.code === "epure" ? 1 : 0.85 }}
+                      />
+                      <div className="h-1.5 rounded-sm bg-neutral-200" />
+                      <div className="h-1.5 rounded-sm bg-neutral-100" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-sm font-semibold text-white">{m.label}</span>
+                    {actif && <span className="text-xs text-accent-teal">✓ choisi</span>}
+                  </div>
+                  <p className="text-xs text-white/40 mt-1">{m.description}</p>
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-4">
+            <label className="field-label">Couleur des documents</label>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              {COULEURS_PDF.map((c) => {
+                const actif = (form.couleur_pdf ?? COULEUR_PDF_DEFAUT).toLowerCase() === c.hex.toLowerCase();
+                return (
+                  <button
+                    key={c.hex}
+                    type="button"
+                    title={c.label}
+                    onClick={() => set("couleur_pdf", c.hex)}
+                    className={`h-9 w-9 rounded-full border-2 transition ${actif ? "border-white scale-110" : "border-transparent opacity-80 hover:opacity-100"}`}
+                    style={{ background: c.hex }}
+                    aria-label={`Couleur ${c.label}`}
+                    aria-pressed={actif}
+                  />
+                );
+              })}
+              <input
+                type="color"
+                value={form.couleur_pdf ?? COULEUR_PDF_DEFAUT}
+                onChange={(e) => set("couleur_pdf", e.target.value)}
+                title="Couleur personnalisée"
+                className="h-9 w-12 cursor-pointer rounded border border-white/20 bg-transparent p-0.5"
+              />
+              <span className="text-xs text-white/40">ou une couleur personnalisée</span>
             </div>
           </div>
         </section>

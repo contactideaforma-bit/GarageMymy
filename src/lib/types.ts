@@ -168,6 +168,8 @@ export type Entreprise = {
   modele_facture_path: string | null;
   signature_mail?: string | null; // signature ajoutée en bas des emails (v26)
   rib_path?: string | null; // RIB PDF officiel uploadé (bucket entreprise, v26)
+  modele_pdf?: string | null; // modèle de mise en page des PDF : classique | bandeau | epure (v31)
+  couleur_pdf?: string | null; // couleur d'accent des PDF, hex #rrggbb (v31)
 };
 
 export type Client = {

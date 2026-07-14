@@ -1,9 +1,10 @@
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import autoTable, { UserOptions } from "jspdf-autotable";
 import { CessionCreance, Document, DocumentLigne, Dossier, Entreprise, OrdreReparation, Restitution } from "./types";
 import { computeTotaux } from "./documents";
 import { AUTORISATION_OR, CESSION_OBJET, CESSION_NOTIFICATION, DECHARGE_RESTITUTION } from "./atelier";
 import { supabase } from "./supabaseClient";
+import { ModelePdf, themePdf } from "./pdfTheme";
 
 const DEFAUT: Partial<Entreprise> = {
   nom: "Mon garage",
@@ -100,6 +101,138 @@ async function logoDataUrl(path: string | null | undefined): Promise<string | nu
 function ouvrirPdf(pdf: jsPDF) {
   const url = pdf.output("bloburl");
   window.open(String(url), "_blank", "noopener,noreferrer");
+}
+
+/* ==================================================================
+ *  Apparence des PDF (v31) : en-tête selon le modèle + styles de tableau
+ *  NB CONFORMITÉ : le modèle ne change QUE le style. Les mentions
+ *  obligatoires (identités, n°, dates, totaux, échéance, pénalités…)
+ *  sont dessinées pour TOUS les modèles.
+ * ================================================================== */
+
+type ThemePdf = { modele: ModelePdf; accent: [number, number, number] };
+
+// En-tête commun (charte du garage), décliné selon le modèle choisi dans le
+// profil. Renvoie le y où commencer le contenu.
+function drawEnTete(
+  pdf: jsPDF,
+  ent: Partial<Entreprise>,
+  logo: string | null,
+  theme: ThemePdf,
+  titre: string,
+  sousLignes: string[]
+): number {
+  const pageW = pdf.internal.pageSize.getWidth();
+  const M = 14;
+  const right = pageW - M;
+  const coordonnees = [
+    ent.adresse || "",
+    `${ent.code_postal || ""} ${ent.ville || ""}`.trim(),
+    ent.tel ? `Tel : ${ent.tel}` : "",
+    ent.email || "",
+  ].filter(Boolean);
+
+  if (theme.modele === "bandeau") {
+    // Grand bandeau de couleur pleine largeur, texte blanc
+    pdf.setFillColor(...theme.accent);
+    pdf.rect(0, 0, pageW, 42, "F");
+    let headerX = M;
+    if (logo) {
+      try {
+        pdf.setFillColor(255, 255, 255);
+        pdf.roundedRect(M, 7, 28, 28, 2, 2, "F");
+        pdf.addImage(logo, "PNG", M + 1, 8, 26, 26);
+        headerX = M + 34;
+      } catch { /* format non supporté */ }
+    }
+    pdf.setFontSize(15);
+    pdf.setTextColor(255);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(ent.nom || "Mon garage", headerX, 15);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8.5);
+    pdf.text(coordonnees.slice(0, 4), headerX, 21);
+    pdf.setFontSize(titre.length > 14 ? 15 : 20);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(titre, right, 16, { align: "right" });
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9.5);
+    sousLignes.forEach((l, i) => pdf.text(l, right, 24 + i * 5, { align: "right" }));
+    pdf.setTextColor(30);
+    return 54;
+  }
+
+  if (theme.modele === "epure") {
+    // Noir & blanc, fine ligne de couleur sous l'en-tête
+    let headerX = M;
+    if (logo) {
+      try {
+        pdf.addImage(logo, "PNG", M, 12, 24, 24);
+        headerX = M + 30;
+      } catch { /* format non supporté */ }
+    }
+    pdf.setFontSize(15);
+    pdf.setTextColor(30);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(ent.nom || "Mon garage", headerX, 19);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(110);
+    pdf.text(coordonnees, headerX, 25);
+    pdf.setFontSize(titre.length > 14 ? 15 : 18);
+    pdf.setTextColor(30);
+    pdf.text(titre, right, 20, { align: "right" });
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(110);
+    sousLignes.forEach((l, i) => pdf.text(l, right, 27 + i * 5, { align: "right" }));
+    pdf.setDrawColor(...theme.accent);
+    pdf.setLineWidth(1.1);
+    pdf.line(M, 42, right, 42);
+    pdf.setLineWidth(0.3);
+    pdf.setDrawColor(0);
+    pdf.setTextColor(30);
+    return 52;
+  }
+
+  // Classique (modèle historique)
+  let headerX = M;
+  if (logo) {
+    try {
+      pdf.addImage(logo, "PNG", M, 12, 26, 26);
+      headerX = M + 32;
+    } catch { /* format non supporté */ }
+  }
+  pdf.setFontSize(16);
+  pdf.setTextColor(...theme.accent);
+  pdf.text(ent.nom || "Mon garage", headerX, 19);
+  pdf.setFontSize(9);
+  pdf.setTextColor(90);
+  pdf.text(coordonnees, headerX, 26);
+  pdf.setFontSize(titre.length > 14 ? 17 : 22);
+  pdf.setTextColor(30);
+  pdf.text(titre, right, 21, { align: "right" });
+  pdf.setFontSize(10);
+  pdf.setTextColor(90);
+  sousLignes.forEach((l, i) => pdf.text(l, right, 29 + i * 5, { align: "right" }));
+  return 50;
+}
+
+// Styles de tableau autoTable selon le modèle (en-tête plein de couleur,
+// ou gris discret pour l'épuré).
+function stylesTableau(theme: ThemePdf): {
+  headStyles: UserOptions["headStyles"];
+  alternateRowStyles: UserOptions["alternateRowStyles"];
+} {
+  if (theme.modele === "epure") {
+    return {
+      headStyles: { fillColor: [243, 243, 246], textColor: 30, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [255, 255, 255] },
+    };
+  }
+  return {
+    headStyles: { fillColor: theme.accent, textColor: 255, fontStyle: "bold" },
+    alternateRowStyles: { fillColor: [245, 244, 250] },
+  };
 }
 
 /* ==================================================================
@@ -232,7 +365,8 @@ async function buildDocumentPdf(
   const M = 14; // marge gauche/droite
   const right = pageW - M;
   const titre = doc.type === "devis" ? "DEVIS" : "FACTURE";
-  const accent: [number, number, number] = [124, 92, 246];
+  const theme = themePdf(ent);
+  const accent = theme.accent;
 
   // Pied de page (dessiné sur chaque page)
   const pied = [
@@ -250,40 +384,13 @@ async function buildDocumentPdf(
     });
   }
 
-  // ---------- En-tête (page 1) ----------
-  let headerX = M;
-  if (logo) {
-    try {
-      pdf.addImage(logo, "PNG", M, 12, 26, 26);
-      headerX = M + 32;
-    } catch { /* format non supporté */ }
-  }
-  pdf.setFontSize(16);
-  pdf.setTextColor(...accent);
-  pdf.text(ent.nom || "Mon garage", headerX, 19);
-  pdf.setFontSize(9);
-  pdf.setTextColor(90);
-  pdf.text(
-    [
-      ent.adresse || "",
-      `${ent.code_postal || ""} ${ent.ville || ""}`.trim(),
-      ent.tel ? `Tel : ${ent.tel}` : "",
-      ent.email || "",
-    ].filter(Boolean),
-    headerX,
-    26
-  );
-
-  pdf.setFontSize(22);
-  pdf.setTextColor(30);
-  pdf.text(titre, right, 21, { align: "right" });
-  pdf.setFontSize(10);
-  pdf.setTextColor(90);
-  pdf.text(`N° ${doc.numero || "—"}`, right, 29, { align: "right" });
-  pdf.text(`Date : ${dateFr(doc.date_document)}`, right, 34, { align: "right" });
+  // ---------- En-tête (page 1, selon le modèle du profil) ----------
+  const yBlocs = drawEnTete(pdf, ent, logo, theme, titre, [
+    `N° ${doc.numero || "—"}`,
+    `Date : ${dateFr(doc.date_document)}`,
+  ]);
 
   // ---------- Blocs client / véhicule ----------
-  const yBlocs = 50;
   pdf.setFontSize(10);
   pdf.setTextColor(30);
   pdf.text("Client", M, yBlocs);
@@ -326,9 +433,8 @@ async function buildDocumentPdf(
         total === 0 ? "Inclus" : euros(total),
       ];
     }),
-    headStyles: { fillColor: accent, textColor: 255, fontStyle: "bold" },
+    ...stylesTableau(theme),
     styles: { fontSize: 9, cellPadding: 2.5, overflow: "linebreak", valign: "middle" },
-    alternateRowStyles: { fillColor: [245, 244, 250] },
     columnStyles: {
       0: { cellWidth: "auto" },
       1: { cellWidth: 16, halign: "right" },
@@ -366,6 +472,30 @@ async function buildDocumentPdf(
   // ---------- Mention "Acquittée" (facture réglée, case cochée) ----------
   if (doc.type === "facture" && doc.acquitte) {
     drawAcquittee(pdf, M + 42, ty - 5);
+  }
+
+  // ---------- Mentions obligatoires (conditions de règlement) ----------
+  // Toujours imprimées, QUEL QUE SOIT le modèle choisi : échéance, pénalités
+  // de retard, indemnité forfaitaire de recouvrement, escompte, et art. 293 B
+  // du CGI si la facture est établie sans TVA (franchise en base).
+  const mentionsObligatoires =
+    doc.type === "facture"
+      ? [
+          `Échéance de paiement : ${doc.date_echeance ? dateFr(doc.date_echeance) : "à réception de la facture"}.`,
+          (doc.tva ?? 0) === 0 ? "TVA non applicable, art. 293 B du CGI." : "",
+          "En cas de retard de paiement : pénalités exigibles au taux de trois fois le taux d'intérêt légal (art. L441-10 C. com.) et, pour les clients professionnels, indemnité forfaitaire de recouvrement de 40 € (art. D441-5 C. com.).",
+          "Escompte pour paiement anticipé : néant.",
+        ].filter(Boolean)
+      : ["Devis gratuit, valable 30 jours à compter de sa date d'émission."];
+
+  ty += 12;
+  {
+    const txtMentions = pdf.splitTextToSize(mentionsObligatoires.join("\n"), pageW - M * 2) as string[];
+    if (ty + txtMentions.length * 3.8 > pageH - 30) { pdf.addPage(); drawFooter(); ty = 25; }
+    pdf.setFontSize(7.8);
+    pdf.setTextColor(110);
+    pdf.text(txtMentions, M, ty);
+    ty += txtMentions.length * 3.8 + 2;
   }
 
   // ---------- Notes ----------
@@ -441,7 +571,7 @@ async function startAttestationPdf(
   const pageH = pdf.internal.pageSize.getHeight();
   const M = 14;
   const right = pageW - M;
-  const accent: [number, number, number] = [124, 92, 246];
+  const theme = themePdf(ent);
 
   const pied = [
     [ent.nom, ent.siret ? `SIRET ${ent.siret}` : "", ent.tva_intra ? `TVA ${ent.tva_intra}` : ""]
@@ -454,38 +584,13 @@ async function startAttestationPdf(
     pdf.text(line, pageW / 2, pageH - 14 + i * 4, { align: "center" });
   });
 
-  let headerX = M;
-  if (logo) {
-    try {
-      pdf.addImage(logo, "PNG", M, 12, 26, 26);
-      headerX = M + 32;
-    } catch { /* format non supporté */ }
-  }
-  pdf.setFontSize(16);
-  pdf.setTextColor(...accent);
-  pdf.text(ent.nom || "Mon garage", headerX, 19);
-  pdf.setFontSize(9);
-  pdf.setTextColor(90);
-  pdf.text(
-    [
-      ent.adresse || "",
-      `${ent.code_postal || ""} ${ent.ville || ""}`.trim(),
-      ent.tel ? `Tel : ${ent.tel}` : "",
-      ent.email || "",
-    ].filter(Boolean),
-    headerX,
-    26
-  );
+  const sousLignes = [
+    ...(numero ? [`N° ${numero}`] : []),
+    `Date : ${dateFr(date)}`,
+  ];
+  const y = drawEnTete(pdf, ent, logo, theme, titre, sousLignes);
 
-  pdf.setFontSize(17);
-  pdf.setTextColor(30);
-  pdf.text(titre, right, 21, { align: "right" });
-  pdf.setFontSize(10);
-  pdf.setTextColor(90);
-  if (numero) pdf.text(`N° ${numero}`, right, 29, { align: "right" });
-  pdf.text(`Date : ${dateFr(date)}`, right, numero ? 34 : 29, { align: "right" });
-
-  return { pdf, pageW, pageH, M, right, y: 50, ent };
+  return { pdf, pageW, pageH, M, right, y, ent };
 }
 
 // Blocs client / véhicule (mêmes infos que devis/factures).
@@ -613,6 +718,7 @@ export async function ribPdfBase64(): Promise<string> {
   const pdf = new jsPDF();
   const pageW = pdf.internal.pageSize.getWidth();
   const M = 14;
+  const accentRib = themePdf(ent).accent;
 
   let headerX = M;
   if (logo) {
@@ -622,7 +728,7 @@ export async function ribPdfBase64(): Promise<string> {
     } catch { /* format non supporté */ }
   }
   pdf.setFontSize(16);
-  pdf.setTextColor(124, 92, 246);
+  pdf.setTextColor(...accentRib);
   pdf.text(ent.nom || "Mon garage", headerX, 19);
   pdf.setFontSize(9);
   pdf.setTextColor(90);
@@ -640,7 +746,7 @@ export async function ribPdfBase64(): Promise<string> {
   pdf.setTextColor(30);
   pdf.text("RELEVÉ D'IDENTITÉ BANCAIRE", pageW / 2, 60, { align: "center" });
 
-  pdf.setDrawColor(124, 92, 246);
+  pdf.setDrawColor(...accentRib);
   pdf.setLineWidth(0.5);
   pdf.rect(M + 10, 70, pageW - (M + 10) * 2, 46);
 
@@ -720,7 +826,8 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
   const pageH = pdf.internal.pageSize.getHeight();
   const M = 14;
   const right = pageW - M;
-  const accent: [number, number, number] = [124, 92, 246];
+  const theme = themePdf(ent);
+  const accent = theme.accent;
 
   const pied = [
     [ent.nom, ent.siret ? `SIRET ${ent.siret}` : "", ent.tva_intra ? `TVA ${ent.tva_intra}` : ""]
@@ -736,40 +843,11 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
     });
   }
 
-  // ---------- En-tête (charte du garage, comme la facture) ----------
-  let headerX = M;
-  if (logo) {
-    try {
-      pdf.addImage(logo, "PNG", M, 12, 26, 26);
-      headerX = M + 32;
-    } catch { /* format non supporté */ }
-  }
-  pdf.setFontSize(16);
-  pdf.setTextColor(...accent);
-  pdf.text(ent.nom || "Mon garage", headerX, 19);
-  pdf.setFontSize(9);
-  pdf.setTextColor(90);
-  pdf.text(
-    [
-      ent.adresse || "",
-      `${ent.code_postal || ""} ${ent.ville || ""}`.trim(),
-      ent.tel ? `Tel : ${ent.tel}` : "",
-      ent.email || "",
-    ].filter(Boolean),
-    headerX,
-    26
-  );
-
-  pdf.setFontSize(17);
-  pdf.setTextColor(30);
-  pdf.text(titreDoc, right, 21, { align: "right" });
-  pdf.setFontSize(10);
-  pdf.setTextColor(90);
-  pdf.text(`N° ${or.numero || "—"}`, right, 29, { align: "right" });
-  pdf.text(`Date : ${dateFr(or.date_or)}`, right, 34, { align: "right" });
-
-  // ---------- Blocs client / véhicule ----------
-  const yBlocs = 50;
+  // ---------- En-tête (charte du garage, selon le modèle du profil) ----------
+  const yBlocs = drawEnTete(pdf, ent, logo, theme, titreDoc, [
+    `N° ${or.numero || "—"}`,
+    `Date : ${dateFr(or.date_or)}`,
+  ]);
   pdf.setFontSize(10);
   pdf.setTextColor(30);
   pdf.text("Client (donneur d'ordre)", M, yBlocs);
@@ -808,9 +886,8 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
       head: [["Désignation des travaux", "Montant HT"]],
       // Montants EXACTS du chiffrage ; pas de montant → cellule vide
       body: lignes.map((l) => [l.designation, l.montant != null ? euros(l.montant) : ""]),
-      headStyles: { fillColor: accent, textColor: 255, fontStyle: "bold" },
+      ...stylesTableau(theme),
       styles: { fontSize: 9, cellPadding: 2.5, overflow: "linebreak", valign: "middle" },
-      alternateRowStyles: { fillColor: [245, 244, 250] },
       columnStyles: {
         0: { cellWidth: "auto" },
         1: { cellWidth: 36, halign: "right" },
