@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
+import { chiffrer } from "@/lib/coffre";
 
 // Config SMTP DU GARAGE CONNECTÉ (owner_id = utilisateur authentifié).
 // Renvoyée SANS le mot de passe (juste un booléen hasPassword).
@@ -78,7 +79,9 @@ export async function POST(req: Request) {
     updated_at: new Date().toISOString(),
   };
   if (body.smtp_pass && body.smtp_pass.length > 0) {
-    fields.smtp_pass = body.smtp_pass;
+    // Chiffré au repos (AES-256-GCM). Repli sur le clair uniquement si la clé
+    // serveur est absente (cas normalement impossible : service role requis).
+    fields.smtp_pass = chiffrer(body.smtp_pass) || body.smtp_pass;
   }
 
   const { data: existing } = await admin

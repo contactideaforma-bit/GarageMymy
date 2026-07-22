@@ -109,6 +109,9 @@ export async function POST(req: NextRequest) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "Aucun fichier reçu." }, { status: 400 });
     }
+    if (file.size > 15 * 1024 * 1024) {
+      return NextResponse.json({ error: "Fichier trop volumineux (max 15 Mo)." }, { status: 413 });
+    }
 
     const bytes = Buffer.from(await file.arrayBuffer());
     const base64 = bytes.toString("base64");

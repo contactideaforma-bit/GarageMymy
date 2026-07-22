@@ -5,6 +5,7 @@
 
 import nodemailer from "nodemailer";
 import { getAdminClient } from "./supabaseAdmin";
+import { dechiffrer } from "./coffre";
 
 export type MailAttachment = { filename: string; content: string }; // base64
 
@@ -38,11 +39,14 @@ export async function envoyerEmailServeur(
           ? `"${cfg.from_name}" <${cfg.from_email}>`
           : cfg.from_email || cfg.smtp_user;
       try {
+        // Mot de passe chiffré au repos : on déchiffre. Repli sur la valeur
+        // brute si c'est un ancien mot de passe stocké en clair (legacy).
+        const smtpPass = dechiffrer(cfg.smtp_pass) ?? cfg.smtp_pass;
         const transporter = nodemailer.createTransport({
           host: cfg.smtp_host,
           port: Number(cfg.smtp_port) || 587,
           secure: Boolean(cfg.smtp_secure),
-          auth: { user: cfg.smtp_user, pass: cfg.smtp_pass },
+          auth: { user: cfg.smtp_user, pass: smtpPass },
         });
         await transporter.sendMail({
           from,

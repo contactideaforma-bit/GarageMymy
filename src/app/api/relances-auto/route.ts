@@ -20,10 +20,18 @@ function escapeHtml(s: string): string {
 }
 
 async function executer(req: Request) {
-  // Protection : si CRON_SECRET est défini, l'appel doit le fournir
-  // (Vercel Cron envoie automatiquement "Authorization: Bearer <CRON_SECRET>").
+  // Protection : FAIL-CLOSED. Cette route déclenche des envois d'emails en
+  // masse (via la boîte SMTP du garage) : sans CRON_SECRET, elle serait un
+  // relais ouvert sur internet. On EXIGE donc le secret. Vercel Cron l'envoie
+  // automatiquement en "Authorization: Bearer <CRON_SECRET>".
   const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!secret) {
+    return NextResponse.json(
+      { error: "CRON_SECRET non configuré : relances automatiques désactivées (sécurité). Définis CRON_SECRET dans les variables d'environnement Vercel." },
+      { status: 503 }
+    );
+  }
+  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Non autorisé." }, { status: 401 });
   }
 
