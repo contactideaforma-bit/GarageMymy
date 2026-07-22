@@ -471,21 +471,24 @@ export default function DossierDetailPage() {
           générés automatiquement à l'import, conformes au chiffrage,
           modifiables et signables (à l'écran ou à distance) */}
       <section className="glass-card">
-        <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h2 className="font-semibold text-white">Documents du dossier</h2>
-            <p className="text-xs text-white/40 normal-case">
-              Générés automatiquement à l&apos;import du chiffrage — modifiables, envoyables et signables.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => setEditor({ type: "devis" })} className="btn-ghost py-1.5 px-3 text-xs">+ Devis</button>
-            <button onClick={() => setEditor({ type: "facture" })} className="btn-primary py-1.5 px-3 text-xs">+ Facture</button>
-          </div>
+        <div className="px-5 py-3 border-b border-white/10">
+          <h2 className="font-semibold text-white">Documents du dossier</h2>
+          <p className="text-xs text-white/40 normal-case">
+            Générés automatiquement à l&apos;import du chiffrage — modifiables, envoyables et signables.
+          </p>
         </div>
-        {/* Devis & factures : mêmes cartouches que l'OR et la cession, avec un
-            statut lisible en un coup d'œil (Généré / Envoyé / Signé / Payé). */}
-        <div className="px-5 py-4 space-y-4">
+
+        {/* Sous-section FACTURATION — devis & factures.
+            Statut lisible en un coup d'œil (Généré / Envoyé / Signé / Payé). */}
+        <div className="px-5 py-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-pixel text-[0.6rem] tracking-wider text-white/45">FACTURATION</h3>
+            <div className="flex gap-2">
+              <button onClick={() => setEditor({ type: "devis" })} className="btn-ghost py-1.5 px-3 text-xs">+ Devis</button>
+              <button onClick={() => setEditor({ type: "facture" })} className="btn-primary py-1.5 px-3 text-xs">+ Facture</button>
+            </div>
+          </div>
+          <div className="space-y-3">
           {documents.length === 0 && (
             <p className="text-sm text-white/40">Aucun document. Génère un devis ou une facture.</p>
           )}
@@ -543,9 +546,10 @@ export default function DossierDetailPage() {
               </div>
             );
           })}
+          </div>
         </div>
 
-        {/* Ordre de réparation, cession de créance & restitution (même bloc) */}
+        {/* Sous-section ATELIER & SIGNATURES : ordre de réparation, cession, restitution */}
         <AtelierPanel dossier={dossier} onChanged={load} integre documents={documents} />
       </section>
 

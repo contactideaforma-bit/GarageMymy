@@ -102,32 +102,39 @@ export default function AtelierPanel({
     refresh();
   }
 
-  return (
-    <section className={integre ? "border-t-2 border-white/10" : "glass-card"}>
-      <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-        {integre ? (
-          <div className="text-sm font-semibold text-white/70">{labelOR} · Cession de créance · Restitution</div>
-        ) : (
-          <h2 className="font-semibold text-white">Atelier — documents à signer</h2>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setModal({ kind: "or" })} className="btn-primary py-1.5 px-3 text-xs">
-            + {labelOR}
-          </button>
-          <button
-            onClick={() => setModal({ kind: "cession" })}
-            className={`${dossier.mode_cession && cessions.length === 0 ? "btn-primary" : "btn-ghost"} py-1.5 px-3 text-xs`}
-            title={dossier.mode_cession && cessions.length === 0 ? "Mode cession activé : fais signer la cession" : undefined}
-          >
-            + Cession de créance
-          </button>
-          <button onClick={() => setModal({ kind: "restitution" })} className="btn-ghost py-1.5 px-3 text-xs">
-            + Restitution
-          </button>
-        </div>
-      </div>
+  const boutons = (
+    <div className="flex flex-wrap gap-2">
+      <button onClick={() => setModal({ kind: "or" })} className="btn-ghost py-1.5 px-3 text-xs">
+        + {labelOR}
+      </button>
+      <button
+        onClick={() => setModal({ kind: "cession" })}
+        className={`${dossier.mode_cession && cessions.length === 0 ? "btn-primary" : "btn-ghost"} py-1.5 px-3 text-xs`}
+        title={dossier.mode_cession && cessions.length === 0 ? "Mode cession activé : fais signer la cession" : undefined}
+      >
+        + Cession de créance
+      </button>
+      <button onClick={() => setModal({ kind: "restitution" })} className="btn-ghost py-1.5 px-3 text-xs">
+        + Restitution
+      </button>
+    </div>
+  );
 
-      <div className="px-5 py-4 space-y-4">
+  return (
+    <section className={integre ? "border-t border-white/10" : "glass-card"}>
+      {integre ? (
+        <div className="px-5 pt-4 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-pixel text-[0.6rem] tracking-wider text-white/45">ATELIER &amp; SIGNATURES</h3>
+          {boutons}
+        </div>
+      ) : (
+        <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold text-white">Atelier — documents à signer</h2>
+          {boutons}
+        </div>
+      )}
+
+      <div className={integre ? "px-5 pt-3 pb-4 space-y-3" : "px-5 py-4 space-y-4"}>
         {loading && <p className="text-sm text-white/40">Chargement…</p>}
 
         {!loading && ordres.length === 0 && restitutions.length === 0 && cessions.length === 0 && (
@@ -166,7 +173,7 @@ export default function AtelierPanel({
                         onClick={() => setEmailSign({ titre: `${labelOR.toLowerCase()} ${or.numero || ""}`, token: or.sign_token! })}
                         className="text-accent-teal hover:underline"
                       >
-                        Faire signer à distance
+                        Signer à distance
                       </button>
                     )}
                   </>
@@ -206,7 +213,7 @@ export default function AtelierPanel({
                         onClick={() => setEmailSign({ titre: "la cession de créance", token: c.sign_token! })}
                         className="text-accent-teal hover:underline"
                       >
-                        Faire signer à distance
+                        Signer à distance
                       </button>
                     )}
                   </>
