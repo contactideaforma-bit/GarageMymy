@@ -138,6 +138,12 @@ export default function PaiementsPanel({
         </button>
       </div>
       <div className="px-5 py-4 space-y-4">
+        {!loading && factures.length > 0 && (
+          <p className="text-xs text-white/40">
+            Astuce : dès que toutes les factures du dossier sont encaissées, le dossier passe
+            automatiquement en « Payé ».
+          </p>
+        )}
         {loading && <p className="text-sm text-white/40">Chargement…</p>}
         {!loading && factures.length === 0 && (
           <p className="text-sm text-white/40">Aucune facture. Crée une facture pour suivre les encaissements.</p>
@@ -174,8 +180,9 @@ export default function PaiementsPanel({
                   <button
                     onClick={() => setModal({ kind: "paiement", facture: f })}
                     className="btn-primary py-1.5 px-3 text-xs"
+                    title="Enregistrer un paiement reçu. Quand toutes les factures du dossier sont réglées, le dossier passe automatiquement en « Payé »."
                   >
-                    + Paiement
+                    + Encaisser un paiement
                   </button>
                   <button
                     onClick={() => setModal({ kind: "relance", facture: f })}

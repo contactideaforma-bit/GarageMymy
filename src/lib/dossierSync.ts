@@ -7,9 +7,11 @@ import { STATUTS_ORDRE } from "./format";
 import { resteAPayer, totalPaye } from "./paiements";
 
 /**
- * Si TOUTES les factures du dossier sont soldées, fait passer le dossier
- * en « Payé » (sans jamais reculer ni toucher un dossier clôturé).
- * À appeler après chaque encaissement (saisie manuelle ou rapprochement).
+ * Si TOUTES les factures du dossier sont réellement ENCAISSÉES, fait passer le
+ * dossier en « Payé » (sans jamais reculer ni toucher un dossier clôturé).
+ * À appeler après chaque encaissement (saisie manuelle ou rapprochement bancaire).
+ * NB : le solde est basé uniquement sur les PAIEMENTS reçus. La mention
+ * « Acquittée » (chèque de caution) n'a AUCUN impact ici — ce n'est pas un règlement.
  */
 export async function majDossierSiSolde(dossierId: string) {
   const { data: factures } = await supabase

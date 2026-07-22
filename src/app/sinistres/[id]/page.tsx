@@ -236,7 +236,9 @@ export default function DossierDetailPage() {
     load();
   }
 
-  // Coche/décoche la mention « Acquittée » (apposée sur le PDF de la facture)
+  // Coche/décoche la mention « Acquittée » (apposée sur le PDF de la facture).
+  // C'est un marqueur interne (chèque de caution) : SANS AUCUN impact sur le
+  // statut de paiement de la facture ni sur celui du dossier.
   async function toggleAcquitte(doc: Document) {
     const { error } = await supabase
       .from("documents")

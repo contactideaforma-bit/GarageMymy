@@ -21,9 +21,11 @@ import { ouvrirFichier } from "@/lib/storage";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
 
-// Nom lisible de l'expert d'un dossier (personne en charge, sinon cabinet).
-function nomExpert(d: Dossier): string {
-  return (d.expert_nom || d.cabinet_expert || "").trim();
+// Identité « expert » d'un dossier = le CABINET d'expertise (identifiant fiable).
+// On n'utilise pas expert_nom : ce champ contient souvent le nom du client
+// (rempli ainsi lors de l'import IA des rapports).
+function cabinetExpert(d: Dossier): string {
+  return (d.cabinet_expert || "").trim();
 }
 
 // Clés de tri disponibles (colonnes cliquables).
@@ -53,7 +55,7 @@ function valeurTri(d: Dossier, cle: CleTri): string | number {
     case "created_at":
       return d.created_at || "";
     case "expert":
-      return nomExpert(d).toLowerCase();
+      return cabinetExpert(d).toLowerCase();
     default:
       return String(d[cle] ?? "").toLowerCase();
   }
@@ -96,9 +98,9 @@ export default function SinistresPage() {
     return Array.from(set).sort((a, b) => indexStatut(a) - indexStatut(b));
   }, [actifs]);
 
-  // Experts réellement présents, triés alphabétiquement.
+  // Cabinets d'expertise réellement présents, triés alphabétiquement.
   const expertsPresents = useMemo(() => {
-    const set = new Set(actifs.map(nomExpert).filter(Boolean));
+    const set = new Set(actifs.map(cabinetExpert).filter(Boolean));
     return Array.from(set).sort((a, b) => a.localeCompare(b, "fr"));
   }, [actifs]);
 
@@ -108,9 +110,9 @@ export default function SinistresPage() {
   const filtered = useMemo(() => {
     return actifs.filter((d) => {
       if (filtreStatut && d.statut !== filtreStatut) return false;
-      if (filtreExpert && nomExpert(d) !== filtreExpert) return false;
+      if (filtreExpert && cabinetExpert(d) !== filtreExpert) return false;
       if (!term) return true;
-      return [d.numero_sinistre, d.client_nom, d.marque_modele, d.immatriculation, d.assureur, nomExpert(d)]
+      return [d.numero_sinistre, d.client_nom, d.marque_modele, d.immatriculation, d.assureur, cabinetExpert(d)]
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(term));
     });
@@ -163,8 +165,7 @@ export default function SinistresPage() {
       { header: "Véhicule", key: "vehicule", width: 22 },
       { header: "Immatriculation", key: "immat", width: 15 },
       { header: "Assureur", key: "assureur", width: 20 },
-      { header: "Cabinet expert", key: "cabinet", width: 20 },
-      { header: "Expert", key: "expert", width: 20 },
+      { header: "Cabinet d'expert", key: "cabinet", width: 22 },
       { header: t.dateDossier, key: "date_sinistre", width: 14 },
       { header: "Statut", key: "statut", width: 16 },
       { header: "Montant HT", key: "montant", type: "euro", width: 14 },
@@ -178,7 +179,6 @@ export default function SinistresPage() {
       immat: d.immatriculation || "",
       assureur: d.assureur || "",
       cabinet: d.cabinet_expert || "",
-      expert: d.expert_nom || "",
       date_sinistre: formatDate(d.date_sinistre) === "—" ? "" : formatDate(d.date_sinistre),
       statut: libelleStatut(d.statut, metier),
       montant: d.montant ?? "",
@@ -248,9 +248,9 @@ export default function SinistresPage() {
           className="field-input w-auto"
           value={filtreExpert}
           onChange={(e) => setFiltreExpert(e.target.value)}
-          title="Filtrer par expert"
+          title="Filtrer par cabinet d'expert"
         >
-          <option value="">Tous les experts</option>
+          <option value="">Tous les cabinets d&apos;expert</option>
           {expertsPresents.map((e) => (
             <option key={e} value={e}>
               {e}
@@ -271,7 +271,7 @@ export default function SinistresPage() {
           <option value="date_sinistre:asc">Date du sinistre (ancien → récent)</option>
           <option value="statut:asc">Statut (début → fin de pipeline)</option>
           <option value="statut:desc">Statut (fin → début de pipeline)</option>
-          <option value="expert:asc">Expert (A → Z)</option>
+          <option value="expert:asc">Cabinet d&apos;expert (A → Z)</option>
           <option value="montant:desc">Montant HT (décroissant)</option>
           <option value="client_nom:asc">Client (A → Z)</option>
         </select>
@@ -291,7 +291,7 @@ export default function SinistresPage() {
               <ThTri label="Véhicule" cle="marque_modele" tri={tri} onSort={trierPar} fleche={fleche} className="hidden md:table-cell" />
               <ThTri label="Immatriculation" cle="immatriculation" tri={tri} onSort={trierPar} fleche={fleche} />
               <ThTri label="Assureur" cle="assureur" tri={tri} onSort={trierPar} fleche={fleche} className="hidden xl:table-cell" />
-              <ThTri label="Expert" cle="expert" tri={tri} onSort={trierPar} fleche={fleche} className="hidden xl:table-cell" />
+              <ThTri label="Cabinet" cle="expert" tri={tri} onSort={trierPar} fleche={fleche} className="hidden xl:table-cell" />
               <ThTri label={t.dateDossier} cle="date_sinistre" tri={tri} onSort={trierPar} fleche={fleche} className="hidden lg:table-cell" />
               <ThTri label="Statut" cle="statut" tri={tri} onSort={trierPar} fleche={fleche} />
               <ThTri label="Montant HT" cle="montant" tri={tri} onSort={trierPar} fleche={fleche} align="right" />
@@ -320,7 +320,7 @@ export default function SinistresPage() {
                 <td className="px-4 py-3 text-white/80 hidden md:table-cell">{d.marque_modele || "—"}</td>
                 <td className="px-4 py-3 text-white/80 whitespace-nowrap">{d.immatriculation || "—"}</td>
                 <td className="px-4 py-3 text-white/80 hidden xl:table-cell">{d.assureur || "—"}</td>
-                <td className="px-4 py-3 text-white/80 hidden xl:table-cell">{nomExpert(d) || "—"}</td>
+                <td className="px-4 py-3 text-white/80 hidden xl:table-cell">{cabinetExpert(d) || "—"}</td>
                 <td className="px-4 py-3 text-white/80 hidden lg:table-cell">{formatDate(d.date_sinistre)}</td>
                 <td className="px-5 py-3">
                   <StatutBadge statut={d.statut} />
