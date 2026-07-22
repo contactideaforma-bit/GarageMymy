@@ -61,6 +61,13 @@ export function labelStatut(statut: string): string {
   return STATUTS_INFO[statut]?.label || statut;
 }
 
+// Rang d'un statut dans le pipeline (pour trier les dossiers par avancement).
+// Les statuts inconnus/hérités sont renvoyés en fin de liste.
+export function indexStatut(statut: string): number {
+  const i = (STATUTS_ORDRE as readonly string[]).indexOf(statut);
+  return i === -1 ? STATUTS_ORDRE.length : i;
+}
+
 // Libellés de statut spécifiques au métier vitrage (mêmes codes, autres mots).
 const STATUTS_LABEL_VITRAGE: Record<string, string> = {
   expertise: "Diagnostic",
