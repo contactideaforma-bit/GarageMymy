@@ -16,7 +16,7 @@ import {
   Restitution,
 } from "./types";
 import { resteAPayer, totalPaye } from "./paiements";
-import { completudePieces } from "./pieces";
+import { accordPecJoint, completudePieces } from "./pieces";
 import { addJoursOuvres } from "./format";
 import { calibrageEnAttente } from "./vitrage";
 
@@ -93,6 +93,10 @@ export function calculeProchaineAction(args: {
   const orSigne = ordres.some((o) => o.statut === "signe");
   const cessionSignee = cessions.some((c) => c.statut === "signe");
   const restitutionSignee = restitutions.some((r) => r.statut === "signe");
+  // Prise en charge : accord fourni par l'expert, rempli par le garage et
+  // joint à la facture → paiement direct (PAS une cession de créance).
+  const enPec = Boolean(dossier.mode_pec);
+  const pecJointe = accordPecJoint(pieces || []);
 
   // Reste à payer total sur les factures
   let resteTotal = 0;
@@ -154,6 +158,20 @@ export function calculeProchaineAction(args: {
     };
   }
 
+  // 4ter) Mode prise en charge : l'accord de l'expert doit être rempli et
+  //       joint au dossier AVANT l'envoi de la facture
+  if (enPec && !pecJointe) {
+    return {
+      code: "pec_document",
+      titre: "Remplis l'accord de prise en charge fourni par l'expert",
+      detail:
+        "Complète le document puis ajoute-le au dossier (bloc « Pièces du dossier », ligne Accord de prise en charge) : joint à la facture, il déclenche le paiement direct du garage.",
+      href: fiche,
+      ctaLabel: "Ouvrir le dossier",
+      urgence: "normale",
+    };
+  }
+
   // 5) Pas encore de facture
   if (factures.length === 0) {
     return {
@@ -186,12 +204,16 @@ export function calculeProchaineAction(args: {
     }
     return {
       code: "envoi_facture",
-      titre: enCession
-        ? "Envoie la facture à l'expert et à l'assurance (cession)"
-        : "Envoie la facture à l'expert et au client",
-      detail: enCession
-        ? "Les 3 jours ouvrés sont passés. La cession est en place : l'assurance te paiera directement — n'envoie PAS la facture au client."
-        : "Les 3 jours ouvrés sont passés. Cas normal : le client transmettra la facture à son assurance.",
+      titre: enPec
+        ? "Envoie la facture AVEC l'accord de prise en charge"
+        : enCession
+          ? "Envoie la facture à l'expert et à l'assurance (cession)"
+          : "Envoie la facture à l'expert et au client",
+      detail: enPec
+        ? "Les 3 jours ouvrés sont passés. Prise en charge : joins l'accord rempli à la facture (pièce jointe cochée automatiquement) — le garage est payé directement."
+        : enCession
+          ? "Les 3 jours ouvrés sont passés. La cession est en place : l'assurance te paiera directement — n'envoie PAS la facture au client."
+          : "Les 3 jours ouvrés sont passés. Cas normal : le client transmettra la facture à son assurance.",
       href: fiche,
       ctaLabel: "Ouvrir le dossier",
       urgence: "normale",
@@ -241,9 +263,11 @@ export function calculeProchaineAction(args: {
     return {
       code: "attente_paiement",
       titre: "En attente du paiement",
-      detail: cessionSignee || dossier.mode_cession
-        ? "L'assurance doit te régler directement (cession de créance)."
-        : "L'assurance paie le client, qui te fait un virement. Pense au rapprochement bancaire à réception.",
+      detail: enPec
+        ? "Prise en charge : le règlement arrive directement au garage (accord joint à la facture)."
+        : cessionSignee || dossier.mode_cession
+          ? "L'assurance doit te régler directement (cession de créance)."
+          : "L'assurance paie le client, qui te fait un virement. Pense au rapprochement bancaire à réception.",
       href: "/finance",
       ctaLabel: "Ouvrir Finance",
       urgence: "attente",
@@ -325,6 +349,8 @@ function actionVitrage(args: {
   const cessionSignee = cessions.some((c) => c.statut === "signe");
   const restitutionSignee = restitutions.some((r) => r.statut === "signe");
   const enCession = cessionSignee || Boolean(dossier.mode_cession);
+  const enPec = Boolean(dossier.mode_pec);
+  const pecJointe = accordPecJoint(pieces || []);
 
   let resteTotal = 0;
   let factureEchue: Document | null = null;
@@ -357,6 +383,19 @@ function actionVitrage(args: {
       titre: "Fais signer la cession de créance",
       detail:
         "Tiers payant : le client signe la cession, l'assurance te règle directement (bloc Documents).",
+      href: fiche,
+      ctaLabel: "Ouvrir le dossier",
+      urgence: "normale",
+    };
+  }
+
+  // 2bis) Prise en charge : l'accord de l'expert doit être rempli et joint
+  if (enPec && !pecJointe) {
+    return {
+      code: "pec_document",
+      titre: "Remplis l'accord de prise en charge fourni par l'expert",
+      detail:
+        "Complète le document puis ajoute-le au dossier (bloc « Pièces du dossier ») : joint à la facture, il déclenche le paiement direct du garage.",
       href: fiche,
       ctaLabel: "Ouvrir le dossier",
       urgence: "normale",
@@ -406,12 +445,16 @@ function actionVitrage(args: {
   if (factureBrouillon) {
     return {
       code: "envoi_facture",
-      titre: enCession
-        ? "Envoie la facture à l'assurance (tiers payant)"
-        : "Envoie la facture au client",
-      detail: enCession
-        ? "Cession en place : l'assurance te règle directement. Le client ne paie que sa franchise éventuelle."
-        : "Le client règle l'intervention (franchise éventuelle) puis se fait rembourser par son assurance.",
+      titre: enPec
+        ? "Envoie la facture AVEC l'accord de prise en charge"
+        : enCession
+          ? "Envoie la facture à l'assurance (tiers payant)"
+          : "Envoie la facture au client",
+      detail: enPec
+        ? "Prise en charge : joins l'accord rempli à la facture — le garage est réglé directement. Le client ne paie que sa franchise éventuelle."
+        : enCession
+          ? "Cession en place : l'assurance te règle directement. Le client ne paie que sa franchise éventuelle."
+          : "Le client règle l'intervention (franchise éventuelle) puis se fait rembourser par son assurance.",
       href: fiche,
       ctaLabel: "Ouvrir le dossier",
       urgence: "normale",
@@ -451,9 +494,11 @@ function actionVitrage(args: {
     return {
       code: "attente_paiement",
       titre: "En attente du paiement",
-      detail: enCession
-        ? "L'assurance doit te régler directement (tiers payant / cession)."
-        : "Le client règle l'intervention (virement à réception). Pense au rapprochement bancaire.",
+      detail: enPec
+        ? "Prise en charge : le règlement arrive directement au garage (accord joint à la facture)."
+        : enCession
+          ? "L'assurance doit te régler directement (tiers payant / cession)."
+          : "Le client règle l'intervention (virement à réception). Pense au rapprochement bancaire.",
       href: "/finance",
       ctaLabel: "Ouvrir Finance",
       urgence: "attente",

@@ -60,6 +60,11 @@ export type Dossier = {
   relance_auto?: boolean | null;
   // Mode cession de créance : le garage est payé directement par l'assurance
   mode_cession?: boolean | null;
+  // Mode prise en charge (v32) : l'expert fournit un accord de prise en charge ;
+  // rempli et joint à la facture, il permet le paiement direct du garage.
+  // Distinct de la cession de créance (pas de créance cédée par le client).
+  mode_pec?: boolean | null;
+  pec_reference?: string | null; // référence / n° de l'accord (optionnel)
   // Archivé : contenu téléchargé en ZIP puis purgé du serveur (trace seule)
   archive?: boolean | null;
   archive_le?: string | null;
@@ -276,7 +281,7 @@ export type PieceDossier = {
   id: string;
   created_at: string;
   dossier_id: string;
-  type: string; // carte_grise | constat | rapport_definitif | autre
+  type: string; // carte_grise | constat | rapport_definitif | prise_en_charge | autre
   nom: string | null;
   path: string;
 };

@@ -46,7 +46,7 @@ const ETAPES: Etape[] = [
   },
   {
     titre: "3 jours ouvrés après le chiffrage : envoie la facture",
-    detail: "À l'expert et au client (cas normal), ou à l'expert et à l'assurance (cession de créance). Un rappel est créé automatiquement dans l'agenda, et le guidage te le signale au bon moment.",
+    detail: "À l'expert et au client (cas normal), ou à l'expert et à l'assurance (cession de créance ou prise en charge — dans ce cas, joins l'accord rempli). Un rappel est créé automatiquement dans l'agenda, et le guidage te le signale au bon moment.",
     appli: { label: "Fiche du dossier, bloc Devis & Factures", href: "/sinistres" },
   },
   {
@@ -119,6 +119,18 @@ export default function GuideProcedure() {
               </p>
               <Link href="/sinistres" className="text-sm text-accent-teal hover:underline">
                 Dans l&apos;appli : fiche du dossier, bloc Atelier, + Cession de créance
+              </Link>
+            </div>
+            <div className="glass-soft p-4 border-l-4" style={{ borderLeftColor: "#8b5cf6" }}>
+              <div className="font-semibold text-white">Variante : prise en charge</div>
+              <p className="mt-1 text-sm text-white/60">
+                Certains dossiers bénéficient d&apos;une prise en charge : l&apos;expert te fournit
+                un document d&apos;accord. Remplis-le, ajoute-le au dossier (Pièces du dossier)
+                et joins-le à la facture : le garage est payé directement. Rien à faire signer
+                au client — ce n&apos;est PAS une cession de créance.
+              </p>
+              <Link href="/sinistres" className="text-sm text-accent-teal hover:underline">
+                Dans l&apos;appli : fiche du dossier, interrupteur « Prise en charge »
               </Link>
             </div>
             <div className="glass-soft p-4 border-l-4" style={{ borderLeftColor: "#f59e0b" }}>

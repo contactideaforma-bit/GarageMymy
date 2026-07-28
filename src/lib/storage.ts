@@ -4,6 +4,20 @@
 
 import { supabase } from "./supabaseClient";
 
+// Télécharge un fichier privé du Storage et le renvoie en base64
+// (pièce jointe d'email : accord de prise en charge, etc.).
+// Boucle char par char, PAS de spread sur Uint8Array (TS2802 avec le target actuel).
+export async function fichierBase64(bucket: string, path: string): Promise<string> {
+  const { data, error } = await supabase.storage.from(bucket).download(path);
+  if (error || !data) throw error || new Error("Fichier introuvable dans le Storage.");
+  const bytes = new Uint8Array(await data.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 1) {
+    bin += String.fromCharCode(bytes[i]);
+  }
+  return btoa(bin);
+}
+
 export async function ouvrirFichier(bucket: string, path: string) {
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
   if (error || !data?.signedUrl) {

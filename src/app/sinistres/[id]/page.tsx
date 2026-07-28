@@ -27,7 +27,7 @@ import SignatureDocModal from "@/components/SignatureDocModal";
 import ModalShell from "@/components/ModalShell";
 import TransfertGarantiePanel from "@/components/TransfertGarantiePanel";
 import { archiverDossier } from "@/lib/archive";
-import { ouvrirFichier } from "@/lib/storage";
+import { fichierBase64, ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime, messageErreur } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
 import { apercuDocumentPdf, cessionPdfBase64, documentPdfBase64Auto, ordreReparationPdfBase64, ribPdfBase64 } from "@/lib/pdf";
@@ -161,15 +161,37 @@ export default function DossierDetailPage() {
     await supabase.from("dossiers").update({ statut: s }).eq("id", dossier.id);
   }
 
+  // Cession de créance et prise en charge sont deux circuits de paiement direct
+  // ALTERNATIFS : activer l'un désactive l'autre (évite un dossier incohérent).
   async function toggleModeCession() {
     if (!dossier) return;
     const next = !dossier.mode_cession;
-    setDossier({ ...dossier, mode_cession: next });
-    const { error } = await supabase.from("dossiers").update({ mode_cession: next }).eq("id", dossier.id);
+    const patch = next ? { mode_cession: true, mode_pec: false } : { mode_cession: false };
+    setDossier({ ...dossier, ...patch });
+    const { error } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
     if (error) {
-      setDossier({ ...dossier, mode_cession: !next });
-      alert("Impossible de changer le mode cession (migration v15 exécutée ?).");
+      setDossier(dossier);
+      alert("Impossible de changer le mode cession (migrations v15 et v32 exécutées ?).");
     }
+  }
+
+  async function toggleModePec() {
+    if (!dossier) return;
+    const next = !dossier.mode_pec;
+    const patch = next ? { mode_pec: true, mode_cession: false } : { mode_pec: false };
+    setDossier({ ...dossier, ...patch });
+    const { error } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
+    if (error) {
+      setDossier(dossier);
+      alert("Impossible de changer le mode prise en charge (migration v32 exécutée ?).");
+    }
+  }
+
+  // Référence / n° de l'accord de prise en charge (enregistrée à la sortie du champ)
+  async function enregistrerPecRef(ref: string) {
+    if (!dossier || (dossier.pec_reference || "") === ref) return;
+    setDossier({ ...dossier, pec_reference: ref || null });
+    await supabase.from("dossiers").update({ pec_reference: ref || null }).eq("id", dossier.id);
   }
 
   const [archivage, setArchivage] = useState<string | null>(null);
@@ -268,8 +290,14 @@ export default function DossierDetailPage() {
 
   const action = calculeProchaineAction({ dossier, documents, paiements, relances, ordres, restitutions, cessions, pieces, demandes, metier });
   // Destinataires d'envoi des documents selon le processus :
-  // cas normal → expert + client ; cession de créance → expert + assurance.
+  // cas normal → expert + client ; cession de créance OU prise en charge →
+  // expert + assurance (le garage est payé directement).
   const enCession = Boolean(dossier.mode_cession) || cessions.some((c) => c.statut === "signe");
+  // Prise en charge : accord fourni par l'expert, rempli par le garage et
+  // joint à la facture → paiement direct (ce n'est PAS une cession de créance).
+  const enPec = Boolean(dossier.mode_pec);
+  const pecPieces = pieces.filter((p) => p.type === "prise_en_charge");
+  const pecJointe = pecPieces.length > 0;
 
   // Autres pièces joignables au même email (cochables, décochées par défaut)
   const pjPourDoc = (docCourant: Document): PieceJointeOption[] => [
@@ -293,11 +321,19 @@ export default function DossierDetailPage() {
       getBase64: () => cessionPdfBase64(c, dossier),
       coche: false,
     })),
+    // Accord de prise en charge rempli (pièce du dossier) : coché d'office
+    // quand on envoie une facture d'un dossier en prise en charge.
+    ...pecPieces.map((p) => ({
+      label: "Accord de prise en charge (rempli)",
+      filename: p.nom || "accord-prise-en-charge.pdf",
+      getBase64: () => fichierBase64("pieces", p.path),
+      coche: enPec && docCourant.type === "facture",
+    })),
     { label: "RIB du garage", filename: "RIB.pdf", getBase64: ribPdfBase64, coche: false },
   ];
 
   const destinatairesDocument = (doc: Document): string =>
-    [dossier.expert_email || dossier.cabinet_email, doc.type === "facture" && enCession ? dossier.assureur_email : dossier.client_email]
+    [dossier.expert_email || dossier.cabinet_email, doc.type === "facture" && (enCession || enPec) ? dossier.assureur_email : dossier.client_email]
       .filter(Boolean)
       .join(", ");
 
@@ -315,6 +351,11 @@ export default function DossierDetailPage() {
             {dossier.mode_cession && (
               <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-teal-100 text-teal-700">
                 CESSION DE CRÉANCE
+              </span>
+            )}
+            {dossier.mode_pec && (
+              <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-violet-100 text-violet-700">
+                PRISE EN CHARGE
               </span>
             )}
           </div>
@@ -365,6 +406,60 @@ export default function DossierDetailPage() {
               />
             </span>
           </button>
+        </div>
+
+        {/* Prise en charge : accord fourni par l'expert, rempli par le garage
+            et joint à la facture → paiement direct (PAS une cession de créance,
+            rien à faire signer au client). */}
+        <div className="mt-3 border-t border-white/10 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm text-white/70">
+              <span className="font-semibold text-white">Prise en charge</span>
+              <span className="text-white/50"> — l&apos;expert fournit un accord de prise en charge : rempli et joint à la facture, le garage est payé directement (ce n&apos;est pas une cession de créance).</span>
+            </div>
+            <button
+              onClick={toggleModePec}
+              className="flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors"
+              aria-pressed={Boolean(dossier.mode_pec)}
+            >
+              {dossier.mode_pec ? "Activée" : "Désactivée"}
+              <span
+                className={`relative h-5 w-9 rounded-full transition-colors ${
+                  dossier.mode_pec ? "bg-accent-violet" : "bg-white/20"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+                    dossier.mode_pec ? "left-[1.15rem]" : "left-0.5"
+                  }`}
+                />
+              </span>
+            </button>
+          </div>
+          {dossier.mode_pec && (
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="field-label">Référence de l&apos;accord (optionnel)</label>
+                <input
+                  className="field-input"
+                  defaultValue={dossier.pec_reference || ""}
+                  placeholder="Ex. PEC-2026-1234"
+                  onBlur={(e) => enregistrerPecRef(e.target.value.trim())}
+                />
+              </div>
+              <div className="flex items-end pb-1 text-xs">
+                {pecJointe ? (
+                  <span className="text-emerald-300">
+                    ✓ Accord rempli joint au dossier — il sera coché d&apos;office en pièce jointe à l&apos;envoi de la facture.
+                  </span>
+                ) : (
+                  <span className="text-amber-300">
+                    Accord à joindre : remplis le document de l&apos;expert puis ajoute-le dans « Pièces du dossier », ligne « Accord de prise en charge ».
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -613,7 +708,13 @@ export default function DossierDetailPage() {
             emailDoc.type === "devis" ? "notre devis" : "notre facture"
           } ${emailDoc.numero || ""} concernant le dossier ${dossier.numero_sinistre || ""}${
             dossier.client_nom ? ` (${dossier.client_nom})` : ""
-          }.\n\nRestant à votre disposition,\nCordialement.`}
+          }.${
+            emailDoc.type === "facture" && enPec
+              ? `\n\nVous trouverez également ci-joint l'accord de prise en charge complété${
+                  dossier.pec_reference ? ` (réf. ${dossier.pec_reference})` : ""
+                } : le règlement est à effectuer directement auprès du garage.`
+              : ""
+          }\n\nRestant à votre disposition,\nCordialement.`}
           onClose={() => setEmailDoc(null)}
           onSent={load}
         />
