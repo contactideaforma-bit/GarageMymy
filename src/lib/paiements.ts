@@ -30,21 +30,37 @@ export const STATUT_PAIEMENT: Record<StatutPaiementKey, { label: string; badge: 
   paye: { label: "Payé", badge: "bg-emerald-100 text-emerald-700" },
 };
 
+// ---------- Helpers monétaires (SOURCE UNIQUE de vérité) ----------
+// Tous les modules (documents, dossierSync, banque, panels) doivent passer par
+// ces fonctions : même arrondi, même tolérance partout.
+
+export const TOLERANCE_CENTIMES = 0.01;
+
+// Arrondi au centime (corrige les flottants type 719.9640000000001)
+export function round2(n: number | null | undefined): number {
+  return Math.round(((Number(n) || 0) + Number.EPSILON) * 100) / 100;
+}
+
+// Une facture est-elle soldée ? Tolérance d'1 centime pour absorber les
+// arrondis d'affichage (le client paie le montant arrondi du PDF).
+export function estSoldee(totalTtc: number | null | undefined, paye: number): boolean {
+  return round2(Number(totalTtc) || 0) - round2(paye) <= TOLERANCE_CENTIMES;
+}
+
 // Somme des paiements d'une facture
 export function totalPaye(paiements: Paiement[]): number {
-  return paiements.reduce((s, p) => s + (Number(p.montant) || 0), 0);
+  return round2(paiements.reduce((s, p) => s + (Number(p.montant) || 0), 0));
 }
 
 // Statut d'encaissement dérivé du total TTC et du montant reçu
 export function statutPaiement(totalTtc: number | null, paye: number): StatutPaiementKey {
-  const ttc = Number(totalTtc) || 0;
   if (paye <= 0) return "impaye";
-  if (paye + 0.01 < ttc) return "partiel"; // tolérance d'arrondi
-  return "paye";
+  if (estSoldee(totalTtc, paye)) return "paye";
+  return "partiel";
 }
 
 export function resteAPayer(totalTtc: number | null, paye: number): number {
-  return Math.max(0, (Number(totalTtc) || 0) - paye);
+  return Math.max(0, round2((Number(totalTtc) || 0) - paye));
 }
 
 // ---------- Relances graduées ----------

@@ -4,7 +4,7 @@
 import { supabase } from "./supabaseClient";
 import { Dossier, Paiement } from "./types";
 import { STATUTS_ORDRE } from "./format";
-import { resteAPayer, totalPaye } from "./paiements";
+import { estSoldee, totalPaye } from "./paiements";
 
 /**
  * Si TOUTES les factures du dossier sont réellement ENCAISSÉES, fait passer le
@@ -27,12 +27,12 @@ export async function majDossierSiSolde(dossierId: string) {
     .select("document_id,montant")
     .in("document_id", ids);
 
-  const solde = factures.every(
-    (f) =>
-      resteAPayer(
-        f.total_ttc,
-        totalPaye(((paiements as Paiement[]) || []).filter((p) => p.document_id === f.id))
-      ) <= 0
+  // estSoldee = même tolérance d'arrondi (1 centime) que partout ailleurs.
+  const solde = factures.every((f) =>
+    estSoldee(
+      f.total_ttc,
+      totalPaye(((paiements as Paiement[]) || []).filter((p) => p.document_id === f.id))
+    )
   );
   if (!solde) return;
 
@@ -40,7 +40,9 @@ export async function majDossierSiSolde(dossierId: string) {
   if (!d) return;
   const pos = STATUTS_ORDRE.indexOf(d.statut as (typeof STATUTS_ORDRE)[number]);
   const posPaye = STATUTS_ORDRE.indexOf("paye");
-  if (pos === -1 || pos >= posPaye) return; // déjà payé ou clôturé
+  // Statuts hérités v0 (en_cours, termine…) : indexOf = -1. On les laisse
+  // passer en « Payé » au lieu de les traiter comme déjà payés.
+  if (pos >= posPaye) return; // déjà payé ou clôturé
 
   await supabase.from("dossiers").update({ statut: "paye" }).eq("id", dossierId);
   await supabase.from("evenements").insert({
@@ -55,6 +57,8 @@ export async function majDossierSiSolde(dossierId: string) {
 /**
  * Destinataire d'une relance de paiement, selon le processus :
  * - cession de créance (mode activé OU cession signée) → l'ASSURANCE doit payer ;
+ * - PRISE EN CHARGE (mode_pec) → l'assurance règle DIRECTEMENT le garage :
+ *   c'est elle qu'on relance (ton pro), jamais le client ;
  * - cas normal → le CLIENT doit payer (l'assurance le rembourse, lui).
  * Renvoie aussi `pro` (professionnel ?) pour adapter le ton de la mise en demeure.
  */
@@ -71,20 +75,21 @@ export async function destinataireRelance(
       .limit(1);
     cession = Boolean(data && data.length > 0);
   }
-  if (cession) return { to: dossier.assureur_email || "", pro: true };
+  if (cession || dossier.mode_pec) return { to: dossier.assureur_email || "", pro: true };
 
   // Cas normal : email du client (sur le dossier, sinon table clients par nom)
   if (dossier.client_email) return { to: dossier.client_email, pro: false };
   let to = "";
   if (dossier.client_nom) {
+    // Recherche ciblée (ilike = insensible à la casse) au lieu de charger
+    // toute la table (plafond PostgREST à 1000 lignes → matchs manqués).
     const { data } = await supabase
       .from("clients")
       .select("nom,email")
-      .not("email", "is", null);
-    const c = ((data as { nom: string | null; email: string | null }[]) || []).find(
-      (x) => (x.nom || "").trim().toLowerCase() === dossier.client_nom!.trim().toLowerCase()
-    );
-    to = c?.email || "";
+      .not("email", "is", null)
+      .ilike("nom", dossier.client_nom.trim())
+      .limit(1);
+    to = (data && data[0]?.email) || "";
   }
   return { to, pro: false };
 }

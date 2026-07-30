@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { messageErreur } from "@/lib/format";
 import { Dossier, Vehicule } from "@/lib/types";
 import ConfigBanner from "@/components/ConfigBanner";
 
@@ -27,6 +28,7 @@ export default function VehiculesPage() {
   const [filtre, setFiltre] = useState<"tous" | "presents" | "absents">("tous");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ ...EMPTY });
+  const [ajoutEnCours, setAjoutEnCours] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,18 +66,31 @@ export default function VehiculesPage() {
 
   async function toggle(r: Row) {
     const next = !r.au_garage;
+    const table = r.kind === "dossier" ? "dossiers" : "vehicules";
     if (r.kind === "dossier") {
       setDossiers((arr) => arr.map((d) => (d.id === r.id ? { ...d, au_garage: next } : d)));
-      await supabase.from("dossiers").update({ au_garage: next }).eq("id", r.id);
     } else {
       setLibres((arr) => arr.map((v) => (v.id === r.id ? { ...v, au_garage: next } : v)));
-      await supabase.from("vehicules").update({ au_garage: next }).eq("id", r.id);
+    }
+    const { error } = await supabase.from(table).update({ au_garage: next }).eq("id", r.id);
+    // Rollback : sinon la pastille « au garage » restait allumée à tort.
+    if (error) {
+      if (r.kind === "dossier") {
+        setDossiers((arr) => arr.map((d) => (d.id === r.id ? { ...d, au_garage: !next } : d)));
+      } else {
+        setLibres((arr) => arr.map((v) => (v.id === r.id ? { ...v, au_garage: !next } : v)));
+      }
+      alert(messageErreur(error, "Modification impossible."));
     }
   }
 
   async function ajouter() {
     if (!form.immatriculation.trim() && !form.marque_modele.trim()) return;
-    await supabase.from("vehicules").insert({ ...form, au_garage: true });
+    if (ajoutEnCours) return; // garde anti double-clic
+    setAjoutEnCours(true);
+    const { error } = await supabase.from("vehicules").insert({ ...form, au_garage: true });
+    setAjoutEnCours(false);
+    if (error) return alert(messageErreur(error, "Véhicule non ajouté."));
     setForm({ ...EMPTY });
     setShowForm(false);
     load();
@@ -83,7 +98,8 @@ export default function VehiculesPage() {
 
   async function supprimerLibre(id: string) {
     if (!confirm("Supprimer ce véhicule ?")) return;
-    await supabase.from("vehicules").delete().eq("id", id);
+    const { error } = await supabase.from("vehicules").delete().eq("id", id);
+    if (error) return alert(messageErreur(error, "Suppression impossible."));
     load();
   }
 
@@ -116,7 +132,9 @@ export default function VehiculesPage() {
           <textarea className="field-input mt-3" rows={2} placeholder="Notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} />
           <div className="flex justify-end gap-2 mt-3">
             <button onClick={() => setShowForm(false)} className="btn-ghost">Annuler</button>
-            <button onClick={ajouter} className="btn-primary">Ajouter (au garage)</button>
+            <button onClick={ajouter} disabled={ajoutEnCours} className="btn-primary">
+              {ajoutEnCours ? "Ajout…" : "Ajouter (au garage)"}
+            </button>
           </div>
         </div>
       )}

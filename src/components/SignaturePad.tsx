@@ -16,22 +16,47 @@ export default function SignaturePad({
   const hasInk = useRef(false);
   const [vide, setVide] = useState(true);
 
+  // Le canevas est redimensionné au montage ET à chaque changement de taille
+  // (rotation d'une tablette, ouverture du clavier…). Sans ça, le buffer
+  // gardait l'échelle initiale : tracé décalé et « Effacer » qui laissait des
+  // résidus. Le contenu déjà dessiné est préservé.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ratio = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = Math.round(rect.width * ratio);
-    canvas.height = Math.round(rect.height * ratio);
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(ratio, ratio);
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, rect.width, rect.height);
-    ctx.strokeStyle = "#1e293b";
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+
+    function dimensionner() {
+      const c = canvasRef.current;
+      if (!c) return;
+      const ratio = window.devicePixelRatio || 1;
+      const rect = c.getBoundingClientRect();
+      const w = Math.round(rect.width * ratio);
+      const h = Math.round(rect.height * ratio);
+      if (w === 0 || h === 0 || (c.width === w && c.height === h)) return;
+
+      // Sauvegarde du tracé existant avant le redimensionnement (qui efface).
+      const ancien = hasInk.current ? c.toDataURL("image/png") : null;
+      c.width = w;
+      c.height = h;
+      const ctx = c.getContext("2d");
+      if (!ctx) return;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, rect.width, rect.height);
+      ctx.strokeStyle = "#1e293b";
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      if (ancien) {
+        const img = new Image();
+        img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        img.src = ancien;
+      }
+    }
+
+    dimensionner();
+    const observer = new ResizeObserver(dimensionner);
+    observer.observe(canvas);
+    return () => observer.disconnect();
   }, []);
 
   function pos(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -75,9 +100,13 @@ export default function SignaturePad({
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
-    const rect = canvas.getBoundingClientRect();
+    // On efface TOUT le buffer (et pas seulement la zone CSS) : après une
+    // rotation d'écran, il pouvait rester des traces sur les bords.
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, rect.width, rect.height);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
     hasInk.current = false;
     setVide(true);
     onChange(null);

@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { DemandeAssurance, Dossier } from "@/lib/types";
-import { formatDate, messageErreur } from "@/lib/format";
+import { DemandeAssurance, Dossier, PieceDossier } from "@/lib/types";
+import { formatDate, messageErreur, ymd } from "@/lib/format";
+import { labelPiece } from "@/lib/pieces";
+import { fichierBase64 } from "@/lib/storage";
 import ModalShell from "@/components/ModalShell";
 import EmailComposer from "@/components/EmailComposer";
 
@@ -21,10 +23,12 @@ const DEMANDEURS: Record<string, string> = {
 export default function DemandesPanel({
   dossier,
   demandes,
+  pieces = [],
   onChanged,
 }: {
   dossier: Dossier;
   demandes: DemandeAssurance[];
+  pieces?: PieceDossier[];
   onChanged?: () => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -33,16 +37,18 @@ export default function DemandesPanel({
   const enAttente = demandes.filter((d) => !d.date_envoi).length;
 
   async function marquerEnvoye(d: DemandeAssurance) {
-    await supabase
+    const { error } = await supabase
       .from("demandes_assurance")
-      .update({ date_envoi: new Date().toISOString().slice(0, 10) })
+      .update({ date_envoi: ymd() })
       .eq("id", d.id);
+    if (error) alert(messageErreur(error, "Mise à jour impossible."));
     onChanged?.();
   }
 
   async function supprimer(d: DemandeAssurance) {
     if (!confirm("Supprimer cette demande ?")) return;
-    await supabase.from("demandes_assurance").delete().eq("id", d.id);
+    const { error } = await supabase.from("demandes_assurance").delete().eq("id", d.id);
+    if (error) return alert(messageErreur(error, "Suppression impossible."));
     onChanged?.();
   }
 
@@ -123,6 +129,15 @@ export default function DemandesPanel({
       {emailDemande && (
         <EmailComposer
           dossier={dossier}
+          // Les pièces du dossier sont proposées en PJ (décochées) : le corps
+          // annonçait « veuillez trouver ci-joint » alors qu'aucune pièce
+          // n'était joignable depuis cet écran.
+          piecesJointes={pieces.map((p) => ({
+            label: p.nom || labelPiece(p.type),
+            filename: p.nom || `${p.type}.pdf`,
+            getBase64: () => fichierBase64("pieces", p.path),
+            coche: false,
+          }))}
           defaultTo={
             emailDemande.demandeur === "expert"
               ? dossier.expert_email || dossier.cabinet_email || ""
@@ -135,9 +150,15 @@ export default function DemandesPanel({
             emailDemande.date_demande
           )} concernant le dossier ${dossier.numero_sinistre || "—"}, veuillez trouver ci-joint : ${
             emailDemande.demande
-          }.\n\n(Pense à joindre le document avant d'envoyer.)\n\nRestant à votre disposition,\nCordialement.`}
+          }.\n\nRestant à votre disposition,\nCordialement.`}
           onClose={() => setEmailDemande(null)}
-          onSent={() => marquerEnvoye(emailDemande)}
+          // La demande n'est marquée « envoyée » QUE si au moins une pièce est
+          // partie (sinon l'action disparaissait des « en attente » sans que
+          // le document réclamé ait été fourni).
+          onSent={(infos) => {
+            if (infos?.avecPieceJointe) marquerEnvoye(emailDemande);
+            else onChanged?.();
+          }}
         />
       )}
     </section>
@@ -157,7 +178,7 @@ function DemandeModal({
 }) {
   const [demande, setDemande] = useState("");
   const [demandeur, setDemandeur] = useState("assurance");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(ymd());
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -18,8 +18,29 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           // Ne transmet pas l'URL complète aux sites externes
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          // Coupe les accès capteurs inutiles (la caméra passe par <input capture>, pas par getUserMedia)
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          // Caméra AUTORISÉE pour l'appli elle-même : la prise de photo des
+          // pièces (CameraModal) utilise getUserMedia. `camera=()` la bloquait
+          // en production → « accès refusé » systématique. Micro et géoloc
+          // restent coupés (inutiles).
+          { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+          // CSP : défense en profondeur, surtout pour la page publique
+          // /signer/<jeton>. 'unsafe-inline'/'unsafe-eval' restent nécessaires
+          // au runtime Next.js et à jsPDF.
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "object-src 'none'",
+            ].join("; "),
+          },
         ],
       },
     ];

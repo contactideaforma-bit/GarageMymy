@@ -24,6 +24,12 @@ function nomSur(s: string): string {
   return s.replace(/[^\w\-. ]+/g, "_").slice(0, 80);
 }
 
+// `arr.map(...) || fallback` ne marche pas (map ne renvoie jamais falsy) :
+// ce helper affiche réellement le fallback quand la liste est vide.
+function listeOuVide(lignes: string[], vide: string): string[] {
+  return lignes.length ? lignes : [vide];
+}
+
 export async function archiverDossier(
   dossier: Dossier,
   onProgress?: (msg: string) => void
@@ -67,15 +73,26 @@ export async function archiverDossier(
     } catch { /* on continue */ }
   }
 
-  // 2) Rapport d'expertise + pièces (téléchargés depuis le stockage)
+  // 2) Rapport d'expertise + pièces (téléchargés depuis le stockage).
+  // On mémorise UNIQUEMENT les chemins effectivement embarqués dans le ZIP :
+  // seuls ceux-là seront purgés du serveur (un download qui échoue ne doit
+  // JAMAIS entraîner la suppression d'un fichier absent du ZIP).
   onProgress?.("Récupération des pièces…");
+  let rapportDansZip = false;
+  const piecesDansZip: string[] = [];
   if (dossier.rapport_path) {
     const { data } = await supabase.storage.from("rapports").download(dossier.rapport_path);
-    if (data) zip.file(`rapport/${nomSur(dossier.rapport_nom || "rapport-expertise.pdf")}`, data);
+    if (data) {
+      zip.file(`rapport/${nomSur(dossier.rapport_nom || "rapport-expertise.pdf")}`, data);
+      rapportDansZip = true;
+    }
   }
   for (const p of (pieces.data as PieceDossier[]) || []) {
     const { data } = await supabase.storage.from("pieces").download(p.path);
-    if (data) zip.file(`pieces/${nomSur(p.nom || `${p.type}.pdf`)}`, data);
+    if (data) {
+      zip.file(`pieces/${nomSur(p.nom || `${p.type}.pdf`)}`, data);
+      if (p.path) piecesDansZip.push(p.path);
+    }
   }
 
   // 3) Historique lisible + données brutes
@@ -91,19 +108,28 @@ export async function archiverDossier(
     `Montant chiffrage : ${dossier.montant ?? "—"} € HT · statut final : ${dossier.statut}`,
     ``,
     `--- PAIEMENTS ---`,
-    ...(((paiements.data as { montant: number | null; date_paiement: string | null; moyen: string }[]) || []).map(
-      (p) => `${formatDate(p.date_paiement)} · ${p.montant ?? "—"} € · ${p.moyen}`
-    ) || ["(aucun)"]),
+    ...listeOuVide(
+      ((paiements.data as { montant: number | null; date_paiement: string | null; moyen: string }[]) || []).map(
+        (p) => `${formatDate(p.date_paiement)} · ${p.montant ?? "—"} € · ${p.moyen}`
+      ),
+      "(aucun)"
+    ),
     ``,
     `--- RELANCES ---`,
-    ...(((relances.data as { date_relance: string | null; canal: string; notes: string | null }[]) || []).map(
-      (r) => `${formatDate(r.date_relance)} · ${r.canal}${r.notes ? ` · ${r.notes}` : ""}`
-    ) || ["(aucune)"]),
+    ...listeOuVide(
+      ((relances.data as { date_relance: string | null; canal: string; notes: string | null }[]) || []).map(
+        (r) => `${formatDate(r.date_relance)} · ${r.canal}${r.notes ? ` · ${r.notes}` : ""}`
+      ),
+      "(aucune)"
+    ),
     ``,
     `--- HISTORIQUE ---`,
-    ...(((evenements.data as { date_evenement: string; titre: string; description: string | null }[]) || []).map(
-      (e) => `${formatDateTime(e.date_evenement)} · ${e.titre}${e.description ? ` — ${e.description}` : ""}`
-    ) || ["(vide)"]),
+    ...listeOuVide(
+      ((evenements.data as { date_evenement: string; titre: string; description: string | null }[]) || []).map(
+        (e) => `${formatDateTime(e.date_evenement)} · ${e.titre}${e.description ? ` — ${e.description}` : ""}`
+      ),
+      "(vide)"
+    ),
   ];
   zip.file("resume.txt", lignesResume.join("\n"));
   zip.file(
@@ -135,23 +161,47 @@ export async function archiverDossier(
   a.href = url;
   a.download = `dossier-${nomBase}.zip`;
   a.click();
-  URL.revokeObjectURL(url);
+  // Révocation DIFFÉRÉE : un revoke immédiat peut avorter le téléchargement
+  // (Firefox/Safari, gros ZIP). Même pattern que excel.ts.
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 
-  // 5) PURGE des fichiers serveur (le ZIP est la copie de référence)
+  // 5) PURGE des fichiers serveur — UNIQUEMENT ceux présents dans le ZIP
+  // (le ZIP est la copie de référence ; ce qui n'y est pas reste sur le serveur).
   onProgress?.("Nettoyage du serveur…");
-  const cheminsPieces = (((pieces.data as PieceDossier[]) || []).map((p) => p.path)).filter(Boolean);
-  if (cheminsPieces.length) await supabase.storage.from("pieces").remove(cheminsPieces);
-  if (dossier.rapport_path) await supabase.storage.from("rapports").remove([dossier.rapport_path]);
-  await supabase.from("pieces_dossier").delete().eq("dossier_id", dossier.id);
+  const piecesNonArchivees =
+    (((pieces.data as PieceDossier[]) || []).length) - piecesDansZip.length;
+  if (piecesDansZip.length) {
+    const { error } = await supabase.storage.from("pieces").remove(piecesDansZip);
+    if (error) throw new Error(`Purge des pièces impossible : ${error.message}`);
+  }
+  if (dossier.rapport_path && rapportDansZip) {
+    const { error } = await supabase.storage.from("rapports").remove([dossier.rapport_path]);
+    if (error) throw new Error(`Purge du rapport impossible : ${error.message}`);
+  }
+  // On ne supprime en base que les lignes des pièces réellement purgées.
+  if (piecesDansZip.length) {
+    await supabase
+      .from("pieces_dossier")
+      .delete()
+      .eq("dossier_id", dossier.id)
+      .in("path", piecesDansZip);
+  }
 
-  // 6) Marque le dossier archivé (trace conservée)
+  // 6) Marque le dossier archivé (trace conservée).
+  // Le rapport_path n'est effacé que si le rapport est bien dans le ZIP.
   await supabase
     .from("dossiers")
     .update({
       archive: true,
       archive_le: new Date().toISOString(),
-      rapport_path: null,
+      ...(rapportDansZip || !dossier.rapport_path ? { rapport_path: null } : {}),
       statut: "cloture",
     })
     .eq("id", dossier.id);
+
+  if (piecesNonArchivees > 0) {
+    onProgress?.(
+      `⚠️ ${piecesNonArchivees} pièce(s) n'ont pas pu être téléchargées : elles restent sur le serveur.`
+    );
+  }
 }

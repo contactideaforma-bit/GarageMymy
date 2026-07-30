@@ -23,7 +23,10 @@ export async function GET(req: Request) {
     .eq("owner_id", user.id)
     .limit(1)
     .maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("mail-config:", error.message);
+    return NextResponse.json({ error: "Lecture de la configuration impossible." }, { status: 500 });
+  }
 
   if (!data) {
     return NextResponse.json({ configured: false });
@@ -69,19 +72,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Corps invalide." }, { status: 400 });
   }
 
-  const fields: Record<string, unknown> = {
-    smtp_host: body.smtp_host?.trim() || null,
-    smtp_port: Number(body.smtp_port) || 587,
-    smtp_secure: Boolean(body.smtp_secure),
-    smtp_user: body.smtp_user?.trim() || null,
-    from_name: body.from_name?.trim() || null,
-    from_email: body.from_email?.trim() || null,
-    updated_at: new Date().toISOString(),
-  };
+  // Seuls les champs PRÉSENTS dans le body sont modifiés : un POST partiel
+  // (ex. juste from_name) n'écrase plus toute la config à null.
+  const fields: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (body.smtp_host !== undefined) fields.smtp_host = body.smtp_host?.trim() || null;
+  if (body.smtp_port !== undefined) fields.smtp_port = Number(body.smtp_port) || 587;
+  if (body.smtp_secure !== undefined) fields.smtp_secure = Boolean(body.smtp_secure);
+  if (body.smtp_user !== undefined) fields.smtp_user = body.smtp_user?.trim() || null;
+  if (body.from_name !== undefined) fields.from_name = body.from_name?.trim() || null;
+  if (body.from_email !== undefined) fields.from_email = body.from_email?.trim() || null;
   if (body.smtp_pass && body.smtp_pass.length > 0) {
-    // Chiffré au repos (AES-256-GCM). Repli sur le clair uniquement si la clé
-    // serveur est absente (cas normalement impossible : service role requis).
-    fields.smtp_pass = chiffrer(body.smtp_pass) || body.smtp_pass;
+    // Chiffré au repos (AES-256-GCM). Si la clé serveur manque, on REFUSE
+    // (l'ancien repli stockait silencieusement le mot de passe EN CLAIR —
+    // incohérent avec la route extranets qui renvoie une erreur).
+    const chiffre = chiffrer(body.smtp_pass);
+    if (!chiffre) {
+      return NextResponse.json(
+        { error: "Chiffrement indisponible côté serveur : mot de passe non enregistré." },
+        { status: 500 }
+      );
+    }
+    fields.smtp_pass = chiffre;
   }
 
   const { data: existing } = await admin
@@ -93,10 +104,16 @@ export async function POST(req: Request) {
 
   if (existing) {
     const { error } = await admin.from("mail_config").update(fields).eq("id", existing.id);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("mail-config update:", error.message);
+      return NextResponse.json({ error: "Enregistrement impossible." }, { status: 500 });
+    }
   } else {
     const { error } = await admin.from("mail_config").insert({ ...fields, owner_id: user.id });
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      console.error("mail-config insert:", error.message);
+      return NextResponse.json({ error: "Enregistrement impossible." }, { status: 500 });
+    }
   }
   return NextResponse.json({ ok: true });
 }

@@ -48,10 +48,16 @@ export default function CameraModal({
     }
   }, []);
 
+  // La caméra (re)démarre chaque fois qu'on est en mode « aperçu direct »
+  // (photo === null). Piloter ça par un effet garantit que l'élément <video>
+  // est bien monté avant qu'on lui attache le flux — l'ancien `reprendre()`
+  // appelait demarrerCamera() avant le re-rendu, d'où un aperçu noir quand
+  // l'autorisation était déjà accordée.
   useEffect(() => {
+    if (photo) return;
     demarrerCamera();
     return () => arreterCamera();
-  }, [demarrerCamera, arreterCamera]);
+  }, [photo, demarrerCamera, arreterCamera]);
 
   function capturer() {
     const video = videoRef.current;
@@ -67,8 +73,7 @@ export default function CameraModal({
   }
 
   function reprendre() {
-    setPhoto(null);
-    demarrerCamera();
+    setPhoto(null); // l'effet ci-dessus relance la caméra une fois <video> monté
   }
 
   return (

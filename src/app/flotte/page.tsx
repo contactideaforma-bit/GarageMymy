@@ -5,7 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchAuth } from "@/lib/apiClient";
 import { Dossier, FlotteVehicule } from "@/lib/types";
-import { formatDate, formatEuros, messageErreur } from "@/lib/format";
+import { formatDate, formatEuros, messageErreur, ymd } from "@/lib/format";
 import {
   alerteAssurance,
   ALERTE_INFO,
@@ -493,7 +493,7 @@ function LocationModal({
 }) {
   const [locataire, setLocataire] = useState("");
   const [tel, setTel] = useState("");
-  const [debut, setDebut] = useState(new Date().toISOString().slice(0, 10));
+  const [debut, setDebut] = useState(ymd());
   const [fin, setFin] = useState("");
   const [prixJour, setPrixJour] = useState(vehicule.prix_jour != null ? String(vehicule.prix_jour) : "");
   const [saving, setSaving] = useState(false);

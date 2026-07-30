@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 import { envoyerEmailServeur } from "@/lib/mailer";
-import { templateRelance, totalPaye, resteAPayer } from "@/lib/paiements";
+import { templateRelance, totalPaye, estSoldee } from "@/lib/paiements";
 
 // RELANCES AUTOMATIQUES (cron quotidien planifié dans vercel.json).
 // Pour chaque facture : échéance dépassée + reste à payer + dossier avec
@@ -46,6 +46,11 @@ async function executer(req: Request) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayIso = today.toISOString().slice(0, 10);
+  // Borne d'ancienneté (18 mois) : évite de rescanner indéfiniment de très
+  // vieilles factures et borne le volume chargé en mémoire.
+  const borne = new Date(today);
+  borne.setMonth(borne.getMonth() - 18);
+  const borneIso = borne.toISOString().slice(0, 10);
 
   // Factures échues (toutes, service role : on filtre ensuite par dossier)
   const { data: docs, error: e1 } = await admin
@@ -53,8 +58,12 @@ async function executer(req: Request) {
     .select("*")
     .eq("type", "facture")
     .not("date_echeance", "is", null)
-    .lt("date_echeance", todayIso);
-  if (e1) return NextResponse.json({ error: e1.message }, { status: 500 });
+    .lt("date_echeance", todayIso)
+    .gte("date_echeance", borneIso);
+  if (e1) {
+    console.error("relances-auto: lecture factures:", e1.message);
+    return NextResponse.json({ error: "Lecture des factures impossible." }, { status: 500 });
+  }
 
   const factures = docs || [];
   if (factures.length === 0) return NextResponse.json({ ok: true, examinees: 0, envoyees: 0 });
@@ -82,9 +91,12 @@ async function executer(req: Request) {
     const dossier = dossiers.find((d) => d.id === f.dossier_id);
     if (!dossier || !dossier.relance_auto) continue;
 
-    // Destinataire selon le processus : cession → ASSURANCE ; cas normal → CLIENT
-    // (l'assurance rembourse le client, c'est lui qui doit le garage).
-    const enCession = Boolean(dossier.mode_cession) || cessionsSignees.has(dossier.id);
+    // Destinataire selon le processus : cession OU prise en charge → ASSURANCE
+    // (en PEC, l'assurance règle DIRECTEMENT le garage : c'est elle le
+    // débiteur, jamais le client) ; cas normal → CLIENT.
+    // Même logique que lib/dossierSync.destinataireRelance — garder alignés.
+    const enCession =
+      Boolean(dossier.mode_cession) || cessionsSignees.has(dossier.id) || Boolean(dossier.mode_pec);
     let destinataire: string | null = null;
     if (enCession) {
       destinataire = dossier.assureur_email || null;
@@ -101,8 +113,9 @@ async function executer(req: Request) {
     if (!destinataire) continue;
 
     const paye = totalPaye(paiements.filter((p) => p.document_id === f.id));
-    const reste = resteAPayer(f.total_ttc, paye);
-    if (reste <= 0) continue;
+    // Tolérance d'1 centime (estSoldee) : une facture payée au centime près
+    // ne doit pas déclencher de relance pour un reste d'arrondi de 0,004 €.
+    if (estSoldee(f.total_ttc, paye)) continue;
 
     const rels = relances.filter((r) => r.document_id === f.id);
     if (rels.length >= MAX_RELANCES_AUTO) continue; // la mise en demeure reste manuelle
@@ -115,6 +128,32 @@ async function executer(req: Request) {
       body
     ).replace(/\n/g, "<br>")}</div>`;
 
+    // IDEMPOTENCE : la relance est enregistrée AVANT l'envoi, protégée par
+    // l'index unique (document_id, date_relance) where auto (migration v33).
+    // Deux exécutions simultanées (cron + déclenchement manuel) ne peuvent
+    // plus envoyer le même email deux fois : la seconde échoue ici et saute
+    // la facture. Si l'envoi échoue ensuite, on retire la ligne pour
+    // permettre une nouvelle tentative au prochain run.
+    const { data: relIns, error: eRel } = await admin
+      .from("relances")
+      .insert({
+        dossier_id: dossier.id,
+        document_id: f.id,
+        date_relance: todayIso,
+        canal: "email",
+        notes: `Relance automatique n°${niveau}`,
+        owner_id: f.owner_id,
+        auto: true,
+      })
+      .select("id")
+      .single();
+    if (eRel || !relIns) {
+      // Doublon (déjà relancée aujourd'hui par un run concurrent) ou échec DB :
+      // dans les deux cas on N'ENVOIE PAS (mieux vaut zéro relance qu'une double).
+      details.push(`${f.numero || f.id} → sautée (${eRel?.code === "23505" ? "déjà relancée aujourd'hui" : "journalisation impossible"})`);
+      continue;
+    }
+
     // Config SMTP DU garage propriétaire de la facture (multi-garages)
     const res = await envoyerEmailServeur(
       { to: destinataire, subject, text: body, html },
@@ -122,7 +161,7 @@ async function executer(req: Request) {
     );
 
     // Journalisation (owner_id EXPLICITE : le service role n'a pas d'auth.uid())
-    await admin.from("emails").insert({
+    const { error: eMail } = await admin.from("emails").insert({
       dossier_id: dossier.id,
       destinataire,
       objet: subject,
@@ -131,18 +170,14 @@ async function executer(req: Request) {
       erreur: res.ok ? null : res.error || null,
       owner_id: f.owner_id,
     });
+    if (eMail) console.error("relances-auto: journal emails en échec:", eMail.message);
+
     if (res.ok) {
-      await admin.from("relances").insert({
-        dossier_id: dossier.id,
-        document_id: f.id,
-        date_relance: todayIso,
-        canal: "email",
-        notes: `Relance automatique n°${niveau}`,
-        owner_id: f.owner_id,
-      });
       envoyees++;
       details.push(`${f.numero || f.id} → relance n°${niveau} (${destinataire})`);
     } else {
+      // Envoi raté : on retire la relance pré-enregistrée pour réessayer plus tard.
+      await admin.from("relances").delete().eq("id", relIns.id);
       details.push(`${f.numero || f.id} → ÉCHEC : ${res.error}`);
     }
   }

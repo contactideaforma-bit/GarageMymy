@@ -697,10 +697,15 @@ export async function ribPdfBase64(): Promise<string> {
   const ent = await getEntreprise();
 
   // RIB OFFICIEL uploadé dans le Profil du garage → prioritaire sur le RIB
-  // généré depuis IBAN/BIC (v26).
+  // généré depuis IBAN/BIC (v26). Depuis la v33 il vit dans le bucket PRIVÉ
+  // 'prive' (le bucket 'entreprise' est public → un RIB y était accessible
+  // par simple URL) ; repli sur 'entreprise' pour les anciens fichiers.
   if (ent.rib_path) {
     try {
-      const { data } = await supabase.storage.from("entreprise").download(ent.rib_path);
+      let { data } = await supabase.storage.from("prive").download(ent.rib_path);
+      if (!data) {
+        ({ data } = await supabase.storage.from("entreprise").download(ent.rib_path));
+      }
       if (data) {
         const bytes = new Uint8Array(await data.arrayBuffer());
         let bin = "";
@@ -795,18 +800,26 @@ function lignesDepuisTravaux(travaux: string | null): {
   for (const brute of (travaux || "").split("\n")) {
     const t = brute.trim();
     if (!t) continue;
-    if (!t.startsWith("-")) {
+    // Même famille de puces que la regex ci-dessus (- ou •) — l'ancien
+    // startsWith("-") ignorait les lignes à puce « • ».
+    if (!/^[-•]/.test(t)) {
       (lignes.length === 0 ? intro : libre).push(t);
       continue;
     }
     const m = t.match(regex);
     if (m) {
-      lignes.push({
-        designation: m[1].trim(),
-        montant: m[2] ? Number(m[2].replace(/\s/g, "").replace(",", ".")) : null,
-      });
+      // Parse FR robuste : "1 234,56" et "1.234,56" OK ; si le résultat
+      // n'est pas un nombre fini, on n'imprime PAS "NaN €" sur l'OR.
+      let montant: number | null = null;
+      if (m[2]) {
+        let brut = m[2].replace(/\s/g, "");
+        if (brut.includes(",")) brut = brut.replace(/\./g, "").replace(",", ".");
+        const n = Number(brut);
+        montant = Number.isFinite(n) ? n : null;
+      }
+      lignes.push({ designation: m[1].trim(), montant });
     } else {
-      libre.push(t.replace(/^-\s*/, ""));
+      libre.push(t.replace(/^[-•]\s*/, ""));
     }
   }
   return { intro: intro.join(" "), lignes, libre: libre.join("\n") };

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier } from "@/lib/types";
-import { formatDate } from "@/lib/format";
+import { formatDate, messageErreur } from "@/lib/format";
 import DossierForm from "@/components/DossierForm";
 import ModalShell from "@/components/ModalShell";
 import ConfigBanner from "@/components/ConfigBanner";
@@ -110,11 +110,15 @@ export default function PlanningPage() {
 
   async function enregistrerPlan() {
     if (!planId) return;
-    await supabase.from("dossiers").update({
+    const { error } = await supabase.from("dossiers").update({
       reparation_debut: planDebut || null,
       reparation_fin: planFin || null,
       reparateur: planRep || null,
     }).eq("id", planId);
+    if (error) {
+      alert(messageErreur(error, "Planification non enregistrée."));
+      return;
+    }
     setPlanOpen(false);
     load();
   }

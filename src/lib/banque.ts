@@ -113,9 +113,11 @@ export function parseReleveCsv(text: string): { lignes: LigneReleve[]; ignorees:
     const date = parseDateFr(r[cDate] || "");
     let montant = NaN;
     if (cMontant !== -1) montant = parseMontantFr(r[cMontant] || "");
-    if (isNaN(montant) && iDebit !== -1 && iCredit !== -1) {
-      const deb = parseMontantFr(r[iDebit] || "");
-      const cre = parseMontantFr(r[iCredit] || "");
+    // Colonnes Débit/Crédit : chacune traitée indépendamment (certains exports
+    // n'ont qu'une des deux colonnes).
+    if (isNaN(montant) && (iDebit !== -1 || iCredit !== -1)) {
+      const deb = iDebit !== -1 ? parseMontantFr(r[iDebit] || "") : NaN;
+      const cre = iCredit !== -1 ? parseMontantFr(r[iCredit] || "") : NaN;
       if (!isNaN(cre) && cre !== 0) montant = Math.abs(cre);
       else if (!isNaN(deb) && deb !== 0) montant = -Math.abs(deb);
     }
@@ -132,11 +134,29 @@ export function parseReleveCsv(text: string): { lignes: LigneReleve[]; ignorees:
 }
 
 // Empreinte stable pour dédupliquer les réimports du même relevé.
-export function hashTransaction(l: LigneReleve): string {
-  const key = `${l.date}|${l.libelle.toLowerCase()}|${l.montant.toFixed(2)}`;
+// `occurrence` distingue deux opérations LÉGITIMEMENT identiques du même jour
+// (même libellé + même montant, ex. deux franchises de 150 €) : sans lui, la
+// seconde était silencieusement écartée à l'import.
+export function hashTransaction(l: LigneReleve, occurrence = 0): string {
+  // occurrence 0 : clé IDENTIQUE à l'ancien format → les transactions déjà en
+  // base restent dédupliquées lors d'un réimport (pas de doublons rétroactifs).
+  const base = `${l.date}|${l.libelle.toLowerCase()}|${l.montant.toFixed(2)}`;
+  const key = occurrence > 0 ? `${base}|${occurrence}` : base;
   let h = 5381;
   for (let i = 0; i < key.length; i++) h = ((h << 5) + h + key.charCodeAt(i)) | 0;
   return `${(h >>> 0).toString(16)}-${key.length}`;
+}
+
+// Hash de toutes les lignes d'un relevé, en numérotant les doublons exacts
+// (1re occurrence = 0, 2e = 1…). Stable d'un réimport à l'autre du même relevé.
+export function hashTransactions(lignes: LigneReleve[]): string[] {
+  const vus = new Map<string, number>();
+  return lignes.map((l) => {
+    const base = `${l.date}|${l.libelle.toLowerCase()}|${l.montant.toFixed(2)}`;
+    const n = vus.get(base) || 0;
+    vus.set(base, n + 1);
+    return hashTransaction(l, n);
+  });
 }
 
 /* --------------------------- Rapprochement --------------------------- */

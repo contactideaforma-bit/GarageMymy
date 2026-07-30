@@ -61,6 +61,21 @@ export async function GET(req: Request) {
   const cible = await trouverParToken(token);
   if (!cible) return NextResponse.json({ error: "Lien invalide ou document introuvable." }, { status: 404 });
 
+  // Document déjà signé : réponse MINIMALE. Le lien circule par email et
+  // reste techniquement valide — on n'expose plus indéfiniment le nom du
+  // client, le véhicule et le n° de sinistre à qui détient l'URL.
+  if (cible.dejaSigne) {
+    return NextResponse.json({
+      type: cible.type,
+      titre: cible.titre,
+      dejaSigne: true,
+      garage: "",
+      vehicule: "",
+      client: "",
+      sinistre: "",
+    });
+  }
+
   const admin = getAdminClient()!;
   const [{ data: dossier }, { data: ent }] = await Promise.all([
     admin.from("dossiers").select("client_nom,marque_modele,immatriculation,numero_sinistre").eq("id", cible.dossier_id).maybeSingle(),
@@ -92,6 +107,9 @@ export async function POST(req: Request) {
   if (!body.nom?.trim() || !body.signature?.startsWith("data:image/png")) {
     return NextResponse.json({ error: "Nom et signature requis." }, { status: 400 });
   }
+  if (body.nom.trim().length > 200) {
+    return NextResponse.json({ error: "Nom trop long." }, { status: 400 });
+  }
   if (body.signature.length > 300_000) {
     return NextResponse.json({ error: "Signature trop lourde, réessaie." }, { status: 413 });
   }
@@ -108,11 +126,25 @@ export async function POST(req: Request) {
   };
   if (cible.table !== "documents") maj.statut = "signe";
 
-  const { error } = await admin.from(cible.table).update(maj).eq("id", cible.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Garde ATOMIQUE : l'update ne passe que si le document n'est pas déjà
+  // signé (deux soumissions quasi simultanées passaient toutes deux le
+  // contrôle ci-dessus, la seconde ÉCRASAIT la première signature).
+  const { data: modifie, error } = await admin
+    .from(cible.table)
+    .update(maj)
+    .eq("id", cible.id)
+    .is("signe_le", null)
+    .select("id");
+  if (error) {
+    console.error("signature: update en échec:", error.message);
+    return NextResponse.json({ error: "Enregistrement impossible, réessaie." }, { status: 500 });
+  }
+  if (!modifie || modifie.length === 0) {
+    return NextResponse.json({ error: "Ce document est déjà signé." }, { status: 409 });
+  }
 
   // Historique du dossier (owner_id explicite : service role)
-  await admin.from("evenements").insert({
+  const { error: eEvt } = await admin.from("evenements").insert({
     dossier_id: cible.dossier_id,
     titre: `${cible.type} signé à distance`,
     description: `${cible.titre} — signé par ${body.nom.trim()} via le lien de signature.`,
@@ -120,6 +152,7 @@ export async function POST(req: Request) {
     categorie: "autre",
     owner_id: cible.owner_id,
   });
+  if (eEvt) console.error("signature: événement non journalisé:", eEvt.message);
 
   return NextResponse.json({ ok: true });
 }

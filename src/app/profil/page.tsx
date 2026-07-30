@@ -67,12 +67,25 @@ export default function ProfilPage() {
 
   const set = (k: keyof FormE, v: string) => setForm((f) => ({ ...f, [k]: v }));
 
-  async function upload(file: File, prefix: string): Promise<string> {
+  // bucket 'entreprise' = public (logo, modèle) ; 'prive' = RIB & docs
+  // sensibles (v33) — jamais accessibles par simple URL.
+  async function upload(file: File, prefix: string, bucket: "entreprise" | "prive" = "entreprise"): Promise<string> {
     const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `${prefix}_${Date.now()}_${safe}`;
-    const { error: e } = await supabase.storage.from("entreprise").upload(path, file, { upsert: true });
+    const { error: e } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
     if (e) throw e;
     return path;
+  }
+
+  // Ouvre le RIB : lien signé 5 min sur le bucket privé, repli sur l'ancien
+  // emplacement public pour les RIB uploadés avant la v33.
+  async function voirRib() {
+    if (!form.rib_path) return;
+    const { data } = await supabase.storage.from("prive").createSignedUrl(form.rib_path, 300);
+    const url =
+      data?.signedUrl ||
+      supabase.storage.from("entreprise").getPublicUrl(form.rib_path).data.publicUrl;
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   async function save() {
@@ -85,7 +98,7 @@ export default function ProfilPage() {
       let rib_path = form.rib_path;
       if (logoFile) logo_path = await upload(logoFile, "logo");
       if (modeleFile) modele_facture_path = await upload(modeleFile, "modele");
-      if (ribFile) rib_path = await upload(ribFile, "rib");
+      if (ribFile) rib_path = await upload(ribFile, "rib", "prive");
 
       const payload = { ...form, logo_path, modele_facture_path, rib_path };
 
@@ -326,14 +339,13 @@ export default function ProfilPage() {
                 className="text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-white"
               />
               {form.rib_path && !ribFile && (
-                <a
-                  href={supabase.storage.from("entreprise").getPublicUrl(form.rib_path).data.publicUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={voirRib}
                   className="mt-3 inline-block text-sm text-accent-teal hover:underline"
                 >
                   Voir le RIB enregistré
-                </a>
+                </button>
               )}
               {ribFile && <p className="mt-2 text-xs text-emerald-300">Nouveau RIB prêt : {ribFile.name} (enregistre le profil)</p>}
               <p className="text-xs text-white/40 mt-2">

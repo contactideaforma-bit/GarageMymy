@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { messageErreur } from "@/lib/format";
 import { Assureur } from "@/lib/types";
 
 const EMPTY = { nom: "", adresse: "", code_postal: "", ville: "", tel: "", email: "", notes: "" };
@@ -12,6 +13,7 @@ export default function AssureursView() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormA>({ ...EMPTY });
 
@@ -35,14 +37,20 @@ export default function AssureursView() {
     setShowForm(true);
   }
   async function enregistrer() {
-    if (!form.nom.trim()) return;
-    if (editingId) await supabase.from("assureurs").update(form).eq("id", editingId);
-    else await supabase.from("assureurs").insert({ ...form, source: "manuel" });
+    if (!form.nom.trim() || saving) return; // garde anti double-clic (sinon 2 fiches identiques)
+    setSaving(true);
+    const { error } = editingId
+      ? await supabase.from("assureurs").update(form).eq("id", editingId)
+      : await supabase.from("assureurs").insert({ ...form, source: "manuel" });
+    setSaving(false);
+    if (error) return alert(messageErreur(error, "Enregistrement impossible."));
     setShowForm(false); setEditingId(null); setForm({ ...EMPTY }); load();
   }
   async function supprimer(id: string) {
     if (!confirm("Supprimer cet assureur ?")) return;
-    await supabase.from("assureurs").delete().eq("id", id); load();
+    const { error } = await supabase.from("assureurs").delete().eq("id", id);
+    if (error) return alert(messageErreur(error, "Suppression impossible."));
+    load();
   }
 
   const term = q.trim().toLowerCase();
@@ -71,7 +79,7 @@ export default function AssureursView() {
           <textarea className="field-input mt-3" rows={2} placeholder="Commentaire" value={form.notes} onChange={(e) => set("notes", e.target.value)} />
           <div className="flex justify-end gap-2 mt-3">
             <button onClick={() => { setShowForm(false); setEditingId(null); }} className="btn-ghost">Annuler</button>
-            <button onClick={enregistrer} className="btn-primary">{editingId ? "Enregistrer" : "Ajouter"}</button>
+            <button onClick={enregistrer} disabled={saving} className="btn-primary">{saving ? "Enregistrement…" : editingId ? "Enregistrer" : "Ajouter"}</button>
           </div>
         </div>
       )}

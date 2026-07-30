@@ -45,7 +45,9 @@ export default function EmailComposer({
   defaultSubject?: string;
   defaultBody?: string;
   onClose: () => void;
-  onSent?: () => void;
+  // `infos.avecPieceJointe` permet à l'appelant de savoir si l'email est
+  // parti avec au moins un fichier (cf. DemandesPanel).
+  onSent?: (infos?: { avecPieceJointe: boolean }) => void;
 }) {
   const [ent, setEnt] = useState<Partial<Entreprise> | null>(null);
   const [mailFrom, setMailFrom] = useState<string | null>(null);
@@ -74,6 +76,12 @@ export default function EmailComposer({
       .then(({ data }) => {
         const e = (data as Entreprise) || {};
         setEnt(e);
+        // Envoi en LISTE DE DIFFUSION (que de la CCI) : on met l'adresse du
+        // garage en « À » pour que le message soit valide — sinon le bouton
+        // Envoyer restait grisé sans explication.
+        if (!defaultTo && defaultCci && e.email) {
+          setTo((t) => t || e.email!);
+        }
         // SIGNATURE : ajoutée automatiquement en bas du message (Profil du
         // garage > Signature d'email). L'utilisateur peut la modifier/effacer.
         const sig = (e.signature_mail || "").trim();
@@ -92,7 +100,19 @@ export default function EmailComposer({
         }
       })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Les pièces jointes peuvent arriver APRÈS le premier rendu (le parent
+  // charge les documents en asynchrone) : on resynchronise les cases cochées,
+  // sinon les PJ ajoutées ensuite apparaissaient décochées à tort.
+  useEffect(() => {
+    setPjCochees((prev) => {
+      const liste = piecesJointes || [];
+      if (prev.length === liste.length) return prev;
+      return liste.map((p, i) => (i < prev.length ? prev[i] : p.coche !== false));
+    });
+  }, [piecesJointes]);
 
   // Charge les destinataires possibles depuis la base
   useEffect(() => {
@@ -233,12 +253,14 @@ export default function EmailComposer({
     const payload = {
       to,
       bcc: cci.trim() || undefined,
-      from: ent?.nom && ent?.email ? `${ent.nom} <${ent.email}>` : ent?.email || undefined,
       replyTo: ent?.email || undefined,
       subject,
       html,
       text: body,
       attachments,
+      // La route journalise elle-même dans `emails` (côté serveur) : plus de
+      // risque d'email parti sans trace si l'onglet se ferme.
+      dossierId: dossier?.id ?? null,
     };
 
     let ok = false;
@@ -256,15 +278,7 @@ export default function EmailComposer({
       errMsg = e instanceof Error ? e.message : "Échec réseau.";
     }
 
-    // Journal des envois
-    await supabase.from("emails").insert({
-      dossier_id: dossier?.id ?? null,
-      destinataire: to,
-      objet: subject,
-      corps: body,
-      statut: ok ? "envoye" : "echec",
-      erreur: ok ? null : errMsg,
-    });
+    // (Le journal `emails` est écrit par la route /api/send-email.)
 
     if (ok) {
       // Un devis/facture envoyé ne reste pas en brouillon
@@ -285,7 +299,7 @@ export default function EmailComposer({
 
     setSending(false);
     if (ok) {
-      onSent?.();
+      onSent?.({ avecPieceJointe: Boolean(attachments && attachments.length > 0) });
       onClose();
     } else {
       setError(errMsg || "Échec de l'envoi.");
@@ -403,7 +417,7 @@ export default function EmailComposer({
             <button onClick={onClose} className="btn-ghost">Annuler</button>
             <button
               onClick={envoyer}
-              disabled={sending || !to || !subject}
+              disabled={sending || (!to && !cci) || !subject}
               className="btn-primary"
             >
               {sending ? "Envoi…" : "Envoyer"}

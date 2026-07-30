@@ -1,4 +1,5 @@
 import { DocumentLigne, DocumentType } from "./types";
+import { round2 } from "./paiements";
 
 export type LigneSaisie = {
   designation: string;
@@ -15,15 +16,21 @@ export function computeTotaux(
     0
   );
   const taux = Number(tva) || 0;
-  const montantTva = ht * (taux / 100);
-  return { ht, tva: montantTva, ttc: ht + montantTva };
+  // Arrondi au centime à CHAQUE étape : le TTC stocké est exactement celui
+  // affiché sur le PDF, donc payable au centime près (cf. estSoldee).
+  const htR = round2(ht);
+  const montantTva = round2(htR * (taux / 100));
+  return { ht: htR, tva: montantTva, ttc: round2(htR + montantTva) };
 }
 
 export function genNumero(type: DocumentType): string {
   const d = new Date();
   const prefix = type === "devis" ? "DEV" : "FAC";
   const ym = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
-  return `${prefix}-${ym}-${String(Date.now()).slice(-5)}`;
+  // Suffixe : timestamp (7 chiffres ≈ cycle de 115 jours) + 2 chiffres aléatoires.
+  // L'ancien slice(-5) bouclait toutes les 100 secondes → doublons possibles.
+  const alea = String(Math.floor(Math.random() * 100)).padStart(2, "0");
+  return `${prefix}-${ym}-${String(Date.now()).slice(-7)}${alea}`;
 }
 
 export const STATUTS_DOC: Record<string, { label: string; badge: string }> = {

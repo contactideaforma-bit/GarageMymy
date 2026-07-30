@@ -93,6 +93,10 @@ export default function PiecesPanel({
       setError(messageErreur(err, "Conversion impossible : réessaie avec une autre photo."));
       setUploading(false);
       setTypeEnCours(null);
+      // Réinitialiser les inputs : sans ça, re-choisir le MÊME fichier ne
+      // déclenchait plus onChange et le bouton « Importer » semblait mort.
+      if (inputPhotoRef.current) inputPhotoRef.current.value = "";
+      if (inputFichierRef.current) inputFichierRef.current.value = "";
     }
   }
 
@@ -106,13 +110,16 @@ export default function PiecesPanel({
     } catch (err: unknown) {
       setError(messageErreur(err, "Conversion impossible : réessaie."));
       setTypeEnCours(null);
+      if (inputPhotoRef.current) inputPhotoRef.current.value = "";
+      if (inputFichierRef.current) inputFichierRef.current.value = "";
     }
   }
 
   async function supprimer(p: PieceDossier) {
     if (!confirm(`Supprimer cette pièce (${p.nom || p.type}) ?`)) return;
+    const { error } = await supabase.from("pieces_dossier").delete().eq("id", p.id);
+    if (error) return alert(messageErreur(error, "Suppression impossible."));
     await supabase.storage.from("pieces").remove([p.path]);
-    await supabase.from("pieces_dossier").delete().eq("id", p.id);
     onChanged?.();
   }
 

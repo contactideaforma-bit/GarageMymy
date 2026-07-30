@@ -9,7 +9,7 @@ import {
   genNumero,
   lignesToDb,
 } from "@/lib/documents";
-import { formatEuros, messageErreur } from "@/lib/format";
+import { formatEuros, messageErreur, ymd } from "@/lib/format";
 
 export default function DocumentEditor({
   dossier,
@@ -30,9 +30,7 @@ export default function DocumentEditor({
   const titre = type === "devis" ? "Devis" : "Facture";
 
   const [numero, setNumero] = useState(document?.numero || genNumero(type));
-  const [dateDoc, setDateDoc] = useState(
-    document?.date_document || new Date().toISOString().slice(0, 10)
-  );
+  const [dateDoc, setDateDoc] = useState(document?.date_document || ymd());
   const [dateEcheance, setDateEcheance] = useState(document?.date_echeance || "");
   const [statut, setStatut] = useState(document?.statut || "brouillon");
   const [tva, setTva] = useState(String(document?.tva ?? 20));
@@ -89,7 +87,6 @@ export default function DocumentEditor({
           .update(payload)
           .eq("id", document.id);
         if (e1) throw e1;
-        await supabase.from("document_lignes").delete().eq("document_id", document.id);
       } else {
         const { data, error: e1 } = await supabase
           .from("documents")
@@ -100,10 +97,26 @@ export default function DocumentEditor({
         docId = data!.id;
       }
 
+      // INSÉRER d'abord les nouvelles lignes, SUPPRIMER ensuite les anciennes :
+      // si l'insert échoue, l'ancienne version reste intacte (l'ancien ordre
+      // delete→insert pouvait vider définitivement la facture sur une coupure).
       const rows = lignesToDb(items).map((l) => ({ ...l, document_id: docId! }));
+      let nouveauxIds: string[] = [];
       if (rows.length) {
-        const { error: e2 } = await supabase.from("document_lignes").insert(rows);
+        const { data: inserees, error: e2 } = await supabase
+          .from("document_lignes")
+          .insert(rows)
+          .select("id");
         if (e2) throw e2;
+        nouveauxIds = (inserees || []).map((r) => r.id);
+      }
+      if (isEdit && document) {
+        let del = supabase.from("document_lignes").delete().eq("document_id", document.id);
+        if (nouveauxIds.length) {
+          del = del.not("id", "in", `(${nouveauxIds.join(",")})`);
+        }
+        const { error: e3 } = await del;
+        if (e3) throw e3;
       }
 
       onSaved();

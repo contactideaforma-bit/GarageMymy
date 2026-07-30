@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { messageErreur } from "@/lib/format";
 import { Expert } from "@/lib/types";
 
 const EMPTY = {
@@ -15,6 +16,7 @@ export default function ExpertsView() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormE>({ ...EMPTY });
 
@@ -40,14 +42,20 @@ export default function ExpertsView() {
     setShowForm(true);
   }
   async function enregistrer() {
-    if (!form.cabinet.trim()) return;
-    if (editingId) await supabase.from("experts").update(form).eq("id", editingId);
-    else await supabase.from("experts").insert({ ...form, source: "manuel" });
+    if (!form.cabinet.trim() || saving) return; // garde anti double-clic (sinon 2 fiches identiques)
+    setSaving(true);
+    const { error } = editingId
+      ? await supabase.from("experts").update(form).eq("id", editingId)
+      : await supabase.from("experts").insert({ ...form, source: "manuel" });
+    setSaving(false);
+    if (error) return alert(messageErreur(error, "Enregistrement impossible."));
     setShowForm(false); setEditingId(null); setForm({ ...EMPTY }); load();
   }
   async function supprimer(id: string) {
     if (!confirm("Supprimer ce cabinet ?")) return;
-    await supabase.from("experts").delete().eq("id", id); load();
+    const { error } = await supabase.from("experts").delete().eq("id", id);
+    if (error) return alert(messageErreur(error, "Suppression impossible."));
+    load();
   }
 
   const term = q.trim().toLowerCase();
@@ -79,7 +87,7 @@ export default function ExpertsView() {
           <textarea className="field-input mt-3" rows={2} placeholder="Commentaire" value={form.notes} onChange={(e) => set("notes", e.target.value)} />
           <div className="flex justify-end gap-2 mt-3">
             <button onClick={() => { setShowForm(false); setEditingId(null); }} className="btn-ghost">Annuler</button>
-            <button onClick={enregistrer} className="btn-primary">{editingId ? "Enregistrer" : "Ajouter"}</button>
+            <button onClick={enregistrer} disabled={saving} className="btn-primary">{saving ? "Enregistrement…" : editingId ? "Enregistrer" : "Ajouter"}</button>
           </div>
         </div>
       )}

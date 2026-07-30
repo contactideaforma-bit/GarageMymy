@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { messageErreur } from "@/lib/format";
 import { Evenement, Dossier } from "@/lib/types";
 import ConfigBanner from "@/components/ConfigBanner";
 
@@ -82,7 +83,7 @@ export default function AgendaPage() {
   async function enregistrer() {
     if (!fMotif.trim() || !fDate) return;
     setSaving(true);
-    await supabase.from("evenements").insert({
+    const { error } = await supabase.from("evenements").insert({
       dossier_id: fDossier || null,
       titre: fMotif,
       description: fDesc || null,
@@ -91,6 +92,11 @@ export default function AgendaPage() {
       avec_qui: fQui || null,
     });
     setSaving(false);
+    if (error) {
+      // Modale laissée ouverte : la saisie n'est pas perdue.
+      alert(messageErreur(error, "Rendez-vous non enregistré."));
+      return;
+    }
     setOpen(false);
     load();
   }

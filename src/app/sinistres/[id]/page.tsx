@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -112,11 +112,15 @@ export default function DossierDetailPage() {
 
   async function enregistrerPlanif() {
     if (!dossier) return;
-    await supabase.from("dossiers").update({
+    const { error } = await supabase.from("dossiers").update({
       reparation_debut: planDebut || null,
       reparation_fin: planFin || null,
       reparateur: planRep || null,
     }).eq("id", dossier.id);
+    if (error) {
+      alert(messageErreur(error, "Planification non enregistrée."));
+      return; // on garde la modale ouverte pour ne pas perdre la saisie
+    }
     setPlanOpen(false);
     load();
   }
@@ -125,9 +129,15 @@ export default function DossierDetailPage() {
   const [evTitre, setEvTitre] = useState("");
   const [evDate, setEvDate] = useState("");
   const [evDesc, setEvDesc] = useState("");
+  const [evSaving, setEvSaving] = useState(false);
+  // Vrai dès que le dossier a été chargé une première fois (cf. load()).
+  const dossierCharge = useRef(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    // Écran « Chargement… » UNIQUEMENT au premier affichage : chaque petite
+    // mutation (cocher « Acquittée », ajouter un événement…) rappelait load()
+    // et blanchissait toute la page en perdant le scroll.
+    setLoading((l) => (dossierCharge.current ? l : true));
     const [d, e, docs, pay, rel, ors, rests, cess, pcs, dem] = await Promise.all([
       supabase.from("dossiers").select("*").eq("id", id).single(),
       supabase.from("evenements").select("*").eq("dossier_id", id).order("date_evenement", { ascending: true }),
@@ -150,6 +160,7 @@ export default function DossierDetailPage() {
     setCessions((cess.data as CessionCreance[]) || []);
     setPieces((pcs.data as PieceDossier[]) || []);
     setDemandes((dem.data as DemandeAssurance[]) || []);
+    dossierCharge.current = true;
     setLoading(false);
   }, [id]);
 
@@ -157,8 +168,15 @@ export default function DossierDetailPage() {
 
   async function changeStatut(s: string) {
     if (!dossier) return;
+    const avant = dossier;
     setDossier({ ...dossier, statut: s });
-    await supabase.from("dossiers").update({ statut: s }).eq("id", dossier.id);
+    const { error } = await supabase.from("dossiers").update({ statut: s }).eq("id", dossier.id);
+    // Rollback si l'écriture échoue : sinon l'écran affichait un statut que la
+    // base n'a jamais enregistré (« revenait » tout seul au rechargement).
+    if (error) {
+      setDossier(avant);
+      alert(messageErreur(error, "Changement de statut impossible."));
+    }
   }
 
   // Cession de créance et prise en charge sont deux circuits de paiement direct
@@ -190,8 +208,16 @@ export default function DossierDetailPage() {
   // Référence / n° de l'accord de prise en charge (enregistrée à la sortie du champ)
   async function enregistrerPecRef(ref: string) {
     if (!dossier || (dossier.pec_reference || "") === ref) return;
+    const avant = dossier;
     setDossier({ ...dossier, pec_reference: ref || null });
-    await supabase.from("dossiers").update({ pec_reference: ref || null }).eq("id", dossier.id);
+    const { error } = await supabase
+      .from("dossiers")
+      .update({ pec_reference: ref || null })
+      .eq("id", dossier.id);
+    if (error) {
+      setDossier(avant);
+      alert(messageErreur(error, "Référence de l'accord non enregistrée."));
+    }
   }
 
   const [archivage, setArchivage] = useState<string | null>(null);
@@ -217,22 +243,35 @@ export default function DossierDetailPage() {
   async function supprimer() {
     if (!dossier) return;
     if (!confirm("Supprimer définitivement ce dossier ? Les fichiers associés (rapport, pièces) seront aussi effacés.")) return;
-    // Purge du Storage AVANT la suppression (sinon fichiers orphelins + données perso conservées)
-    const cheminsPieces = pieces.map((p) => p.path);
+    // On supprime la LIGNE D'ABORD : si le delete échoue (RLS, contrainte),
+    // les fichiers sont toujours là et le dossier reste consultable.
+    // (L'ancien ordre purgeait le Storage avant, ce qui pouvait laisser un
+    // dossier vivant mais amputé de son rapport et de ses pièces.)
+    const { error } = await supabase.from("dossiers").delete().eq("id", dossier.id);
+    if (error) {
+      alert(messageErreur(error, "Suppression impossible — le dossier n'a PAS été supprimé."));
+      return;
+    }
+    const cheminsPieces = pieces.map((p) => p.path).filter(Boolean);
     if (cheminsPieces.length) await supabase.storage.from("pieces").remove(cheminsPieces);
     if (dossier.rapport_path) await supabase.storage.from("rapports").remove([dossier.rapport_path]);
-    await supabase.from("dossiers").delete().eq("id", dossier.id);
     router.push("/sinistres");
   }
 
 
   async function ajouterEvenement(e: React.FormEvent) {
     e.preventDefault();
-    if (!evTitre || !evDate) return;
-    await supabase.from("evenements").insert({
+    if (!evTitre || !evDate || evSaving) return; // garde anti double-soumission
+    setEvSaving(true);
+    const { error } = await supabase.from("evenements").insert({
       dossier_id: id, titre: evTitre, description: evDesc || null,
       date_evenement: new Date(evDate).toISOString(),
     });
+    setEvSaving(false);
+    if (error) {
+      alert(messageErreur(error, "Événement non ajouté."));
+      return;
+    }
     setEvTitre(""); setEvDate(""); setEvDesc("");
     load();
   }
@@ -655,7 +694,7 @@ export default function DossierDetailPage() {
       <PaiementsPanel dossier={dossier} onChanged={load} />
 
       {/* Demandes de documents complémentaires (assurance / expert) */}
-      <DemandesPanel dossier={dossier} demandes={demandes} onChanged={load} />
+      <DemandesPanel dossier={dossier} demandes={demandes} pieces={pieces} onChanged={load} />
 
       {/* Véhicule de prêt & transfert de garantie */}
       <TransfertGarantiePanel dossier={dossier} onChanged={load} />
@@ -666,7 +705,9 @@ export default function DossierDetailPage() {
           <input className="field-input" placeholder="Titre (ex. RDV expertise)" value={evTitre} onChange={(e) => setEvTitre(e.target.value)} />
           <input type="datetime-local" className="field-input" value={evDate} onChange={(e) => setEvDate(e.target.value)} />
           <input className="field-input" placeholder="Description (optionnel)" value={evDesc} onChange={(e) => setEvDesc(e.target.value)} />
-          <button type="submit" className="btn-primary">+ Ajouter</button>
+          <button type="submit" disabled={evSaving} className="btn-primary">
+            {evSaving ? "Ajout…" : "+ Ajouter"}
+          </button>
         </form>
         <ul className="divide-y divide-white/10">
           {evenements.length === 0 && <li className="py-3 text-sm text-white/40">Aucun événement.</li>}

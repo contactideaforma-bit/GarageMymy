@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { CessionCreance, Dossier, OrdreReparation, Restitution, Document, DocumentLigne } from "@/lib/types";
-import { formatDate, formatEuros, messageErreur, STATUTS_ORDRE } from "@/lib/format";
+import { formatDate, formatEuros, messageErreur, STATUTS_ORDRE, ymd } from "@/lib/format";
 import { genNumeroOR, badgeStatutAtelier, labelStatutAtelier } from "@/lib/atelier";
 import {
   apercuCessionPdf,
@@ -86,19 +86,22 @@ export default function AtelierPanel({
 
   async function supprimerOR(or: OrdreReparation) {
     if (!confirm(`Supprimer cet ${labelOR.toLowerCase()} ?`)) return;
-    await supabase.from("ordres_reparation").delete().eq("id", or.id);
+    const { error } = await supabase.from("ordres_reparation").delete().eq("id", or.id);
+    if (error) return alert(messageErreur(error, "Suppression impossible."));
     refresh();
   }
 
   async function supprimerRest(rest: Restitution) {
     if (!confirm("Supprimer ce PV de restitution ?")) return;
-    await supabase.from("restitutions").delete().eq("id", rest.id);
+    const { error } = await supabase.from("restitutions").delete().eq("id", rest.id);
+    if (error) return alert(messageErreur(error, "Suppression impossible."));
     refresh();
   }
 
   async function supprimerCession(c: CessionCreance) {
     if (!confirm("Supprimer cette cession de créance ?")) return;
-    await supabase.from("cessions_creance").delete().eq("id", c.id);
+    const { error } = await supabase.from("cessions_creance").delete().eq("id", c.id);
+    if (error) return alert(messageErreur(error, "Suppression impossible."));
     refresh();
   }
 
@@ -383,7 +386,7 @@ function ORModal({
   const { metier } = useMetier();
   const labelOR = labelOrdre(metier);
   const [numero] = useState(or?.numero || genNumeroOR());
-  const [dateOr, setDateOr] = useState(or?.date_or || new Date().toISOString().slice(0, 10));
+  const [dateOr, setDateOr] = useState(or?.date_or || ymd());
   const [travaux, setTravaux] = useState(or?.travaux || "");
   const [debut, setDebut] = useState(or?.date_debut || dossier.reparation_debut || "");
   const [fin, setFin] = useState(or?.date_fin || dossier.reparation_fin || "");
@@ -521,7 +524,7 @@ function RestitutionModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [date, setDate] = useState(rest?.date_restitution || new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(rest?.date_restitution || ymd());
   const [km, setKm] = useState(rest?.kilometrage != null ? String(rest.kilometrage) : "");
   const [obs, setObs] = useState(rest?.observations || "");
   const [signataire, setSignataire] = useState(rest?.signataire_nom || dossier.client_nom || "");
@@ -621,7 +624,7 @@ function CessionModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [date, setDate] = useState(cession?.date_cession || new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(cession?.date_cession || ymd());
   const [montant, setMontant] = useState(cession?.montant != null ? String(cession.montant) : "");
   const [signataire, setSignataire] = useState(cession?.signataire_nom || dossier.client_nom || "");
   const [signature, setSignature] = useState<string | null>(null);

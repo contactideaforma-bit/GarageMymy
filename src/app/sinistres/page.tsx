@@ -10,6 +10,7 @@ import {
   formatDate,
   indexStatut,
   libelleStatut,
+  ymd,
 } from "@/lib/format";
 import { exporterXlsx, type ColonneExcel } from "@/lib/excel";
 import DossierForm from "@/components/DossierForm";
@@ -43,13 +44,40 @@ type CleTri =
 
 type Tri = { cle: CleTri; sens: "asc" | "desc" };
 
+// Combinaisons proposées dans le select « Trier par ».
+const TRIS_PREDEFINIS = [
+  "created_at:desc",
+  "date_sinistre:desc",
+  "date_sinistre:asc",
+  "statut:asc",
+  "statut:desc",
+  "expert:asc",
+  "montant:desc",
+  "client_nom:asc",
+];
+
+const LIBELLE_COLONNE: Record<string, string> = {
+  created_at: "date de création",
+  numero_sinistre: "n° de sinistre",
+  client_nom: "client",
+  marque_modele: "véhicule",
+  immatriculation: "immatriculation",
+  assureur: "assureur",
+  expert: "cabinet d'expert",
+  date_sinistre: "date du sinistre",
+  statut: "statut",
+  montant: "montant HT",
+};
+
 // Valeur comparable d'un dossier selon la clé de tri.
 function valeurTri(d: Dossier, cle: CleTri): string | number {
   switch (cle) {
     case "statut":
       return indexStatut(d.statut);
     case "montant":
-      return d.montant ?? -Infinity;
+      // -1 (et pas -Infinity) : deux montants absents donnaient
+      // (-Infinity) - (-Infinity) = NaN → comparateur invalide, ordre aléatoire.
+      return d.montant ?? -1;
     case "date_sinistre":
       return d.date_sinistre || "";
     case "created_at":
@@ -126,7 +154,8 @@ export default function SinistresPage() {
       const vb = valeurTri(b, tri.cle);
       let cmp: number;
       if (typeof va === "number" && typeof vb === "number") cmp = va - vb;
-      else cmp = String(va).localeCompare(String(vb), "fr");
+      // numeric: true → « FAC-2026-9 » avant « FAC-2026-10 » (et pas l'inverse).
+      else cmp = String(va).localeCompare(String(vb), "fr", { numeric: true, sensitivity: "base" });
       return tri.sens === "asc" ? cmp : -cmp;
     });
     return copie;
@@ -185,7 +214,7 @@ export default function SinistresPage() {
       cession: d.mode_cession ? "Oui" : "",
       reparateur: d.reparateur || "",
     }));
-    const jour = new Date().toISOString().slice(0, 10);
+    const jour = ymd();
     exporterXlsx(`suivi-dossiers-${jour}`, "Suivi dossiers", colonnes, lignes);
   }
 
@@ -266,6 +295,15 @@ export default function SinistresPage() {
           }}
           title="Trier les dossiers"
         >
+          {/* Un clic sur un en-tête de colonne peut produire une combinaison
+              absente de cette liste : on l'ajoute alors dynamiquement, sinon
+              le select affichait « plus récents » alors que le tableau était
+              trié autrement. */}
+          {!TRIS_PREDEFINIS.includes(`${tri.cle}:${tri.sens}`) && (
+            <option value={`${tri.cle}:${tri.sens}`}>
+              Tri : {LIBELLE_COLONNE[tri.cle] || tri.cle} ({tri.sens === "asc" ? "croissant" : "décroissant"})
+            </option>
+          )}
           <option value="created_at:desc">Tri : plus récents</option>
           <option value="date_sinistre:desc">Date du sinistre (récent → ancien)</option>
           <option value="date_sinistre:asc">Date du sinistre (ancien → récent)</option>

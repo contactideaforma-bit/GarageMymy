@@ -5,6 +5,16 @@ export function formatEuros(value: number | null | undefined): string {
   }).format(value || 0);
 }
 
+// Date locale au format YYYY-MM-DD (fuseau du navigateur — Paris).
+// À utiliser à la place de `toISOString().slice(0,10)` qui, entre minuit et
+// 2 h du matin, renvoie la date de la VEILLE (décalage UTC).
+export function ymd(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const j = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${j}`;
+}
+
 export function formatDate(value: string | null | undefined): string {
   if (!value) return "—";
   const d = new Date(value);

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchAuth } from "@/lib/apiClient";
 import { Dossier } from "@/lib/types";
-import { STATUTS_ORDRE, addJoursOuvres, libelleStatut } from "@/lib/format";
+import { STATUTS_ORDRE, addJoursOuvres, libelleStatut, ymd } from "@/lib/format";
 import { genNumeroOR } from "@/lib/atelier";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
@@ -163,13 +163,19 @@ export default function DossierForm({
     tvaTaux: number
   ) {
     const totaux = computeTotaux(lignes, tvaTaux);
-    const { data } = await supabase
+    // Échéance par défaut à 30 jours sur les FACTURES auto-générées :
+    // sans date_echeance, les relances automatiques ne se déclenchaient
+    // JAMAIS sur le flux nominal (import rapport → facture auto).
+    const echeance = new Date();
+    echeance.setDate(echeance.getDate() + 30);
+    const { data, error: e1 } = await supabase
       .from("documents")
       .insert({
         dossier_id: dossierId,
         type,
         numero: genNumero(type),
-        date_document: new Date().toISOString().slice(0, 10),
+        date_document: ymd(),
+        date_echeance: type === "facture" ? ymd(echeance) : null,
         statut: "brouillon",
         tva: tvaTaux,
         total_ht: totaux.ht,
@@ -178,7 +184,10 @@ export default function DossierForm({
       })
       .select("id")
       .single();
-    if (!data) return;
+    // Les erreurs REMONTENT (l'UI promet la génération auto : un échec
+    // silencieux laissait croire que devis/facture existaient).
+    if (e1) throw new Error(`Création du ${type} impossible : ${e1.message}`);
+    if (!data) throw new Error(`Création du ${type} impossible.`);
     const rows = lignes.map((l, i) => ({
       document_id: data.id as string,
       designation: l.designation,
@@ -186,7 +195,10 @@ export default function DossierForm({
       prix_unitaire: l.prix_unitaire,
       ordre: i,
     }));
-    if (rows.length) await supabase.from("document_lignes").insert(rows);
+    if (rows.length) {
+      const { error: e2 } = await supabase.from("document_lignes").insert(rows);
+      if (e2) throw new Error(`Lignes du ${type} non enregistrées : ${e2.message}`);
+    }
   }
 
   const set = (name: keyof FormState, value: string) =>
@@ -417,28 +429,32 @@ export default function DossierForm({
                   }`;
                 })
                 .join("\n");
-            await supabase.from("ordres_reparation").insert({
+            // Toutes les erreurs REMONTENT : l'UI promet la génération auto
+            // (OR + devis + facture + cession) — un échec doit se voir.
+            const { error: eOr } = await supabase.from("ordres_reparation").insert({
               dossier_id: newId,
               numero: genNumeroOR(),
-              date_or: new Date().toISOString().slice(0, 10),
+              date_or: ymd(),
               travaux,
               montant_ht: totalHt,
               signataire_nom: form.client_nom || null,
             });
+            if (eOr) throw new Error(`Ordre de réparation non créé : ${eOr.message}`);
             await creerDocument("devis", newId, lignes, autoTva);
             await creerDocument("facture", newId, lignes, autoTva);
             // Cession de créance prête à signer (montant = TTC du chiffrage)
             const totauxAuto = computeTotaux(lignes, autoTva);
-            await supabase.from("cessions_creance").insert({
+            const { error: eCess } = await supabase.from("cessions_creance").insert({
               dossier_id: newId,
-              date_cession: new Date().toISOString().slice(0, 10),
-              montant: Math.round(totauxAuto.ttc * 100) / 100,
+              date_cession: ymd(),
+              montant: totauxAuto.ttc,
               signataire_nom: form.client_nom || null,
             });
+            if (eCess) throw new Error(`Cession de créance non créée : ${eCess.message}`);
 
             // Rappel automatique : envoyer la facture 3 jours ouvrés plus tard
             const dateEnvoi = addJoursOuvres(new Date(), 3);
-            await supabase.from("evenements").insert({
+            const { error: eEvt } = await supabase.from("evenements").insert({
               dossier_id: newId,
               titre: "Envoyer la facture",
               description:
@@ -446,6 +462,7 @@ export default function DossierForm({
               date_evenement: dateEnvoi.toISOString(),
               categorie: "autre",
             });
+            if (eEvt) throw new Error(`Rappel non programmé : ${eEvt.message}`);
           }
         }
       }

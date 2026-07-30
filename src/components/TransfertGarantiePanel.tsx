@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier, FlotteVehicule, TransfertGarantie } from "@/lib/types";
-import { formatDate, messageErreur } from "@/lib/format";
+import { formatDate, messageErreur, ymd } from "@/lib/format";
 import ModalShell from "@/components/ModalShell";
 import EmailComposer from "@/components/EmailComposer";
 
@@ -51,15 +51,26 @@ export default function TransfertGarantiePanel({
 
   async function changerStatut(t: TransfertGarantie, statut: string) {
     const maj: Record<string, unknown> = { statut };
-    if (statut === "demande" && !t.date_demande) maj.date_demande = new Date().toISOString().slice(0, 10);
-    if (statut === "accorde" && !t.date_accord) maj.date_accord = new Date().toISOString().slice(0, 10);
-    await supabase.from("transferts_garantie").update(maj).eq("id", t.id);
+    if (statut === "demande" && !t.date_demande) maj.date_demande = ymd();
+    if (statut === "accorde" && !t.date_accord) maj.date_accord = ymd();
+    const { error } = await supabase.from("transferts_garantie").update(maj).eq("id", t.id);
+    if (error) return alert(messageErreur(error, "Changement de statut impossible."));
     refresh();
   }
 
   async function supprimer(t: TransfertGarantie) {
     if (!confirm("Supprimer ce transfert de garantie ?")) return;
-    await supabase.from("transferts_garantie").delete().eq("id", t.id);
+    const { error } = await supabase.from("transferts_garantie").delete().eq("id", t.id);
+    if (error) return alert(messageErreur(error, "Suppression impossible."));
+    // Le véhicule de prêt redevient disponible (il était marqué loué à la
+    // création du transfert et ne l'était jamais redevenu → il disparaissait
+    // définitivement de la liste des véhicules disponibles).
+    if (t.vehicule_immat) {
+      await supabase
+        .from("flotte_vehicules")
+        .update({ loue: false, locataire: null, locataire_tel: null })
+        .ilike("immatriculation", t.vehicule_immat.trim());
+    }
     refresh();
   }
 
@@ -171,7 +182,7 @@ function TransfertModal({
   const [vehiculeId, setVehiculeId] = useState("");
   const [immat, setImmat] = useState("");
   const [modele, setModele] = useState("");
-  const [debut, setDebut] = useState(dossier.reparation_debut || new Date().toISOString().slice(0, 10));
+  const [debut, setDebut] = useState(dossier.reparation_debut || ymd());
   const [fin, setFin] = useState(dossier.reparation_fin || "");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);

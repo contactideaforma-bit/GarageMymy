@@ -1,39 +1,14 @@
 -- ============================================================
---  GarageMYMY — Migration : Devis & Factures
---  À coller dans Supabase > SQL Editor puis exécuter (Run).
+--  ⛔ FICHIER OBSOLÈTE — NE PLUS EXÉCUTER (neutralisé v6.3)
+--
+--  Cette migration historique (documents/document_lignes) recréait des
+--  policies « anon » ouvertes (for all using (true)), supprimées depuis
+--  par la v8 (cloisonnement owner_id). La rejouer aurait réouvert
+--  l'accès anonyme aux devis et factures de tous les garages.
+--
+--  Les tables qu'elle créait existent déjà en production ; pour un
+--  nouvel environnement, suivre l'ordre migration_v2.sql → v33.
+--  (Correctif audit v6.2, finding critique C2 — historique dans Git.)
 -- ============================================================
 
-create table if not exists public.documents (
-  id uuid primary key default gen_random_uuid(),
-  created_at timestamptz not null default now(),
-  dossier_id uuid references public.dossiers(id) on delete cascade,
-  type text not null,                         -- 'devis' | 'facture'
-  numero text,
-  date_document date default current_date,
-  statut text not null default 'brouillon',   -- brouillon|envoye|accepte|refuse|paye
-  tva numeric(5,2) default 20,
-  notes text,
-  total_ht numeric(10,2) default 0,
-  total_tva numeric(10,2) default 0,
-  total_ttc numeric(10,2) default 0
-);
-
-create table if not exists public.document_lignes (
-  id uuid primary key default gen_random_uuid(),
-  document_id uuid references public.documents(id) on delete cascade,
-  designation text,
-  quantite numeric(10,2) default 1,
-  prix_unitaire numeric(10,2) default 0,
-  ordre int default 0
-);
-
-alter table public.documents enable row level security;
-alter table public.document_lignes enable row level security;
-
-drop policy if exists "documents_all_anon" on public.documents;
-create policy "documents_all_anon" on public.documents
-  for all using (true) with check (true);
-
-drop policy if exists "document_lignes_all_anon" on public.document_lignes;
-create policy "document_lignes_all_anon" on public.document_lignes
-  for all using (true) with check (true);
+select 'migration_documents.sql est obsolète — utiliser les migrations v2 → v33' as info;

@@ -22,17 +22,25 @@ export type MailInput = {
 
 export async function envoyerEmailServeur(
   input: MailInput,
-  ownerId?: string // config SMTP DU garage concerné (sécurité multi-garages)
+  ownerId: string // config SMTP DU garage concerné — OBLIGATOIRE (sécurité multi-garages)
 ): Promise<{ ok: boolean; via?: string; error?: string; status?: number }> {
+  // Garde-fou : sans ownerId, l'ancienne requête `limit(1)` sans filtre
+  // aurait pris la config SMTP d'un garage ARBITRAIRE. Fail-closed.
+  if (!ownerId) {
+    return { ok: false, error: "Expéditeur non identifié (ownerId manquant).", status: 500 };
+  }
   const to = (input.to || "").trim();
   if (!to) return { ok: false, error: "Destinataire manquant.", status: 400 };
 
   // 1) SMTP configuré dans l'appli (boîte du garage appelant)
   const admin = getAdminClient();
   if (admin) {
-    let query = admin.from("mail_config").select("*");
-    if (ownerId) query = query.eq("owner_id", ownerId);
-    const { data: cfg } = await query.limit(1).maybeSingle();
+    const { data: cfg } = await admin
+      .from("mail_config")
+      .select("*")
+      .eq("owner_id", ownerId)
+      .limit(1)
+      .maybeSingle();
     if (cfg && cfg.smtp_host && cfg.smtp_user && cfg.smtp_pass) {
       const from =
         cfg.from_name && cfg.from_email

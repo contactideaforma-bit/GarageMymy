@@ -115,17 +115,28 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
   }
 
   async function changerStatut(c: CommandePiece, statut: string) {
+    const avant = c.statut;
     setCommandes((prev) => prev.map((x) => (x.id === c.id ? { ...x, statut } : x)));
-    await supabase.from("commandes_pieces").update({ statut }).eq("id", c.id);
+    const { error } = await supabase.from("commandes_pieces").update({ statut }).eq("id", c.id);
+    // Rollback : sans ça, le badge affichait un statut jamais enregistré.
+    if (error) {
+      setCommandes((prev) => prev.map((x) => (x.id === c.id ? { ...x, statut: avant } : x)));
+      alert(messageErreur(error, "Changement de statut impossible."));
+    }
   }
 
   async function changerCommentaire(c: CommandePiece, commentaire: string) {
-    await supabase.from("commandes_pieces").update({ commentaire: commentaire || null }).eq("id", c.id);
+    const { error } = await supabase
+      .from("commandes_pieces")
+      .update({ commentaire: commentaire || null })
+      .eq("id", c.id);
+    if (error) alert(messageErreur(error, "Commentaire non enregistré."));
   }
 
   async function supprimer(c: CommandePiece) {
     if (!confirm(`Retirer « ${c.designation} » de la liste ?`)) return;
-    await supabase.from("commandes_pieces").delete().eq("id", c.id);
+    const { error } = await supabase.from("commandes_pieces").delete().eq("id", c.id);
+    if (error) return alert(messageErreur(error, "Suppression impossible."));
     load();
   }
 

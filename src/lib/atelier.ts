@@ -3,7 +3,10 @@
 export function genNumeroOR(): string {
   const d = new Date();
   const ym = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}`;
-  return `OR-${ym}-${String(Date.now()).slice(-5)}`;
+  // Suffixe élargi (cf. genNumero de documents.ts) : l'ancien slice(-5)
+  // bouclait toutes les 100 s → risque de numéros dupliqués.
+  const alea = String(Math.floor(Math.random() * 100)).padStart(2, "0");
+  return `OR-${ym}-${String(Date.now()).slice(-7)}${alea}`;
 }
 
 export const STATUTS_ATELIER: Record<string, { label: string; badge: string }> = {

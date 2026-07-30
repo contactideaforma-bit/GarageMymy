@@ -7,7 +7,7 @@ import { BankTransaction, Document, Dossier, Paiement } from "@/lib/types";
 import { formatEuros, formatDate, messageErreur } from "@/lib/format";
 import {
   parseReleveCsv,
-  hashTransaction,
+  hashTransactions,
   suggererFacture,
   calculeReste,
   FactureBanque,
@@ -16,6 +16,7 @@ import StatCard from "@/components/StatCard";
 import ConfigBanner from "@/components/ConfigBanner";
 import ModalShell from "@/components/ModalShell";
 import { majDossierSiSolde } from "@/lib/dossierSync";
+import { estSoldee } from "@/lib/paiements";
 
 type Filtre = "a_rapprocher" | "rapproche" | "ignore" | "tous";
 
@@ -71,13 +72,16 @@ export default function BanquePage() {
         setImportMsg("Aucune transaction lisible dans ce fichier. Vérifie que c'est bien l'export CSV du relevé.");
         return;
       }
-      const rows = lignes.map((l) => ({
+      // hashTransactions numérote les opérations identiques du même jour :
+      // deux virements de même montant/libellé ne s'écrasent plus.
+      const hashes = hashTransactions(lignes);
+      const rows = lignes.map((l, i) => ({
         date_transaction: l.date,
         libelle: l.libelle,
         montant: l.montant,
         reference: l.reference,
         source: "csv",
-        hash: hashTransaction(l),
+        hash: hashes[i],
       }));
       // upsert ignoreDuplicates : réimporter le même relevé ne crée pas de doublons
       const { error } = await supabase
@@ -101,10 +105,11 @@ export default function BanquePage() {
   /* ------------------------------ Actions ------------------------------ */
 
   async function ignorer(tx: BankTransaction, retablir = false) {
-    await supabase
+    const { error } = await supabase
       .from("bank_transactions")
       .update({ statut: retablir ? "nouveau" : "ignore" })
       .eq("id", tx.id);
+    if (error) alert(messageErreur(error));
     load();
   }
 
@@ -358,7 +363,23 @@ function RapprochementModal({
     setSaving(true);
     setError(null);
     try {
-      // 1) Crée le paiement (virement, référence = libellé bancaire)
+      // 1) VERROU d'idempotence : on marque la transaction rapprochée EN
+      // PREMIER, conditionné à son statut actuel. Si un précédent essai a déjà
+      // abouti (ou qu'un autre onglet vient de la traiter), 0 ligne modifiée →
+      // on s'arrête SANS créer de second paiement (l'ancien ordre insérait le
+      // paiement d'abord : un retry après erreur doublait l'encaissement).
+      const { data: verrou, error: e0 } = await supabase
+        .from("bank_transactions")
+        .update({ statut: "rapproche", document_id: facture.id })
+        .eq("id", tx.id)
+        .eq("statut", tx.statut) // uniquement si personne ne l'a traitée entre-temps
+        .select("id");
+      if (e0) throw e0;
+      if (!verrou || verrou.length === 0) {
+        throw new Error("Cette transaction a déjà été rapprochée (ou vient de l'être). Recharge la page.");
+      }
+
+      // 2) Crée le paiement (virement, référence = libellé bancaire)
       const { data: paiement, error: e1 } = await supabase
         .from("paiements")
         .insert({
@@ -372,24 +393,27 @@ function RapprochementModal({
         })
         .select()
         .single();
-      if (e1) throw e1;
+      if (e1) {
+        // Échec de l'insert : on libère le verrou pour permettre un nouvel essai.
+        await supabase
+          .from("bank_transactions")
+          .update({ statut: tx.statut, document_id: null })
+          .eq("id", tx.id);
+        throw e1;
+      }
 
-      // 2) Facture soldée → statut payé (+ dossier « Payé » si tout est soldé)
-      if (facture.reste - montant <= 0.01) {
+      // 3) Facture soldée → statut payé (+ dossier « Payé » si tout est soldé)
+      if (estSoldee(facture.reste, montant)) {
         await supabase.from("documents").update({ statut: "paye" }).eq("id", facture.id);
         await majDossierSiSolde(facture.dossier_id);
       }
 
-      // 3) Marque la transaction rapprochée
-      const { error: e3 } = await supabase
+      // 4) Attache l'id du paiement à la transaction (best effort — le
+      // rapprochement est déjà valide même si cette étape échoue).
+      await supabase
         .from("bank_transactions")
-        .update({
-          statut: "rapproche",
-          document_id: facture.id,
-          paiement_id: paiement?.id || null,
-        })
+        .update({ paiement_id: paiement?.id || null })
         .eq("id", tx.id);
-      if (e3) throw e3;
 
       onSaved();
     } catch (err: unknown) {

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, Dossier, Paiement, Relance } from "@/lib/types";
-import { formatEuros, formatDate } from "@/lib/format";
+import { formatEuros, formatDate, ymd, messageErreur } from "@/lib/format";
 import {
   totalPaye,
   statutPaiement,
@@ -242,13 +242,23 @@ export default function FinancePage() {
           }
           onClose={() => setEmailRow(null)}
           onSent={async () => {
-            await supabase.from("relances").insert({
+            const { error } = await supabase.from("relances").insert({
               dossier_id: emailRow.row.dossier!.id,
               document_id: emailRow.row.id,
-              date_relance: new Date().toISOString().slice(0, 10),
+              date_relance: ymd(),
               canal: "email",
               notes: `Relance n°${emailRow.row.relances.length + 1} envoyée par email`,
             });
+            // Sans trace, la relance suivante repartirait au niveau 1
+            // (courtoise) au lieu de monter d'un cran.
+            if (error) {
+              alert(
+                messageErreur(
+                  error,
+                  "Email envoyé mais relance non journalisée — saisis-la manuellement pour garder le bon niveau."
+                )
+              );
+            }
             load();
           }}
         />

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, Dossier, Paiement, Relance } from "@/lib/types";
-import { formatEuros, formatDate, messageErreur } from "@/lib/format";
+import { formatEuros, formatDate, messageErreur, ymd } from "@/lib/format";
 import EmailComposer from "@/components/EmailComposer";
 import ModalShell from "@/components/ModalShell";
 import { destinataireRelance, majDossierSiSolde } from "@/lib/dossierSync";
@@ -15,6 +15,7 @@ import {
   totalPaye,
   statutPaiement,
   resteAPayer,
+  estSoldee,
   enRetard,
   STATUT_PAIEMENT,
   templateRelance,
@@ -102,13 +103,37 @@ export default function PaiementsPanel({
 
   async function supprimerPaiement(p: Paiement) {
     if (!confirm("Supprimer ce paiement ?")) return;
-    await supabase.from("paiements").delete().eq("id", p.id);
+    const { error } = await supabase.from("paiements").delete().eq("id", p.id);
+    if (error) {
+      alert(messageErreur(error, "Suppression du paiement impossible."));
+      return;
+    }
     // si la facture n'est plus soldée, on la repasse en "envoyé"
     const fac = factures.find((f) => f.id === p.document_id);
     if (fac) {
-      const reste = resteAPayer(fac.total_ttc, totalPaye(fac.paiements) - (Number(p.montant) || 0));
-      if (reste > 0 && fac.statut === "paye") {
+      const nouveauPaye = totalPaye(fac.paiements) - (Number(p.montant) || 0);
+      if (!estSoldee(fac.total_ttc, nouveauPaye) && fac.statut === "paye") {
         await supabase.from("documents").update({ statut: "envoye" }).eq("id", fac.id);
+        // Le dossier avait pu passer automatiquement en « Payé » : on le
+        // rétrograde en « Véhicule rendu » pour que l'impayé redevienne
+        // visible (relances auto + prochaine action). majDossierSiSolde ne
+        // recule jamais de lui-même — c'est ici qu'on compense.
+        const { data: d } = await supabase
+          .from("dossiers")
+          .select("statut")
+          .eq("id", dossierId)
+          .single();
+        if (d?.statut === "paye") {
+          await supabase.from("dossiers").update({ statut: "rendu" }).eq("id", dossierId);
+          await supabase.from("evenements").insert({
+            dossier_id: dossierId,
+            titre: "Paiement supprimé",
+            description:
+              "Un encaissement a été supprimé : la facture n'est plus soldée, le dossier repasse en « Véhicule rendu ».",
+            date_evenement: new Date().toISOString(),
+            categorie: "autre",
+          });
+        }
       }
     }
     refresh();
@@ -285,13 +310,17 @@ export default function PaiementsPanel({
           }
           onClose={() => setEmailFacture(null)}
           onSent={async () => {
-            await supabase.from("relances").insert({
+            const { error } = await supabase.from("relances").insert({
               dossier_id: dossierId,
               document_id: emailFacture.facture.id,
-              date_relance: new Date().toISOString().slice(0, 10),
+              date_relance: ymd(),
               canal: "email",
               notes: "Relance envoyée par email",
             });
+            if (error) {
+              // Sans cette ligne, la relance suivante repartirait au niveau 1.
+              alert(messageErreur(error, "Email envoyé mais relance non journalisée — pense à la saisir via « + Relance »."));
+            }
             refresh();
           }}
         />
@@ -317,7 +346,7 @@ function PaiementModal({
   const reste = resteAPayer(facture.total_ttc, dejaPaye);
 
   const [montant, setMontant] = useState(reste > 0 ? String(reste) : "");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(ymd());
   const [moyen, setMoyen] = useState("virement");
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
@@ -340,9 +369,9 @@ function PaiementModal({
         notes: notes || null,
       });
       if (e1) throw e1;
-      // Facture soldée → statut payé (+ dossier « Payé » si tout est soldé)
-      const nouveauReste = resteAPayer(facture.total_ttc, dejaPaye + m);
-      if (nouveauReste <= 0) {
+      // Facture soldée → statut payé (+ dossier « Payé » si tout est soldé).
+      // estSoldee = tolérance d'1 centime, identique partout (banque, sync).
+      if (estSoldee(facture.total_ttc, dejaPaye + m)) {
         await supabase.from("documents").update({ statut: "paye" }).eq("id", facture.id);
         await majDossierSiSolde(dossierId);
       }
@@ -410,7 +439,7 @@ function RelanceModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(ymd());
   const [canal, setCanal] = useState("email");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
