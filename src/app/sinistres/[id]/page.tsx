@@ -39,7 +39,7 @@ import ProgressionDossier from "@/components/ProgressionDossier";
 import DossierForm from "@/components/DossierForm";
 import DocumentEditor from "@/components/DocumentEditor";
 import PaiementsPanel from "@/components/PaiementsPanel";
-import AtelierPanel from "@/components/AtelierPanel";
+import AtelierPanel, { TypeDocAtelier, labelOrdre } from "@/components/AtelierPanel";
 import EmailComposer from "@/components/EmailComposer";
 import ConfigBanner from "@/components/ConfigBanner";
 import { useMetier } from "@/components/MetierProvider";
@@ -95,6 +95,9 @@ export default function DossierDetailPage() {
   const [emailDoc, setEmailDoc] = useState<Document | null>(null);
   // facture en attente du choix du mode de paiement (avant génération du PDF)
   const [pdfDoc, setPdfDoc] = useState<Document | null>(null);
+  // document d'atelier à créer (OR / cession / restitution), demandé depuis la
+  // barre d'actions unique du bloc « Documents du dossier »
+  const [atelierModal, setAtelierModal] = useState<TypeDocAtelier | null>(null);
   // signature d'un document (à l'écran ou lien à distance)
   const [signDoc, setSignDoc] = useState<Document | null>(null);
   const [emailSignature, setEmailSignature] = useState<{ titre: string; token: string } | null>(null);
@@ -391,6 +394,20 @@ export default function DossierDetailPage() {
     { label: "RIB du garage", filename: "RIB.pdf", getBase64: ribPdfBase64, coche: false },
   ];
 
+  // Ordre d'affichage de la liste unique : devis, puis factures (du plus
+  // récent au plus ancien), puis les documents d'atelier (OR, cession,
+  // restitution) rendus par AtelierPanel à la suite.
+  const documentsTries = [...documents].sort((a, b) => {
+    if (a.type !== b.type) return a.type === "devis" ? -1 : 1;
+    const da = a.date_document || a.created_at || "";
+    const db = b.date_document || b.created_at || "";
+    return db.localeCompare(da);
+  });
+
+  const libelleOR = labelOrdre(metier);
+  const aucunDocument =
+    documents.length + ordres.length + cessions.length + restitutions.length === 0;
+
   const destinatairesDocument = (doc: Document): string =>
     [dossier.expert_email || dossier.cabinet_email, doc.type === "facture" && (enCession || enPec) ? dossier.assureur_email : dossier.client_email]
       .filter(Boolean)
@@ -632,21 +649,46 @@ export default function DossierDetailPage() {
           </p>
         </div>
 
-        {/* Sous-section FACTURATION — devis & factures.
-            Statut lisible en un coup d'œil (Généré / Envoyé / Signé / Payé). */}
-        <div className="px-5 py-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-pixel text-[0.6rem] tracking-wider text-white/45">FACTURATION</h3>
-            <div className="flex gap-2">
-              <button onClick={() => setEditor({ type: "devis" })} className="btn-ghost py-1.5 px-3 text-xs">+ Devis</button>
-              <button onClick={() => setEditor({ type: "facture" })} className="btn-primary py-1.5 px-3 text-xs">+ Facture</button>
-            </div>
-          </div>
-          <div className="space-y-3">
-          {documents.length === 0 && (
-            <p className="text-sm text-white/40">Aucun document. Génère un devis ou une facture.</p>
+        {/* BARRE D'ACTIONS UNIQUE : tous les documents du dossier se créent
+            depuis ici (devis, facture, OR, cession, restitution). */}
+        <div className="px-5 pt-4 flex flex-wrap gap-2">
+          <button onClick={() => setEditor({ type: "devis" })} className="btn-ghost py-1.5 px-3 text-xs">
+            + Devis
+          </button>
+          <button onClick={() => setEditor({ type: "facture" })} className="btn-primary py-1.5 px-3 text-xs">
+            + Facture
+          </button>
+          <button onClick={() => setAtelierModal("or")} className="btn-ghost py-1.5 px-3 text-xs">
+            + {libelleOR}
+          </button>
+          <button
+            onClick={() => setAtelierModal("cession")}
+            className={`${dossier.mode_cession && cessions.length === 0 ? "btn-primary" : "btn-ghost"} py-1.5 px-3 text-xs`}
+            title={
+              dossier.mode_cession && cessions.length === 0
+                ? "Mode cession activé : fais signer la cession"
+                : undefined
+            }
+          >
+            + Cession de créance
+          </button>
+          <button onClick={() => setAtelierModal("restitution")} className="btn-ghost py-1.5 px-3 text-xs">
+            + Restitution
+          </button>
+        </div>
+
+        {/* UNE SEULE LISTE, les documents les uns sous les autres :
+            devis · factures · ordre de réparation · cession · restitution.
+            Toutes les cartes ont la même structure (titre + statut, détails,
+            actions à droite). */}
+        <div className="px-5 py-4 space-y-3">
+          {aucunDocument && (
+            <p className="text-sm text-white/40">
+              Aucun document pour l&apos;instant. Génère un devis ou une facture, puis fais signer
+              {" "}{libelleOR.toLowerCase()}, la cession de créance et le PV de restitution.
+            </p>
           )}
-          {documents.map((doc) => {
+          {documentsTries.map((doc) => {
             const fem = doc.type === "facture"; // accords : émise / signée
             return (
               <div key={doc.id} className="glass-soft p-4">
@@ -700,11 +742,18 @@ export default function DossierDetailPage() {
               </div>
             );
           })}
-          </div>
-        </div>
 
-        {/* Sous-section ATELIER & SIGNATURES : ordre de réparation, cession, restitution */}
-        <AtelierPanel dossier={dossier} onChanged={load} integre documents={documents} />
+          {/* Documents d'atelier (OR, cession, restitution) : mêmes cartes,
+              rendus à la suite dans cette même liste. */}
+          <AtelierPanel
+            dossier={dossier}
+            onChanged={load}
+            integre
+            documents={documents}
+            ouvrir={atelierModal}
+            onOuvert={() => setAtelierModal(null)}
+          />
+        </div>
       </section>
 
       {/* Commande de pièces (suivi non bloquant) */}

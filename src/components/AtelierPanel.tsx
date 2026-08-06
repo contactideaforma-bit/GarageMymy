@@ -19,8 +19,12 @@ import SignaturePad from "@/components/SignaturePad";
 import ModalShell from "@/components/ModalShell";
 import { useMetier } from "@/components/MetierProvider";
 
+// Documents de l'atelier créables depuis la barre d'actions du bloc parent.
+export type TypeDocAtelier = "or" | "cession" | "restitution";
+
 // Libellé du document d'ordre selon le métier.
-function labelOrdre(metier: string) {
+// Exporté : la barre d'actions de « Documents du dossier » l'utilise aussi.
+export function labelOrdre(metier: string) {
   return metier === "vitrage" ? "Ordre d'intervention" : "Ordre de réparation";
 }
 
@@ -34,11 +38,15 @@ export default function AtelierPanel({
   onChanged,
   integre = false, // true = rendu à l'intérieur du bloc « Documents du dossier »
   documents = [], // devis/factures du dossier (pour les pièces jointes d'email)
+  ouvrir = null, // modale demandée par la barre d'actions du parent (v6.6)
+  onOuvert,
 }: {
   dossier: Dossier;
   onChanged?: () => void;
   integre?: boolean;
   documents?: Document[];
+  ouvrir?: TypeDocAtelier | null;
+  onOuvert?: () => void;
 }) {
   const { metier } = useMetier();
   const labelOR = labelOrdre(metier);
@@ -78,6 +86,18 @@ export default function AtelierPanel({
   }, [dossier.id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Les boutons « + OR / + Cession / + Restitution » vivent désormais dans la
+  // barre d'actions du bloc « Documents du dossier » (parent) : il nous
+  // transmet la demande, on ouvre la modale puis on la réinitialise.
+  useEffect(() => {
+    if (!ouvrir) return;
+    if (ouvrir === "or") setModal({ kind: "or" });
+    else if (ouvrir === "cession") setModal({ kind: "cession" });
+    else setModal({ kind: "restitution" });
+    onOuvert?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ouvrir]);
 
   function refresh() {
     load();
@@ -123,140 +143,10 @@ export default function AtelierPanel({
     </div>
   );
 
-  return (
-    <section className={integre ? "border-t border-white/10" : "glass-card"}>
-      {integre ? (
-        <div className="px-5 pt-4 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-pixel text-[0.6rem] tracking-wider text-white/45">ATELIER &amp; SIGNATURES</h3>
-          {boutons}
-        </div>
-      ) : (
-        <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-semibold text-white">Atelier — documents à signer</h2>
-          {boutons}
-        </div>
-      )}
-
-      <div className={integre ? "px-5 pt-3 pb-4 space-y-3" : "px-5 py-4 space-y-4"}>
-        {loading && <p className="text-sm text-white/40">Chargement…</p>}
-
-        {!loading && ordres.length === 0 && restitutions.length === 0 && cessions.length === 0 && (
-          <p className="text-sm text-white/40">
-            Fais signer {labelOR.toLowerCase()} avant les travaux, la cession de créance pour être
-            payé directement par l&apos;assurance, puis le PV de restitution à la remise du véhicule —
-            directement sur l&apos;écran (doigt ou souris).
-          </p>
-        )}
-
-        {ordres.map((or) => (
-          <div key={or.id} className="glass-soft p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-white">{or.numero || labelOR}</span>
-                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutAtelier(or.statut)}`}>
-                    {labelStatutAtelier(or.statut)}
-                  </span>
-                </div>
-                <div className="mt-1 text-xs text-white/50">
-                  Émis le {formatDate(or.date_or)}
-                  {or.signe_le ? ` · signé le ${formatDate(or.signe_le)} par ${or.signataire_nom || "le client"}` : " · en attente de signature"}
-                </div>
-              </div>
-              <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
-                <button onClick={() => apercuOrdreReparationPdf(or, dossier)} className="text-accent-teal hover:underline">PDF</button>
-                <button onClick={() => setEmailOR(or)} className="text-accent-teal hover:underline">Envoyer</button>
-                {or.statut !== "signe" && (
-                  <>
-                    <button onClick={() => setModal({ kind: "or", or })} className="text-accent-pink hover:underline">
-                      Modifier / Signer
-                    </button>
-                    {or.sign_token && (
-                      <button
-                        onClick={() => setEmailSign({ titre: `${labelOR.toLowerCase()} ${or.numero || ""}`, token: or.sign_token! })}
-                        className="text-accent-teal hover:underline"
-                      >
-                        Signer à distance
-                      </button>
-                    )}
-                  </>
-                )}
-                <button onClick={() => supprimerOR(or)} className="text-white/40 hover:text-rose-300">Suppr.</button>
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {cessions.map((c) => (
-          <div key={c.id} className="glass-soft p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-white">Cession de créance</span>
-                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutAtelier(c.statut)}`}>
-                    {labelStatutAtelier(c.statut)}
-                  </span>
-                </div>
-                <div className="mt-1 text-xs text-white/50">
-                  Le {formatDate(c.date_cession)}
-                  {c.montant != null ? ` · ${formatEuros(c.montant)} TTC` : ""}
-                  {c.signe_le ? ` · signée par ${c.signataire_nom || "le client"}` : " · en attente de signature"}
-                </div>
-              </div>
-              <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
-                <button onClick={() => apercuCessionPdf(c, dossier)} className="text-accent-teal hover:underline">PDF</button>
-                <button onClick={() => setEmailCession(c)} className="text-accent-teal hover:underline">Envoyer</button>
-                {c.statut !== "signe" && (
-                  <>
-                    <button onClick={() => setModal({ kind: "cession", cession: c })} className="text-accent-pink hover:underline">
-                      Modifier / Signer
-                    </button>
-                    {c.sign_token && (
-                      <button
-                        onClick={() => setEmailSign({ titre: "la cession de créance", token: c.sign_token! })}
-                        className="text-accent-teal hover:underline"
-                      >
-                        Signer à distance
-                      </button>
-                    )}
-                  </>
-                )}
-                <button onClick={() => supprimerCession(c)} className="text-white/40 hover:text-rose-300">Suppr.</button>
-              </div>
-            </div>
-          </div>
-        ))}
-
-        {restitutions.map((rest) => (
-          <div key={rest.id} className="glass-soft p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-white">Restitution du véhicule</span>
-                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutAtelier(rest.statut)}`}>
-                    {labelStatutAtelier(rest.statut)}
-                  </span>
-                </div>
-                <div className="mt-1 text-xs text-white/50">
-                  Le {formatDate(rest.date_restitution)}
-                  {rest.kilometrage != null ? ` · ${Number(rest.kilometrage).toLocaleString("fr-FR")} km` : ""}
-                  {rest.signe_le ? ` · signé par ${rest.signataire_nom || "le client"}` : " · en attente de signature"}
-                </div>
-              </div>
-              <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
-                <button onClick={() => apercuRestitutionPdf(rest, dossier)} className="text-accent-teal hover:underline">PDF</button>
-                {rest.statut !== "signe" && (
-                  <button onClick={() => setModal({ kind: "restitution", rest })} className="text-accent-pink hover:underline">
-                    Modifier / Signer
-                  </button>
-                )}
-                <button onClick={() => supprimerRest(rest)} className="text-white/40 hover:text-rose-300">Suppr.</button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
+  // Modales de création / signature + composeurs d'email : identiques dans
+  // les deux modes de rendu (intégré au bloc parent, ou carte autonome).
+  const modales = (
+    <>
       {modal?.kind === "or" && (
         <ORModal
           dossier={dossier}
@@ -353,6 +243,159 @@ export default function AtelierPanel({
           onSent={() => refresh()}
         />
       )}
+    </>
+  );
+
+  // Les documents de l'atelier sont présentés EXACTEMENT comme les devis et
+  // les factures (même carte, même disposition, mêmes actions) : le bloc
+  // « Documents du dossier » se lit ainsi comme UNE seule liste continue.
+  const lignes = (
+    <>
+      {ordres.map((or) => (
+        <div key={or.id} className="glass-soft p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-white">{labelOR} {or.numero || ""}</span>
+                <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutAtelier(or.statut)}`}>
+                  {labelStatutAtelier(or.statut)}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-white/50">
+                Émis le {formatDate(or.date_or)}
+                {or.signe_le ? ` · signé le ${formatDate(or.signe_le)} par ${or.signataire_nom || "le client"}` : " · en attente de signature"}
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
+              <button onClick={() => apercuOrdreReparationPdf(or, dossier)} className="text-accent-teal hover:underline">PDF</button>
+              <button onClick={() => setEmailOR(or)} className="text-accent-teal hover:underline">Envoyer</button>
+              {or.statut !== "signe" && (
+                <>
+                  <button onClick={() => setModal({ kind: "or", or })} className="text-accent-pink hover:underline">
+                    Modifier / Signer
+                  </button>
+                  {or.sign_token && (
+                    <button
+                      onClick={() => setEmailSign({ titre: `${labelOR.toLowerCase()} ${or.numero || ""}`, token: or.sign_token! })}
+                      className="text-accent-teal hover:underline"
+                    >
+                      Signer à distance
+                    </button>
+                  )}
+                </>
+              )}
+              <button onClick={() => supprimerOR(or)} className="text-white/40 hover:text-rose-300">Suppr.</button>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {cessions.map((c) => (
+        <div key={c.id} className="glass-soft p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-white">Cession de créance</span>
+                <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutAtelier(c.statut)}`}>
+                  {labelStatutAtelier(c.statut)}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-white/50">
+                Le {formatDate(c.date_cession)}
+                {c.montant != null ? ` · ${formatEuros(c.montant)} TTC` : ""}
+                {c.signe_le ? ` · signée par ${c.signataire_nom || "le client"}` : " · en attente de signature"}
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
+              <button onClick={() => apercuCessionPdf(c, dossier)} className="text-accent-teal hover:underline">PDF</button>
+              <button onClick={() => setEmailCession(c)} className="text-accent-teal hover:underline">Envoyer</button>
+              {c.statut !== "signe" && (
+                <>
+                  <button onClick={() => setModal({ kind: "cession", cession: c })} className="text-accent-pink hover:underline">
+                    Modifier / Signer
+                  </button>
+                  {c.sign_token && (
+                    <button
+                      onClick={() => setEmailSign({ titre: "la cession de créance", token: c.sign_token! })}
+                      className="text-accent-teal hover:underline"
+                    >
+                      Signer à distance
+                    </button>
+                  )}
+                </>
+              )}
+              <button onClick={() => supprimerCession(c)} className="text-white/40 hover:text-rose-300">Suppr.</button>
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {restitutions.map((rest) => (
+        <div key={rest.id} className="glass-soft p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-white">Restitution du véhicule</span>
+                <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutAtelier(rest.statut)}`}>
+                  {labelStatutAtelier(rest.statut)}
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-white/50">
+                Le {formatDate(rest.date_restitution)}
+                {rest.kilometrage != null ? ` · ${Number(rest.kilometrage).toLocaleString("fr-FR")} km` : ""}
+                {rest.signe_le ? ` · signé par ${rest.signataire_nom || "le client"}` : " · en attente de signature"}
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
+              <button onClick={() => apercuRestitutionPdf(rest, dossier)} className="text-accent-teal hover:underline">PDF</button>
+              {rest.statut !== "signe" && (
+                <button onClick={() => setModal({ kind: "restitution", rest })} className="text-accent-pink hover:underline">
+                  Modifier / Signer
+                </button>
+              )}
+              <button onClick={() => supprimerRest(rest)} className="text-white/40 hover:text-rose-300">Suppr.</button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </>
+  );
+
+  // MODE INTÉGRÉ (bloc « Documents du dossier ») : ni en-tête, ni cadre, ni
+  // boutons — les lignes viennent simplement s'ajouter, les unes sous les
+  // autres, à la liste tenue par le parent.
+  if (integre) {
+    return (
+      <>
+        {loading && <p className="text-sm text-white/40">Chargement…</p>}
+        {lignes}
+        {modales}
+      </>
+    );
+  }
+
+  return (
+    <section className="glass-card">
+      <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-semibold text-white">Atelier — documents à signer</h2>
+        {boutons}
+      </div>
+
+      <div className="px-5 py-4 space-y-4">
+        {loading && <p className="text-sm text-white/40">Chargement…</p>}
+
+        {!loading && ordres.length === 0 && restitutions.length === 0 && cessions.length === 0 && (
+          <p className="text-sm text-white/40">
+            Fais signer {labelOR.toLowerCase()} avant les travaux, la cession de créance pour être
+            payé directement par l&apos;assurance, puis le PV de restitution à la remise du véhicule —
+            directement sur l&apos;écran (doigt ou souris).
+          </p>
+        )}
+
+        {lignes}
+      </div>
+
+      {modales}
     </section>
   );
 }
