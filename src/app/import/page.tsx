@@ -2,16 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Dossier } from "@/lib/types";
-import { LigneExtraite } from "@/lib/documents";
+import { analyserRapport, type Extraction } from "@/lib/extraction";
 import DossierForm from "@/components/DossierForm";
 import ConfigBanner from "@/components/ConfigBanner";
 import FilePicker from "@/components/FilePicker";
-import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import BarreChargement from "@/components/BarreChargement";
 import { useMetier } from "@/components/MetierProvider";
-
-type Extraction = Partial<Dossier> & { lignes?: LigneExtraite[]; tva?: number | null };
 
 export default function ImportPage() {
   const router = useRouter();
@@ -22,20 +18,21 @@ export default function ImportPage() {
   const [error, setError] = useState<string | null>(null);
   const [prefill, setPrefill] = useState<Extraction | null>(null);
   const [showForm, setShowForm] = useState(false);
+  // Analyse partielle : une des deux moitiés a abouti, pas l'autre.
+  const [avertissement, setAvertissement] = useState<string | null>(null);
 
   async function analyser() {
     if (!file) return;
     setAnalyse(true);
     setError(null);
+    setAvertissement(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetchAuth("/api/extract-rapport", { method: "POST", body: fd });
-      // lireReponse : ne plante JAMAIS sur une page d'erreur HTML de l'hébergeur
-      // (l'ancien res.json() donnait « Unexpected token 'A'… is not valid JSON »).
-      const { ok, data, error: err } = await lireReponse<{ data: Extraction }>(res);
-      if (!ok || !data) throw new Error(err || "Échec de l'analyse.");
-      setPrefill(data.data as Extraction);
+      // Identités et chiffrage sont demandés EN PARALLÈLE : deux requêtes,
+      // donc deux budgets de temps, et deux fois moins de texte à produire
+      // par requête (c'est ce qui faisait expirer l'analyse des scans).
+      const { data, avertissement: avert } = await analyserRapport(file);
+      setPrefill(data);
+      setAvertissement(avert);
       setShowForm(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur.");
@@ -83,6 +80,11 @@ export default function ImportPage() {
         {error && (
           <div className="mt-4 rounded-lg bg-rose-500/15 border border-rose-400/30 px-3 py-2 text-sm text-rose-200">
             {error}
+          </div>
+        )}
+        {avertissement && (
+          <div className="mt-4 rounded-lg bg-amber-500/15 border border-amber-400/30 px-3 py-2 text-sm text-amber-100">
+            {avertissement}
           </div>
         )}
 

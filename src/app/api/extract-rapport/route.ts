@@ -10,111 +10,145 @@ export const maxDuration = 60;
 // alors « Unexpected token 'A', "An error o"… is not valid JSON ».
 const BUDGET_MS = 50_000;
 
-const PROMPT = `Tu es un assistant pour une carrosserie. On te fournit un RAPPORT D'EXPERTISE automobile (PDF).
-Extrais TOUTES les informations utiles et renvoie UNIQUEMENT un objet JSON valide (aucun texte autour), avec exactement ces clés (mets null si absent) :
+/* ==================================================================
+ *  ANALYSE EN DEUX APPELS (v6.9)
+ *
+ *  Le temps d'une analyse est dominé par les TOKENS DE SORTIE : sur un
+ *  rapport scanné, extraire d'un coup les identités ET les 30-60 lignes de
+ *  chiffrage dépassait systématiquement les 60 s de la fonction serverless.
+ *
+ *  Le navigateur lance donc DEUX requêtes EN PARALLÈLE :
+ *    - ?partie=identite  → véhicule, client, assurance, expert (sortie courte)
+ *    - ?partie=chiffrage → montant, TVA et les lignes (sortie compacte)
+ *  Deux requêtes = deux invocations = DEUX budgets de 60 s, et chacune produit
+ *  deux fois moins de texte. Si l'une échoue, l'autre reste exploitable
+ *  (analyse partielle plutôt qu'échec total).
+ *
+ *  ?partie=complet reste disponible (compatibilité / usage hors navigateur).
+ * ================================================================== */
+
+const REGLES_COMMUNES = `Le document peut être un SCAN (pages en images) : lis-le tel quel, ne commente jamais la qualité de l'image.
+Réponds UNIQUEMENT par le JSON demandé, en COMPACT (aucun espace ni retour à la ligne superflu, aucun bloc markdown, aucun commentaire).
+Dates au format AAAA-MM-JJ. Nombres sans symbole ni espace, point décimal (ex: 2450.50). N'invente rien : null si absent.`;
+
+const PROMPT_IDENTITE = `Tu es un assistant pour une carrosserie. On te fournit un RAPPORT D'EXPERTISE automobile.
+Extrais UNIQUEMENT les informations d'identité (PAS le chiffrage, PAS la liste des pièces) et renvoie cet objet JSON :
 
 {
-  "immatriculation": string|null,
-  "marque_modele": string|null,          // marque + modèle réunis, ex: "Peugeot 308 SW"
-  "numero_serie": string|null,           // VIN / n° de série
-  "premiere_circulation": string|null,   // format AAAA-MM-JJ
-  "date_sinistre": string|null,          // format AAAA-MM-JJ
-  "numero_sinistre": string|null,
-  "cabinet_expert": string|null,         // nom du cabinet d'expertise
-  "cabinet_adresse": string|null,        // adresse du cabinet (souvent dans l'EN-TÊTE du rapport)
-  "cabinet_tel": string|null,            // téléphone du cabinet
-  "cabinet_email": string|null,          // email du cabinet
-  "expert_nom": string|null,             // nom de l'EXPERT en charge (souvent "Vu par" ou signature)
-  "expert_tel": string|null,             // téléphone de l'expert s'il est distinct du cabinet
-  "expert_email": string|null,           // email de l'expert s'il est distinct du cabinet
-  "date_expertise": string|null,         // format AAAA-MM-JJ
-  "numero_police": string|null,          // n° de police d'assurance
-  "assureur": string|null,               // compagnie d'assurance (souvent bloc "MANDANT")
-  "assureur_adresse": string|null,       // adresse de l'assurance (bloc MANDANT)
-  "assureur_tel": string|null,           // téléphone de l'assurance
-  "assureur_email": string|null,         // email de l'assurance
-  "client_nom": string|null,             // nom et prénom du client / assuré
-  "client_email": string|null,           // email du client s'il figure au rapport
-  "client_tel": string|null,             // téléphone du client s'il figure au rapport
-  "client_adresse": string|null,         // adresse (rue)
-  "client_code_postal": string|null,
-  "client_ville": string|null,
-  "montant": number|null,                // montant total des réparations HT en euros (nombre seul)
-  "tva": number|null,                    // taux de TVA en % (ex: 20). null si absent
-  "lignes": [                            // détail du chiffrage des réparations (poste par poste)
-    {
-      "designation": string,
-      "quantite": number,
-      "prix_unitaire": number,           // PU HT AVANT remise
-      "remise": number,                  // % de remise accordée (colonne "%Rem."), 0 si aucune
-      "categorie": "piece"|"mo"|"autre"  // voir règles ci-dessous
-    }
-  ]
+"immatriculation":string|null,
+"marque_modele":string|null,
+"numero_serie":string|null,
+"premiere_circulation":string|null,
+"date_sinistre":string|null,
+"numero_sinistre":string|null,
+"cabinet_expert":string|null,
+"cabinet_adresse":string|null,
+"cabinet_tel":string|null,
+"cabinet_email":string|null,
+"expert_nom":string|null,
+"expert_tel":string|null,
+"expert_email":string|null,
+"date_expertise":string|null,
+"numero_police":string|null,
+"assureur":string|null,
+"assureur_adresse":string|null,
+"assureur_tel":string|null,
+"assureur_email":string|null,
+"client_nom":string|null,
+"client_email":string|null,
+"client_tel":string|null,
+"client_adresse":string|null,
+"client_code_postal":string|null,
+"client_ville":string|null
 }
 
-Règles générales :
-- dates au format AAAA-MM-JJ ;
-- "montant", "prix_unitaire", "quantite" = nombres sans symbole ni espace, point décimal (ex: 2450.50) ;
-- N'invente rien.
+Où chercher :
+- CABINET D'EXPERTISE : coordonnées presque toujours dans l'EN-TÊTE (logo/adresse en haut).
+  L'expert en charge est signalé par "Vu par", "Expert :" ou la signature.
+- ASSURANCE : bloc "MANDANT" (nom + adresse, parfois tél/fax).
+- CLIENT : bloc "ASSURÉ" ou "LÉSÉ" (nom, adresse, CP, ville, tél, email).
+- ATTENTION : le bloc "RÉPARATEUR" est le GARAGE — ne le mets nulle part.
+  L'adresse du cabinet n'est pas celle de l'assurance.
+- Téléphones gardés tels quels (ex: 04 69 42 01 80).
 
-Règles pour les COORDONNÉES (IMPORTANT — extrais-les TOUTES quand elles figurent au rapport) :
-- CABINET D'EXPERTISE : ses coordonnées (adresse, tél, email) sont presque toujours dans
-  l'EN-TÊTE du rapport (logo/adresse en haut). L'expert en charge est souvent indiqué par
-  "Vu par", "Expert :" ou dans la signature.
-- ASSURANCE : cherche le bloc "MANDANT" (nom + adresse de la compagnie, parfois tél/fax).
-- CLIENT : cherche le bloc "ASSURÉ" ou "LÉSÉ" (nom, adresse, CP, ville, tél, email).
-- ATTENTION à ne PAS confondre : le bloc "RÉPARATEUR" est le GARAGE (ne le mets nulle part),
-  et l'adresse du cabinet n'est pas celle de l'assurance.
-- Les téléphones au format lisible (ex: 04 69 42 01 80 ou 0469420180, garde tel quel).
+${REGLES_COMMUNES}`;
 
-Règles pour "categorie" (la facture est structurée en 3 tableaux) :
-- "mo"    : postes de main d'œuvre et de peinture — T1, T2, T3, Peinture, Ingrédients de
-            peinture. Les INGRÉDIENTS DE PEINTURE ont TOUJOURS la même quantité (le même
-            temps) que la ligne Peinture : recopie-la si le rapport ne la répète pas.
-- "autre" : éléments annexes retenus au rapport qui ne sont ni une pièce ni un temps de
-            main d'œuvre (forfaits, petites fournitures, frais de gestion/recyclage,
-            calibrage, contrôle de géométrie, produits, etc.).
-- "piece" : tout le reste (pièces détachées et fournitures) — c'est le cas par défaut.
+const PROMPT_CHIFFRAGE = `Tu es un assistant pour une carrosserie. On te fournit un RAPPORT D'EXPERTISE automobile.
+Extrais UNIQUEMENT le CHIFFRAGE (aucune information d'identité) et renvoie cet objet JSON :
 
-Règles pour "lignes" (IMPORTANT — le chiffrage est souvent ÉCLATÉ sur plusieurs pages) :
-1. MAIN D'ŒUVRE : cherche le bloc "CONCLUSIONS" (souvent page 1) avec les postes du type
-   "Postes / Temps / Taux Hor. / Total HT" (ex: T1, T2, T3, Peinture, Ingrédients (MV), Ingr.).
-   Pour chaque poste : designation = nom du poste (ex: "Main d'œuvre T2", "Peinture",
-   "Ingrédients peinture"), quantite = nombre d'heures, prix_unitaire = taux horaire HT,
-   categorie = "mo".
-2. PIÈCES — EXHAUSTIVITÉ OBLIGATOIRE : cherche le tableau "LISTE DES PIECES" (souvent sur
-   une page SUIVANTE, colonnes du type Qté ! Libellé ! Réf. Constr. ! Opé. ! Mnt HT ! %Vét.
-   ! %Rem. ! TVA, colonnes séparées par des "!"). Extrais TOUTES les lignes du tableau, sans
-   AUCUNE exception — qu'il y en ait 5 ou 50, chaque ligne du rapport = une ligne extraite :
-   - designation = libellé de la pièce (recolle les libellés coupés sur 2 lignes) suivi du
-     code opération entre parenthèses s'il existe, ex: "PORTE AR D (R P)", "CAPTEUR EXT. G D'AI (D)" ;
-   - quantite = Qté ; prix_unitaire = Mnt HT / Qté si un montant est indiqué, sinon 0
-     (les lignes sans montant sont des opérations déjà comprises dans la main d'œuvre :
-     elles doivent QUAND MÊME figurer, avec prix_unitaire 0) ;
-   - remise = valeur de la colonne "%Rem." (remise commerciale accordée), 0 si vide.
-     NE CONFONDS PAS avec "%Vét." (vétusté) : la vétusté n'est PAS une remise, ignore-la.
-     Si le montant "Mnt HT" du rapport est déjà NET de remise, mets remise = 0 pour ne
-     pas déduire deux fois ;
-   - categorie = "piece" (sauf élément annexe → "autre").
-3. NE COMPTE PAS DEUX FOIS LES PIÈCES : si les conclusions contiennent une ligne globale
-   "Pièces <montant>" ET que tu as trouvé le détail dans "LISTE DES PIECES", n'extrais QUE
-   le détail (pas la ligne globale). Si tu n'as PAS trouvé le détail, mets une ligne
-   {"designation":"Pièces selon rapport d'expertise","quantite":1,"prix_unitaire": montant_pieces}.
-4. VÉRIFICATIONS (fais-les avant de répondre) :
-   a) COMPLÉTUDE : compte les lignes du tableau "LISTE DES PIECES" du rapport ; ton JSON
-      doit contenir EXACTEMENT le même nombre de lignes de pièces. S'il en manque, recommence.
-   b) TOTAL : la somme des (quantite × prix_unitaire × (1 − remise/100)) de toutes les
-      lignes doit être égale (à ±1 € près) au TOTAL HT du rapport (les lignes à 0 ne
-      changent rien). Sinon, corrige.
-   c) PEINTURE : si une ligne "Ingrédients" existe, sa quantite doit être IDENTIQUE à
-      celle de la ligne "Peinture".
-5. RÉPONSE : uniquement le JSON, en COMPACT (aucun espace ni retour à la ligne
-   superflu, pas de bloc markdown). Le rapport peut être un SCAN (pages images) :
-   lis-le tel quel, ne commente pas la qualité de l'image.
-6. Si le rapport ne donne qu'un montant global sans détail : une seule ligne
-   {"designation":"Réparations selon rapport d'expertise","quantite":1,
-    "prix_unitaire": montant_global,"remise":0,"categorie":"piece"}.
-   Si aucun montant : "lignes": [].`;
+{"montant":number|null,"tva":number|null,"l":[[designation,quantite,prix_unitaire,remise,categorie],...]}
+
+- "montant" = total des réparations HT ; "tva" = taux en % (ex: 20), null si absent.
+- Chaque ligne est un TABLEAU de 5 valeurs, dans cet ordre exact :
+  [designation:string, quantite:number, prix_unitaire:number, remise:number, categorie:"m"|"p"|"a"]
+  categorie : "m" = main d'œuvre / peinture / ingrédients, "p" = pièce, "a" = autre élément.
+  Ce format court est OBLIGATOIRE (il divise par deux la longueur de ta réponse).
+
+1. MAIN D'ŒUVRE ("m") : bloc "CONCLUSIONS" (souvent page 1), postes du type
+   "Postes / Temps / Taux Hor. / Total HT" (T1, T2, T3, Peinture, Ingrédients (MV), Ingr.).
+   designation = nom du poste, quantite = nombre d'heures, prix_unitaire = taux horaire HT.
+   Si une ligne "Ingrédients" existe, sa quantite est IDENTIQUE à celle de "Peinture".
+2. PIÈCES ("p") — EXHAUSTIVITÉ OBLIGATOIRE : tableau "LISTE DES PIECES" (souvent sur une
+   page suivante, colonnes Qté ! Libellé ! Réf. Constr. ! Opé. ! Mnt HT ! %Vét. ! %Rem. ! TVA,
+   séparées par des "!"). Extrais TOUTES les lignes, sans AUCUNE exception :
+   - designation = libellé (recolle les libellés coupés sur 2 lignes) + code opération entre
+     parenthèses s'il existe, ex: "PORTE AR D (R P)" ;
+   - quantite = Qté ; prix_unitaire = Mnt HT / Qté, ou 0 si aucun montant (opération déjà
+     comprise dans la main d'œuvre : la ligne doit QUAND MÊME figurer, avec 0) ;
+   - remise = colonne "%Rem." (0 si vide). NE CONFONDS PAS avec "%Vét." (vétusté) : la
+     vétusté n'est PAS une remise, ignore-la. Si le "Mnt HT" est déjà net de remise, mets 0.
+3. AUTRES ("a") : forfaits, petites fournitures, frais de gestion/recyclage, calibrage,
+   contrôle de géométrie, produits divers.
+4. NE COMPTE PAS DEUX FOIS LES PIÈCES : si les conclusions donnent un total "Pièces" ET que
+   le détail existe, n'extrais QUE le détail. Sans détail : ["Pièces selon rapport d'expertise",1,montant_pieces,0,"p"].
+5. VÉRIFICATIONS avant de répondre :
+   a) autant de lignes de pièces que dans le tableau du rapport ;
+   b) somme des (quantite × prix_unitaire × (1 − remise/100)) = TOTAL HT du rapport à ±1 € près.
+6. Si le rapport ne donne qu'un montant global : [["Réparations selon rapport d'expertise",1,montant_global,0,"p"]].
+   Si aucun montant : "l":[].
+
+${REGLES_COMMUNES}`;
+
+// Mode « complet » : conservé pour un usage hors navigateur (script, test).
+// L'application, elle, appelle TOUJOURS les deux moitiés en parallèle.
+const PROMPT_COMPLET = `${PROMPT_IDENTITE.replace(
+  "Extrais UNIQUEMENT les informations d'identité (PAS le chiffrage, PAS la liste des pièces) et renvoie cet objet JSON :",
+  "Extrais les informations d'identité ET le chiffrage, et renvoie cet objet JSON :"
+)}
+
+Ajoute dans le MÊME objet les clés du chiffrage :
+"montant":number|null,"tva":number|null,"l":[[designation,quantite,prix_unitaire,remise,"m"|"p"|"a"],...]
+
+${PROMPT_CHIFFRAGE.replace(
+  "Extrais UNIQUEMENT le CHIFFRAGE (aucune information d'identité) et renvoie cet objet JSON :",
+  "Règles du chiffrage :"
+)}`;
+
+type Partie = "identite" | "chiffrage" | "complet";
+
+const CATEGORIES: Record<string, string> = { m: "mo", p: "piece", a: "autre" };
+
+// Le format court [designation, qte, pu, remise, cat] revient au format
+// attendu par l'application (lib/documents.ts).
+function developperLignes(brut: unknown): unknown[] {
+  if (!Array.isArray(brut)) return [];
+  return brut
+    .map((l) => {
+      if (Array.isArray(l)) {
+        return {
+          designation: String(l[0] ?? "Prestation"),
+          quantite: Number(l[1]) || 0,
+          prix_unitaire: Number(l[2]) || 0,
+          remise: Number(l[3]) || 0,
+          categorie: CATEGORIES[String(l[4] || "p")] || "piece",
+        };
+      }
+      // Tolérance : si le modèle renvoie quand même des objets détaillés.
+      if (l && typeof l === "object") return l;
+      return null;
+    })
+    .filter(Boolean) as unknown[];
+}
 
 export async function POST(req: NextRequest) {
   // SÉCURITÉ : analyse réservée aux utilisateurs connectés (crédits IA).
@@ -137,6 +171,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const partieBrute = req.nextUrl.searchParams.get("partie") || "complet";
+  const partie: Partie =
+    partieBrute === "identite" || partieBrute === "chiffrage" ? partieBrute : "complet";
+
   try {
     const form = await req.formData();
     const file = form.get("file");
@@ -151,9 +189,8 @@ export async function POST(req: NextRequest) {
     const base64 = bytes.toString("base64");
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 
-    // maxRetries VOLONTAIREMENT BAS (1) : chaque nouvelle tentative consomme le
-    // budget de la fonction serverless. Avec 4 essais, un rapport un peu long
-    // faisait systématiquement expirer la requête côté hébergeur.
+    // maxRetries VOLONTAIREMENT BAS : chaque nouvelle tentative consomme le
+    // budget de la fonction serverless.
     const client = new Anthropic({ apiKey, maxRetries: 1 });
     const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
@@ -171,17 +208,24 @@ export async function POST(req: NextRequest) {
           },
         };
 
+    const prompt =
+      partie === "identite" ? PROMPT_IDENTITE : partie === "chiffrage" ? PROMPT_CHIFFRAGE : PROMPT_COMPLET;
+
     // Le bloc "document" (PDF) n'est pas encore typé dans certaines versions du SDK,
     // mais l'API l'accepte : on contourne le typage via un cast.
     const content = [
       documentBlock,
-      { type: "text", text: PROMPT },
+      { type: "text", text: prompt },
     ] as unknown as Anthropic.MessageParam["content"];
+
+    // Sortie plafonnée selon la partie : les identités tiennent largement en
+    // 1200 tokens, inutile de laisser la porte ouverte à une réponse bavarde.
+    const maxTokens = partie === "identite" ? 1500 : 6000;
 
     const message = await avecDelai(
       client.messages.create({
         model,
-        max_tokens: 6000,
+        max_tokens: maxTokens,
         messages: [{ role: "user", content }],
       }),
       BUDGET_MS
@@ -197,22 +241,45 @@ export async function POST(req: NextRequest) {
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) {
       return NextResponse.json(
-        { error: "Extraction impossible : réponse non exploitable.", raw },
+        { error: "Extraction impossible : réponse non exploitable.", raw: raw.slice(0, 400) },
         { status: 422 }
       );
     }
 
-    const data = JSON.parse(match[0]);
-    return NextResponse.json({ data });
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(match[0]) as Record<string, unknown>;
+    } catch {
+      // Réponse tronquée (limite de tokens atteinte sur un très gros chiffrage)
+      return NextResponse.json(
+        {
+          error:
+            "Le chiffrage du rapport est trop volumineux pour être lu d'un seul tenant. " +
+            "Envoie séparément la page des conclusions et celle de la liste des pièces, " +
+            "ou complète les lignes à la main dans le devis.",
+        },
+        { status: 422 }
+      );
+    }
+
+    // Format court → format applicatif
+    if (data.l !== undefined) {
+      data.lignes = developperLignes(data.l);
+      delete data.l;
+    }
+
+    return NextResponse.json({ data, partie });
   } catch (err: unknown) {
     if (err instanceof DelaiDepasse) {
       return NextResponse.json(
         {
           error:
-            "L'analyse a pris trop de temps et a été interrompue. Ce rapport est un SCAN " +
-            "(pages en images) ou comporte beaucoup de pages : l'IA doit tout relire. " +
-            "Réessaie une fois — souvent ça passe —, sinon n'envoie que les pages utiles " +
-            "(conclusions + liste des pièces), ou saisis le dossier à la main.",
+            partie === "chiffrage"
+              ? "Le chiffrage n'a pas pu être lu dans le temps imparti (rapport scanné ou très détaillé). " +
+                "Les informations du dossier, elles, ont pu être récupérées : complète le montant et les " +
+                "lignes à la main, ou réessaie l'analyse."
+              : "L'analyse a pris trop de temps et a été interrompue. Réessaie une fois — souvent ça passe —, " +
+                "sinon n'envoie que les pages utiles (conclusions + liste des pièces), ou saisis le dossier à la main.",
         },
         { status: 504 }
       );

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { analyserRapport } from "@/lib/extraction";
 import FilePicker from "@/components/FilePicker";
-import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import { Dossier } from "@/lib/types";
 import { STATUTS_ORDRE, addJoursOuvres, libelleStatut, ymd } from "@/lib/format";
 import { genNumeroOR } from "@/lib/atelier";
@@ -304,14 +304,9 @@ export default function DossierForm({
     setAnalyzeMsg(null);
     setError(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetchAuth("/api/extract-rapport", { method: "POST", body: fd });
-      // lireReponse : tolère les réponses non-JSON (fonction interrompue par
-      // l'hébergeur) et renvoie un message compréhensible.
-      const rep = await lireReponse<{ data: unknown }>(res);
-      if (!rep.ok || !rep.data) throw new Error(rep.error || "Échec de l'analyse.");
-      const d = rep.data.data as Partial<Dossier> & {
+      // Deux appels EN PARALLÈLE (identités / chiffrage) : cf. lib/extraction.ts.
+      const { data: extrait, avertissement } = await analyserRapport(file);
+      const d = extrait as Partial<Dossier> & {
         lignes?: LigneExtraite[];
         tva?: number | null;
       };
@@ -330,7 +325,9 @@ export default function DossierForm({
       if (d.tva) setAutoTva(Number(d.tva) || 20);
       setAnalysed(true);
       setAnalyzeMsg(
-        "✓ Dossier pré-rempli. Devis, facture, ordre de réparation et cession de créance seront générés automatiquement à l'enregistrement, conformes au chiffrage."
+        avertissement
+          ? `⚠ ${avertissement}`
+          : "✓ Dossier pré-rempli. Devis, facture, ordre de réparation et cession de créance seront générés automatiquement à l'enregistrement, conformes au chiffrage."
       );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur d'analyse.");
