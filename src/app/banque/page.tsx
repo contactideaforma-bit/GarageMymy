@@ -8,10 +8,13 @@ import { formatEuros, formatDate, messageErreur } from "@/lib/format";
 import {
   parseReleveCsv,
   hashTransactions,
-  suggererFacture,
+  analyserCredit,
   calculeReste,
   FactureBanque,
+  LIBELLE_MOTIF,
+  type Correspondance,
 } from "@/lib/banque";
+import { rapprocherTransaction } from "@/lib/rapprochement";
 import StatCard from "@/components/StatCard";
 import ConfigBanner from "@/components/ConfigBanner";
 import ModalShell from "@/components/ModalShell";
@@ -31,7 +34,10 @@ export default function BanquePage() {
   const [importing, setImporting] = useState(false);
   const [filtre, setFiltre] = useState<Filtre>("a_rapprocher");
   const [rapproche, setRapproche] = useState<BankTransaction | null>(null); // modal
-  const [apiConfigured, setApiConfigured] = useState<boolean | null>(null);
+  // Analyse automatique du relevé (v6.7) : rapprochement des virements dont le
+  // libellé porte un n° de facture ou un n° de dossier.
+  const [analyse, setAnalyse] = useState(false);
+  const [analyseMsg, setAnalyseMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,10 +60,6 @@ export default function BanquePage() {
 
   useEffect(() => {
     load();
-    fetch("/api/bank-sync")
-      .then((r) => r.json())
-      .then((j) => setApiConfigured(Boolean(j.configured)))
-      .catch(() => setApiConfigured(false));
   }, [load]);
 
   /* ----------------------------- Import CSV ----------------------------- */
@@ -117,15 +119,52 @@ export default function BanquePage() {
 
   const enrichies = useMemo(
     () =>
-      transactions.map((tx) => ({
-        ...tx,
-        suggestion:
+      transactions.map((tx) => {
+        const corr: Correspondance | null =
           tx.statut === "nouveau"
-            ? suggererFacture(Number(tx.montant) || 0, tx.libelle || "", factures)
-            : null,
-      })),
+            ? analyserCredit(Number(tx.montant) || 0, tx.libelle || "", tx.reference, factures)
+            : null;
+        return { ...tx, correspondance: corr, suggestion: corr?.facture || null };
+      }),
     [transactions, factures]
   );
+
+  // Virements identifiés SANS AMBIGUÏTÉ (référence trouvée dans le libellé et
+  // montant compatible) : rapprochables en un clic.
+  const certaines = useMemo(
+    () => enrichies.filter((t) => t.statut === "nouveau" && t.correspondance?.certaine),
+    [enrichies]
+  );
+
+  /**
+   * Analyse du relevé : encaisse tous les virements dont la référence désigne
+   * une facture. Traitement SÉQUENTIEL (le reste à payer d'une facture évolue
+   * au fil des encaissements) et on ne traite qu'une fois chaque facture par
+   * passe, pour ne jamais sur-encaisser.
+   */
+  async function rapprocherAutomatiquement() {
+    if (certaines.length === 0) return;
+    setAnalyse(true);
+    setAnalyseMsg(null);
+    let faits = 0;
+    const echecs: string[] = [];
+    const dejaTraitees = new Set<string>();
+    for (const tx of certaines) {
+      const facture = tx.correspondance!.facture;
+      if (dejaTraitees.has(facture.id)) continue; // relecture au prochain passage
+      dejaTraitees.add(facture.id);
+      const res = await rapprocherTransaction(tx, facture);
+      if (res.ok) faits++;
+      else echecs.push(res.erreur);
+    }
+    await load();
+    setAnalyse(false);
+    setAnalyseMsg(
+      `${faits} virement${faits > 1 ? "s" : ""} rapproché${faits > 1 ? "s" : ""}` +
+        (echecs.length ? ` · ${echecs.length} en échec (${echecs[0]})` : "") +
+        ". Les factures soldées passent en « Payé », et leur dossier aussi."
+    );
+  }
 
   const kpi = useMemo(() => {
     let aRapprocherN = 0, aRapprocherM = 0, rapprochees = 0, suggestions = 0;
@@ -165,7 +204,7 @@ export default function BanquePage() {
         <StatCard label="Transactions importées" value={String(transactions.length)} />
       </div>
 
-      {/* Import + connexion API */}
+      {/* Import du relevé + analyse automatique des règlements */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         <section className="glass-card p-5">
           <h2 className="font-semibold text-white">Importer un relevé bancaire (CSV)</h2>
@@ -189,25 +228,44 @@ export default function BanquePage() {
           {importMsg && <p className="mt-3 text-sm text-white/70">{importMsg}</p>}
         </section>
 
+        {/* Analyse du relevé : quels dossiers sont déjà réglés ? (v6.7) */}
         <section className="glass-card p-5">
-          <div className="flex items-center gap-2">
-            <h2 className="font-semibold text-white">Connexion bancaire directe</h2>
-            <span
-              className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                apiConfigured ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
-              }`}
-            >
-              {apiConfigured == null ? "…" : apiConfigured ? "Configurée" : "Bientôt disponible"}
-            </span>
-          </div>
+          <h2 className="font-semibold text-white">Analyse des règlements</h2>
           <p className="mt-1 text-sm text-white/50">
-            Synchronisation automatique des transactions via un agrégateur agréé DSP2 (Enable Banking).
-            La structure est prête : en attendant l&apos;activation, l&apos;import CSV offre exactement le
-            même rapprochement.
+            On lit la référence de chaque virement : dès qu&apos;un{" "}
+            <span className="text-white/70">n° de facture</span> ou un{" "}
+            <span className="text-white/70">n° de dossier</span> y figure, le virement est
+            rattaché à la bonne facture. Les factures soldées passent en « Payé » — et leur
+            dossier avec.
           </p>
-          <button className="btn-ghost mt-4 opacity-60 cursor-not-allowed" disabled>
-            Connecter ma banque {apiConfigured ? "" : "(à venir)"}
+
+          <div className="mt-3 text-sm">
+            {certaines.length > 0 ? (
+              <p className="text-emerald-200">
+                {certaines.length} virement{certaines.length > 1 ? "s" : ""} identifié
+                {certaines.length > 1 ? "s" : ""} sans ambiguïté, pour{" "}
+                {formatEuros(certaines.reduce((s, t) => s + (Number(t.montant) || 0), 0))}.
+              </p>
+            ) : (
+              <p className="text-white/40">
+                Aucun virement identifiable par sa référence pour l&apos;instant. Les autres se
+                rapprochent à la main depuis le tableau ci-dessous.
+              </p>
+            )}
+          </div>
+
+          <button
+            onClick={rapprocherAutomatiquement}
+            disabled={analyse || certaines.length === 0}
+            className="btn-primary mt-4 disabled:opacity-40"
+          >
+            {analyse ? "Analyse…" : `Rapprocher automatiquement (${certaines.length})`}
           </button>
+          {analyseMsg && <p className="mt-3 text-sm text-white/70">{analyseMsg}</p>}
+          <p className="mt-2 text-xs text-white/35">
+            Astuce : indique le n° de facture (ou le n° de sinistre) en référence quand tu
+            demandes un virement — c&apos;est ce qui rend le rapprochement automatique.
+          </p>
         </section>
       </div>
 
@@ -274,11 +332,19 @@ export default function BanquePage() {
                         Ignorée
                       </span>
                     )}
-                    {tx.statut === "nouveau" && tx.suggestion && (
-                      <span className="text-xs text-accent-teal">
-                        Suggestion : {tx.suggestion.numero}
-                        {tx.suggestion.dossier?.client_nom ? ` · ${tx.suggestion.dossier.client_nom}` : ""}
-                      </span>
+                    {tx.statut === "nouveau" && tx.correspondance && (
+                      <div className="text-xs">
+                        <span className={tx.correspondance.certaine ? "text-emerald-300" : "text-accent-teal"}>
+                          {tx.correspondance.certaine ? "Identifié : " : "Suggestion : "}
+                          {tx.correspondance.facture.numero}
+                          {tx.correspondance.facture.dossier?.client_nom
+                            ? ` · ${tx.correspondance.facture.dossier.client_nom}`
+                            : ""}
+                        </span>
+                        <span className="ml-1 text-white/35">
+                          ({tx.correspondance.motifs.map((m) => LIBELLE_MOTIF[m]).join(", ")})
+                        </span>
+                      </div>
                     )}
                     {tx.statut === "nouveau" && !tx.suggestion && m > 0 && (
                       <span className="text-xs text-white/30">—</span>

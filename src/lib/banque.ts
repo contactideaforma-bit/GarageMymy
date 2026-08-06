@@ -165,32 +165,121 @@ function normalise(s: string): string {
   return s.toUpperCase().replace(/[\s\-_.]/g, "");
 }
 
+/* ------------------- Analyse du relevé : correspondances ------------------- */
+// v6.7 — On identifie les dossiers DÉJÀ RÉGLÉS en retrouvant, dans le libellé
+// du virement, le N° DE FACTURE ou le N° DE DOSSIER (sinistre). C'est la
+// référence qui fait foi : un montant identique ne prouve rien (deux factures
+// peuvent avoir le même total), une référence oui.
+
+export type MotifRapprochement =
+  | "numero_facture"
+  | "numero_sinistre"
+  | "immatriculation"
+  | "montant_exact"
+  | "montant_total"
+  | "nom_client";
+
+export const LIBELLE_MOTIF: Record<MotifRapprochement, string> = {
+  numero_facture: "N° de facture",
+  numero_sinistre: "N° de dossier",
+  immatriculation: "Immatriculation",
+  montant_exact: "Montant = reste dû",
+  montant_total: "Montant = total TTC",
+  nom_client: "Nom du client",
+};
+
+export type Correspondance = {
+  facture: FactureBanque;
+  score: number;
+  motifs: MotifRapprochement[];
+  /** Référence trouvée dans le libellé ET montant compatible → rapprochable sans relecture. */
+  certaine: boolean;
+};
+
+/**
+ * Cherche une référence dans un libellé bancaire normalisé.
+ * Tolère les libellés TRONQUÉS par la banque (souvent ~32 caractères) en
+ * retombant sur le suffixe numérique significatif de la référence.
+ */
+function contientReference(libelleNormalise: string, ref: string | null | undefined, minLen = 5): boolean {
+  if (!ref) return false;
+  const r = normalise(ref);
+  if (r.length < minLen) return false;
+  if (libelleNormalise.includes(r)) return true;
+  if (r.length >= 9) {
+    const suffixe = r.slice(-9);
+    if (/^\d{6,}$/.test(suffixe) && libelleNormalise.includes(suffixe)) return true;
+  }
+  return false;
+}
+
+/**
+ * Analyse un CRÉDIT bancaire et renvoie la facture qui lui correspond.
+ * Renvoie null si rien de probant, ou si deux factures sont à égalité
+ * (ambiguïté → on préfère laisser l'humain trancher).
+ */
+export function analyserCredit(
+  montant: number,
+  libelle: string,
+  reference: string | null,
+  factures: FactureBanque[]
+): Correspondance | null {
+  if (montant <= 0) return null;
+  const lib = normalise(`${libelle || ""} ${reference || ""}`);
+  const candidats: Correspondance[] = [];
+
+  for (const f of factures) {
+    if (f.reste <= 0) continue;
+    const motifs: MotifRapprochement[] = [];
+    let score = 0;
+
+    if (contientReference(lib, f.numero, 6)) { score += 100; motifs.push("numero_facture"); }
+    if (contientReference(lib, f.dossier?.numero_sinistre, 5)) { score += 80; motifs.push("numero_sinistre"); }
+    if (contientReference(lib, f.dossier?.immatriculation, 6)) { score += 45; motifs.push("immatriculation"); }
+
+    if (Math.abs(f.reste - montant) <= 0.01) { score += 50; motifs.push("montant_exact"); }
+    else if (Math.abs((Number(f.total_ttc) || 0) - montant) <= 0.01) { score += 40; motifs.push("montant_total"); }
+
+    const nom = f.dossier?.client_nom || "";
+    if (nom.length >= 4 && lib.includes(normalise(nom))) { score += 20; motifs.push("nom_client"); }
+
+    if (score > 0) {
+      const parReference =
+        motifs.includes("numero_facture") ||
+        motifs.includes("numero_sinistre") ||
+        motifs.includes("immatriculation");
+      candidats.push({
+        facture: f,
+        score,
+        motifs,
+        // Certaine = la référence désigne CETTE facture et le virement ne
+        // dépasse pas ce qui reste dû (sinon : trop-perçu, on fait relire).
+        certaine: parReference && montant <= f.reste + 0.01,
+      });
+    }
+  }
+
+  if (candidats.length === 0) return null;
+  candidats.sort((a, b) => b.score - a.score);
+  const meilleur = candidats[0];
+  // Égalité parfaite entre deux factures → ambigu, on ne décide pas tout seul.
+  if (candidats[1] && candidats[1].score === meilleur.score) {
+    return { ...meilleur, certaine: false };
+  }
+  return meilleur.score >= 40 ? meilleur : null;
+}
+
 /**
  * Suggère la facture correspondant à un crédit bancaire.
- * Priorités : n° de facture présent dans le libellé > montant = reste à payer
- * > montant = total TTC (+ bonus si le nom du client apparaît).
+ * Priorités : n° de facture / n° de dossier présents dans le libellé, puis
+ * montant = reste à payer, puis montant = total TTC (+ bonus nom du client).
  */
 export function suggererFacture(
   montant: number,
   libelle: string,
   factures: FactureBanque[]
 ): FactureBanque | null {
-  if (montant <= 0) return null;
-  const lib = normalise(libelle);
-  let best: FactureBanque | null = null;
-  let bestScore = 0;
-
-  for (const f of factures) {
-    if (f.reste <= 0) continue;
-    let score = 0;
-    if (f.numero && lib.includes(normalise(f.numero))) score += 100;
-    if (Math.abs(f.reste - montant) <= 0.01) score += 50;
-    else if (Math.abs((Number(f.total_ttc) || 0) - montant) <= 0.01) score += 40;
-    const nom = f.dossier?.client_nom || "";
-    if (nom && nom.length >= 4 && lib.includes(normalise(nom))) score += 20;
-    if (score > bestScore) { bestScore = score; best = f; }
-  }
-  return bestScore >= 40 ? best : null;
+  return analyserCredit(montant, libelle, null, factures)?.facture || null;
 }
 
 export function calculeReste(f: Document & { paiements: Paiement[] }): number {

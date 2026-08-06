@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier } from "@/lib/types";
 import {
+  estActif,
   formatEuros,
   formatDate,
   indexStatut,
@@ -163,7 +164,7 @@ export default function SinistresPage() {
 
   // Synthèse (sur la sélection visible).
   const totalHT = visibles.reduce((s, d) => s + (d.montant || 0), 0);
-  const enCours = visibles.filter((d) => d.statut !== "cloture").length;
+  const enCours = visibles.filter((d) => estActif(d.statut)).length;
 
   const filtresActifs = !!(term || filtreStatut || filtreExpert);
   function reinitialiser() {

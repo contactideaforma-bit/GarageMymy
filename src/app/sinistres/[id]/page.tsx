@@ -27,6 +27,7 @@ import SignatureDocModal from "@/components/SignatureDocModal";
 import ModalShell from "@/components/ModalShell";
 import TransfertGarantiePanel from "@/components/TransfertGarantiePanel";
 import { archiverDossier } from "@/lib/archive";
+import { marquerFactureEnvoyee } from "@/lib/dossierSync";
 import { fichierBase64, ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime, messageErreur } from "@/lib/format";
 import { badgeStatutDoc, labelStatutDoc, modeParDefaut } from "@/lib/documents";
@@ -436,7 +437,7 @@ export default function DossierDetailPage() {
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            {dossier.statut === "cloture" && !dossier.archive && (
+            {(dossier.statut === "paye" || dossier.statut === "cloture") && !dossier.archive && (
               <button onClick={archiver} disabled={Boolean(archivage)} className="btn-ghost">
                 {archivage || "Archiver (ZIP)"}
               </button>
@@ -834,7 +835,14 @@ export default function DossierDetailPage() {
               : ""
           }\n\nRestant à votre disposition,\nCordialement.`}
           onClose={() => setEmailDoc(null)}
-          onSent={load}
+          onSent={async () => {
+            // v6.7 : envoyer la facture fait avancer le dossier à l'étape 5
+            // « Facture envoyée » (et marque le document comme envoyé).
+            if (emailDoc.type === "facture") {
+              await marquerFactureEnvoyee(emailDoc, dossier);
+            }
+            load();
+          }}
         />
       )}
       {signDoc && (

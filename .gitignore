@@ -32,3 +32,6 @@ next-env.d.ts
 
 # Artefacts temporaires du montage (session Claude)
 .fuse_hidden*
+
+# Fichiers mis de côté avant suppression manuelle
+/_to_delete/

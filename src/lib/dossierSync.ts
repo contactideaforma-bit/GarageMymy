@@ -7,6 +7,50 @@ import { STATUTS_ORDRE } from "./format";
 import { estSoldee, totalPaye } from "./paiements";
 
 /**
+ * Fait AVANCER le statut d'un dossier vers `cible` — jamais reculer.
+ * Les statuts hérités v0 (indexOf = -1) sont traités comme antérieurs.
+ */
+export async function avancerStatut(
+  dossier: { id: string; statut: string },
+  cible: (typeof STATUTS_ORDRE)[number],
+  extra?: Record<string, unknown>
+): Promise<boolean> {
+  const posActuel = STATUTS_ORDRE.indexOf(dossier.statut as (typeof STATUTS_ORDRE)[number]);
+  const posCible = STATUTS_ORDRE.indexOf(cible);
+  const avance = posCible !== -1 && posActuel < posCible;
+  const updates: Record<string, unknown> = { ...(extra || {}) };
+  if (avance) updates.statut = cible;
+  if (Object.keys(updates).length === 0) return false;
+  await supabase.from("dossiers").update(updates).eq("id", dossier.id);
+  return avance;
+}
+
+/**
+ * ENVOI D'UNE FACTURE (v6.7) : la facture passe en « Envoyé » et le dossier
+ * avance automatiquement à l'étape 5 « Facture envoyée ». Le règlement, lui,
+ * ne dépend que des encaissements réels (cf. majDossierSiSolde).
+ */
+export async function marquerFactureEnvoyee(
+  facture: { id: string; numero?: string | null; statut?: string | null },
+  dossier: { id: string; statut: string }
+): Promise<void> {
+  // Le statut du document ne recule pas non plus (accepté / payé restent).
+  if (!facture.statut || facture.statut === "brouillon") {
+    await supabase.from("documents").update({ statut: "envoye" }).eq("id", facture.id);
+  }
+  const avance = await avancerStatut(dossier, "facture");
+  if (avance) {
+    await supabase.from("evenements").insert({
+      dossier_id: dossier.id,
+      titre: "Facture envoyée",
+      description: `Facture ${facture.numero || ""} envoyée — dossier passé en « Facture envoyée ».`.trim(),
+      date_evenement: new Date().toISOString(),
+      categorie: "autre",
+    });
+  }
+}
+
+/**
  * Si TOUTES les factures du dossier sont réellement ENCAISSÉES, fait passer le
  * dossier en « Payé » (sans jamais reculer ni toucher un dossier clôturé).
  * À appeler après chaque encaissement (saisie manuelle ou rapprochement bancaire).
@@ -42,7 +86,9 @@ export async function majDossierSiSolde(dossierId: string) {
   const posPaye = STATUTS_ORDRE.indexOf("paye");
   // Statuts hérités v0 (en_cours, termine…) : indexOf = -1. On les laisse
   // passer en « Payé » au lieu de les traiter comme déjà payés.
-  if (pos >= posPaye) return; // déjà payé ou clôturé
+  // v6.7 : « Payé » est le statut FINAL (payé = clôturé) ; 'cloture' est un
+  // reliquat d'avant la migration v36.
+  if (pos >= posPaye || d.statut === "cloture") return;
 
   await supabase.from("dossiers").update({ statut: "paye" }).eq("id", dossierId);
   await supabase.from("evenements").insert({

@@ -6,6 +6,7 @@ import { Dossier } from "@/lib/types";
 import { LigneExtraite } from "@/lib/documents";
 import DossierForm from "@/components/DossierForm";
 import ConfigBanner from "@/components/ConfigBanner";
+import FilePicker from "@/components/FilePicker";
 import { fetchAuth } from "@/lib/apiClient";
 import BarreChargement from "@/components/BarreChargement";
 import { useMetier } from "@/components/MetierProvider";
@@ -60,16 +61,22 @@ export default function ImportPage() {
       <ConfigBanner />
 
       <div className="glass-card p-6">
-        <label className="field-label">
-          {estVitrage ? "Document de prise en charge (PDF ou image)" : "Rapport d'expertise (PDF ou image)"}
+        <label className="field-label mb-2 block">
+          {estVitrage ? "Document de prise en charge" : "Rapport d'expertise"}
         </label>
-        <input
-          type="file"
-          accept="application/pdf,image/*"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-          className="text-sm text-white/80 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-white"
+
+        {/* Vrai bouton de sélection + glisser-déposer + photo (v6.7) */}
+        <FilePicker
+          value={file}
+          onChange={(f) => { setFile(f); setError(null); }}
+          disabled={analyse}
+          label={estVitrage ? "Choisir le document" : "Choisir le rapport"}
+          aide={
+            estVitrage
+              ? "PDF, JPG ou PNG — ou glisse le document de prise en charge ici"
+              : "PDF, JPG ou PNG — ou glisse le rapport d'expertise ici"
+          }
         />
-        {file && <p className="text-xs text-white/60 mt-2">Sélectionné : {file.name}</p>}
 
         {error && (
           <div className="mt-4 rounded-lg bg-rose-500/15 border border-rose-400/30 px-3 py-2 text-sm text-rose-200">
@@ -81,10 +88,15 @@ export default function ImportPage() {
           <button onClick={analyser} disabled={!file || analyse} className="btn-primary">
             {analyse ? "Analyse en cours…" : estVitrage ? "Analyser le document" : "Analyser le rapport"}
           </button>
-          <button onClick={saisieManuelle} className="btn-ghost">
+          <button onClick={saisieManuelle} disabled={analyse} className="btn-ghost">
             Saisie manuelle
           </button>
         </div>
+        {!file && (
+          <p className="mt-2 text-xs text-white/40">
+            Choisis d&apos;abord un fichier pour lancer l&apos;analyse — ou passe en saisie manuelle.
+          </p>
+        )}
 
         <BarreChargement actif={analyse} />
       </div>

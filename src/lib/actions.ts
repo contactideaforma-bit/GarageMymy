@@ -285,13 +285,15 @@ export function calculeProchaineAction(args: {
       urgence: "normale",
     };
   }
+  // v6.7 : plus d'étape « Clôture » — un dossier payé EST clôturé.
+  // urgence "attente" => n'encombre plus la liste « À faire aujourd'hui ».
   return {
-    code: "cloture",
-    titre: "Clôture le dossier",
-    detail: "Tout est fait : véhicule rendu et facture soldée. Passe le statut en Clôturé.",
+    code: "termine",
+    titre: "Dossier terminé",
+    detail: "Facture soldée et véhicule rendu. Tu peux l'archiver (ZIP + purge) depuis la fiche.",
     href: fiche,
     ctaLabel: "Ouvrir le dossier",
-    urgence: "normale",
+    urgence: "attente",
   };
 }
 
@@ -518,14 +520,14 @@ function actionVitrage(args: {
     };
   }
 
-  // 10) Tout est fait : clôture
+  // 10) Tout est fait (v6.7 : payé = clôturé, plus d'étape de clôture)
   return {
-    code: "cloture",
-    titre: "Clôture le dossier",
-    detail: "Véhicule rendu et facture soldée. Passe le statut en Clôturé.",
+    code: "termine",
+    titre: "Dossier terminé",
+    detail: "Facture soldée et véhicule rendu. Tu peux l'archiver (ZIP + purge) depuis la fiche.",
     href: fiche,
     ctaLabel: "Ouvrir le dossier",
-    urgence: "normale",
+    urgence: "attente",
   };
 }
 

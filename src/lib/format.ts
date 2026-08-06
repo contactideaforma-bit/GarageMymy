@@ -36,6 +36,9 @@ export function formatDateTime(value: string | null | undefined): string {
 }
 
 // ---------- Pipeline de statut du dossier ----------
+// v6.7 : plus de statut « Clôturé » — un dossier PAYÉ est clôturé.
+// L'étape 5 « facture » se lit désormais « Facture envoyée » (le code
+// technique reste `facture` : aucune donnée à migrer).
 export const STATUTS_ORDRE = [
   "nouveau",
   "expertise",
@@ -44,7 +47,6 @@ export const STATUTS_ORDRE = [
   "facture",
   "rendu",
   "paye",
-  "cloture",
 ] as const;
 
 export type StatutKey = (typeof STATUTS_ORDRE)[number];
@@ -57,10 +59,12 @@ export const STATUTS_INFO: Record<
   expertise: { label: "Expertise", badge: "bg-violet-100 text-violet-700", dot: "bg-violet-500" },
   devis: { label: "Devis", badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
   reparation: { label: "Réparation", badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
-  facture: { label: "Facturé", badge: "bg-cyan-100 text-cyan-700", dot: "bg-cyan-500" },
+  facture: { label: "Facture envoyée", badge: "bg-cyan-100 text-cyan-700", dot: "bg-cyan-500" },
   rendu: { label: "Véhicule rendu", badge: "bg-orange-100 text-orange-700", dot: "bg-orange-500" },
   paye: { label: "Payé", badge: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
-  cloture: { label: "Clôturé", badge: "bg-slate-200 text-slate-500", dot: "bg-slate-400" },
+  // Statut hérité (avant v6.7) : les dossiers 'cloture' sont basculés en
+  // 'paye' par la migration v36 ; on garde le libellé au cas où.
+  cloture: { label: "Payé", badge: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" },
   // valeurs héritées de la v0
   en_cours: { label: "En cours", badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
   en_attente: { label: "En attente", badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
@@ -97,9 +101,15 @@ export function badgeStatut(statut: string): string {
   return STATUTS_INFO[statut]?.badge || "bg-slate-100 text-slate-700";
 }
 
-// Un dossier est "actif" tant qu'il n'est pas clôturé
+// Un dossier est "actif" tant qu'il n'est pas PAYÉ (v6.7 : payé = clôturé).
+// 'cloture' est conservé pour les données antérieures à la migration v36.
 export function estActif(statut: string): boolean {
-  return statut !== "cloture";
+  return statut !== "paye" && statut !== "cloture";
+}
+
+// Fin de parcours : plus rien à faire sur le dossier (hors archivage).
+export function estTermine(statut: string): boolean {
+  return statut === "paye" || statut === "cloture";
 }
 
 // ---------- Progression du dossier (barre rétro) ----------

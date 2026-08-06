@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import FilePicker from "@/components/FilePicker";
 import { fetchAuth } from "@/lib/apiClient";
 import { Dossier } from "@/lib/types";
 import { STATUTS_ORDRE, addJoursOuvres, libelleStatut, ymd } from "@/lib/format";
@@ -494,13 +495,12 @@ export default function DossierForm({
             <label className="field-label">
               {t.rapport} (PDF{estVitrage ? ", optionnel" : ""}) — analyse IA + enregistrement
             </label>
-            <input
-              type="file"
-              accept="application/pdf,image/*"
-              onChange={(e) => { setFile(e.target.files?.[0] || null); setAnalyzeMsg(null); }}
-              className="text-sm text-white/70 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-white"
+            <FilePicker
+              value={file}
+              onChange={(f) => { setFile(f); setAnalyzeMsg(null); }}
+              label="Choisir le fichier"
+              aide="PDF, JPG ou PNG — ou glisse le document ici"
             />
-            {file && <p className="text-xs text-white/60 mt-2">Fichier : {file.name}</p>}
             {!file && isEdit && dossier?.rapport_nom && (
               <p className="text-xs text-white/60 mt-2">Fichier actuel : {dossier.rapport_nom}</p>
             )}

@@ -195,7 +195,8 @@ export async function archiverDossier(
       archive: true,
       archive_le: new Date().toISOString(),
       ...(rapportDansZip || !dossier.rapport_path ? { rapport_path: null } : {}),
-      statut: "cloture",
+      // v6.7 : le statut « Clôturé » n'existe plus, payé = clôturé.
+      statut: "paye",
     })
     .eq("id", dossier.id);
 
