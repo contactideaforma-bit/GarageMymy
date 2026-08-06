@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
-import { fetchAuth } from "@/lib/apiClient";
+import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import { Dossier, FlotteVehicule } from "@/lib/types";
 import { formatDate, formatEuros, messageErreur, ymd } from "@/lib/format";
 import {
@@ -59,9 +59,9 @@ export default function FlottePage() {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetchAuth("/api/extract-carte-grise", { method: "POST", body: fd });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json.data) throw new Error(json.error || `Erreur (HTTP ${res.status}).`);
-      const d = json.data as {
+      const rep = await lireReponse<{ data: unknown }>(res);
+      if (!rep.ok || !rep.data) throw new Error(rep.error || "Échec de l'analyse.");
+      const d = rep.data.data as {
         immatriculation?: string | null;
         marque?: string | null;
         modele?: string | null;

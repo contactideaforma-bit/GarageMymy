@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
     const base64 = bytes.toString("base64");
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 
-    const client = new Anthropic({ apiKey, maxRetries: 4 });
+    // Peu de tentatives : chaque retry consomme le budget de la fonction.
+    const client = new Anthropic({ apiKey, maxRetries: 2 });
     const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
     const documentBlock = isPdf

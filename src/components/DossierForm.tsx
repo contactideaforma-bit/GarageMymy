@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import FilePicker from "@/components/FilePicker";
-import { fetchAuth } from "@/lib/apiClient";
+import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import { Dossier } from "@/lib/types";
 import { STATUTS_ORDRE, addJoursOuvres, libelleStatut, ymd } from "@/lib/format";
 import { genNumeroOR } from "@/lib/atelier";
@@ -307,9 +307,11 @@ export default function DossierForm({
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetchAuth("/api/extract-rapport", { method: "POST", body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Échec de l'analyse.");
-      const d = json.data as Partial<Dossier> & {
+      // lireReponse : tolère les réponses non-JSON (fonction interrompue par
+      // l'hébergeur) et renvoie un message compréhensible.
+      const rep = await lireReponse<{ data: unknown }>(res);
+      if (!rep.ok || !rep.data) throw new Error(rep.error || "Échec de l'analyse.");
+      const d = rep.data.data as Partial<Dossier> & {
         lignes?: LigneExtraite[];
         tva?: number | null;
       };

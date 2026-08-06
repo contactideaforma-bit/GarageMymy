@@ -7,7 +7,7 @@ import { LigneExtraite } from "@/lib/documents";
 import DossierForm from "@/components/DossierForm";
 import ConfigBanner from "@/components/ConfigBanner";
 import FilePicker from "@/components/FilePicker";
-import { fetchAuth } from "@/lib/apiClient";
+import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import BarreChargement from "@/components/BarreChargement";
 import { useMetier } from "@/components/MetierProvider";
 
@@ -31,9 +31,11 @@ export default function ImportPage() {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetchAuth("/api/extract-rapport", { method: "POST", body: fd });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Échec de l'analyse.");
-      setPrefill(json.data as Extraction);
+      // lireReponse : ne plante JAMAIS sur une page d'erreur HTML de l'hébergeur
+      // (l'ancien res.json() donnait « Unexpected token 'A'… is not valid JSON »).
+      const { ok, data, error: err } = await lireReponse<{ data: Extraction }>(res);
+      if (!ok || !data) throw new Error(err || "Échec de l'analyse.");
+      setPrefill(data.data as Extraction);
       setShowForm(true);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur.");

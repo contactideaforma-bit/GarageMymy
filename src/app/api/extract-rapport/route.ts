@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { DelaiDepasse, avecDelai } from "@/lib/delai";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+// On coupe NOUS-MÊMES avant la limite de la plateforme : au-delà, Vercel tue
+// la fonction et renvoie une PAGE HTML d'erreur — le navigateur affichait
+// alors « Unexpected token 'A', "An error o"… is not valid JSON ».
+const BUDGET_MS = 50_000;
 
 const PROMPT = `Tu es un assistant pour une carrosserie. On te fournit un RAPPORT D'EXPERTISE automobile (PDF).
 Extrais TOUTES les informations utiles et renvoie UNIQUEMENT un objet JSON valide (aucun texte autour), avec exactement ces clés (mets null si absent) :
@@ -102,7 +108,10 @@ Règles pour "lignes" (IMPORTANT — le chiffrage est souvent ÉCLATÉ sur plusi
       changent rien). Sinon, corrige.
    c) PEINTURE : si une ligne "Ingrédients" existe, sa quantite doit être IDENTIQUE à
       celle de la ligne "Peinture".
-5. Si le rapport ne donne qu'un montant global sans détail : une seule ligne
+5. RÉPONSE : uniquement le JSON, en COMPACT (aucun espace ni retour à la ligne
+   superflu, pas de bloc markdown). Le rapport peut être un SCAN (pages images) :
+   lis-le tel quel, ne commente pas la qualité de l'image.
+6. Si le rapport ne donne qu'un montant global sans détail : une seule ligne
    {"designation":"Réparations selon rapport d'expertise","quantite":1,
     "prix_unitaire": montant_global,"remise":0,"categorie":"piece"}.
    Si aucun montant : "lignes": [].`;
@@ -142,9 +151,10 @@ export async function POST(req: NextRequest) {
     const base64 = bytes.toString("base64");
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 
-    // maxRetries : le SDK réessaie automatiquement (backoff) sur 429 et 5xx,
-    // y compris 529 "overloaded" — souvent transitoire.
-    const client = new Anthropic({ apiKey, maxRetries: 4 });
+    // maxRetries VOLONTAIREMENT BAS (1) : chaque nouvelle tentative consomme le
+    // budget de la fonction serverless. Avec 4 essais, un rapport un peu long
+    // faisait systématiquement expirer la requête côté hébergeur.
+    const client = new Anthropic({ apiKey, maxRetries: 1 });
     const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
     const documentBlock = isPdf
@@ -168,11 +178,14 @@ export async function POST(req: NextRequest) {
       { type: "text", text: PROMPT },
     ] as unknown as Anthropic.MessageParam["content"];
 
-    const message = await client.messages.create({
-      model,
-      max_tokens: 6000,
-      messages: [{ role: "user", content }],
-    });
+    const message = await avecDelai(
+      client.messages.create({
+        model,
+        max_tokens: 6000,
+        messages: [{ role: "user", content }],
+      }),
+      BUDGET_MS
+    );
 
     // Comptabilise la consommation (tokens réels de l'appel)
     await enregistrerUsage(user.id, message.usage?.input_tokens || 0, message.usage?.output_tokens || 0);
@@ -192,6 +205,18 @@ export async function POST(req: NextRequest) {
     const data = JSON.parse(match[0]);
     return NextResponse.json({ data });
   } catch (err: unknown) {
+    if (err instanceof DelaiDepasse) {
+      return NextResponse.json(
+        {
+          error:
+            "L'analyse a pris trop de temps et a été interrompue. Ce rapport est un SCAN " +
+            "(pages en images) ou comporte beaucoup de pages : l'IA doit tout relire. " +
+            "Réessaie une fois — souvent ça passe —, sinon n'envoie que les pages utiles " +
+            "(conclusions + liste des pièces), ou saisis le dossier à la main.",
+        },
+        { status: 504 }
+      );
+    }
     const anyErr = err as { status?: number; message?: string };
     const status = anyErr?.status;
     const overloaded =
