@@ -4,10 +4,20 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, DocumentLigne, DocumentType, Dossier } from "@/lib/types";
 import {
+  CategorieLigne,
+  CATEGORIES_LIGNE,
   LigneSaisie,
+  categorieDe,
   computeTotaux,
   genNumero,
+  groupeLignes,
+  joursFacture,
+  ligneVide,
   lignesToDb,
+  montantRemiseLigne,
+  sousTotal,
+  syncIngredientsPeinture,
+  totalLigne,
 } from "@/lib/documents";
 import { formatEuros, messageErreur, ymd } from "@/lib/format";
 
@@ -36,28 +46,43 @@ export default function DocumentEditor({
   const [tva, setTva] = useState(String(document?.tva ?? 20));
   const [notes, setNotes] = useState(document?.notes || "");
   const [acquitte, setAcquitte] = useState(Boolean(document?.acquitte));
+  // Durée d'immobilisation imprimée en en-tête de facture : pré-remplie
+  // depuis le planning du dossier, modifiable au cas par cas.
+  const [jours, setJours] = useState(
+    String(joursFacture(document, dossier) ?? "")
+  );
   const [items, setItems] = useState<LigneSaisie[]>(
     lignes && lignes.length
       ? lignes.map((l) => ({
           designation: l.designation || "",
           quantite: String(l.quantite ?? 1),
           prix_unitaire: String(l.prix_unitaire ?? 0),
+          remise: String(l.remise ?? 0),
+          categorie: categorieDe(l),
         }))
-      : [{ designation: "", quantite: "1", prix_unitaire: "0" }]
+      : [ligneVide()]
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const totaux = computeTotaux(items, tva);
+  const remises = items.reduce((s, l) => s + montantRemiseLigne(l), 0);
+  const groupes = groupeLignes(items);
 
-  function setItem(i: number, key: keyof LigneSaisie, val: string) {
-    setItems((arr) => arr.map((it, idx) => (idx === i ? { ...it, [key]: val } : it)));
+  // Toute modification passe par la synchro « ingrédients = temps peinture ».
+  function majItems(maj: (arr: LigneSaisie[]) => LigneSaisie[]) {
+    setItems((arr) => syncIngredientsPeinture(maj(arr)));
   }
-  function addLine() {
-    setItems((arr) => [...arr, { designation: "", quantite: "1", prix_unitaire: "0" }]);
+  function setItem(i: number, key: keyof LigneSaisie, val: string) {
+    majItems((arr) =>
+      arr.map((it, idx) => (idx === i ? ({ ...it, [key]: val } as LigneSaisie) : it))
+    );
+  }
+  function addLine(categorie: CategorieLigne) {
+    majItems((arr) => [...arr, ligneVide(categorie)]);
   }
   function removeLine(i: number) {
-    setItems((arr) => arr.filter((_, idx) => idx !== i));
+    majItems((arr) => arr.filter((_, idx) => idx !== i));
   }
 
   async function save() {
@@ -77,6 +102,7 @@ export default function DocumentEditor({
         total_tva: totaux.tva,
         total_ttc: totaux.ttc,
         acquitte: type === "facture" ? acquitte : false,
+        jours_reparation: Number(jours) > 0 ? Number(jours) : null,
       };
 
       let docId = document?.id;
@@ -128,9 +154,116 @@ export default function DocumentEditor({
     }
   }
 
+  // Une ligne de saisie (mêmes colonnes que la facture PDF).
+  // NB : fonction de rendu, PAS un sous-composant — un composant redéclaré à
+  // chaque rendu serait remonté à chaque frappe (perte du focus clavier).
+  const renderLigne = (it: LigneSaisie, i: number) => {
+    const total = totalLigne(it);
+    return (
+      <div key={i} className="grid grid-cols-12 gap-2 items-center">
+        <input
+          className="field-input col-span-12 sm:col-span-5"
+          placeholder="Désignation"
+          value={it.designation}
+          onChange={(e) => setItem(i, "designation", e.target.value)}
+        />
+        <select
+          className="field-input col-span-6 sm:col-span-2 text-xs"
+          value={it.categorie}
+          onChange={(e) => setItem(i, "categorie", e.target.value)}
+          title="Tableau de la facture dans lequel cette ligne apparaît"
+        >
+          {(Object.keys(CATEGORIES_LIGNE) as CategorieLigne[]).map((c) => (
+            <option key={c} value={c}>{CATEGORIES_LIGNE[c]}</option>
+          ))}
+        </select>
+        <input
+          type="number"
+          step="0.01"
+          className="field-input col-span-3 sm:col-span-1 text-right"
+          value={it.quantite}
+          title="Quantité (ou temps en heures pour la main d'œuvre)"
+          onChange={(e) => setItem(i, "quantite", e.target.value)}
+        />
+        <input
+          type="number"
+          step="0.01"
+          className="field-input col-span-3 sm:col-span-1 text-right"
+          value={it.prix_unitaire}
+          title="Prix unitaire HT (ou taux horaire)"
+          onChange={(e) => setItem(i, "prix_unitaire", e.target.value)}
+        />
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          max="100"
+          className="field-input col-span-3 sm:col-span-1 text-right"
+          value={it.remise}
+          title="Remise en %"
+          onChange={(e) => setItem(i, "remise", e.target.value)}
+        />
+        <div className="col-span-2 sm:col-span-1 text-right text-sm text-white/80 whitespace-nowrap">
+          {formatEuros(total)}
+        </div>
+        <button
+          onClick={() => removeLine(i)}
+          className="col-span-1 text-white/40 hover:text-rose-300"
+          title="Supprimer"
+        >
+          ×
+        </button>
+      </div>
+    );
+  };
+
+  const renderBloc = (
+    titreBloc: string,
+    aide: string,
+    categorie: CategorieLigne,
+    indices: number[]
+  ) => {
+    const st = sousTotal(indices.map((i) => items[i]));
+    return (
+      <div key={categorie} className="glass-soft rounded-xl p-3">
+        <div className="flex items-center justify-between mb-2 gap-3">
+          <div>
+            <span className="text-sm font-medium text-white/80">{titreBloc}</span>
+            <span className="block text-[11px] text-white/40">{aide}</span>
+          </div>
+          <button onClick={() => addLine(categorie)} className="btn-ghost py-1 px-3 text-xs whitespace-nowrap">
+            + Ligne
+          </button>
+        </div>
+        <div className="hidden sm:grid grid-cols-12 gap-2 text-[11px] text-white/40 px-1 mb-1">
+          <span className="col-span-5">Désignation</span>
+          <span className="col-span-2">Tableau</span>
+          <span className="col-span-1 text-right">{categorie === "mo" ? "Temps" : "Qté"}</span>
+          <span className="col-span-1 text-right">{categorie === "mo" ? "Taux" : "PU HT"}</span>
+          <span className="col-span-1 text-right">Remise %</span>
+          <span className="col-span-1 text-right">Total HT</span>
+        </div>
+        <div className="space-y-2">
+          {indices.length === 0 && (
+            <p className="text-xs text-white/30 px-1 py-2">Aucune ligne dans ce tableau.</p>
+          )}
+          {indices.map((i) => renderLigne(items[i], i))}
+        </div>
+        {indices.length > 0 && (
+          <div className="flex justify-end mt-2 text-xs text-white/50">
+            Sous-total HT&nbsp;: <span className="text-white/80 ml-2">{formatEuros(st)}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const indicesPar = (cat: CategorieLigne) =>
+    items.map((_, i) => i).filter((i) => items[i].categorie === cat);
+
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm">
-      <div className="w-full max-w-3xl glass-card my-8 modal-panel">
+      <div className="w-full max-w-5xl glass-card my-8 modal-panel">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-white">
             {isEdit ? `Modifier ${titre.toLowerCase()}` : `Nouveau ${titre.toLowerCase()}`}
@@ -139,7 +272,7 @@ export default function DocumentEditor({
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
             <div>
               <label className="field-label">N° {titre.toLowerCase()}</label>
               <input className="field-input" value={numero} onChange={(e) => setNumero(e.target.value)} />
@@ -157,6 +290,17 @@ export default function DocumentEditor({
               <input type="number" className="field-input" value={tva} onChange={(e) => setTva(e.target.value)} />
             </div>
             <div>
+              <label className="field-label">Jours de répa.</label>
+              <input
+                type="number"
+                min="0"
+                className="field-input"
+                value={jours}
+                placeholder="auto"
+                onChange={(e) => setJours(e.target.value)}
+              />
+            </div>
+            <div>
               <label className="field-label">Statut</label>
               <select className="field-input" value={statut} onChange={(e) => setStatut(e.target.value)}>
                 <option value="brouillon">Brouillon</option>
@@ -168,55 +312,31 @@ export default function DocumentEditor({
             </div>
           </div>
 
-          {/* Lignes */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-white/70">Prestations / pièces</span>
-              <button onClick={addLine} className="btn-ghost py-1 px-3 text-xs">+ Ligne</button>
-            </div>
-            <div className="space-y-2">
-              <div className="hidden sm:grid grid-cols-12 gap-2 text-xs text-white/40 px-1">
-                <span className="col-span-6">Désignation</span>
-                <span className="col-span-2 text-right">Qté</span>
-                <span className="col-span-2 text-right">PU HT</span>
-                <span className="col-span-2 text-right">Total</span>
-              </div>
-              {items.map((it, i) => {
-                const total = (Number(it.quantite) || 0) * (Number(it.prix_unitaire) || 0);
-                return (
-                  <div key={i} className="grid grid-cols-12 gap-2 items-center">
-                    <input
-                      className="field-input col-span-12 sm:col-span-6"
-                      placeholder="Désignation"
-                      value={it.designation}
-                      onChange={(e) => setItem(i, "designation", e.target.value)}
-                    />
-                    <input
-                      type="number"
-                      className="field-input col-span-4 sm:col-span-2 text-right"
-                      value={it.quantite}
-                      onChange={(e) => setItem(i, "quantite", e.target.value)}
-                    />
-                    <input
-                      type="number"
-                      className="field-input col-span-4 sm:col-span-2 text-right"
-                      value={it.prix_unitaire}
-                      onChange={(e) => setItem(i, "prix_unitaire", e.target.value)}
-                    />
-                    <div className="col-span-3 sm:col-span-1 text-right text-sm text-white/80">
-                      {formatEuros(total)}
-                    </div>
-                    <button
-                      onClick={() => removeLine(i)}
-                      className="col-span-1 text-white/40 hover:text-rose-300"
-                      title="Supprimer"
-                    >
-                      ×
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+          <p className="text-[11px] text-white/40 -mt-2">
+            Le mode de paiement imprimé sur le PDF est choisi au moment de générer le document.
+            Les ingrédients de peinture reprennent automatiquement le temps de la ligne « Peinture ».
+          </p>
+
+          {/* Les 3 tableaux de la facture */}
+          <div className="space-y-4">
+            {renderBloc(
+              "Tableau principal — pièces, fournitures & prestations",
+              "Désignation · Qté · PU HT · Remise · Total HT",
+              "piece",
+              indicesPar("piece")
+            )}
+            {renderBloc(
+              "Main d'œuvre & peinture",
+              "T1, T2, T3, Peinture, Ingr. de peinture (temps = celui de la peinture)",
+              "mo",
+              indicesPar("mo")
+            )}
+            {renderBloc(
+              "Autres éléments retenus au rapport",
+              "Forfaits, fournitures diverses, frais annexes… (tableau affiché seulement s'il contient des lignes)",
+              "autre",
+              indicesPar("autre")
+            )}
           </div>
 
           {type === "facture" && (
@@ -249,7 +369,19 @@ export default function DocumentEditor({
 
           {/* Totaux */}
           <div className="flex justify-end">
-            <div className="w-full sm:w-64 space-y-1 text-sm">
+            <div className="w-full sm:w-72 space-y-1 text-sm">
+              <div className="flex justify-between text-white/50 text-xs">
+                <span>Pièces / MO / Autres</span>
+                <span>
+                  {formatEuros(sousTotal(groupes.pieces))} · {formatEuros(sousTotal(groupes.mo))} ·{" "}
+                  {formatEuros(sousTotal(groupes.autres))}
+                </span>
+              </div>
+              {remises > 0 && (
+                <div className="flex justify-between text-white/50">
+                  <span>Dont remises accordées</span><span>- {formatEuros(remises)}</span>
+                </div>
+              )}
               <div className="flex justify-between text-white/70">
                 <span>Total HT</span><span>{formatEuros(totaux.ht)}</span>
               </div>

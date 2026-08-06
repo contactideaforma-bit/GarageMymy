@@ -36,7 +36,13 @@ Extrais TOUTES les informations utiles et renvoie UNIQUEMENT un objet JSON valid
   "montant": number|null,                // montant total des réparations HT en euros (nombre seul)
   "tva": number|null,                    // taux de TVA en % (ex: 20). null si absent
   "lignes": [                            // détail du chiffrage des réparations (poste par poste)
-    { "designation": string, "quantite": number, "prix_unitaire": number }
+    {
+      "designation": string,
+      "quantite": number,
+      "prix_unitaire": number,           // PU HT AVANT remise
+      "remise": number,                  // % de remise accordée (colonne "%Rem."), 0 si aucune
+      "categorie": "piece"|"mo"|"autre"  // voir règles ci-dessous
+    }
   ]
 }
 
@@ -55,11 +61,21 @@ Règles pour les COORDONNÉES (IMPORTANT — extrais-les TOUTES quand elles figu
   et l'adresse du cabinet n'est pas celle de l'assurance.
 - Les téléphones au format lisible (ex: 04 69 42 01 80 ou 0469420180, garde tel quel).
 
+Règles pour "categorie" (la facture est structurée en 3 tableaux) :
+- "mo"    : postes de main d'œuvre et de peinture — T1, T2, T3, Peinture, Ingrédients de
+            peinture. Les INGRÉDIENTS DE PEINTURE ont TOUJOURS la même quantité (le même
+            temps) que la ligne Peinture : recopie-la si le rapport ne la répète pas.
+- "autre" : éléments annexes retenus au rapport qui ne sont ni une pièce ni un temps de
+            main d'œuvre (forfaits, petites fournitures, frais de gestion/recyclage,
+            calibrage, contrôle de géométrie, produits, etc.).
+- "piece" : tout le reste (pièces détachées et fournitures) — c'est le cas par défaut.
+
 Règles pour "lignes" (IMPORTANT — le chiffrage est souvent ÉCLATÉ sur plusieurs pages) :
 1. MAIN D'ŒUVRE : cherche le bloc "CONCLUSIONS" (souvent page 1) avec les postes du type
    "Postes / Temps / Taux Hor. / Total HT" (ex: T1, T2, T3, Peinture, Ingrédients (MV), Ingr.).
    Pour chaque poste : designation = nom du poste (ex: "Main d'œuvre T2", "Peinture",
-   "Ingrédients peinture"), quantite = nombre d'heures, prix_unitaire = taux horaire HT.
+   "Ingrédients peinture"), quantite = nombre d'heures, prix_unitaire = taux horaire HT,
+   categorie = "mo".
 2. PIÈCES — EXHAUSTIVITÉ OBLIGATOIRE : cherche le tableau "LISTE DES PIECES" (souvent sur
    une page SUIVANTE, colonnes du type Qté ! Libellé ! Réf. Constr. ! Opé. ! Mnt HT ! %Vét.
    ! %Rem. ! TVA, colonnes séparées par des "!"). Extrais TOUTES les lignes du tableau, sans
@@ -68,7 +84,12 @@ Règles pour "lignes" (IMPORTANT — le chiffrage est souvent ÉCLATÉ sur plusi
      code opération entre parenthèses s'il existe, ex: "PORTE AR D (R P)", "CAPTEUR EXT. G D'AI (D)" ;
    - quantite = Qté ; prix_unitaire = Mnt HT / Qté si un montant est indiqué, sinon 0
      (les lignes sans montant sont des opérations déjà comprises dans la main d'œuvre :
-     elles doivent QUAND MÊME figurer, avec prix_unitaire 0).
+     elles doivent QUAND MÊME figurer, avec prix_unitaire 0) ;
+   - remise = valeur de la colonne "%Rem." (remise commerciale accordée), 0 si vide.
+     NE CONFONDS PAS avec "%Vét." (vétusté) : la vétusté n'est PAS une remise, ignore-la.
+     Si le montant "Mnt HT" du rapport est déjà NET de remise, mets remise = 0 pour ne
+     pas déduire deux fois ;
+   - categorie = "piece" (sauf élément annexe → "autre").
 3. NE COMPTE PAS DEUX FOIS LES PIÈCES : si les conclusions contiennent une ligne globale
    "Pièces <montant>" ET que tu as trouvé le détail dans "LISTE DES PIECES", n'extrais QUE
    le détail (pas la ligne globale). Si tu n'as PAS trouvé le détail, mets une ligne
@@ -76,10 +97,14 @@ Règles pour "lignes" (IMPORTANT — le chiffrage est souvent ÉCLATÉ sur plusi
 4. VÉRIFICATIONS (fais-les avant de répondre) :
    a) COMPLÉTUDE : compte les lignes du tableau "LISTE DES PIECES" du rapport ; ton JSON
       doit contenir EXACTEMENT le même nombre de lignes de pièces. S'il en manque, recommence.
-   b) TOTAL : la somme (quantite × prix_unitaire) de toutes les lignes doit être égale
-      (à ±1 € près) au TOTAL HT du rapport (les lignes à 0 ne changent rien). Sinon, corrige.
+   b) TOTAL : la somme des (quantite × prix_unitaire × (1 − remise/100)) de toutes les
+      lignes doit être égale (à ±1 € près) au TOTAL HT du rapport (les lignes à 0 ne
+      changent rien). Sinon, corrige.
+   c) PEINTURE : si une ligne "Ingrédients" existe, sa quantite doit être IDENTIQUE à
+      celle de la ligne "Peinture".
 5. Si le rapport ne donne qu'un montant global sans détail : une seule ligne
-   {"designation":"Réparations selon rapport d'expertise","quantite":1,"prix_unitaire": montant_global}.
+   {"designation":"Réparations selon rapport d'expertise","quantite":1,
+    "prix_unitaire": montant_global,"remise":0,"categorie":"piece"}.
    Si aucun montant : "lignes": [].`;
 
 export async function POST(req: NextRequest) {

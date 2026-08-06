@@ -144,6 +144,13 @@ export type Document = {
   favori?: boolean | null;
   // Facture réglée : mention "Acquittée" apposée sur le PDF (v29)
   acquitte?: boolean | null;
+  // Mode de règlement imprimé sur la facture, choisi au moment de générer
+  // le PDF (v34) : virement | cheque | cb | especes | prelevement |
+  // assurance | multiple | autre
+  mode_paiement?: string | null;
+  // Durée d'immobilisation en jours (surcharge le calcul fait depuis le
+  // planning de réparation du dossier) — v34
+  jours_reparation?: number | null;
 };
 
 export type DocumentLigne = {
@@ -153,6 +160,12 @@ export type DocumentLigne = {
   quantite: number | null;
   prix_unitaire: number | null;
   ordre: number | null;
+  // Remise accordée sur la ligne, en % (v34) — mention obligatoire dès lors
+  // qu'une réduction est acquise à la date de la vente (art. 242 nonies A CGI)
+  remise?: number | null;
+  // Tableau d'appartenance sur la facture (v34) :
+  // piece (tableau principal) | mo (T1/T2/T3, peinture, ingrédients) | autre
+  categorie?: string | null;
 };
 
 export type Entreprise = {

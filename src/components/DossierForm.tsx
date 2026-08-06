@@ -193,6 +193,9 @@ export default function DossierForm({
       designation: l.designation,
       quantite: l.quantite,
       prix_unitaire: l.prix_unitaire,
+      // v34 : remise en % + tableau d'appartenance (pièces / MO / autres)
+      remise: l.remise ?? 0,
+      categorie: l.categorie || "piece",
       ordre: i,
     }));
     if (rows.length) {

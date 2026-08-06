@@ -29,7 +29,8 @@ import TransfertGarantiePanel from "@/components/TransfertGarantiePanel";
 import { archiverDossier } from "@/lib/archive";
 import { fichierBase64, ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime, messageErreur } from "@/lib/format";
-import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
+import { badgeStatutDoc, labelStatutDoc, modeParDefaut } from "@/lib/documents";
+import ModePaiementModal from "@/components/ModePaiementModal";
 import { apercuDocumentPdf, cessionPdfBase64, documentPdfBase64Auto, ordreReparationPdfBase64, ribPdfBase64 } from "@/lib/pdf";
 import type { PieceJointeOption } from "@/components/EmailComposer";
 import StatutBadge from "@/components/StatutBadge";
@@ -92,6 +93,8 @@ export default function DossierDetailPage() {
 
   // composer email (devis/facture)
   const [emailDoc, setEmailDoc] = useState<Document | null>(null);
+  // facture en attente du choix du mode de paiement (avant génération du PDF)
+  const [pdfDoc, setPdfDoc] = useState<Document | null>(null);
   // signature d'un document (à l'écran ou lien à distance)
   const [signDoc, setSignDoc] = useState<Document | null>(null);
   const [emailSignature, setEmailSignature] = useState<{ titre: string; token: string } | null>(null);
@@ -284,11 +287,28 @@ export default function DossierDetailPage() {
 
   // Ouvre le PDF dans un nouvel onglet (visualisation ; téléchargement
   // possible depuis la visionneuse du navigateur).
+  // FACTURE : on demande d'abord le mode de paiement à imprimer (v34).
   async function exporterPdf(doc: Document) {
     if (!dossier) return;
+    if (doc.type === "facture") {
+      setPdfDoc(doc);
+      return;
+    }
     const { data } = await supabase
       .from("document_lignes").select("*").eq("document_id", doc.id).order("ordre", { ascending: true });
     await apercuDocumentPdf(doc, (data as DocumentLigne[]) || [], dossier);
+  }
+
+  // Génère la facture avec le mode de règlement choisi, et le mémorise sur
+  // le document (réutilisé pour les pièces jointes des emails suivants).
+  async function genererFacturePdf(doc: Document, mode: string) {
+    if (!dossier) return;
+    const { data } = await supabase
+      .from("document_lignes").select("*").eq("document_id", doc.id).order("ordre", { ascending: true });
+    await supabase.from("documents").update({ mode_paiement: mode }).eq("id", doc.id);
+    await apercuDocumentPdf(doc, (data as DocumentLigne[]) || [], dossier, mode);
+    setPdfDoc(null);
+    load();
   }
 
   async function supprimerDoc(doc: Document) {
@@ -725,6 +745,14 @@ export default function DossierDetailPage() {
 
       {showEdit && (
         <DossierForm dossier={dossier} onClose={() => setShowEdit(false)} onSaved={load} />
+      )}
+      {pdfDoc && (
+        <ModePaiementModal
+          defaut={modeParDefaut(pdfDoc, dossier)}
+          titre={`Générer la facture ${pdfDoc.numero || ""}`.trim()}
+          onClose={() => setPdfDoc(null)}
+          onValider={(mode) => genererFacturePdf(pdfDoc, mode)}
+        />
       )}
       {editor && (
         <DocumentEditor

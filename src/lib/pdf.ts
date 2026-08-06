@@ -1,7 +1,16 @@
 import jsPDF from "jspdf";
 import autoTable, { UserOptions } from "jspdf-autotable";
 import { CessionCreance, Document, DocumentLigne, Dossier, Entreprise, OrdreReparation, Restitution } from "./types";
-import { computeTotaux } from "./documents";
+import {
+  computeTotaux,
+  groupeLignes,
+  joursFacture,
+  labelModeReglement,
+  montantRemiseLigne,
+  sousTotal,
+  tauxRemise,
+  totalLigne,
+} from "./documents";
 import { AUTORISATION_OR, CESSION_OBJET, CESSION_NOTIFICATION, DECHARGE_RESTITUTION } from "./atelier";
 import { supabase } from "./supabaseClient";
 import { ModelePdf, themePdf } from "./pdfTheme";
@@ -325,28 +334,106 @@ function drawAcquittee(pdf: jsPDF, cx: number, cy: number) {
   pdf.setDrawColor(0);
 }
 
+/* ==================================================================
+ *  FACTURE / DEVIS (refonte v34)
+ *
+ *  Structure imposée :
+ *   1. En-tête : garage, n°, date + bandeaux client / véhicule / sinistre
+ *      / assurance / expert / durée de réparation.
+ *   2. Tableau principal : Désignation | Qté | PU HT | Remise | Total HT
+ *      (Total HT = PU HT diminué de la remise en %, multiplié par la Qté).
+ *   3. Tableau des postes : T1, T2, T3, Peinture, Ingr. de peinture
+ *      (ingrédients toujours au même temps que la peinture).
+ *   4. Tableau des autres éléments retenus au rapport (si présents).
+ *   5. Totaux + mode de règlement (choisi à la génération) + mentions
+ *      légales obligatoires.
+ *   6. Tampon du garage TOUJOURS en fin de document.
+ *  Aucun bloc orphelin : chaque bloc réserve sa place avant d'être dessiné.
+ * ================================================================== */
+
+type Corps = NonNullable<UserOptions["body"]>;
+
+// Nombre à la française sans espace insécable (non gérée par la police PDF)
+function nombre(n: number): string {
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 })
+    .format(n)
+    .replace(/[  ]/g, " ");
+}
+
+// Bloc d'informations en colonnes, encadré (lisibilité de l'en-tête).
+// Renvoie le y de fin du bloc.
+function drawColonnes(
+  pdf: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  cols: { titre: string; lignes: string[] }[],
+  accent: [number, number, number]
+): number {
+  const pad = 4;
+  const gap = 4;
+  const colW = (w - pad * 2 - gap * (cols.length - 1)) / cols.length;
+  const contenu = cols.map((c) => ({
+    titre: c.titre,
+    lignes: c.lignes
+      .filter(Boolean)
+      .flatMap((l) => pdf.splitTextToSize(l, colW) as string[]),
+  }));
+  const maxLignes = Math.max(1, ...contenu.map((c) => c.lignes.length));
+  const h = 10.5 + (maxLignes - 1) * 3.9 + 4;
+
+  pdf.setFillColor(247, 247, 251);
+  pdf.setDrawColor(224, 224, 234);
+  pdf.setLineWidth(0.2);
+  pdf.roundedRect(x, y, w, h, 1.6, 1.6, "FD");
+
+  contenu.forEach((c, i) => {
+    const cx = x + pad + i * (colW + gap);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(6.8);
+    pdf.setTextColor(...accent);
+    pdf.text(c.titre.toUpperCase(), cx, y + 5.5);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.setTextColor(55);
+    pdf.text(c.lignes, cx, y + 10.5);
+  });
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setTextColor(30);
+  pdf.setDrawColor(0);
+  return y + h;
+}
+
 export async function generateDocumentPdf(
   doc: Document,
   lignes: DocumentLigne[],
-  dossier: Dossier
+  dossier: Dossier,
+  modePaiement?: string | null
 ) {
-  const pdf = await buildDocumentPdf(doc, lignes, dossier);
+  const pdf = await buildDocumentPdf(doc, lignes, dossier, modePaiement);
   const titre = doc.type === "devis" ? "DEVIS" : "FACTURE";
   pdf.save(`${doc.numero || titre}.pdf`);
 }
 
 // Visualisation dans le navigateur (sans téléchargement forcé)
-export async function apercuDocumentPdf(doc: Document, lignes: DocumentLigne[], dossier: Dossier) {
-  ouvrirPdf(await buildDocumentPdf(doc, lignes, dossier));
+export async function apercuDocumentPdf(
+  doc: Document,
+  lignes: DocumentLigne[],
+  dossier: Dossier,
+  modePaiement?: string | null
+) {
+  ouvrirPdf(await buildDocumentPdf(doc, lignes, dossier, modePaiement));
 }
 
 // Renvoie le PDF encodé en base64 (sans préfixe data:), pour pièce jointe email.
 export async function documentPdfBase64(
   doc: Document,
   lignes: DocumentLigne[],
-  dossier: Dossier
+  dossier: Dossier,
+  modePaiement?: string | null
 ): Promise<string> {
-  const pdf = await buildDocumentPdf(doc, lignes, dossier);
+  const pdf = await buildDocumentPdf(doc, lignes, dossier, modePaiement);
   const uri = pdf.output("datauristring"); // data:application/pdf;...;base64,XXXX
   return uri.substring(uri.indexOf(",") + 1);
 }
@@ -354,7 +441,8 @@ export async function documentPdfBase64(
 async function buildDocumentPdf(
   doc: Document,
   lignes: DocumentLigne[],
-  dossier: Dossier
+  dossier: Dossier,
+  modePaiement?: string | null
 ): Promise<jsPDF> {
   const ent = await getEntreprise();
   const logo = await logoDataUrl(ent.logo_path);
@@ -363,10 +451,14 @@ async function buildDocumentPdf(
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
   const M = 14; // marge gauche/droite
+  const W = pageW - M * 2;
   const right = pageW - M;
-  const titre = doc.type === "devis" ? "DEVIS" : "FACTURE";
+  const BAS = 26; // hauteur réservée au pied de page
+  const estFacture = doc.type === "facture";
+  const titre = estFacture ? "FACTURE" : "DEVIS";
   const theme = themePdf(ent);
   const accent = theme.accent;
+  const mode = modePaiement || doc.mode_paiement || "virement";
 
   // Pied de page (dessiné sur chaque page)
   const pied = [
@@ -382,161 +474,349 @@ async function buildDocumentPdf(
     pied.forEach((line, i) => {
       pdf.text(line, pageW / 2, pageH - 14 + i * 4, { align: "center" });
     });
+    pdf.setTextColor(30);
   }
 
   // ---------- En-tête (page 1, selon le modèle du profil) ----------
-  const yBlocs = drawEnTete(pdf, ent, logo, theme, titre, [
+  let ty = drawEnTete(pdf, ent, logo, theme, titre, [
     `N° ${doc.numero || "—"}`,
     `Date : ${dateFr(doc.date_document)}`,
   ]);
+  drawFooter();
 
-  // ---------- Blocs client / véhicule ----------
-  pdf.setFontSize(10);
-  pdf.setTextColor(30);
-  pdf.text("Client", M, yBlocs);
-  pdf.text("Véhicule & sinistre", pageW / 2 + 6, yBlocs);
-  pdf.setTextColor(70);
-  pdf.setFontSize(9);
-  pdf.text(
-    [
-      dossier.client_nom || "—",
-      dossier.client_adresse || "",
-      `${dossier.client_code_postal || ""} ${dossier.client_ville || ""}`.trim(),
-    ].filter(Boolean),
-    M, yBlocs + 6
-  );
-  pdf.text(
-    [
-      dossier.marque_modele || "—",
-      `Immat. : ${dossier.immatriculation || "—"}`,
-      `N° sinistre : ${dossier.numero_sinistre || "—"}`,
-      `Assureur : ${dossier.assureur || "—"}`,
-    ],
-    pageW / 2 + 6, yBlocs + 6
-  );
+  // Réserve la hauteur d'un bloc : passe à la page suivante plutôt que de
+  // laisser un titre, un tableau ou un total orphelin en bas de page.
+  function reserver(h: number) {
+    if (ty + h > pageH - BAS) {
+      pdf.addPage();
+      drawFooter();
+      ty = 22;
+    }
+  }
 
-  // ---------- Tableau des lignes ----------
+  // ---------- Bandeaux d'informations ----------
+  const jours = joursFacture(doc, dossier);
+  ty = drawColonnes(pdf, M, ty - 4, W, [
+    {
+      titre: estFacture ? "Facturé à" : "Client",
+      lignes: [
+        dossier.client_nom || "—",
+        dossier.client_adresse || "",
+        `${dossier.client_code_postal || ""} ${dossier.client_ville || ""}`.trim(),
+        dossier.client_tel ? `Tél. ${dossier.client_tel}` : "",
+        dossier.client_email || "",
+      ],
+    },
+    {
+      titre: "Véhicule",
+      lignes: [
+        dossier.marque_modele || "—",
+        `Immat. : ${dossier.immatriculation || "—"}`,
+        dossier.numero_serie ? `VIN : ${dossier.numero_serie}` : "",
+        dossier.premiere_circulation ? `1re mise en circ. : ${dateFr(dossier.premiere_circulation)}` : "",
+      ],
+    },
+    {
+      titre: "Sinistre & assurance",
+      lignes: [
+        `N° sinistre : ${dossier.numero_sinistre || "—"}`,
+        `Date du sinistre : ${dateFr(dossier.date_sinistre)}`,
+        dossier.numero_police ? `Police n° ${dossier.numero_police}` : "",
+        `Assureur : ${dossier.assureur || "—"}`,
+        dossier.assureur_tel ? `Tél. ${dossier.assureur_tel}` : "",
+      ],
+    },
+  ], accent) + 4;
+
+  ty = drawColonnes(pdf, M, ty, W, [
+    {
+      titre: "Expertise",
+      lignes: [
+        `Cabinet : ${dossier.cabinet_expert || "—"}`,
+        dossier.expert_nom ? `Expert : ${dossier.expert_nom}` : "",
+        `Date d'expertise : ${dateFr(dossier.date_expertise)}`,
+      ],
+    },
+    {
+      titre: "Réparation",
+      lignes: [
+        `Entrée : ${dateFr(dossier.reparation_debut)}   ·   Sortie : ${dateFr(dossier.reparation_fin)}`,
+        `Durée d'immobilisation : ${jours != null ? `${jours} jour${jours > 1 ? "s" : ""}` : "—"}`,
+        dossier.reparateur ? `Réparateur : ${dossier.reparateur}` : "",
+      ],
+    },
+  ], accent) + 7;
+
+  // ---------- Tableaux ----------
+  const { pieces, mo, autres } = groupeLignes(lignes);
   const totaux = computeTotaux(lignes, doc.tva);
-  autoTable(pdf, {
-    startY: yBlocs + 32,
-    margin: { top: 20, left: M, right: M, bottom: 26 },
-    tableWidth: pageW - M * 2,
-    head: [["Désignation", "Qté", "PU HT", "Total HT"]],
-    body: lignes.map((l) => {
-      const total = (Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0);
+  const tauxTva = Number(doc.tva) || 0;
+  const remisesTotal = lignes.reduce((s, l) => s + montantRemiseLigne(l), 0);
+
+  const finTableau = () =>
+    (pdf as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? ty;
+
+  // Un tableau = un titre + un en-tête + les lignes + un sous-total.
+  // On ne le démarre que s'il reste la place pour son titre, son en-tête et
+  // au moins deux lignes (sinon : page suivante).
+  function drawTableau(
+    titreTableau: string,
+    entetes: [string, string, string, string, string],
+    items: DocumentLigne[],
+    libelleSousTotal: string,
+    avecRemise: boolean
+  ) {
+    if (items.length === 0) return;
+    reserver(34);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(...accent);
+    pdf.text(titreTableau, M, ty);
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(30);
+
+    const head = avecRemise
+      ? [[entetes[0], entetes[1], entetes[2], entetes[3], entetes[4]]]
+      : [[entetes[0], entetes[1], entetes[2], entetes[4]]];
+
+    const body: Corps = items.map((l) => {
+      const total = totalLigne(l);
+      const pu = Number(l.prix_unitaire) || 0;
+      const r = tauxRemise(l.remise);
       // Lignes à 0 € = opérations du rapport (D, R, P, G…) comprises dans la
       // main d'œuvre : on les affiche quand même, marquées "Inclus".
-      return [
+      const incluse = pu === 0 && total === 0;
+      const cellules = [
         l.designation || "",
-        String(l.quantite ?? 0),
-        total === 0 ? "—" : euros(Number(l.prix_unitaire) || 0),
-        total === 0 ? "Inclus" : euros(total),
+        nombre(Number(l.quantite) || 0),
+        incluse ? "—" : euros(pu),
+        r > 0 ? `${nombre(r)} %` : "—",
+        incluse ? "Inclus" : euros(total),
       ];
-    }),
-    ...stylesTableau(theme),
-    styles: { fontSize: 9, cellPadding: 2.5, overflow: "linebreak", valign: "middle" },
-    columnStyles: {
-      0: { cellWidth: "auto" },
-      1: { cellWidth: 16, halign: "right" },
-      2: { cellWidth: 32, halign: "right" },
-      3: { cellWidth: 34, halign: "right" },
-    },
-    didDrawPage: () => drawFooter(),
-  });
+      return avecRemise ? cellules : [cellules[0], cellules[1], cellules[2], cellules[4]];
+    });
 
-  // ---------- Totaux (sans orphelin : saut de page si trop bas) ----------
-  let ty = ((pdf as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? yBlocs + 60) + 10;
-  if (ty > pageH - 50) {
-    pdf.addPage();
-    drawFooter();
-    ty = 25;
+    const st = sousTotal(items);
+    const foot: Corps = [
+      [
+        { content: libelleSousTotal, colSpan: avecRemise ? 4 : 3, styles: { halign: "right" } },
+        { content: euros(st), styles: { halign: "right" } },
+      ],
+    ] as unknown as Corps;
+
+    const colonnes: UserOptions["columnStyles"] = avecRemise
+      ? {
+          0: { cellWidth: "auto" },
+          1: { cellWidth: 16, halign: "right" },
+          2: { cellWidth: 28, halign: "right" },
+          3: { cellWidth: 20, halign: "right" },
+          4: { cellWidth: 30, halign: "right" },
+        }
+      : {
+          0: { cellWidth: "auto" },
+          1: { cellWidth: 16, halign: "right" },
+          2: { cellWidth: 28, halign: "right" },
+          3: { cellWidth: 30, halign: "right" },
+        };
+
+    autoTable(pdf, {
+      startY: ty + 2.5,
+      margin: { top: 22, left: M, right: M, bottom: BAS },
+      tableWidth: W,
+      head,
+      body,
+      foot,
+      showHead: "everyPage",
+      showFoot: "lastPage",
+      rowPageBreak: "avoid", // aucune ligne coupée en deux pages
+      ...stylesTableau(theme),
+      footStyles: { fillColor: [238, 238, 245], textColor: 30, fontStyle: "bold" },
+      styles: {
+        fontSize: 8.6,
+        cellPadding: 2.2,
+        overflow: "linebreak",
+        valign: "middle",
+        lineColor: [222, 222, 232],
+        lineWidth: 0.1,
+      },
+      columnStyles: colonnes,
+      didDrawPage: () => drawFooter(),
+    });
+
+    ty = finTableau() + 8;
   }
 
-  const labelX = right - 45;
-  pdf.setFontSize(10);
-  pdf.setTextColor(70);
-  pdf.text("Total HT", labelX, ty, { align: "right" });
-  pdf.text(euros(totaux.ht), right, ty, { align: "right" });
-  ty += 6;
-  pdf.text(`TVA (${doc.tva ?? 0}%)`, labelX, ty, { align: "right" });
-  pdf.text(euros(totaux.tva), right, ty, { align: "right" });
-  ty += 8;
+  // 1. Tableau principal — toujours avec la colonne Remise
+  drawTableau(
+    "Pièces, fournitures & prestations",
+    ["Désignation", "Qté", "PU HT", "Remise", "Total HT"],
+    pieces,
+    "Sous-total HT",
+    true
+  );
+
+  // 2. Postes de main d'œuvre : T1, T2, T3, Peinture, Ingr. de peinture
+  drawTableau(
+    "Main d'œuvre & peinture",
+    ["Poste", "Temps (h)", "Taux horaire HT", "Remise", "Total HT"],
+    mo,
+    "Sous-total HT",
+    mo.some((l) => tauxRemise(l.remise) > 0)
+  );
+
+  // 3. Autres éléments retenus au rapport
+  drawTableau(
+    "Autres éléments retenus au rapport",
+    ["Désignation", "Qté", "PU HT", "Remise", "Total HT"],
+    autres,
+    "Sous-total HT",
+    autres.some((l) => tauxRemise(l.remise) > 0)
+  );
+
+  // ---------- Totaux + règlement (bloc insécable) ----------
+  const lignesTotaux: [string, string][] = [["Total HT", euros(totaux.ht)]];
+  if (remisesTotal > 0) {
+    lignesTotaux.push(["Dont remises accordées", `- ${euros(remisesTotal)}`]);
+  }
+  lignesTotaux.push([
+    tauxTva > 0 ? `TVA (${nombre(tauxTva)} %)` : "TVA (non applicable)",
+    euros(totaux.tva),
+  ]);
+
+  const hBloc = 8 + lignesTotaux.length * 5.4 + 14;
+  reserver(hBloc + 6);
+  const yBloc = ty;
+  const xTot = M + W - 84;
+
+  // Encadré des totaux (à droite)
+  pdf.setFillColor(247, 247, 251);
+  pdf.setDrawColor(...accent);
+  pdf.setLineWidth(0.3);
+  pdf.roundedRect(xTot, yBloc, 84, hBloc, 1.6, 1.6, "FD");
+  pdf.setFontSize(9);
+  lignesTotaux.forEach((l, i) => {
+    const yl = yBloc + 8 + i * 5.4;
+    pdf.setTextColor(70);
+    pdf.text(l[0], xTot + 4, yl);
+    pdf.text(l[1], xTot + 80, yl, { align: "right" });
+  });
+  const ySep = yBloc + 8 + lignesTotaux.length * 5.4;
   pdf.setDrawColor(...accent);
   pdf.setLineWidth(0.4);
-  pdf.line(labelX - 5, ty - 5, right, ty - 5);
-  pdf.setFontSize(12);
+  pdf.line(xTot + 4, ySep, xTot + 80, ySep);
+  pdf.setFontSize(11.5);
+  pdf.setFont("helvetica", "bold");
   pdf.setTextColor(...accent);
-  pdf.text("Total TTC", labelX, ty, { align: "right" });
-  pdf.text(euros(totaux.ttc), right, ty, { align: "right" });
+  pdf.text(estFacture ? "NET À PAYER TTC" : "TOTAL TTC", xTot + 4, ySep + 7);
+  pdf.text(euros(totaux.ttc), xTot + 80, ySep + 7, { align: "right" });
+  pdf.setFont("helvetica", "normal");
+
+  // Encadré règlement (à gauche, même hauteur)
+  const wReg = W - 90;
+  pdf.setFillColor(252, 252, 254);
+  pdf.setDrawColor(224, 224, 234);
+  pdf.setLineWidth(0.2);
+  pdf.roundedRect(M, yBloc, wReg, hBloc, 1.6, 1.6, "FD");
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(6.8);
+  pdf.setTextColor(...accent);
+  pdf.text(estFacture ? "RÈGLEMENT" : "VALIDITÉ", M + 4, yBloc + 5.5);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  pdf.setTextColor(55);
+
+  const infosReglement = estFacture
+    ? [
+        `Mode de règlement : ${labelModeReglement(mode)}`,
+        `Échéance : ${doc.date_echeance ? dateFr(doc.date_echeance) : "à réception de la facture"}`,
+        mode === "cheque" ? `Chèque à l'ordre de ${ent.nom || "—"}` : "",
+        mode === "virement" || mode === "prelevement" || mode === "assurance"
+          ? [ent.iban ? `IBAN ${ent.iban}` : "", ent.bic ? `BIC ${ent.bic}` : ""].filter(Boolean).join("   ·   ")
+          : "",
+        mode === "assurance"
+          ? "Facture réglée directement par l'assureur (cession de créance / prise en charge)."
+          : "",
+      ]
+    : [
+        "Devis gratuit, valable 30 jours à compter de sa date d'émission.",
+        "Bon pour accord : date, signature et mention « Bon pour accord ».",
+      ];
+  const txtReg = (infosReglement.filter(Boolean).join("\n") || "—");
+  pdf.text(pdf.splitTextToSize(txtReg, wReg - 8) as string[], M + 4, yBloc + 10.5);
+
+  ty = yBloc + hBloc + 8;
 
   // ---------- Mention "Acquittée" (facture réglée, case cochée) ----------
-  if (doc.type === "facture" && doc.acquitte) {
-    drawAcquittee(pdf, M + 42, ty - 5);
+  if (estFacture && doc.acquitte) {
+    reserver(20);
+    drawAcquittee(pdf, M + 34, ty + 5);
+    ty += 18;
   }
 
-  // ---------- Mentions obligatoires (conditions de règlement) ----------
+  // ---------- Mentions obligatoires ----------
   // Toujours imprimées, QUEL QUE SOIT le modèle choisi : échéance, pénalités
   // de retard, indemnité forfaitaire de recouvrement, escompte, et art. 293 B
   // du CGI si la facture est établie sans TVA (franchise en base).
-  const mentionsObligatoires =
-    doc.type === "facture"
-      ? [
-          `Échéance de paiement : ${doc.date_echeance ? dateFr(doc.date_echeance) : "à réception de la facture"}.`,
-          (doc.tva ?? 0) === 0 ? "TVA non applicable, art. 293 B du CGI." : "",
-          "En cas de retard de paiement : pénalités exigibles au taux de trois fois le taux d'intérêt légal (art. L441-10 C. com.) et, pour les clients professionnels, indemnité forfaitaire de recouvrement de 40 € (art. D441-5 C. com.).",
-          "Escompte pour paiement anticipé : néant.",
-        ].filter(Boolean)
-      : ["Devis gratuit, valable 30 jours à compter de sa date d'émission."];
+  const mentionsObligatoires = estFacture
+    ? [
+        jours != null
+          ? `Prestation exécutée du ${dateFr(dossier.reparation_debut)} au ${dateFr(dossier.reparation_fin)} (${jours} jour${jours > 1 ? "s" : ""} d'immobilisation), conformément au rapport d'expertise${dossier.cabinet_expert ? ` du cabinet ${dossier.cabinet_expert}` : ""}.`
+          : "Travaux exécutés conformément au rapport d'expertise et à l'ordre de réparation signé par le client.",
+        `Échéance de paiement : ${doc.date_echeance ? dateFr(doc.date_echeance) : "à réception de la facture"} — mode de règlement : ${labelModeReglement(mode)}.`,
+        tauxTva === 0 ? "TVA non applicable, art. 293 B du CGI." : "",
+        "En cas de retard de paiement : pénalités exigibles au taux de trois fois le taux d'intérêt légal (art. L441-10 C. com.) et, pour les clients professionnels, indemnité forfaitaire de recouvrement de 40 € (art. D441-5 C. com.).",
+        "Escompte pour paiement anticipé : néant. Les remises éventuelles figurent, poste par poste, dans la colonne « Remise » des tableaux ci-dessus.",
+        "Réserve de propriété : les pièces fournies restent la propriété du garage jusqu'au complet paiement de la facture (loi n° 80-335 du 12 mai 1980).",
+      ].filter(Boolean)
+    : ["Devis gratuit, valable 30 jours à compter de sa date d'émission. Tous travaux supplémentaires feront l'objet d'un accord préalable."];
 
-  ty += 12;
   {
-    const txtMentions = pdf.splitTextToSize(mentionsObligatoires.join("\n"), pageW - M * 2) as string[];
-    if (ty + txtMentions.length * 3.8 > pageH - 30) { pdf.addPage(); drawFooter(); ty = 25; }
-    pdf.setFontSize(7.8);
-    pdf.setTextColor(110);
+    const txtMentions = pdf.splitTextToSize(mentionsObligatoires.join("\n"), W) as string[];
+    reserver(txtMentions.length * 3.6 + 6);
+    pdf.setFontSize(7.6);
+    pdf.setTextColor(115);
     pdf.text(txtMentions, M, ty);
-    ty += txtMentions.length * 3.8 + 2;
+    ty += txtMentions.length * 3.6 + 4;
   }
 
   // ---------- Notes ----------
   if (doc.notes) {
-    ty += 14;
-    if (ty > pageH - 30) { pdf.addPage(); drawFooter(); ty = 25; }
+    const lignesNotes = pdf.splitTextToSize(doc.notes, W) as string[];
+    reserver(lignesNotes.length * 4.2 + 12);
     pdf.setFontSize(9);
     pdf.setTextColor(90);
     pdf.text("Notes :", M, ty);
-    const lignesNotes = pdf.splitTextToSize(doc.notes, pageW - M * 2) as string[];
     pdf.text(lignesNotes, M, ty + 5);
-    ty += 5 + lignesNotes.length * 4.2;
+    ty += 5 + lignesNotes.length * 4.2 + 6;
   }
 
-  // ---------- Signature du client (droite) + tampon du garage (gauche) ----------
-  ty += 14;
-  if (ty > pageH - 70) { pdf.addPage(); drawFooter(); ty = 25; }
-
-  // Tampon auto-généré du garage, en bas de page à gauche
-  drawTampon(pdf, ent, M, ty + 3);
+  // ---------- Tampon du garage (TOUJOURS en fin de document) + signature ----------
+  reserver(TAMPON_H + 20);
+  // Épinglé en bas de la dernière page : le tampon clôt visuellement la facture.
+  const yFin = Math.max(ty + 2, pageH - BAS - TAMPON_H - 4);
+  drawTampon(pdf, ent, M, yFin);
 
   if (doc.signature) {
     const w = 70;
-    const h = 32;
+    const h = 30;
     const x = right - w;
     pdf.setFontSize(9);
     pdf.setTextColor(30);
-    pdf.text("Signature du client :", x, ty);
+    pdf.text("Signature du client :", x, yFin - 2);
     pdf.setDrawColor(180);
     pdf.setLineWidth(0.3);
-    pdf.rect(x, ty + 3, w, h);
+    pdf.rect(x, yFin, w, h);
     try {
-      pdf.addImage(doc.signature, "PNG", x + 2, ty + 5, w - 4, h - 4);
+      pdf.addImage(doc.signature, "PNG", x + 2, yFin + 2, w - 4, h - 4);
     } catch { /* dataURL invalide */ }
-    pdf.setFontSize(8.5);
+    pdf.setFontSize(7.5);
     pdf.setTextColor(90);
     const infosSig = [
       doc.signataire_nom ? `Nom : ${doc.signataire_nom}` : "",
       doc.signe_le ? `Signé le ${dateFr(doc.signe_le)}` : "",
-    ].filter(Boolean);
-    if (infosSig.length) pdf.text(infosSig, x, ty + h + 8);
+    ].filter(Boolean).join("   ·   ");
+    if (infosSig) pdf.text(infosSig, x, yFin + h + 4);
   }
 
   return pdf;

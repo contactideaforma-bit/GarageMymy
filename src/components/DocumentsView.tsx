@@ -5,9 +5,10 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, DocumentLigne, DocumentType, Dossier } from "@/lib/types";
 import { formatEuros, formatDate } from "@/lib/format";
-import { badgeStatutDoc, labelStatutDoc } from "@/lib/documents";
+import { badgeStatutDoc, labelStatutDoc, modeParDefaut } from "@/lib/documents";
 import { apercuDocumentPdf } from "@/lib/pdf";
 import ConfigBanner from "@/components/ConfigBanner";
+import ModePaiementModal from "@/components/ModePaiementModal";
 
 type DocWithDossier = Document & { dossier: Dossier | null };
 
@@ -28,6 +29,8 @@ export default function DocumentsView({ type }: { type: DocumentType }) {
   const [loading, setLoading] = useState(true);
   const [recherche, setRecherche] = useState("");
   const [tri, setTri] = useState<Tri>("date_desc");
+  // Facture en attente du choix du mode de paiement (avant génération du PDF)
+  const [pdfDoc, setPdfDoc] = useState<DocWithDossier | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,14 +47,32 @@ export default function DocumentsView({ type }: { type: DocumentType }) {
     load();
   }, [load]);
 
+  // FACTURE : le mode de paiement imprimé est choisi à la génération (v34).
   async function exportPdf(doc: DocWithDossier) {
     if (!doc.dossier) return;
+    if (doc.type === "facture") {
+      setPdfDoc(doc);
+      return;
+    }
     const { data } = await supabase
       .from("document_lignes")
       .select("*")
       .eq("document_id", doc.id)
       .order("ordre", { ascending: true });
     await apercuDocumentPdf(doc, (data as DocumentLigne[]) || [], doc.dossier);
+  }
+
+  async function genererFacturePdf(doc: DocWithDossier, mode: string) {
+    if (!doc.dossier) return;
+    const { data } = await supabase
+      .from("document_lignes")
+      .select("*")
+      .eq("document_id", doc.id)
+      .order("ordre", { ascending: true });
+    await supabase.from("documents").update({ mode_paiement: mode }).eq("id", doc.id);
+    await apercuDocumentPdf(doc, (data as DocumentLigne[]) || [], doc.dossier, mode);
+    setPdfDoc(null);
+    load();
   }
 
   // Étoile : les favoris remontent en tête de liste
@@ -193,6 +214,15 @@ export default function DocumentsView({ type }: { type: DocumentType }) {
           </tbody>
         </table>
       </div>
+
+      {pdfDoc && (
+        <ModePaiementModal
+          defaut={modeParDefaut(pdfDoc, pdfDoc.dossier)}
+          titre={`Générer la facture ${pdfDoc.numero || ""}`.trim()}
+          onClose={() => setPdfDoc(null)}
+          onValider={(mode) => genererFacturePdf(pdfDoc, mode)}
+        />
+      )}
     </div>
   );
 }
