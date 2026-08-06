@@ -349,6 +349,16 @@ export type BankTransaction = {
   hash: string | null;
 };
 
+// Action du tableau de bord marquée comme FAITE (v35) : tant que la marque
+// existe, l'action reste hors de la liste « À faire aujourd'hui ».
+export type ActionFaite = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  code: string;      // code de l'action (cf. lib/actions.ts)
+  fait_le: string;
+};
+
 export type ListeDiffusion = {
   id: string;
   created_at: string;
