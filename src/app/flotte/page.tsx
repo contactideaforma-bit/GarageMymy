@@ -144,7 +144,7 @@ export default function FlottePage() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-semibold text-white">Flotte du garage</h1>
+        <h1 className="titre-page">Flotte du garage</h1>
         <div className="flex flex-wrap gap-2">
           <input
             ref={cgInputRef}

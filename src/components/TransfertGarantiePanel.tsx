@@ -1,5 +1,7 @@
 "use client";
 
+import { usePliage } from "@/lib/pliage";
+
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier, FlotteVehicule, TransfertGarantie } from "@/lib/types";
@@ -74,14 +76,33 @@ export default function TransfertGarantiePanel({
     refresh();
   }
 
+  const { plie, basculerPliage } = usePliage("dossier.pret");
+
   return (
     <section className="glass-card">
-      <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold text-white">Véhicule de prêt — transfert de garantie</h2>
-        <button onClick={() => setModalOpen(true)} className="btn-ghost py-1.5 px-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2 sm:px-4 sm:py-2.5">
+        <button
+          onClick={basculerPliage}
+          className="flex min-w-0 items-center gap-2 text-left"
+          aria-expanded={!plie}
+          title={plie ? "Déplier" : "Replier"}
+        >
+          <span className={`shrink-0 text-white/40 transition-transform ${plie ? "" : "rotate-90"}`} aria-hidden>
+            ▸
+          </span>
+          <h2 className="titre-bloc truncate">Véhicule de prêt — transfert de garantie</h2>
+        </button>
+        {!plie && (
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+<button onClick={() => setModalOpen(true)} className="btn-ghost py-1.5 px-3 text-xs">
           + Véhicule de prêt
         </button>
+          </div>
+        )}
       </div>
+
+      {!plie && (
+        <>
 
       <div className="px-5 py-4 space-y-3">
         {loading && <p className="text-sm text-white/40">Chargement…</p>}
@@ -162,6 +183,8 @@ export default function TransfertGarantiePanel({
           onClose={() => setEmailTransfert(null)}
           onSent={() => changerStatut(emailTransfert, "demande")}
         />
+      )}
+        </>
       )}
     </section>
   );

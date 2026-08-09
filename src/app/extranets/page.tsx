@@ -139,7 +139,7 @@ export default function ExtranetsPage() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-2">
-        <h1 className="text-2xl font-semibold text-white">Espaces experts</h1>
+        <h1 className="titre-page">Espaces experts</h1>
         <button className="btn-primary" onClick={() => setModal({ edit: null })}>
           + Ajouter un accès
         </button>

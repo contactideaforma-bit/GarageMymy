@@ -133,7 +133,7 @@ export default function ProfilPage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-semibold text-white mb-2">Profil du garage</h1>
+      <h1 className="titre-page mb-2">Profil du garage</h1>
       <p className="text-white/60 mb-6">
         Ces informations apparaissent en en-tête et pied de page de tes devis et factures.
       </p>

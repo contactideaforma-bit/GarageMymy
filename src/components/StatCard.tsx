@@ -1,5 +1,7 @@
 // Compteur façon HUD d'arcade : liseré coloré, libellé en police pixel,
 // grosse valeur lisible.
+// v7.0 : bloc COMPACT et typographie fluide — sur téléphone, la valeur ne se
+// casse plus sur deux lignes et la carte ne mange plus la moitié de l'écran.
 const ACCENTS: Record<string, string> = {
   violet: "#8b5cf6",
   pink: "#ec4899",
@@ -22,11 +24,15 @@ export default function StatCard({
 }) {
   const color = ACCENTS[accent] || ACCENTS.violet;
   return (
-    <div className="glass-card relative overflow-hidden p-5">
-      <span className="absolute inset-x-0 top-0 h-1.5" style={{ backgroundColor: color }} />
-      <div className="font-pixel break-words text-[0.5rem] leading-relaxed text-white/60">{label}</div>
-      <div className="mt-2 break-words text-2xl font-bold leading-tight text-white tabular-nums">{value}</div>
-      {hint && <div className="mt-1 text-xs text-white/40">{hint}</div>}
+    <div className="glass-card relative overflow-hidden p-3 sm:p-4">
+      <span className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: color }} />
+      <div className="font-pixel text-[0.42rem] leading-relaxed text-white/60 sm:text-[0.5rem]">
+        {label}
+      </div>
+      <div className="valeur-hud mt-1 truncate" title={value}>
+        {value}
+      </div>
+      {hint && <div className="mt-0.5 truncate text-[11px] text-white/40">{hint}</div>}
     </div>
   );
 }

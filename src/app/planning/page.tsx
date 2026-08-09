@@ -129,7 +129,7 @@ export default function PlanningPage() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-semibold text-white">Planning atelier</h1>
+        <h1 className="titre-page">Planning réparation</h1>
         <div className="flex gap-2">
           <button onClick={() => ouvrirPlan()} className="btn-ghost">Planifier</button>
           <button onClick={() => setShowDossier(true)} className="btn-primary">+ Nouveau dossier</button>

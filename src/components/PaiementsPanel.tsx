@@ -1,5 +1,7 @@
 "use client";
 
+import { usePliage } from "@/lib/pliage";
+
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, Dossier, Paiement, Relance } from "@/lib/types";
@@ -139,11 +141,25 @@ export default function PaiementsPanel({
     refresh();
   }
 
+  const { plie, basculerPliage } = usePliage("dossier.finance");
+
   return (
     <section className="glass-card">
-      <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold text-white">Finance — paiements & relances</h2>
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2 sm:px-4 sm:py-2.5">
         <button
+          onClick={basculerPliage}
+          className="flex min-w-0 items-center gap-2 text-left"
+          aria-expanded={!plie}
+          title={plie ? "Déplier" : "Replier"}
+        >
+          <span className={`shrink-0 text-white/40 transition-transform ${plie ? "" : "rotate-90"}`} aria-hidden>
+            ▸
+          </span>
+          <h2 className="titre-bloc truncate">Finance — paiements & relances</h2>
+        </button>
+        {!plie && (
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+<button
           onClick={toggleRelanceAuto}
           className="flex items-center gap-2 text-xs text-white/60 hover:text-white transition-colors"
           title="Quand c'est activé, l'appli envoie seule les relances n°1 et n°2 à l'assureur pour les factures échues de ce dossier (jamais la mise en demeure)."
@@ -161,7 +177,12 @@ export default function PaiementsPanel({
             />
           </span>
         </button>
+          </div>
+        )}
       </div>
+
+      {!plie && (
+        <>
       <div className="px-5 py-4 space-y-4">
         {!loading && factures.length > 0 && (
           <p className="text-xs text-white/40">
@@ -324,6 +345,8 @@ export default function PaiementsPanel({
             refresh();
           }}
         />
+      )}
+        </>
       )}
     </section>
   );

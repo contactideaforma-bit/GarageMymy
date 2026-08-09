@@ -1,5 +1,7 @@
 "use client";
 
+import { usePliage } from "@/lib/pliage";
+
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { CommandePiece, Document, DocumentLigne, Dossier } from "@/lib/types";
@@ -143,12 +145,26 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
   const recues = commandes.filter((c) => c.statut === "receptionne").length;
   const totalHt = commandes.reduce((s, c) => s + (Number(c.prix_ht) || 0), 0);
 
+  const { plie, basculerPliage } = usePliage("dossier.commandes");
+
   return (
     <section className="glass-card">
-      <div className="px-5 py-3 border-b border-white/10 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h2 className="font-semibold text-white">Commande de pièces</h2>
-          {commandes.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2 sm:px-4 sm:py-2.5">
+        <button
+          onClick={basculerPliage}
+          className="flex min-w-0 items-center gap-2 text-left"
+          aria-expanded={!plie}
+          title={plie ? "Déplier" : "Replier"}
+        >
+          <span className={`shrink-0 text-white/40 transition-transform ${plie ? "" : "rotate-90"}`} aria-hidden>
+            ▸
+          </span>
+          <h2 className="titre-bloc truncate">Commande de pièces</h2>
+        </button>
+        {!plie && (
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+<div className="flex items-center gap-2">
+                    {commandes.length > 0 && (
             <span
               className="font-pixel text-[0.55rem]"
               style={{ color: recues === commandes.length ? "#10b981" : "#f59e0b" }}
@@ -165,7 +181,12 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
             + Pièce
           </button>
         </div>
+          </div>
+        )}
       </div>
+
+      {!plie && (
+        <>
 
       <div className="px-5 py-4">
         {loading && <p className="text-sm text-white/40">Chargement…</p>}
@@ -244,6 +265,8 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
           onClose={() => setAjoutOpen(false)}
           onSaved={() => { setAjoutOpen(false); load(); }}
         />
+      )}
+        </>
       )}
     </section>
   );

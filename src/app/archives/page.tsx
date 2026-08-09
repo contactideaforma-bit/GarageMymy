@@ -38,7 +38,7 @@ export default function ArchivesPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-white mb-2">Archives</h1>
+      <h1 className="titre-page mb-2">Archives</h1>
       <p className="text-white/60 mb-6 text-sm">
         Dossiers clos archivés : leur contenu complet (documents, rapport, pièces, historique)
         a été téléchargé en ZIP puis retiré du serveur. Seule cette trace est conservée.

@@ -22,6 +22,13 @@ import StatCard from "@/components/StatCard";
 import { ouvrirFichier } from "@/lib/storage";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
+import {
+  Particularite,
+  badgeParticularite,
+  chargerLiens,
+  chargerParticularites,
+  indexParDossier,
+} from "@/lib/particularites";
 
 // Identité « expert » d'un dossier = le CABINET d'expertise (identifiant fiable).
 // On n'utilise pas expert_nom : ce champ contient souvent le nom du client
@@ -102,6 +109,14 @@ export default function SinistresPage() {
   // Organisation des dossiers : filtres + tri.
   const [filtreStatut, setFiltreStatut] = useState<string>("");
   const [filtreExpert, setFiltreExpert] = useState<string>("");
+  // Période : du … au …, sur la date du sinistre OU la date d'ajout (v7.0)
+  const [champDate, setChampDate] = useState<"date_sinistre" | "created_at">("date_sinistre");
+  const [du, setDu] = useState("");
+  const [au, setAu] = useState("");
+  // Particularités (courtier, agrément…) — v7.0
+  const [catalogue, setCatalogue] = useState<Particularite[]>([]);
+  const [liens, setLiens] = useState<{ dossier_id: string; particularite_id: string }[]>([]);
+  const [filtrePart, setFiltrePart] = useState<string>("");
   const [tri, setTri] = useState<Tri>({ cle: "created_at", sens: "desc" });
 
   const load = useCallback(async () => {
@@ -111,6 +126,14 @@ export default function SinistresPage() {
       .select("*")
       .order("created_at", { ascending: false });
     if (data) setDossiers(data as Dossier[]);
+    // Étiquettes : si la migration v37 n'est pas passée, on reste silencieux.
+    try {
+      const [cat, lns] = await Promise.all([chargerParticularites(), chargerLiens()]);
+      setCatalogue(cat);
+      setLiens(lns);
+    } catch {
+      /* particularités indisponibles */
+    }
     setLoading(false);
   }, []);
 
@@ -135,17 +158,33 @@ export default function SinistresPage() {
 
   const term = q.trim().toLowerCase();
 
-  // Filtrage (recherche + statut + expert).
+  // Étiquettes par dossier (badges + filtre).
+  const partsParDossier = useMemo(
+    () => indexParDossier(liens, catalogue),
+    [liens, catalogue]
+  );
+
+  // Filtrage (recherche + statut + expert + période + particularité).
   const filtered = useMemo(() => {
     return actifs.filter((d) => {
       if (filtreStatut && d.statut !== filtreStatut) return false;
       if (filtreExpert && cabinetExpert(d) !== filtreExpert) return false;
+      if (filtrePart && !(partsParDossier[d.id] || []).some((p) => p.id === filtrePart)) return false;
+      // Période : comparaison sur les 10 premiers caractères (AAAA-MM-JJ),
+      // ce qui marche aussi bien pour une date que pour un timestamp.
+      if (du || au) {
+        const brut = (champDate === "created_at" ? d.created_at : d.date_sinistre) || "";
+        const jour = brut.slice(0, 10);
+        if (!jour) return false; // date absente : hors période
+        if (du && jour < du) return false;
+        if (au && jour > au) return false;
+      }
       if (!term) return true;
       return [d.numero_sinistre, d.client_nom, d.marque_modele, d.immatriculation, d.assureur, cabinetExpert(d)]
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(term));
     });
-  }, [actifs, filtreStatut, filtreExpert, term]);
+  }, [actifs, filtreStatut, filtreExpert, filtrePart, partsParDossier, champDate, du, au, term]);
 
   // Tri.
   const visibles = useMemo(() => {
@@ -166,11 +205,14 @@ export default function SinistresPage() {
   const totalHT = visibles.reduce((s, d) => s + (d.montant || 0), 0);
   const enCours = visibles.filter((d) => estActif(d.statut)).length;
 
-  const filtresActifs = !!(term || filtreStatut || filtreExpert);
+  const filtresActifs = !!(term || filtreStatut || filtreExpert || filtrePart || du || au);
   function reinitialiser() {
     setQ("");
     setFiltreStatut("");
     setFiltreExpert("");
+    setFiltrePart("");
+    setDu("");
+    setAu("");
   }
 
   // Clic sur un en-tête : trie par cette clé, inverse le sens si déjà actif.
@@ -199,6 +241,7 @@ export default function SinistresPage() {
       { header: t.dateDossier, key: "date_sinistre", width: 14 },
       { header: "Statut", key: "statut", width: 16 },
       { header: "Montant HT", key: "montant", type: "euro", width: 14 },
+      { header: "Particularités", key: "particularites", width: 24 },
       { header: "Cession", key: "cession", width: 10 },
       { header: "Réparateur", key: "reparateur", width: 18 },
     ];
@@ -212,6 +255,7 @@ export default function SinistresPage() {
       date_sinistre: formatDate(d.date_sinistre) === "—" ? "" : formatDate(d.date_sinistre),
       statut: libelleStatut(d.statut, metier),
       montant: d.montant ?? "",
+      particularites: (partsParDossier[d.id] || []).map((p) => p.nom).join(", "),
       cession: d.mode_cession ? "Oui" : "",
       reparateur: d.reparateur || "",
     }));
@@ -221,8 +265,8 @@ export default function SinistresPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
-        <h1 className="text-2xl font-semibold text-white">{t.dossiers}</h1>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="titre-page">{t.dossiers}</h1>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={exporterExcel}
@@ -289,6 +333,17 @@ export default function SinistresPage() {
         </select>
         <select
           className="field-input w-auto"
+          value={filtrePart}
+          onChange={(e) => setFiltrePart(e.target.value)}
+          title="Filtrer par particularité (courtier, agrément…)"
+        >
+          <option value="">Toutes les particularités</option>
+          {catalogue.map((p) => (
+            <option key={p.id} value={p.id}>{p.nom}</option>
+          ))}
+        </select>
+        <select
+          className="field-input w-auto"
           value={`${tri.cle}:${tri.sens}`}
           onChange={(e) => {
             const [cle, sens] = e.target.value.split(":") as [CleTri, "asc" | "desc"];
@@ -321,28 +376,124 @@ export default function SinistresPage() {
         )}
       </div>
 
-      <div className="glass-card overflow-x-auto">
-        <table className="w-full text-sm">
+      {/* Période : du … au …, sur la date du sinistre ou la date d'ajout (v7.0) */}
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-white/45">Période</span>
+        <select
+          className="field-input w-auto"
+          value={champDate}
+          onChange={(e) => setChampDate(e.target.value as "date_sinistre" | "created_at")}
+          title="Sur quelle date porte la période"
+        >
+          <option value="date_sinistre">sur la date du sinistre</option>
+          <option value="created_at">sur la date d&apos;ajout</option>
+        </select>
+        <span className="text-white/45">du</span>
+        <input type="date" className="field-input w-auto" value={du} onChange={(e) => setDu(e.target.value)} />
+        <span className="text-white/45">au</span>
+        <input type="date" className="field-input w-auto" value={au} onChange={(e) => setAu(e.target.value)} />
+        {(du || au) && (
+          <button
+            onClick={() => { setDu(""); setAu(""); }}
+            className="text-xs text-white/45 hover:text-white hover:underline"
+          >
+            effacer la période
+          </button>
+        )}
+      </div>
+
+      {/* ---------- MOBILE : une carte par dossier (le tableau débordait) ---------- */}
+      <div className="space-y-2 sm:hidden">
+        {loading && <p className="py-6 text-center text-sm text-white/40">Chargement…</p>}
+        {!loading && visibles.length === 0 && (
+          <p className="py-6 text-center text-sm text-white/40">
+            {filtresActifs ? "Aucun dossier ne correspond aux filtres." : `Aucun dossier.`}
+          </p>
+        )}
+        {visibles.map((d) => (
+          <button
+            key={d.id}
+            onClick={() => router.push(`/sinistres/${d.id}`)}
+            className="glass-card block w-full p-3 text-left"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-white">
+                  {d.client_nom || "—"}
+                </span>
+                <span className="block truncate text-xs text-white/55">
+                  {d.marque_modele || "—"}
+                  {d.immatriculation ? ` · ${d.immatriculation}` : ""}
+                </span>
+              </span>
+              <span className="shrink-0 text-sm font-semibold text-white tabular-nums">
+                {formatEuros(d.montant)}
+              </span>
+            </div>
+
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <StatutBadge statut={d.statut} />
+              {d.mode_cession && (
+                <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
+                  Cession
+                </span>
+              )}
+              {(partsParDossier[d.id] || []).map((p) => (
+                <span
+                  key={p.id}
+                  className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeParticularite(p.couleur)}`}
+                >
+                  {p.nom}
+                </span>
+              ))}
+            </div>
+
+            <div className="mt-2 flex items-center gap-2">
+              <div className="w-24 shrink-0">
+                <ProgressionDossier statut={d.statut} size="sm" />
+              </div>
+              <span className="truncate text-[11px] text-white/35">
+                {d.numero_sinistre || "sans n°"}
+                {formatDate(d.date_sinistre) !== "—" ? ` · ${formatDate(d.date_sinistre)}` : ""}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* ---------- DESKTOP : tableau harmonisé, une ligne = une hauteur ---------- */}
+      <div className="glass-card hidden overflow-x-auto sm:block">
+        <table className="w-full table-fixed text-sm">
+          <colgroup>
+            <col className="w-[15%]" />
+            <col className="w-[16%]" />
+            <col className="hidden md:table-column md:w-[18%]" />
+            <col className="w-[11%]" />
+            <col className="hidden xl:table-column xl:w-[13%]" />
+            <col className="hidden lg:table-column lg:w-[10%]" />
+            <col className="w-[17%]" />
+            <col className="w-[12%]" />
+            <col className="hidden lg:table-column lg:w-[7%]" />
+          </colgroup>
           <thead className="text-left text-white/50">
             <tr>
               <ThTri label={t.numeroDossier} cle="numero_sinistre" tri={tri} onSort={trierPar} fleche={fleche} />
               <ThTri label="Client" cle="client_nom" tri={tri} onSort={trierPar} fleche={fleche} />
               <ThTri label="Véhicule" cle="marque_modele" tri={tri} onSort={trierPar} fleche={fleche} className="hidden md:table-cell" />
-              <ThTri label="Immatriculation" cle="immatriculation" tri={tri} onSort={trierPar} fleche={fleche} />
+              <ThTri label="Immat." cle="immatriculation" tri={tri} onSort={trierPar} fleche={fleche} />
               <ThTri label="Assureur" cle="assureur" tri={tri} onSort={trierPar} fleche={fleche} className="hidden xl:table-cell" />
-              <ThTri label="Cabinet" cle="expert" tri={tri} onSort={trierPar} fleche={fleche} className="hidden xl:table-cell" />
               <ThTri label={t.dateDossier} cle="date_sinistre" tri={tri} onSort={trierPar} fleche={fleche} className="hidden lg:table-cell" />
               <ThTri label="Statut" cle="statut" tri={tri} onSort={trierPar} fleche={fleche} />
               <ThTri label="Montant HT" cle="montant" tri={tri} onSort={trierPar} fleche={fleche} align="right" />
-              <th className="px-4 py-3 font-medium hidden sm:table-cell">Rapport</th>
+              <th className="cellule hidden font-medium lg:table-cell">Rapport</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={10} className="px-5 py-8 text-center text-white/40">Chargement…</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-white/40">Chargement…</td></tr>
             )}
             {!loading && visibles.length === 0 && (
-              <tr><td colSpan={10} className="px-5 py-8 text-center text-white/40">
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-white/40">
                 {filtresActifs
                   ? "Aucun dossier ne correspond aux filtres."
                   : `Aucun dossier. Clique sur « + ${t.ajouter} »${metier === "carrosserie" ? " ou importe un rapport" : ""}.`}
@@ -352,28 +503,64 @@ export default function SinistresPage() {
               <tr
                 key={d.id}
                 onClick={() => router.push(`/sinistres/${d.id}`)}
-                className="border-t border-white/5 hover:bg-white/5 cursor-pointer"
+                className="cursor-pointer border-t border-white/5 hover:bg-white/5"
               >
-                <td className="px-4 py-3 font-medium text-white">{d.numero_sinistre || "—"}</td>
-                <td className="px-4 py-3 text-white/80">{d.client_nom || "—"}</td>
-                <td className="px-4 py-3 text-white/80 hidden md:table-cell">{d.marque_modele || "—"}</td>
-                <td className="px-4 py-3 text-white/80 whitespace-nowrap">{d.immatriculation || "—"}</td>
-                <td className="px-4 py-3 text-white/80 hidden xl:table-cell">{d.assureur || "—"}</td>
-                <td className="px-4 py-3 text-white/80 hidden xl:table-cell">{cabinetExpert(d) || "—"}</td>
-                <td className="px-4 py-3 text-white/80 hidden lg:table-cell">{formatDate(d.date_sinistre)}</td>
-                <td className="px-5 py-3">
-                  <StatutBadge statut={d.statut} />
-                  {d.mode_cession && (
-                    <span className="ml-1 inline-block rounded-full px-2 py-0.5 text-xs font-semibold bg-teal-100 text-teal-700">
-                      Cession
-                    </span>
+                <td className="cellule">
+                  <div className="truncate font-medium text-white" title={d.numero_sinistre || ""}>
+                    {d.numero_sinistre || "—"}
+                  </div>
+                </td>
+                <td className="cellule">
+                  <div className="truncate text-white/80" title={d.client_nom || ""}>
+                    {d.client_nom || "—"}
+                  </div>
+                  {(partsParDossier[d.id] || []).length > 0 && (
+                    <div className="mt-0.5 flex flex-wrap gap-1">
+                      {(partsParDossier[d.id] || []).slice(0, 2).map((p) => (
+                        <span
+                          key={p.id}
+                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${badgeParticularite(p.couleur)}`}
+                        >
+                          {p.nom}
+                        </span>
+                      ))}
+                      {(partsParDossier[d.id] || []).length > 2 && (
+                        <span className="text-[10px] text-white/35">
+                          +{(partsParDossier[d.id] || []).length - 2}
+                        </span>
+                      )}
+                    </div>
                   )}
-                  <div className="mt-1.5 w-32">
+                </td>
+                <td className="cellule hidden md:table-cell">
+                  <div className="truncate text-white/80" title={d.marque_modele || ""}>
+                    {d.marque_modele || "—"}
+                  </div>
+                </td>
+                <td className="cellule whitespace-nowrap text-white/80">{d.immatriculation || "—"}</td>
+                <td className="cellule hidden xl:table-cell">
+                  <div className="truncate text-white/80" title={d.assureur || ""}>{d.assureur || "—"}</div>
+                </td>
+                <td className="cellule hidden whitespace-nowrap text-white/80 lg:table-cell">
+                  {formatDate(d.date_sinistre)}
+                </td>
+                <td className="cellule">
+                  <div className="flex flex-wrap items-center gap-1">
+                    <StatutBadge statut={d.statut} />
+                    {d.mode_cession && (
+                      <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
+                        Cession
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1 w-24">
                     <ProgressionDossier statut={d.statut} size="sm" />
                   </div>
                 </td>
-                <td className="px-4 py-3 text-right text-white/90 whitespace-nowrap">{formatEuros(d.montant)}</td>
-                <td className="px-4 py-3 hidden sm:table-cell">
+                <td className="cellule whitespace-nowrap text-right text-white/90 tabular-nums">
+                  {formatEuros(d.montant)}
+                </td>
+                <td className="cellule hidden lg:table-cell">
                   {d.rapport_path ? (
                     <button
                       onClick={(e) => {

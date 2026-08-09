@@ -43,6 +43,8 @@ import PaiementsPanel from "@/components/PaiementsPanel";
 import AtelierPanel, { TypeDocAtelier, labelOrdre } from "@/components/AtelierPanel";
 import EmailComposer from "@/components/EmailComposer";
 import ConfigBanner from "@/components/ConfigBanner";
+import Accordeon from "@/components/Accordeon";
+import ParticularitesPanel from "@/components/ParticularitesPanel";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
 import { labelTypeVitrage, labelNatureIntervention } from "@/lib/vitrage";
@@ -56,14 +58,35 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+// Clé de mémorisation stable, dérivée du titre du bloc.
+function cleBloc(titre: string): string {
   return (
-    <section className="glass-card">
-      <div className="px-5 py-3 border-b border-white/10">
-        <h2 className="font-semibold text-white">{title}</h2>
-      </div>
-      <div className="px-5 py-2">{children}</div>
-    </section>
+    "dossier." +
+    titre
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+  );
+}
+
+// Tous les blocs de la fiche sont REPLIABLES (v7.0) : la fiche s'ouvrait avec
+// une douzaine de panneaux dépliés, illisible sur téléphone. L'état est
+// mémorisé par bloc, donc chacun retrouve sa mise en page.
+function Card({
+  title,
+  children,
+  defautOuvert = true,
+}: {
+  title: string;
+  children: React.ReactNode;
+  defautOuvert?: boolean;
+}) {
+  return (
+    <Accordeon titre={title} cle={cleBloc(title)} defautOuvert={defautOuvert}>
+      {children}
+    </Accordeon>
   );
 }
 
@@ -415,13 +438,13 @@ export default function DossierDetailPage() {
       .join(", ");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-4">
       {/* En-tête */}
       <div>
         <Link href="/sinistres" className="text-sm text-accent-pink hover:underline">← {t.dossiers}</Link>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-white">
+            <h1 className="titre-page">
               Dossier {dossier.numero_sinistre || "sans numéro"}
             </h1>
             <StatutBadge statut={dossier.statut} />
@@ -452,7 +475,7 @@ export default function DossierDetailPage() {
       <ProchaineActionCard action={action} avecCta={action?.href !== `/sinistres/${dossier.id}`} />
 
       {/* Pipeline */}
-      <section className="glass-card p-5">
+      <section className="glass-card p-3 sm:p-4">
         <div className="mb-3 text-sm font-medium text-white/60">Avancement du dossier</div>
         <div className="mb-4">
           <ProgressionDossier statut={dossier.statut} size="md" />
@@ -541,7 +564,7 @@ export default function DossierDetailPage() {
       </section>
 
       {/* Infos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <Card title="Véhicule">
           <InfoRow label="Immatriculation" value={dossier.immatriculation} />
           <InfoRow label="Marque et modèle" value={dossier.marque_modele} />
@@ -636,23 +659,23 @@ export default function DossierDetailPage() {
         </Card>
       </div>
 
-      {/* Pièces du dossier (checklist) */}
-      <PiecesPanel dossier={dossier} pieces={pieces} onChanged={load} />
+      {/* Particularités : courtier, agrément, apporteur… (v7.0) */}
+      <Card title="Particularités du dossier">
+        <ParticularitesPanel dossierId={dossier.id} />
+      </Card>
 
       {/* Documents du dossier : devis, facture, OR, cession, restitution —
           générés automatiquement à l'import, conformes au chiffrage,
           modifiables et signables (à l'écran ou à distance) */}
-      <section className="glass-card">
-        <div className="px-5 py-3 border-b border-white/10">
-          <h2 className="font-semibold text-white">Documents du dossier</h2>
-          <p className="text-xs text-white/40 normal-case">
-            Générés automatiquement à l&apos;import du chiffrage — modifiables, envoyables et signables.
-          </p>
-        </div>
-
+      <Accordeon
+        titre="Documents du dossier"
+        sousTitre="Générés à l'import du chiffrage — modifiables, envoyables et signables."
+        cle="dossier.documents"
+        compteur={documents.length + ordres.length + cessions.length + restitutions.length || null}
+      >
         {/* BARRE D'ACTIONS UNIQUE : tous les documents du dossier se créent
             depuis ici (devis, facture, OR, cession, restitution). */}
-        <div className="px-5 pt-4 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           <button onClick={() => setEditor({ type: "devis" })} className="btn-ghost py-1.5 px-3 text-xs">
             + Devis
           </button>
@@ -682,7 +705,7 @@ export default function DossierDetailPage() {
             devis · factures · ordre de réparation · cession · restitution.
             Toutes les cartes ont la même structure (titre + statut, détails,
             actions à droite). */}
-        <div className="px-5 py-4 space-y-3">
+        <div className="mt-3 space-y-2">
           {aucunDocument && (
             <p className="text-sm text-white/40">
               Aucun document pour l&apos;instant. Génère un devis ou une facture, puis fais signer
@@ -755,7 +778,7 @@ export default function DossierDetailPage() {
             onOuvert={() => setAtelierModal(null)}
           />
         </div>
-      </section>
+      </Accordeon>
 
       {/* Commande de pièces (suivi non bloquant) */}
       <CommandesPanel dossier={dossier} />
@@ -769,8 +792,11 @@ export default function DossierDetailPage() {
       {/* Véhicule de prêt & transfert de garantie */}
       <TransfertGarantiePanel dossier={dossier} onChanged={load} />
 
+      {/* Pièces du dossier (checklist) — placé en fin de fiche (v7.0) */}
+      <PiecesPanel dossier={dossier} pieces={pieces} onChanged={load} />
+
       {/* Événements liés */}
-      <Card title="Événements liés à ce dossier">
+      <Card title="Événements liés à ce dossier" defautOuvert={false}>
         <form onSubmit={ajouterEvenement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 py-3">
           <input className="field-input" placeholder="Titre (ex. RDV expertise)" value={evTitre} onChange={(e) => setEvTitre(e.target.value)} />
           <input type="datetime-local" className="field-input" value={evDate} onChange={(e) => setEvDate(e.target.value)} />

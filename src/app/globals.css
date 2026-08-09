@@ -153,6 +153,32 @@ input[type="time"] {
     background-color: rgba(20, 16, 43, 0.96);
   }
 
+  /* ---------- DENSITÉ (v7.0) ----------
+     Les blocs étaient trop hauts et le texte ne s'adaptait pas au mobile :
+     on resserre les rembourrages et on rend la typographie fluide. */
+
+  /* Titre de page : suit la largeur d'écran au lieu d'un 2xl fixe. */
+  .titre-page {
+    @apply font-semibold text-white;
+    font-size: clamp(1.15rem, 4.5vw, 1.5rem);
+    line-height: 1.2;
+  }
+  /* Titre de bloc */
+  .titre-bloc {
+    @apply font-semibold text-white;
+    font-size: clamp(0.9rem, 3.2vw, 1rem);
+    line-height: 1.25;
+  }
+  /* Valeur chiffrée d'un compteur : ne déborde plus sur 2 lignes en mobile. */
+  .valeur-hud {
+    @apply font-bold leading-tight text-white tabular-nums;
+    font-size: clamp(1.05rem, 5.2vw, 1.5rem);
+  }
+  /* Ligne de tableau compacte et de hauteur régulière */
+  .cellule {
+    @apply px-3 py-2 sm:px-4 sm:py-2.5 align-middle;
+  }
+
   /* Barre de progression rétro : cadre et fond bien contrastés dans les 2 thèmes */
   .retro-bar {
     border: 2px solid #6b5fae;
@@ -342,4 +368,28 @@ html.light body:has(.landing-pro)::after {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #6d28d9;
+}
+
+/* ===== Densité MOBILE (v7.0) =====
+   Sur téléphone, les rembourrages « confortables » du bureau donnaient des
+   blocs énormes : on les resserre, sans toucher au rendu desktop. */
+@media (max-width: 640px) {
+  .glass-card { box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.4); border-width: 2px; }
+  .glass-soft { box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3); }
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+  }
+  .field-input {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    font-size: 0.85rem;
+  }
+  .field-label { font-size: 0.75rem; }
 }

@@ -48,7 +48,7 @@ export default function ImportPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold text-white mb-2">
+      <h1 className="titre-page mb-2">
         {estVitrage ? "Importer une prise en charge" : "Importer un rapport d'expertise"}
       </h1>
       <p className="text-white/60 mb-6">

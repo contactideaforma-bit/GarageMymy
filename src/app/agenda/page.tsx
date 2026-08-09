@@ -142,7 +142,7 @@ export default function AgendaPage() {
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-semibold text-white">Agenda</h1>
+        <h1 className="titre-page">Agenda</h1>
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-xl border border-white/10 bg-white/5 p-1">
             <button onClick={() => setVue("semaine")} className={`rounded-lg px-3 py-1 text-sm ${vue === "semaine" ? "bg-white/15 text-white font-medium" : "text-white/60 hover:text-white"}`}>Semaine</button>
