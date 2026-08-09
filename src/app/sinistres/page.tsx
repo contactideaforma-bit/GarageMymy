@@ -265,48 +265,57 @@ export default function SinistresPage() {
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="titre-page">{t.dossiers}</h1>
-        <div className="flex flex-wrap gap-2">
+      {/* En-tête : sur téléphone, action principale en pleine largeur puis
+          les deux actions secondaires côte à côte (au lieu d'un empilement). */}
+      <div className="mb-4 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
+        <h1 className="titre-page mb-2 sm:mb-0">{t.dossiers}</h1>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+          <button
+            onClick={() => setShowForm(true)}
+            className="btn-primary col-span-2 sm:col-span-1 sm:order-last"
+          >
+            + {t.ajouter}
+          </button>
           <button
             onClick={exporterExcel}
             disabled={visibles.length === 0}
-            className="btn-ghost disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn-ghost truncate disabled:cursor-not-allowed disabled:opacity-40"
             title="Exporter le tableau de suivi au format Excel"
           >
-            ⬇ Exporter Excel
+            <span className="sm:hidden">⬇ Excel</span>
+            <span className="hidden sm:inline">⬇ Exporter Excel</span>
           </button>
-          <Link href="/import" className="btn-ghost">{t.importer}</Link>
-          <button onClick={() => setShowForm(true)} className="btn-primary">
-            + {t.ajouter}
-          </button>
+          <Link href="/import" className="btn-ghost truncate text-center">{t.importer}</Link>
         </div>
       </div>
 
       <ConfigBanner />
 
       {/* Synthèse de la sélection courante */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-5">
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:mb-4 sm:gap-3 lg:grid-cols-3">
         <StatCard label="DOSSIERS AFFICHES" value={String(visibles.length)} accent="violet" />
         <StatCard label="EN COURS" value={String(enCours)} hint="non clôturés" accent="pink" />
-        <StatCard
-          label="MONTANT HT TOTAL"
-          value={formatEuros(totalHT)}
-          hint="sur la sélection"
-          accent="teal"
-        />
+        {/* Pleine largeur sous les deux autres : plus de carte esseulée. */}
+        <div className="col-span-2 lg:col-span-1">
+          <StatCard
+            label="MONTANT HT TOTAL"
+            value={formatEuros(totalHT)}
+            hint="sur la sélection"
+            accent="teal"
+          />
+        </div>
       </div>
 
       {/* Recherche + organisation (filtres et tri) */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
         <input
-          className="field-input max-w-xs flex-1 min-w-[12rem]"
+          className="field-input col-span-2 sm:max-w-xs sm:flex-1 sm:min-w-[12rem]"
           placeholder="Rechercher (client, véhicule, n° sinistre, assureur, expert…)"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <select
-          className="field-input w-auto"
+          className="field-input w-full sm:w-auto"
           value={filtreStatut}
           onChange={(e) => setFiltreStatut(e.target.value)}
           title="Filtrer par statut"
@@ -319,7 +328,7 @@ export default function SinistresPage() {
           ))}
         </select>
         <select
-          className="field-input w-auto"
+          className="field-input w-full sm:w-auto"
           value={filtreExpert}
           onChange={(e) => setFiltreExpert(e.target.value)}
           title="Filtrer par cabinet d'expert"
@@ -332,7 +341,7 @@ export default function SinistresPage() {
           ))}
         </select>
         <select
-          className="field-input w-auto"
+          className="field-input w-full sm:w-auto"
           value={filtrePart}
           onChange={(e) => setFiltrePart(e.target.value)}
           title="Filtrer par particularité (courtier, agrément…)"
@@ -343,7 +352,7 @@ export default function SinistresPage() {
           ))}
         </select>
         <select
-          className="field-input w-auto"
+          className="field-input w-full sm:w-auto"
           value={`${tri.cle}:${tri.sens}`}
           onChange={(e) => {
             const [cle, sens] = e.target.value.split(":") as [CleTri, "asc" | "desc"];
@@ -370,32 +379,39 @@ export default function SinistresPage() {
           <option value="client_nom:asc">Client (A → Z)</option>
         </select>
         {filtresActifs && (
-          <button onClick={reinitialiser} className="btn-ghost text-sm">
+          <button onClick={reinitialiser} className="btn-ghost col-span-2 text-sm sm:col-span-1">
             Réinitialiser
           </button>
         )}
       </div>
 
-      {/* Période : du … au …, sur la date du sinistre ou la date d'ajout (v7.0) */}
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-white/45">Période</span>
-        <select
-          className="field-input w-auto"
-          value={champDate}
-          onChange={(e) => setChampDate(e.target.value as "date_sinistre" | "created_at")}
-          title="Sur quelle date porte la période"
-        >
-          <option value="date_sinistre">sur la date du sinistre</option>
-          <option value="created_at">sur la date d&apos;ajout</option>
-        </select>
-        <span className="text-white/45">du</span>
-        <input type="date" className="field-input w-auto" value={du} onChange={(e) => setDu(e.target.value)} />
-        <span className="text-white/45">au</span>
-        <input type="date" className="field-input w-auto" value={au} onChange={(e) => setAu(e.target.value)} />
+      {/* Période : du … au …, sur la date du sinistre ou la date d'ajout.
+          Chaque champ est étiqueté : lisible et aligné, y compris sur mobile. */}
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
+        <div className="col-span-2 sm:w-auto">
+          <label className="field-label text-[11px]">Période</label>
+          <select
+            className="field-input w-full sm:w-auto"
+            value={champDate}
+            onChange={(e) => setChampDate(e.target.value as "date_sinistre" | "created_at")}
+            title="Sur quelle date porte la période"
+          >
+            <option value="date_sinistre">sur la date du sinistre</option>
+            <option value="created_at">sur la date d&apos;ajout</option>
+          </select>
+        </div>
+        <div>
+          <label className="field-label text-[11px]">Du</label>
+          <input type="date" className="field-input w-full" value={du} onChange={(e) => setDu(e.target.value)} />
+        </div>
+        <div>
+          <label className="field-label text-[11px]">Au</label>
+          <input type="date" className="field-input w-full" value={au} onChange={(e) => setAu(e.target.value)} />
+        </div>
         {(du || au) && (
           <button
             onClick={() => { setDu(""); setAu(""); }}
-            className="text-xs text-white/45 hover:text-white hover:underline"
+            className="col-span-2 pb-2 text-left text-xs text-white/45 hover:text-white hover:underline sm:col-span-1"
           >
             effacer la période
           </button>
@@ -448,14 +464,14 @@ export default function SinistresPage() {
               ))}
             </div>
 
-            <div className="mt-2 flex items-center gap-2">
-              <div className="w-24 shrink-0">
-                <ProgressionDossier statut={d.statut} size="sm" />
-              </div>
-              <span className="truncate text-[11px] text-white/35">
-                {d.numero_sinistre || "sans n°"}
-                {formatDate(d.date_sinistre) !== "—" ? ` · ${formatDate(d.date_sinistre)}` : ""}
-              </span>
+            {/* Référence puis barre d'avancement PLEINE LARGEUR : côte à côte,
+                le pourcentage venait se superposer au numéro de dossier. */}
+            <div className="mt-2 truncate text-[11px] text-white/35">
+              {d.numero_sinistre || "sans n°"}
+              {formatDate(d.date_sinistre) !== "—" ? ` · ${formatDate(d.date_sinistre)}` : ""}
+            </div>
+            <div className="mt-1.5">
+              <ProgressionDossier statut={d.statut} size="sm" />
             </div>
           </button>
         ))}

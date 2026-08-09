@@ -54,7 +54,7 @@ export default function DemandesPanel({
     onChanged?.();
   }
 
-  const { plie, basculerPliage } = usePliage("dossier.demandes");
+  const { plie, basculerPliage } = usePliage("dossier.demandes", true);
 
   return (
     <section className="glass-card">

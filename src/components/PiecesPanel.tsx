@@ -126,7 +126,7 @@ export default function PiecesPanel({
   }
 
 
-  const { plie, basculerPliage } = usePliage("dossier.pieces");
+  const { plie, basculerPliage } = usePliage("dossier.pieces", true);
 
   return (
     <section className="glass-card">

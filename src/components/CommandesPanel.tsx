@@ -145,7 +145,7 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
   const recues = commandes.filter((c) => c.statut === "receptionne").length;
   const totalHt = commandes.reduce((s, c) => s + (Number(c.prix_ht) || 0), 0);
 
-  const { plie, basculerPliage } = usePliage("dossier.commandes");
+  const { plie, basculerPliage } = usePliage("dossier.commandes", true);
 
   return (
     <section className="glass-card">

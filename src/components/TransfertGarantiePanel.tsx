@@ -76,7 +76,7 @@ export default function TransfertGarantiePanel({
     refresh();
   }
 
-  const { plie, basculerPliage } = usePliage("dossier.pret");
+  const { plie, basculerPliage } = usePliage("dossier.pret", true);
 
   return (
     <section className="glass-card">

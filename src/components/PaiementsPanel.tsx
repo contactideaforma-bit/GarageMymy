@@ -141,7 +141,7 @@ export default function PaiementsPanel({
     refresh();
   }
 
-  const { plie, basculerPliage } = usePliage("dossier.finance");
+  const { plie, basculerPliage } = usePliage("dossier.finance", true);
 
   return (
     <section className="glass-card">

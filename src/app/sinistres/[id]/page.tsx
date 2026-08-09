@@ -74,10 +74,13 @@ function cleBloc(titre: string): string {
 // Tous les blocs de la fiche sont REPLIABLES (v7.0) : la fiche s'ouvrait avec
 // une douzaine de panneaux dépliés, illisible sur téléphone. L'état est
 // mémorisé par bloc, donc chacun retrouve sa mise en page.
+// Par défaut REPLIÉ (v7.0) : à l'ouverture d'un dossier, seuls « Avancement
+// du dossier » et « Documents du dossier » sont dépliés — on voit l'essentiel
+// sans dérouler trois écrans. Chaque bloc garde ensuite l'état qu'on lui donne.
 function Card({
   title,
   children,
-  defautOuvert = true,
+  defautOuvert = false,
 }: {
   title: string;
   children: React.ReactNode;
@@ -475,9 +478,10 @@ export default function DossierDetailPage() {
       <ProchaineActionCard action={action} avecCta={action?.href !== `/sinistres/${dossier.id}`} />
 
       {/* Pipeline */}
+      {/* Avancement : TOUJOURS déplié — c'est le repère du dossier. */}
       <section className="glass-card p-3 sm:p-4">
-        <div className="mb-3 text-sm font-medium text-white/60">Avancement du dossier</div>
-        <div className="mb-4">
+        <div className="mb-2 titre-bloc text-white/70">Avancement du dossier</div>
+        <div className="mb-3">
           <ProgressionDossier statut={dossier.statut} size="md" />
         </div>
         <StatutPipeline statut={dossier.statut} onChange={changeStatut} />
@@ -796,7 +800,7 @@ export default function DossierDetailPage() {
       <PiecesPanel dossier={dossier} pieces={pieces} onChanged={load} />
 
       {/* Événements liés */}
-      <Card title="Événements liés à ce dossier" defautOuvert={false}>
+      <Card title="Événements liés à ce dossier">
         <form onSubmit={ajouterEvenement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 py-3">
           <input className="field-input" placeholder="Titre (ex. RDV expertise)" value={evTitre} onChange={(e) => setEvTitre(e.target.value)} />
           <input type="datetime-local" className="field-input" value={evDate} onChange={(e) => setEvDate(e.target.value)} />
