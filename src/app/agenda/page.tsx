@@ -125,16 +125,27 @@ export default function AgendaPage() {
     setRef((r) => (vue === "semaine" ? addDays(r, dir * 7) : addMonths(r, dir)));
   }
 
+  // Véhicule · immatriculation · client du dossier rattaché : sans ça, un
+  // « Envoyer la facture » ne dit pas de quel dossier il s'agit.
+  function contexteDossier(ev: Evenement): string {
+    if (!ev.dossier_id) return "";
+    const d = dossiers.find((x) => x.id === ev.dossier_id);
+    if (!d) return "";
+    return [d.marque_modele, d.immatriculation, d.client_nom].filter(Boolean).join(" · ");
+  }
+
   function EventChip({ ev, compact }: { ev: Evenement; compact?: boolean }) {
     const cat = CAT[ev.categorie || "autre"] || CAT.autre;
+    const ctx = contexteDossier(ev);
     return (
       <button
         onClick={() => clicEvent(ev)}
         className={`w-full text-left rounded-md bg-gradient-to-r ${cat.cls} px-2 py-1 ${compact ? "text-[10px]" : "text-[11px]"} text-white hover:brightness-110`}
-        title={`${heure(ev)} · ${ev.titre}${ev.avec_qui ? " · " + ev.avec_qui : ""}`}
+        title={`${heure(ev)} · ${ev.titre}${ctx ? ` — ${ctx}` : ""}${ev.avec_qui ? " · " + ev.avec_qui : ""}`}
       >
         <span className="font-medium">{heure(ev)}</span> {ev.titre}
-        {!compact && ev.avec_qui && <span className="text-white/60"> · {ev.avec_qui}</span>}
+        {!compact && ctx && <span className="block truncate text-white/70">{ctx}</span>}
+        {!compact && !ctx && ev.avec_qui && <span className="text-white/60"> · {ev.avec_qui}</span>}
       </button>
     );
   }

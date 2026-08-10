@@ -122,6 +122,55 @@ export default function DashboardPage() {
     })
     .reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
 
+  // Contexte du dossier rattaché à un événement : « Envoyer la facture » tout
+  // seul ne dit pas DE QUEL dossier il s'agit. On affiche véhicule,
+  // immatriculation et client, et la ligne devient cliquable.
+  const dossierParId = useMemo(() => {
+    const m = new Map<string, Dossier>();
+    for (const d of dossiers) m.set(d.id, d);
+    return m;
+  }, [dossiers]);
+
+  const contexteEvenement = (dossierId: string | null): string => {
+    if (!dossierId) return "";
+    const d = dossierParId.get(dossierId);
+    if (!d) return "";
+    return [d.marque_modele, d.immatriculation, d.client_nom].filter(Boolean).join(" · ");
+  };
+
+  // Une ligne d'agenda : titre + date à droite, dossier concerné en dessous.
+  const renderEvenement = (e: Evenement, passe = false) => {
+    const ctx = contexteEvenement(e.dossier_id);
+    const contenu = (
+      <>
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="min-w-0 truncate text-sm font-medium text-white">{e.titre}</span>
+          <span className="shrink-0 text-[11px] text-white/45">
+            {passe ? formatDate(e.date_evenement) : formatDateTime(e.date_evenement)}
+          </span>
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-white/55">
+          {ctx || "Sans dossier rattaché"}
+        </span>
+      </>
+    );
+    return (
+      <li key={e.id} className={passe ? "opacity-70" : ""}>
+        {e.dossier_id ? (
+          <button
+            onClick={() => router.push(`/sinistres/${e.dossier_id}`)}
+            className="glass-soft block w-full rounded-lg p-2.5 text-left transition hover:brightness-105"
+            title={`${e.titre}${ctx ? ` — ${ctx}` : ""}`}
+          >
+            {contenu}
+          </button>
+        ) : (
+          <div className="glass-soft rounded-lg p-2.5">{contenu}</div>
+        )}
+      </li>
+    );
+  };
+
   const aVenir = evenements.filter((e) => new Date(e.date_evenement) >= now);
   const passes = evenements.filter((e) => new Date(e.date_evenement) < now).reverse();
 
@@ -396,33 +445,23 @@ export default function DashboardPage() {
 
         <section className="glass-card">
           <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
-            <h2 className="font-semibold text-white">Agenda</h2>
+            <h2 className="titre-bloc">Agenda</h2>
             <Link href="/agenda" className="text-sm text-accent-pink hover:underline">Ouvrir l&apos;agenda</Link>
           </div>
-          <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-4 p-3 sm:p-4 md:grid-cols-2">
             <div>
-              <div className="text-xs font-semibold uppercase text-white/40 mb-2">À venir</div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
+                À venir
+              </div>
               {aVenir.length === 0 && <p className="text-sm text-white/40">Aucun événement.</p>}
-              <ul className="space-y-2">
-                {aVenir.slice(0, 5).map((e) => (
-                  <li key={e.id} className="text-sm">
-                    <div className="font-medium text-white">{e.titre}</div>
-                    <div className="text-white/40 text-xs">{formatDateTime(e.date_evenement)}</div>
-                  </li>
-                ))}
-              </ul>
+              <ul className="space-y-1.5">{aVenir.slice(0, 5).map((e) => renderEvenement(e))}</ul>
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase text-white/40 mb-2">Passés</div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
+                Passés
+              </div>
               {passes.length === 0 && <p className="text-sm text-white/40">Aucun événement.</p>}
-              <ul className="space-y-2">
-                {passes.slice(0, 3).map((e) => (
-                  <li key={e.id} className="text-sm opacity-60">
-                    <div className="font-medium text-white">{e.titre}</div>
-                    <div className="text-white/40 text-xs">{formatDate(e.date_evenement)}</div>
-                  </li>
-                ))}
-              </ul>
+              <ul className="space-y-1.5">{passes.slice(0, 3).map((e) => renderEvenement(e, true))}</ul>
             </div>
           </div>
         </section>
