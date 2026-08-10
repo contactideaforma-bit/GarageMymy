@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Entreprise } from "@/lib/types";
 import ConfigBanner from "@/components/ConfigBanner";
+import SignaturePad from "@/components/SignaturePad";
+import FilePicker from "@/components/FilePicker";
 import MailSettings from "@/components/MailSettings";
 import CompteSettings from "@/components/CompteSettings";
 import ConsommationIA from "@/components/ConsommationIA";
@@ -17,7 +19,7 @@ const EMPTY: FormE = {
   nom: "", adresse: "", code_postal: "", ville: "", tel: "", email: "",
   siret: "", tva_intra: "", iban: "", bic: "", mentions: "",
   logo_path: null, modele_facture_path: null,
-  signature_mail: "", rib_path: null,
+  signature_mail: "", rib_path: null, signature_path: null,
   modele_pdf: MODELE_PDF_DEFAUT, couleur_pdf: COULEUR_PDF_DEFAUT,
 };
 
@@ -39,6 +41,11 @@ export default function ProfilPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [modeleFile, setModeleFile] = useState<File | null>(null);
   const [ribFile, setRibFile] = useState<File | null>(null);
+  // Signature du garage : soit un fichier importé, soit un tracé à l'écran.
+  const [signatureFichier, setSignatureFichier] = useState<File | null>(null);
+  const [signatureTrace, setSignatureTrace] = useState<string | null>(null);
+  const [signatureApercu, setSignatureApercu] = useState<string | null>(null);
+  const [tracer, setTracer] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -57,9 +64,12 @@ export default function ProfilPage() {
           bic: e.bic ?? "", mentions: e.mentions ?? "",
           logo_path: e.logo_path, modele_facture_path: e.modele_facture_path,
           signature_mail: e.signature_mail ?? "", rib_path: e.rib_path ?? null,
+          signature_path: e.signature_path ?? null,
           modele_pdf: e.modele_pdf ?? MODELE_PDF_DEFAUT,
           couleur_pdf: e.couleur_pdf ?? COULEUR_PDF_DEFAUT,
         });
+        // Aperçu de la signature enregistrée (lien signé, bucket privé).
+        if (e.signature_path) chargerApercuSignature(e.signature_path);
       }
       setLoading(false);
     })();
@@ -88,6 +98,23 @@ export default function ProfilPage() {
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
+  // Signature du garage : tracée à l'écran ou importée (v7.6).
+  async function chargerApercuSignature(path: string | null | undefined) {
+    if (!path) { setSignatureApercu(null); return; }
+    const { data } = await supabase.storage.from("prive").createSignedUrl(path, 600);
+    setSignatureApercu(data?.signedUrl || null);
+  }
+
+  // Convertit le tracé (dataURL PNG) en fichier prêt à téléverser.
+  function dataUrlVersFichier(dataUrl: string): File {
+    const [entete, base64] = dataUrl.split(",");
+    const type = /:(.*?);/.exec(entete)?.[1] || "image/png";
+    const bin = atob(base64);
+    const octets = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i += 1) octets[i] = bin.charCodeAt(i);
+    return new File([octets], "signature.png", { type });
+  }
+
   async function save() {
     setSaving(true);
     setMsg(null);
@@ -96,11 +123,17 @@ export default function ProfilPage() {
       let logo_path = form.logo_path;
       let modele_facture_path = form.modele_facture_path;
       let rib_path = form.rib_path;
+      let signature_path = form.signature_path;
       if (logoFile) logo_path = await upload(logoFile, "logo");
       if (modeleFile) modele_facture_path = await upload(modeleFile, "modele");
       if (ribFile) rib_path = await upload(ribFile, "rib", "prive");
+      // Signature : bucket PRIVÉ, jamais accessible par simple URL.
+      if (signatureFichier) signature_path = await upload(signatureFichier, "signature", "prive");
+      else if (signatureTrace) {
+        signature_path = await upload(dataUrlVersFichier(signatureTrace), "signature", "prive");
+      }
 
-      const payload = { ...form, logo_path, modele_facture_path, rib_path };
+      const payload = { ...form, logo_path, modele_facture_path, rib_path, signature_path };
 
       if (id) {
         const { error: e } = await supabase.from("entreprise").update(payload).eq("id", id);
@@ -110,10 +143,14 @@ export default function ProfilPage() {
         if (e) throw e;
         setId(data!.id);
       }
-      setForm((f) => ({ ...f, logo_path, modele_facture_path, rib_path }));
+      setForm((f) => ({ ...f, logo_path, modele_facture_path, rib_path, signature_path }));
       setLogoFile(null);
       setModeleFile(null);
       setRibFile(null);
+      setSignatureFichier(null);
+      setSignatureTrace(null);
+      setTracer(false);
+      await chargerApercuSignature(signature_path);
       setMsg("✓ Profil enregistré. Les devis et factures utiliseront ces informations.");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
@@ -352,6 +389,82 @@ export default function ProfilPage() {
                 Quand tu coches « RIB du garage » en pièce jointe d&apos;un email, c&apos;est CE fichier
                 qui part. Sans fichier, un RIB est généré depuis l&apos;IBAN/BIC ci-dessus.
               </p>
+            </div>
+
+            {/* SIGNATURE DU GARAGE (v7.6) — superposée au tampon des documents */}
+            <div className="glass-soft p-4">
+              <label className="field-label">Signature du garage</label>
+              <p className="mb-2 text-xs text-white/50">
+                Elle est <span className="text-white/80">superposée au tampon</span> sur les
+                factures, devis, ordres de réparation et attestations. Trace-la à l&apos;écran
+                (doigt ou souris) ou importe une image à fond transparent (PNG).
+              </p>
+
+              {/* Signature déjà enregistrée */}
+              {form.signature_path && !signatureTrace && !signatureFichier && (
+                <div className="mb-3">
+                  {signatureApercu ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={signatureApercu}
+                      alt="Signature du garage"
+                      className="max-h-24 rounded-md bg-white/90 p-2"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => chargerApercuSignature(form.signature_path)}
+                      className="text-sm text-accent-teal hover:underline"
+                    >
+                      Voir la signature enregistrée
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForm((f) => ({ ...f, signature_path: null }));
+                      setSignatureApercu(null);
+                    }}
+                    className="mt-2 block text-xs text-white/40 hover:text-rose-300"
+                  >
+                    Retirer la signature (enregistre ensuite le profil)
+                  </button>
+                </div>
+              )}
+
+              {/* Tracé à l'écran */}
+              {tracer ? (
+                <div className="space-y-2">
+                  <SignaturePad onChange={setSignatureTrace} />
+                  <button
+                    type="button"
+                    onClick={() => { setTracer(false); setSignatureTrace(null); }}
+                    className="text-xs text-white/45 hover:text-white hover:underline"
+                  >
+                    Annuler le tracé
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <button type="button" onClick={() => setTracer(true)} className="btn-ghost py-1.5 px-3 text-xs">
+                    Tracer la signature
+                  </button>
+                  <FilePicker
+                    value={signatureFichier}
+                    onChange={setSignatureFichier}
+                    accept="image/*"
+                    label="Importer une image"
+                    aide="PNG à fond transparent de préférence"
+                    avecPhoto={false}
+                  />
+                </div>
+              )}
+
+              {(signatureTrace || signatureFichier) && (
+                <p className="mt-2 text-xs text-emerald-300">
+                  Nouvelle signature prête — enregistre le profil pour l&apos;appliquer.
+                </p>
+              )}
             </div>
           </div>
         </section>

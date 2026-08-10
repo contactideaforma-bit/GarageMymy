@@ -85,6 +85,30 @@ async function downscaleDataUrl(dataUrl: string, maxDim: number): Promise<string
   }
 }
 
+// SIGNATURE DU GARAGE (v7.6) : PNG stocké dans le bucket PRIVÉ 'prive'
+// (repli sur 'entreprise' pour d'éventuels anciens fichiers). Chargée une fois
+// par document et mémorisée le temps du rendu, puis superposée au tampon.
+let signatureGarage: string | null = null;
+
+async function chargerSignatureGarage(ent: Partial<Entreprise>): Promise<void> {
+  signatureGarage = null;
+  if (!ent.signature_path) return;
+  try {
+    let { data } = await supabase.storage.from("prive").download(ent.signature_path);
+    if (!data) ({ data } = await supabase.storage.from("entreprise").download(ent.signature_path));
+    if (!data) return;
+    const dataUrl = await new Promise<string | null>((resolve) => {
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result as string);
+      r.onerror = () => resolve(null);
+      r.readAsDataURL(data!);
+    });
+    if (dataUrl) signatureGarage = await downscaleDataUrl(dataUrl, 420);
+  } catch {
+    /* signature indisponible : le tampon est imprimé seul */
+  }
+}
+
 async function logoDataUrl(path: string | null | undefined): Promise<string | null> {
   if (!path) return null;
   try {
@@ -293,6 +317,19 @@ function drawTampon(pdf: jsPDF, ent: Partial<Entreprise>, x: number, y: number) 
     yy += 3.6;
   });
 
+  // SIGNATURE SUPERPOSÉE (v7.6) : posée par-dessus le cadre, comme une
+  // signature manuscrite apposée sur le tampon. Le PNG à fond transparent
+  // laisse voir le tampon en dessous.
+  if (signatureGarage) {
+    try {
+      const sw = w * 0.72;
+      const sh = h * 0.66;
+      pdf.addImage(signatureGarage, "PNG", x + (w - sw) / 2, y + h - sh - 1.5, sw, sh, undefined, "FAST");
+    } catch {
+      /* image illisible : le tampon reste seul */
+    }
+  }
+
   // Reset styles pour la suite du document
   pdf.setFont("helvetica", "normal");
   pdf.setTextColor(30);
@@ -472,6 +509,7 @@ async function buildDocumentPdf(
   modePaiement?: string | null
 ): Promise<jsPDF> {
   const ent = await getEntreprise();
+  await chargerSignatureGarage(ent);
   const logo = await logoDataUrl(ent.logo_path);
 
   const pdf = new jsPDF();
@@ -869,6 +907,7 @@ async function startAttestationPdf(
   date: string | null
 ): Promise<AttestationCtx> {
   const ent = await getEntreprise();
+  await chargerSignatureGarage(ent);
   const logo = await logoDataUrl(ent.logo_path);
 
   const pdf = new jsPDF();
@@ -1000,6 +1039,7 @@ export async function documentPdfBase64Auto(doc: Document, dossier: Dossier): Pr
 // RIB du garage (coordonnées bancaires du profil) en PDF, pour pièce jointe.
 export async function ribPdfBase64(): Promise<string> {
   const ent = await getEntreprise();
+  await chargerSignatureGarage(ent);
 
   // RIB OFFICIEL uploadé dans le Profil du garage → prioritaire sur le RIB
   // généré depuis IBAN/BIC (v26). Depuis la v33 il vit dans le bucket PRIVÉ
@@ -1135,6 +1175,7 @@ function lignesDepuisTravaux(travaux: string | null): {
 // signature, avec sauts de page propres (aucun bloc orphelin).
 async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): Promise<jsPDF> {
   const ent = await getEntreprise();
+  await chargerSignatureGarage(ent);
   const estVitrage = (await getMetierPdf()) === "vitrage";
   const titreDoc = estVitrage ? "ORDRE D'INTERVENTION" : "ORDRE DE RÉPARATION";
   const logo = await logoDataUrl(ent.logo_path);
