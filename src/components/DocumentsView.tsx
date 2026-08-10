@@ -5,7 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, DocumentLigne, DocumentType, Dossier } from "@/lib/types";
 import { formatEuros, formatDate } from "@/lib/format";
-import { badgeStatutDoc, labelStatutDoc, modeParDefaut } from "@/lib/documents";
+import { badgeStatutDoc, controlerRapport, labelStatutDoc, modeParDefaut } from "@/lib/documents";
 import { apercuDocumentPdf } from "@/lib/pdf";
 import ConfigBanner from "@/components/ConfigBanner";
 import ModePaiementModal from "@/components/ModePaiementModal";
@@ -219,6 +219,7 @@ export default function DocumentsView({ type }: { type: DocumentType }) {
         <ModePaiementModal
           defaut={modeParDefaut(pdfDoc, pdfDoc.dossier)}
           titre={`Générer la facture ${pdfDoc.numero || ""}`.trim()}
+          alerte={controlerRapport(Number(pdfDoc.total_ht) || 0, pdfDoc.dossier?.montant).message}
           onClose={() => setPdfDoc(null)}
           onValider={(mode) => genererFacturePdf(pdfDoc, mode)}
         />

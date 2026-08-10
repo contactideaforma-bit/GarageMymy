@@ -14,6 +14,7 @@ import {
   joursFacture,
   ligneVide,
   lignesToDb,
+  controlerRapport,
   montantRemiseLigne,
   sousTotal,
   syncIngredientsPeinture,
@@ -48,9 +49,9 @@ export default function DocumentEditor({
   const [acquitte, setAcquitte] = useState(Boolean(document?.acquitte));
   // Durée d'immobilisation imprimée en en-tête de facture : pré-remplie
   // depuis le planning du dossier, modifiable au cas par cas.
-  const [jours, setJours] = useState(
-    String(joursFacture(document, dossier) ?? "")
-  );
+  // Durée d'immobilisation : plus saisie (retirée de la facture en v7.5),
+  // mais la valeur déjà enregistrée est conservée telle quelle.
+  const jours = String(joursFacture(document, dossier) ?? "");
   const [items, setItems] = useState<LigneSaisie[]>(
     lignes && lignes.length
       ? lignes.map((l) => ({
@@ -66,6 +67,9 @@ export default function DocumentEditor({
   const [error, setError] = useState<string | null>(null);
 
   const totaux = computeTotaux(items, tva);
+  // Le net à payer doit correspondre au rapport d'expertise (montant HT retenu
+  // sur le dossier). Sinon : alerte — correction MANUELLE, jamais automatique.
+  const controle = controlerRapport(totaux.ht, dossier.montant);
   const remises = items.reduce((s, l) => s + montantRemiseLigne(l), 0);
   const groupes = groupeLignes(items);
 
@@ -272,7 +276,7 @@ export default function DocumentEditor({
         </div>
 
         <div className="px-6 py-5 space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
             <div>
               <label className="field-label">N° {titre.toLowerCase()}</label>
               <input className="field-input" value={numero} onChange={(e) => setNumero(e.target.value)} />
@@ -288,17 +292,6 @@ export default function DocumentEditor({
             <div>
               <label className="field-label">TVA (%)</label>
               <input type="number" className="field-input" value={tva} onChange={(e) => setTva(e.target.value)} />
-            </div>
-            <div>
-              <label className="field-label">Jours de répa.</label>
-              <input
-                type="number"
-                min="0"
-                className="field-input"
-                value={jours}
-                placeholder="auto"
-                onChange={(e) => setJours(e.target.value)}
-              />
             </div>
             <div>
               <label className="field-label">Statut</label>
@@ -366,6 +359,14 @@ export default function DocumentEditor({
               placeholder="Conditions, délais, mentions…"
             />
           </div>
+
+          {/* Alerte de cohérence avec le rapport d'expertise */}
+          {!controle.coherent && controle.message && (
+            <div className="rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
+              <span className="font-semibold">⚠ À vérifier — </span>
+              {controle.message}
+            </div>
+          )}
 
           {/* Totaux */}
           <div className="flex justify-end">

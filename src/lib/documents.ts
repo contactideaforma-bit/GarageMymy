@@ -20,17 +20,28 @@ export const CATEGORIES_LIGNE: Record<CategorieLigne, string> = {
 const RE_AUTRE =
   /(forfait|petites?\s+fournitures?|consommables?|frais|gestion|recyclage|d[ée]placement|remorquage|gardiennage|contr[ôo]le|calibrage|adas|g[ée]om[ée]trie|parall[ée]lisme|nettoyage|lustrage|location|v[ée]hicule\s+de\s+(pr[êe]t|remplacement)|mise\s+[àa]\s+disposition|expertise|environnement)/;
 
-// Postes de main d'œuvre : T1 / T2 / T3, peinture et ses ingrédients
-const RE_T123 = /(^|[^a-z0-9])(mo\s*)?t\s*-?\s*[123]([^0-9]|$)/;
-const RE_MO = /main\s*d.?\s*(œ|oe)uvre|tolerie|t[ôo]lerie|m[ée]canique|d[ée]montage|remontage/;
+// TABLEAU DES POSTES — liste FERMÉE (v7.5, exigence du garage) :
+// UNIQUEMENT T1, T2, T3, Peinture et Ingrédients de peinture. Tout le reste
+// (main d'œuvre générique, tôlerie, forfaits…) part dans « Autres éléments ».
+const RE_T123 = /(^|[^a-z0-9])(mo\s*|main\s*d.?\s*(œ|oe)uvre\s*)?t\s*-?\s*[123]([^0-9]|$)/;
+const RE_INGREDIENTS = /ingr[ée]d/;
+// « Peinture » seule (ou « forfait peinture », « MO peinture ») — mais PAS
+// « baguette peinture » ni une pièce dont le libellé contient « peint ».
+const RE_PEINTURE = /(^|[^a-z])(mo\s*|forfait\s*|main\s*d.?\s*(œ|oe)uvre\s*)?peinture([^a-z]|$)/;
+
+export function estPosteMo(designation: string | null | undefined): boolean {
+  const d = (designation || "").trim().toLowerCase();
+  if (!d) return false;
+  return RE_T123.test(d) || RE_INGREDIENTS.test(d) || RE_PEINTURE.test(d);
+}
 
 export function categoriseLigne(designation: string | null | undefined): CategorieLigne {
   const d = (designation || "").trim().toLowerCase();
   if (!d) return "piece";
-  if (RE_T123.test(d)) return "mo";
-  if (/ingr[ée]d/.test(d)) return "mo";
-  if (/peinture/.test(d)) return "mo";
-  if (RE_MO.test(d)) return "mo";
+  if (estPosteMo(d)) return "mo";
+  if (/main\s*d.?\s*(œ|oe)uvre|t[ôo]lerie|tolerie|m[ée]canique|d[ée]montage|remontage/.test(d)) {
+    return "autre";
+  }
   if (RE_AUTRE.test(d)) return "autre";
   return "piece";
 }
@@ -72,12 +83,18 @@ export function categorieDe(l: LigneBase): CategorieLigne {
 
 // Répartit les lignes dans les 3 tableaux de la facture.
 export function groupeLignes<T extends LigneBase>(lignes: T[]) {
+  // Le tableau des postes est VERROUILLÉ sur T1/T2/T3/Peinture/Ingrédients :
+  // même si une ligne a été rangée à la main dans « mo », elle n'y reste que
+  // si son libellé correspond réellement à l'un de ces postes.
+  const estPoste = (l: LigneBase) => categorieDe(l) === "mo" && estPosteMo(l.designation);
   const pieces = lignes.filter((l) => categorieDe(l) === "piece");
   const mo = lignes
-    .filter((l) => categorieDe(l) === "mo")
+    .filter(estPoste)
     .slice()
     .sort((a, b) => rangPosteMo(a.designation) - rangPosteMo(b.designation));
-  const autres = lignes.filter((l) => categorieDe(l) === "autre");
+  const autres = lignes.filter(
+    (l) => categorieDe(l) === "autre" || (categorieDe(l) === "mo" && !estPosteMo(l.designation))
+  );
   return { pieces, mo, autres };
 }
 
@@ -125,6 +142,7 @@ export function computeTotaux(lignes: LigneBase[], tva: number | string | null) 
 export const MODES_REGLEMENT: Record<string, string> = {
   virement: "Virement bancaire",
   cheque: "Chèque",
+  caution: "Chèque de caution",
   cb: "Carte bancaire",
   especes: "Espèces",
   prelevement: "Prélèvement SEPA",
@@ -146,6 +164,47 @@ export function modeParDefaut(
   if (doc?.mode_paiement && MODES_REGLEMENT[doc.mode_paiement]) return doc.mode_paiement;
   if (dossier?.mode_cession || dossier?.mode_pec) return "assurance";
   return "virement";
+}
+
+/* ==================================================================
+ *  COHÉRENCE AVEC LE RAPPORT D'EXPERTISE (v7.5)
+ *  Le net à payer doit correspondre au rapport. Sinon on ALERTE : c'est
+ *  une saisie à reprendre à la main, jamais une correction automatique.
+ * ================================================================== */
+
+// Tolérance : 1 € (arrondis de l'expert d'une ligne à l'autre).
+export const TOLERANCE_RAPPORT = 1;
+
+export type ControleRapport = {
+  /** Montant HT retenu au rapport d'expertise (null si inconnu). */
+  montantRapport: number | null;
+  totalHt: number;
+  ecart: number;
+  coherent: boolean;
+  message: string | null;
+};
+
+export function controlerRapport(
+  totalHt: number,
+  montantRapport: number | null | undefined
+): ControleRapport {
+  const ref = Number(montantRapport);
+  if (!Number.isFinite(ref) || ref <= 0) {
+    return { montantRapport: null, totalHt, ecart: 0, coherent: true, message: null };
+  }
+  const ecart = round2(totalHt - ref);
+  const coherent = Math.abs(ecart) <= TOLERANCE_RAPPORT;
+  const euros = (n: number) =>
+    new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
+  return {
+    montantRapport: ref,
+    totalHt,
+    ecart,
+    coherent,
+    message: coherent
+      ? null
+      : `Incohérence avec le rapport d'expertise : la facture totalise ${euros(totalHt)} HT alors que le rapport retient ${euros(ref)} HT (écart de ${euros(Math.abs(ecart))} ${ecart > 0 ? "en trop" : "en moins"}). Vérifie les heures, les taux horaires et les pièces, puis corrige à la main.`,
+  };
 }
 
 /* ==================================================================

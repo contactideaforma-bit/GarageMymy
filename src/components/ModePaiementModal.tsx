@@ -13,11 +13,14 @@ import { MODES_REGLEMENT } from "@/lib/documents";
 export default function ModePaiementModal({
   defaut,
   titre = "Générer la facture",
+  alerte,
   onClose,
   onValider,
 }: {
   defaut: string;
   titre?: string;
+  /** Incohérence détectée avec le rapport d'expertise (v7.5). */
+  alerte?: string | null;
   onClose: () => void;
   onValider: (mode: string) => void | Promise<void>;
 }) {
@@ -26,6 +29,15 @@ export default function ModePaiementModal({
 
   return (
     <ModalShell title={titre} onClose={onClose}>
+      {alerte && (
+        <div className="rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
+          <span className="font-semibold">⚠ À vérifier — </span>
+          {alerte}
+          <span className="mt-1 block text-xs text-amber-100/70">
+            Tu peux générer quand même, mais la facture ne correspondra pas au rapport.
+          </span>
+        </div>
+      )}
       <div>
         <label className="field-label">Mode de paiement affiché sur la facture</label>
         <select className="field-input" value={mode} onChange={(e) => setMode(e.target.value)}>

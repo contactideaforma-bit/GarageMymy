@@ -30,7 +30,7 @@ import { archiverDossier } from "@/lib/archive";
 import { marquerFactureEnvoyee } from "@/lib/dossierSync";
 import { fichierBase64, ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime, messageErreur } from "@/lib/format";
-import { badgeStatutDoc, labelStatutDoc, modeParDefaut } from "@/lib/documents";
+import { badgeStatutDoc, controlerRapport, labelStatutDoc, modeParDefaut } from "@/lib/documents";
 import ModePaiementModal from "@/components/ModePaiementModal";
 import { apercuDocumentPdf, cessionPdfBase64, documentPdfBase64Auto, ordreReparationPdfBase64, ribPdfBase64 } from "@/lib/pdf";
 import type { PieceJointeOption } from "@/components/EmailComposer";
@@ -834,6 +834,7 @@ export default function DossierDetailPage() {
         <ModePaiementModal
           defaut={modeParDefaut(pdfDoc, dossier)}
           titre={`Générer la facture ${pdfDoc.numero || ""}`.trim()}
+          alerte={controlerRapport(Number(pdfDoc.total_ht) || 0, dossier.montant).message}
           onClose={() => setPdfDoc(null)}
           onValider={(mode) => genererFacturePdf(pdfDoc, mode)}
         />

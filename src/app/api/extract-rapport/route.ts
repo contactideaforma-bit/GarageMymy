@@ -81,13 +81,20 @@ Extrais UNIQUEMENT le CHIFFRAGE (aucune information d'identité) et renvoie cet 
 - "montant" = total des réparations HT ; "tva" = taux en % (ex: 20), null si absent.
 - Chaque ligne est un TABLEAU de 5 valeurs, dans cet ordre exact :
   [designation:string, quantite:number, prix_unitaire:number, remise:number, categorie:"m"|"p"|"a"]
-  categorie : "m" = main d'œuvre / peinture / ingrédients, "p" = pièce, "a" = autre élément.
   Ce format court est OBLIGATOIRE (il divise par deux la longueur de ta réponse).
+- categorie "m" = LISTE FERMÉE : UNIQUEMENT T1, T2, T3, Peinture et Ingrédients de
+  peinture. Rien d'autre ne prend "m" — une main d'œuvre générique, de la tôlerie,
+  un forfait ou une prestation annexe prennent "a". Les pièces prennent "p".
 
-1. MAIN D'ŒUVRE ("m") : bloc "CONCLUSIONS" (souvent page 1), postes du type
+1. POSTES ("m") : bloc "CONCLUSIONS" (souvent page 1), tableau du type
    "Postes / Temps / Taux Hor. / Total HT" (T1, T2, T3, Peinture, Ingrédients (MV), Ingr.).
-   designation = nom du poste, quantite = nombre d'heures, prix_unitaire = taux horaire HT.
-   Si une ligne "Ingrédients" existe, sa quantite est IDENTIQUE à celle de "Peinture".
+   - quantite = le NOMBRE D'HEURES EXACT lu dans la colonne "Temps" ;
+   - prix_unitaire = le TAUX HORAIRE EXACT lu dans la colonne "Taux Hor." ;
+   - RECOPIE ces deux nombres tels quels, ne les recalcule JAMAIS depuis le total.
+   - "Ingrédients (de peinture)" : sa quantite est TOUJOURS identique à celle de
+     "Peinture", MAIS son TAUX HORAIRE EST DIFFÉRENT — reprends celui du rapport,
+     ne recopie pas le taux de la peinture.
+   - Vérifie poste par poste : quantite × prix_unitaire = Total HT de la ligne.
 2. PIÈCES ("p") — EXHAUSTIVITÉ OBLIGATOIRE : tableau "LISTE DES PIECES" (souvent sur une
    page suivante, colonnes Qté ! Libellé ! Réf. Constr. ! Opé. ! Mnt HT ! %Vét. ! %Rem. ! TVA,
    séparées par des "!"). Extrais TOUTES les lignes, sans AUCUNE exception :
@@ -103,7 +110,11 @@ Extrais UNIQUEMENT le CHIFFRAGE (aucune information d'identité) et renvoie cet 
    le détail existe, n'extrais QUE le détail. Sans détail : ["Pièces selon rapport d'expertise",1,montant_pieces,0,"p"].
 5. VÉRIFICATIONS avant de répondre :
    a) autant de lignes de pièces que dans le tableau du rapport ;
-   b) somme des (quantite × prix_unitaire × (1 − remise/100)) = TOTAL HT du rapport à ±1 € près.
+   b) somme des (quantite × prix_unitaire × (1 − remise/100)) = TOTAL HT du rapport
+      à ±1 € près. C'est la vérification LA PLUS IMPORTANTE : le total facturé doit
+      correspondre au rapport. Si l'écart dépasse 1 €, reprends la lecture des heures,
+      des taux horaires et des montants de pièces avant de répondre.
+   c) chaque poste "m" est bien l'un de : T1, T2, T3, Peinture, Ingrédients.
 6. Si le rapport ne donne qu'un montant global : [["Réparations selon rapport d'expertise",1,montant_global,0,"p"]].
    Si aucun montant : "l":[].
 

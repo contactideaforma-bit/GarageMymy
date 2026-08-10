@@ -4,7 +4,6 @@ import { CessionCreance, Document, DocumentLigne, Dossier, Entreprise, OrdreRepa
 import {
   computeTotaux,
   groupeLignes,
-  joursFacture,
   labelModeReglement,
   montantRemiseLigne,
   sousTotal,
@@ -360,6 +359,30 @@ function nombre(n: number): string {
     .replace(/[  ]/g, " ");
 }
 
+// Coupe les mots plus larges que la colonne (VIN, email, référence sans
+// espace) : sans ça, `splitTextToSize` les laisse déborder et le texte
+// chevauche la colonne voisine.
+function couperMotsLongs(pdf: jsPDF, texte: string, largeur: number): string {
+  return texte
+    .split(" ")
+    .map((mot) => {
+      if (pdf.getTextWidth(mot) <= largeur) return mot;
+      let bout = "";
+      const morceaux: string[] = [];
+      for (const c of mot) {
+        if (pdf.getTextWidth(bout + c) > largeur) {
+          morceaux.push(bout);
+          bout = c;
+        } else {
+          bout += c;
+        }
+      }
+      if (bout) morceaux.push(bout);
+      return morceaux.join(" ");
+    })
+    .join(" ");
+}
+
 // Bloc d'informations en colonnes, encadré (lisibilité de l'en-tête).
 // Renvoie le y de fin du bloc.
 function drawColonnes(
@@ -373,11 +396,15 @@ function drawColonnes(
   const pad = 4;
   const gap = 4;
   const colW = (w - pad * 2 - gap * (cols.length - 1)) / cols.length;
+  // La mesure du texte dépend de la police courante : on la fixe AVANT de
+  // découper, sinon les largeurs calculées ne correspondent pas au rendu.
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
   const contenu = cols.map((c) => ({
     titre: c.titre,
     lignes: c.lignes
       .filter(Boolean)
-      .flatMap((l) => pdf.splitTextToSize(l, colW) as string[]),
+      .flatMap((l) => pdf.splitTextToSize(couperMotsLongs(pdf, l, colW), colW) as string[]),
   }));
   const maxLignes = Math.max(1, ...contenu.map((c) => c.lignes.length));
   const h = 10.5 + (maxLignes - 1) * 3.9 + 4;
@@ -495,7 +522,6 @@ async function buildDocumentPdf(
   }
 
   // ---------- Bandeaux d'informations ----------
-  const jours = joursFacture(doc, dossier);
   ty = drawColonnes(pdf, M, ty - 4, W, [
     {
       titre: estFacture ? "Facturé à" : "Client",
@@ -528,20 +554,20 @@ async function buildDocumentPdf(
     },
   ], accent) + 4;
 
+  // v7.5 : plus de bandeau « Réparation » (dates d'entrée/sortie et durée
+  // d'immobilisation retirés à la demande du garage).
   ty = drawColonnes(pdf, M, ty, W, [
     {
       titre: "Expertise",
       lignes: [
         `Cabinet : ${dossier.cabinet_expert || "—"}`,
         dossier.expert_nom ? `Expert : ${dossier.expert_nom}` : "",
-        `Date d'expertise : ${dateFr(dossier.date_expertise)}`,
       ],
     },
     {
-      titre: "Réparation",
+      titre: "Références",
       lignes: [
-        `Entrée : ${dateFr(dossier.reparation_debut)}   ·   Sortie : ${dateFr(dossier.reparation_fin)}`,
-        `Durée d'immobilisation : ${jours != null ? `${jours} jour${jours > 1 ? "s" : ""}` : "—"}`,
+        `Date d'expertise : ${dateFr(dossier.date_expertise)}`,
         dossier.reparateur ? `Réparateur : ${dossier.reparateur}` : "",
       ],
     },
@@ -760,9 +786,7 @@ async function buildDocumentPdf(
   // du CGI si la facture est établie sans TVA (franchise en base).
   const mentionsObligatoires = estFacture
     ? [
-        jours != null
-          ? `Prestation exécutée du ${dateFr(dossier.reparation_debut)} au ${dateFr(dossier.reparation_fin)} (${jours} jour${jours > 1 ? "s" : ""} d'immobilisation), conformément au rapport d'expertise${dossier.cabinet_expert ? ` du cabinet ${dossier.cabinet_expert}` : ""}.`
-          : "Travaux exécutés conformément au rapport d'expertise et à l'ordre de réparation signé par le client.",
+        `Travaux exécutés conformément au rapport d'expertise${dossier.cabinet_expert ? ` du cabinet ${dossier.cabinet_expert}` : ""} et à l'ordre de réparation signé par le client.`,
         `Échéance de paiement : ${doc.date_echeance ? dateFr(doc.date_echeance) : "à réception de la facture"} — mode de règlement : ${labelModeReglement(mode)}.`,
         tauxTva === 0 ? "TVA non applicable, art. 293 B du CGI." : "",
         "En cas de retard de paiement : pénalités exigibles au taux de trois fois le taux d'intérêt légal (art. L441-10 C. com.) et, pour les clients professionnels, indemnité forfaitaire de recouvrement de 40 € (art. D441-5 C. com.).",
@@ -791,10 +815,11 @@ async function buildDocumentPdf(
     ty += 5 + lignesNotes.length * 4.2 + 6;
   }
 
-  // ---------- Tampon du garage (TOUJOURS en fin de document) + signature ----------
+  // ---------- Tampon du garage + signature ----------
+  // v7.5 : le tampon suit IMMÉDIATEMENT les mentions de fin. Il était épinglé
+  // en bas de page, ce qui laissait un grand vide au milieu de la facture.
   reserver(TAMPON_H + 20);
-  // Épinglé en bas de la dernière page : le tampon clôt visuellement la facture.
-  const yFin = Math.max(ty + 2, pageH - BAS - TAMPON_H - 4);
+  const yFin = ty + 4;
   drawTampon(pdf, ent, M, yFin);
 
   if (doc.signature) {
