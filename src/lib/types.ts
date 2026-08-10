@@ -65,6 +65,9 @@ export type Dossier = {
   // Distinct de la cession de créance (pas de créance cédée par le client).
   mode_pec?: boolean | null;
   pec_reference?: string | null; // référence / n° de l'accord (optionnel)
+  // Note libre du dossier (bouton rond en bas à droite de la fiche) — v7.2
+  note?: string | null;
+  note_maj?: string | null;
   // Archivé : contenu téléchargé en ZIP puis purgé du serveur (trace seule)
   archive?: boolean | null;
   archive_le?: string | null;

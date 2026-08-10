@@ -45,6 +45,7 @@ import EmailComposer from "@/components/EmailComposer";
 import ConfigBanner from "@/components/ConfigBanner";
 import Accordeon from "@/components/Accordeon";
 import ParticularitesPanel from "@/components/ParticularitesPanel";
+import NoteDossier from "@/components/NoteDossier";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
 import { labelTypeVitrage, labelNatureIntervention } from "@/lib/vitrage";
@@ -826,6 +827,9 @@ export default function DossierDetailPage() {
       {showEdit && (
         <DossierForm dossier={dossier} onClose={() => setShowEdit(false)} onSaved={load} />
       )}
+      {/* Note libre du dossier : bouton rond en bas à droite (v7.2) */}
+      <NoteDossier dossierId={dossier.id} noteInitiale={dossier.note} />
+
       {pdfDoc && (
         <ModePaiementModal
           defaut={modeParDefaut(pdfDoc, dossier)}

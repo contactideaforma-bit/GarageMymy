@@ -33,6 +33,7 @@ import StatCard from "@/components/StatCard";
 import StatutBadge from "@/components/StatutBadge";
 import ProgressionDossier from "@/components/ProgressionDossier";
 import GuideProcedure from "@/components/GuideProcedure";
+import Ardoise from "@/components/Ardoise";
 import ConfigBanner from "@/components/ConfigBanner";
 
 export default function DashboardPage() {
@@ -282,6 +283,9 @@ export default function DashboardPage() {
           />
         </Link>
       </div>
+
+      {/* Ardoise : le pense-bête libre du garage (v7.2) */}
+      <Ardoise />
 
       {/* À faire aujourd'hui : guidage automatique selon le processus.
           Chaque ligne se coche pour être considérée comme faite (v35). */}
