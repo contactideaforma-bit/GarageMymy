@@ -263,6 +263,14 @@ html.light .text-white\/45 { color: rgba(36,31,61,0.5); }
 html.light .text-white\/40 { color: rgba(36,31,61,0.46); }
 html.light .text-white\/35 { color: rgba(36,31,61,0.42); }
 html.light .text-white\/30 { color: rgba(36,31,61,0.38); }
+/* Nuances complémentaires (v7.2) : sans elles, un texte en text-white/85 ou
+   /55 restait BLANC sur le thème clair — donc invisible (cas de l'ardoise). */
+html.light .text-white\/85 { color: rgba(36,31,61,0.86); }
+html.light .text-white\/75 { color: rgba(36,31,61,0.76); }
+html.light .text-white\/65 { color: rgba(36,31,61,0.66); }
+html.light .text-white\/55 { color: rgba(36,31,61,0.58); }
+html.light .text-white\/25 { color: rgba(36,31,61,0.34); }
+html.light .text-white\/20 { color: rgba(36,31,61,0.3); }
 
 /* Bordures blanches -> sombres */
 html.light .border-white\/15 { border-color: rgba(36,31,61,0.16); }
