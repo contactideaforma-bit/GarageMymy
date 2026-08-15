@@ -39,6 +39,43 @@ function cabinetExpert(d: Dossier): string {
   return (d.cabinet_expert || "").trim();
 }
 
+// Un dossier porte-t-il une note (le pense-bête de la fiche dossier) ?
+function aUneNote(d: Dossier): boolean {
+  return Boolean((d.note || "").trim());
+}
+
+// Pastille discrète signalant qu'une note existe — son infobulle en donne
+// le début, pour savoir s'il faut ouvrir le dossier sans avoir à cliquer.
+function PastilleNote({ note }: { note?: string | null }) {
+  const apercu = (note || "").trim().replace(/\s+/g, " ").slice(0, 140);
+  return (
+    <span
+      title={`Note du dossier : ${apercu}${(note || "").trim().length > 140 ? "…" : ""}`}
+      aria-label="Ce dossier contient une note"
+      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-400/25 text-[9px] leading-none text-amber-200 ring-1 ring-amber-300/40"
+    >
+      ✎
+    </span>
+  );
+}
+
+// Filtre appliqué, retirable d'un clic (barre de recherche compacte).
+function PastilleFiltre({ label, onRetirer }: { label: string; onRetirer: () => void }) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1 rounded-full bg-white/10 py-0.5 pl-2.5 pr-1.5 text-[11px] text-white/75">
+      <span className="truncate">{label}</span>
+      <button
+        onClick={onRetirer}
+        className="text-white/40 hover:text-rose-300"
+        title="Retirer ce filtre"
+        aria-label={`Retirer le filtre ${label}`}
+      >
+        ×
+      </button>
+    </span>
+  );
+}
+
 // Clés de tri disponibles (colonnes cliquables).
 type CleTri =
   | "created_at"
@@ -154,6 +191,11 @@ export default function SinistresPage() {
   const [liens, setLiens] = useState<{ dossier_id: string; particularite_id: string }[]>([]);
   const [filtrePart, setFiltrePart] = useState<string>("");
   const [tri, setTri] = useState<Tri>({ cle: "created_at", sens: "desc" });
+  // Panneau de filtres REPLIÉ par défaut (v7.8) : au-dessus de la liste, cinq
+  // grands champs côte à côte mangeaient la moitié de l'écran. Ce qui reste
+  // toujours visible : la recherche, le tri, et des pastilles rappelant les
+  // filtres actifs.
+  const [filtresOuverts, setFiltresOuverts] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -305,6 +347,10 @@ export default function SinistresPage() {
   const enCours = visibles.filter((d) => estActif(d.statut)).length;
 
   const filtresActifs = !!(term || filtreStatut || filtreExpert || filtrePart || du || au);
+  // Nombre de filtres repliés actifs (la recherche, elle, reste visible).
+  const nbFiltres =
+    (filtreStatut ? 1 : 0) + (filtreExpert ? 1 : 0) + (filtrePart ? 1 : 0) + (du || au ? 1 : 0);
+  const nomParticularite = catalogue.find((p) => p.id === filtrePart)?.nom || "";
   function reinitialiser() {
     setQ("");
     setFiltreStatut("");
@@ -407,53 +453,36 @@ export default function SinistresPage() {
         </div>
       </div>
 
-      {/* Recherche + organisation (filtres et tri) */}
-      <div className="mb-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+      {/* ---------- Barre de recherche COMPACTE (v7.8) ----------
+           Une seule ligne : recherche + « Filtres » repliable + tri. Les
+           filtres actifs restent visibles sous forme de pastilles, chacune
+           retirable d'un clic. */}
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <input
-          className="field-input col-span-2 sm:max-w-xs sm:flex-1 sm:min-w-[12rem]"
-          placeholder="Rechercher (client, véhicule, n° sinistre, assureur, expert…)"
+          className="field-input field-compact min-w-[10rem] flex-1 sm:max-w-sm"
+          placeholder="Rechercher un dossier…"
+          title="Rechercher par client, véhicule, immatriculation, n° de sinistre, assureur ou cabinet d'expert"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <select
-          className="field-input w-full sm:w-auto"
-          value={filtreStatut}
-          onChange={(e) => setFiltreStatut(e.target.value)}
-          title="Filtrer par statut"
+
+        <button
+          onClick={() => setFiltresOuverts((v) => !v)}
+          className="btn-ghost btn-compact inline-flex items-center gap-1.5 whitespace-nowrap"
+          title="Filtrer par statut, cabinet, particularité ou période"
+          aria-expanded={filtresOuverts}
         >
-          <option value="">Tous les statuts</option>
-          {statutsPresents.map((s) => (
-            <option key={s} value={s}>
-              {libelleStatut(s, metier)}
-            </option>
-          ))}
-        </select>
+          Filtres
+          {nbFiltres > 0 && (
+            <span className="rounded-full bg-accent-teal/25 px-1.5 text-[10px] font-bold text-accent-teal">
+              {nbFiltres}
+            </span>
+          )}
+          <span className="text-[10px] text-white/40">{filtresOuverts ? "▲" : "▼"}</span>
+        </button>
+
         <select
-          className="field-input w-full sm:w-auto"
-          value={filtreExpert}
-          onChange={(e) => setFiltreExpert(e.target.value)}
-          title="Filtrer par cabinet d'expert"
-        >
-          <option value="">Tous les cabinets d&apos;expert</option>
-          {expertsPresents.map((e) => (
-            <option key={e} value={e}>
-              {e}
-            </option>
-          ))}
-        </select>
-        <select
-          className="field-input w-full sm:w-auto"
-          value={filtrePart}
-          onChange={(e) => setFiltrePart(e.target.value)}
-          title="Filtrer par particularité (courtier, agrément…)"
-        >
-          <option value="">Toutes les particularités</option>
-          {catalogue.map((p) => (
-            <option key={p.id} value={p.id}>{p.nom}</option>
-          ))}
-        </select>
-        <select
-          className="field-input w-full sm:w-auto"
+          className="field-input field-compact w-auto max-w-[13rem]"
           value={`${tri.cle}:${tri.sens}`}
           onChange={(e) => {
             const [cle, sens] = e.target.value.split(":") as [CleTri, "asc" | "desc"];
@@ -479,45 +508,111 @@ export default function SinistresPage() {
           <option value="montant:desc">Montant HT (décroissant)</option>
           <option value="client_nom:asc">Client (A → Z)</option>
         </select>
+
         {filtresActifs && (
-          <button onClick={reinitialiser} className="btn-ghost col-span-2 text-sm sm:col-span-1">
-            Réinitialiser
+          <button
+            onClick={reinitialiser}
+            className="text-xs text-white/45 underline-offset-2 hover:text-white hover:underline"
+          >
+            Tout effacer
           </button>
         )}
       </div>
 
-      {/* Période : du … au …, sur la date du sinistre ou la date d'ajout.
-          Chaque champ est étiqueté : lisible et aligné, y compris sur mobile. */}
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end sm:gap-3">
-        <div className="col-span-2 sm:w-auto">
-          <label className="field-label text-[11px]">Période</label>
-          <select
-            className="field-input w-full sm:w-auto"
-            value={champDate}
-            onChange={(e) => setChampDate(e.target.value as "date_sinistre" | "created_at")}
-            title="Sur quelle date porte la période"
-          >
-            <option value="date_sinistre">sur la date du sinistre</option>
-            <option value="created_at">sur la date d&apos;ajout</option>
-          </select>
+      {/* Pastilles des filtres actifs — on voit ce qui est appliqué même
+          quand le panneau est replié, et on le retire d'un clic. */}
+      {nbFiltres > 0 && !filtresOuverts && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {filtreStatut && (
+            <PastilleFiltre label={libelleStatut(filtreStatut, metier)} onRetirer={() => setFiltreStatut("")} />
+          )}
+          {filtreExpert && <PastilleFiltre label={filtreExpert} onRetirer={() => setFiltreExpert("")} />}
+          {filtrePart && <PastilleFiltre label={nomParticularite} onRetirer={() => setFiltrePart("")} />}
+          {(du || au) && (
+            <PastilleFiltre
+              label={`${champDate === "created_at" ? "Ajout" : "Sinistre"} ${du ? `du ${du}` : ""}${au ? ` au ${au}` : ""}`}
+              onRetirer={() => { setDu(""); setAu(""); }}
+            />
+          )}
         </div>
-        <div>
-          <label className="field-label text-[11px]">Du</label>
-          <input type="date" className="field-input w-full" value={du} onChange={(e) => setDu(e.target.value)} />
+      )}
+
+      {/* Panneau des filtres (replié par défaut) */}
+      {filtresOuverts && (
+        <div className="glass-soft mb-3 grid grid-cols-1 gap-2 rounded-xl p-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div>
+            <label className="field-label text-[11px]">Statut</label>
+            <select
+              className="field-input field-compact"
+              value={filtreStatut}
+              onChange={(e) => setFiltreStatut(e.target.value)}
+            >
+              <option value="">Tous les statuts</option>
+              {statutsPresents.map((st) => (
+                <option key={st} value={st}>{libelleStatut(st, metier)}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="field-label text-[11px]">Cabinet d&apos;expert</label>
+            <select
+              className="field-input field-compact"
+              value={filtreExpert}
+              onChange={(e) => setFiltreExpert(e.target.value)}
+            >
+              <option value="">Tous les cabinets</option>
+              {expertsPresents.map((e) => (
+                <option key={e} value={e}>{e}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="field-label text-[11px]">Particularité</label>
+            <select
+              className="field-input field-compact"
+              value={filtrePart}
+              onChange={(e) => setFiltrePart(e.target.value)}
+            >
+              <option value="">Toutes</option>
+              {catalogue.map((p) => (
+                <option key={p.id} value={p.id}>{p.nom}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="field-label text-[11px]">Période</label>
+            <select
+              className="field-input field-compact"
+              value={champDate}
+              onChange={(e) => setChampDate(e.target.value as "date_sinistre" | "created_at")}
+              title="Sur quelle date porte la période"
+            >
+              <option value="date_sinistre">sur la date du sinistre</option>
+              <option value="created_at">sur la date d&apos;ajout</option>
+            </select>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <input
+                type="date"
+                className="field-input field-compact"
+                value={du}
+                onChange={(e) => setDu(e.target.value)}
+                title="Du"
+              />
+              <span className="text-[11px] text-white/35">au</span>
+              <input
+                type="date"
+                className="field-input field-compact"
+                value={au}
+                onChange={(e) => setAu(e.target.value)}
+                title="Au"
+              />
+            </div>
+          </div>
         </div>
-        <div>
-          <label className="field-label text-[11px]">Au</label>
-          <input type="date" className="field-input w-full" value={au} onChange={(e) => setAu(e.target.value)} />
-        </div>
-        {(du || au) && (
-          <button
-            onClick={() => { setDu(""); setAu(""); }}
-            className="col-span-2 pb-2 text-left text-xs text-white/45 hover:text-white hover:underline sm:col-span-1"
-          >
-            effacer la période
-          </button>
-        )}
-      </div>
+      )}
 
       {/* ---------- MOBILE : une carte par dossier (le tableau débordait) ---------- */}
       <div className="space-y-2 sm:hidden">
@@ -555,6 +650,7 @@ export default function SinistresPage() {
 
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <StatutBadge statut={d.statut} />
+              {aUneNote(d) && <PastilleNote note={d.note} />}
               {d.mode_cession && (
                 <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
                   Cession
@@ -633,8 +729,12 @@ export default function SinistresPage() {
                   </div>
                 </td>
                 <td className="cellule">
-                  <div className="truncate text-white/80" title={d.client_nom || ""}>
-                    {d.client_nom || "—"}
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-white/80" title={d.client_nom || ""}>
+                      {d.client_nom || "—"}
+                    </span>
+                    {/* Pastille « note » : ce dossier contient un pense-bête */}
+                    {aUneNote(d) && <PastilleNote note={d.note} />}
                   </div>
                   {(partsParDossier[d.id] || []).length > 0 && (
                     <div className="mt-0.5 flex flex-wrap gap-1">

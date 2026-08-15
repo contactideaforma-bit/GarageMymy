@@ -125,6 +125,21 @@ input[type="time"] {
   }
   .btn-danger:active { transform: translateY(4px); box-shadow: 0 0 0 #881337; }
 
+  /* Variante COMPACTE (v7.8) : barres de recherche et de filtres.
+     Les boutons/champs pleine taille mangeaient la moitié de l'écran au-dessus
+     de la liste des sinistres — ici on garde le style, en plus discret. */
+  .btn-compact {
+    @apply rounded-md px-3 py-1.5 text-xs font-semibold normal-case tracking-normal;
+    border-width: 1px;
+    box-shadow: 0 2px 0 #453c74;
+  }
+  .btn-compact:active { transform: translateY(2px); box-shadow: 0 0 0 #453c74; }
+
+  .field-compact {
+    @apply rounded-md px-2.5 py-1.5 text-xs;
+    border-width: 1px;
+  }
+
   /* Formulaires : champs nets, focus très visible */
   .field-label {
     @apply block text-sm font-semibold text-white/70 mb-1;

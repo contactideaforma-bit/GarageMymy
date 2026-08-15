@@ -447,22 +447,48 @@ export default function DossierDetailPage() {
       {/* En-tête */}
       <div>
         <Link href="/sinistres" className="text-sm text-accent-pink hover:underline">← {t.dossiers}</Link>
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <h1 className="titre-page">
-              Dossier {dossier.numero_sinistre || "sans numéro"}
-            </h1>
-            <StatutBadge statut={dossier.statut} />
-            {dossier.mode_cession && (
-              <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-teal-100 text-teal-700">
-                CESSION DE CRÉANCE
-              </span>
-            )}
-            {dossier.mode_pec && (
-              <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-violet-100 text-violet-700">
-                PRISE EN CHARGE
-              </span>
-            )}
+        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="titre-page">
+                Dossier {dossier.numero_sinistre || "sans numéro"}
+              </h1>
+              <StatutBadge statut={dossier.statut} />
+              {dossier.mode_cession && (
+                <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-teal-100 text-teal-700">
+                  CESSION DE CRÉANCE
+                </span>
+              )}
+              {dossier.mode_pec && (
+                <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-violet-100 text-violet-700">
+                  PRISE EN CHARGE
+                </span>
+              )}
+            </div>
+
+            {/* Carte d'identité du dossier (v7.8) : un numéro seul ne dit rien —
+                on rappelle tout de suite DE QUEL véhicule et DE QUI il s'agit. */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+              {dossier.marque_modele && (
+                <span className="font-medium text-white/85">{dossier.marque_modele}</span>
+              )}
+              {dossier.immatriculation && (
+                <span className="rounded border border-white/25 bg-white/10 px-1.5 py-0.5 font-mono text-xs uppercase tracking-wider text-white/85">
+                  {dossier.immatriculation}
+                </span>
+              )}
+              {dossier.client_nom && (
+                <>
+                  {(dossier.marque_modele || dossier.immatriculation) && (
+                    <span className="text-white/25">·</span>
+                  )}
+                  <span className="text-white/70">{dossier.client_nom}</span>
+                </>
+              )}
+              {!dossier.marque_modele && !dossier.immatriculation && !dossier.client_nom && (
+                <span className="text-white/35">Véhicule et client à renseigner</span>
+              )}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {(dossier.statut === "paye" || dossier.statut === "cloture") && !dossier.archive && (
