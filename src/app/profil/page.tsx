@@ -9,6 +9,7 @@ import FilePicker from "@/components/FilePicker";
 import MailSettings from "@/components/MailSettings";
 import CompteSettings from "@/components/CompteSettings";
 import ConsommationIA from "@/components/ConsommationIA";
+import MemoireIA from "@/components/MemoireIA";
 import { useMetier } from "@/components/MetierProvider";
 import { METIER_INFOS } from "@/lib/metier";
 import { MODELES_PDF, COULEURS_PDF, MODELE_PDF_DEFAUT, COULEUR_PDF_DEFAUT } from "@/lib/pdfTheme";
@@ -487,6 +488,14 @@ export default function ProfilPage() {
       <div className="glass-card p-6 mt-6">
         <h2 className="text-sm font-semibold text-accent-pink mb-3">Assistant IA — consommation</h2>
         <ConsommationIA />
+      </div>
+
+      <div className="glass-card p-6 mt-6">
+        <h2 className="text-sm font-semibold text-accent-pink mb-1">Mémoire de l&apos;analyse</h2>
+        <p className="mb-3 text-xs text-white/40">
+          Ce que l&apos;analyse des rapports a appris de tes corrections.
+        </p>
+        <MemoireIA />
       </div>
 
       <div className="glass-card p-6 mt-6">

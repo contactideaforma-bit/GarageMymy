@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, DocumentLigne, DocumentType, Dossier } from "@/lib/types";
 import {
@@ -21,6 +21,8 @@ import {
   totalLigne,
 } from "@/lib/documents";
 import { formatEuros, messageErreur, ymd } from "@/lib/format";
+import { detecterCorrections, type LigneComparable } from "@/lib/apprentissage";
+import { apprendreDesCorrections } from "@/lib/apprentissageDb";
 
 export default function DocumentEditor({
   dossier,
@@ -65,6 +67,24 @@ export default function DocumentEditor({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // MÉMOIRE DE L'ANALYSE (v7.7) : photo des lignes À L'OUVERTURE. À
+  // l'enregistrement, l'écart avec ce qu'on a sous les yeux, c'est exactement
+  // ce que le garage a corrigé — donc ce que l'analyse doit apprendre.
+  const comparable = (l: LigneSaisie): LigneComparable => ({
+    designation: (l.designation || "").trim(),
+    quantite: Number(l.quantite) || 0,
+    prix_unitaire: Number(l.prix_unitaire) || 0,
+    categorie: l.categorie,
+  });
+  const avantRef = useRef<LigneComparable[]>(
+    (lignes || []).map((l) => ({
+      designation: (l.designation || "").trim(),
+      quantite: Number(l.quantite) || 0,
+      prix_unitaire: Number(l.prix_unitaire) || 0,
+      categorie: categorieDe(l),
+    }))
+  );
 
   const totaux = computeTotaux(items, tva);
   // Le net à payer doit correspondre au rapport d'expertise (montant HT retenu
@@ -147,6 +167,18 @@ export default function DocumentEditor({
         }
         const { error: e3 } = await del;
         if (e3) throw e3;
+      }
+
+      // APPRENTISSAGE : on n'observe que la MODIFICATION d'un document
+      // existant (une création part d'une page blanche : rien à comparer).
+      // Jamais bloquant — apprendreDesCorrections avale ses erreurs.
+      if (isEdit && avantRef.current.length > 0) {
+        const apres = items.filter((l) => l.designation.trim() !== "").map(comparable);
+        const corrections = detecterCorrections(avantRef.current, apres);
+        if (corrections.length > 0) {
+          await apprendreDesCorrections(dossier.id, docId ?? null, corrections);
+          avantRef.current = apres;
+        }
       }
 
       onSaved();
@@ -308,6 +340,13 @@ export default function DocumentEditor({
           <p className="text-[11px] text-white/40 -mt-2">
             Le mode de paiement imprimé sur le PDF est choisi au moment de générer le document.
             Les ingrédients de peinture reprennent automatiquement le temps de la ligne « Peinture ».
+            {isEdit && (
+              <>
+                {" "}Tes corrections (libellé, tableau, taux horaire, ligne retirée) nourrissent la
+                mémoire de l&apos;analyse : répétées deux fois, elles seront appliquées d&apos;office
+                aux prochains rapports. Tu les retrouves dans Profil → Mémoire de l&apos;analyse.
+              </>
+            )}
           </p>
 
           {/* Les 3 tableaux de la facture */}

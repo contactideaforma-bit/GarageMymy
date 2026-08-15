@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier } from "@/lib/types";
 import { formatDate, formatEuros } from "@/lib/format";
+import { montantTtc } from "@/lib/tva";
 import ConfigBanner from "@/components/ConfigBanner";
 
 /**
@@ -62,7 +63,7 @@ export default function ArchivesPage() {
               <th className="px-4 py-3 font-medium">Client</th>
               <th className="px-4 py-3 font-medium hidden md:table-cell">Véhicule</th>
               <th className="px-4 py-3 font-medium">Immatriculation</th>
-              <th className="px-4 py-3 font-medium text-right">Montant HT</th>
+              <th className="px-4 py-3 font-medium text-right">Montant HT / TTC</th>
               <th className="px-4 py-3 font-medium">Archivé le</th>
             </tr>
           </thead>
@@ -83,7 +84,10 @@ export default function ArchivesPage() {
                 <td className="px-4 py-3 text-white/80">{d.client_nom || "—"}</td>
                 <td className="px-4 py-3 text-white/80 hidden md:table-cell">{d.marque_modele || "—"}</td>
                 <td className="px-4 py-3 text-white/80 whitespace-nowrap">{d.immatriculation || "—"}</td>
-                <td className="px-4 py-3 text-right text-white/90 whitespace-nowrap">{formatEuros(d.montant)}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                  <div className="text-white/90">{formatEuros(d.montant)}</div>
+                  <div className="text-[11px] text-accent-teal">{formatEuros(montantTtc(d))} TTC</div>
+                </td>
                 <td className="px-4 py-3 text-white/70 whitespace-nowrap">{formatDate(d.archive_le)}</td>
               </tr>
             ))}

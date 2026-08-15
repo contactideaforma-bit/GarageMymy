@@ -79,9 +79,10 @@ export default function FinancePage() {
   );
 
   const kpi = useMemo(() => {
-    let facture = 0, encaisse = 0, reste = 0, retardMontant = 0, retardCount = 0;
+    let facture = 0, factureHt = 0, encaisse = 0, reste = 0, retardMontant = 0, retardCount = 0;
     for (const r of enrichies) {
       facture += Number(r.total_ttc) || 0;
+      factureHt += Number(r.total_ht) || 0;
       encaisse += r.paye;
       reste += r.reste;
       if (r.retard) {
@@ -89,7 +90,7 @@ export default function FinancePage() {
         retardCount += 1;
       }
     }
-    return { facture, encaisse, reste, retardMontant, retardCount };
+    return { facture, factureHt, encaisse, reste, retardMontant, retardCount };
   }, [enrichies]);
 
   const filtrees = enrichies.filter((r) => {
@@ -112,7 +113,12 @@ export default function FinancePage() {
       <ConfigBanner />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total facturé" value={formatEuros(kpi.facture)} hint="toutes factures · TTC" />
+        {/* Le HT est le chiffre du rapport, le TTC celui qui est réclamé. */}
+        <StatCard
+          label="Total facturé"
+          value={`${formatEuros(kpi.factureHt)} HT`}
+          hint={`${formatEuros(kpi.facture)} TTC · toutes factures`}
+        />
         <StatCard label="Encaissé" value={formatEuros(kpi.encaisse)} hint="TTC" />
         <StatCard label="Reste à encaisser" value={formatEuros(kpi.reste)} hint="TTC" />
         <StatCard
@@ -144,7 +150,7 @@ export default function FinancePage() {
               <th className="px-5 py-3 font-medium">Client</th>
               <th className="px-5 py-3 font-medium">Échéance</th>
               <th className="px-5 py-3 font-medium">Statut</th>
-              <th className="px-5 py-3 font-medium text-right">Total TTC</th>
+              <th className="px-5 py-3 font-medium text-right">Total HT / TTC</th>
               <th className="px-5 py-3 font-medium text-right">Encaissé</th>
               <th className="px-5 py-3 font-medium text-right">Reste</th>
               <th className="px-5 py-3 font-medium">Relances</th>
@@ -177,7 +183,10 @@ export default function FinancePage() {
                       </span>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-right text-white/90">{formatEuros(r.total_ttc)}</td>
+                  <td className="px-5 py-3 text-right tabular-nums">
+                    <div className="text-white/70 text-xs">{formatEuros(r.total_ht)} HT</div>
+                    <div className="text-white/90 font-medium">{formatEuros(r.total_ttc)} TTC</div>
+                  </td>
                   <td className="px-5 py-3 text-right text-emerald-300">{formatEuros(r.paye)}</td>
                   <td className={`px-5 py-3 text-right ${r.reste > 0 ? "text-amber-300" : "text-white/50"}`}>
                     {formatEuros(r.reste)}

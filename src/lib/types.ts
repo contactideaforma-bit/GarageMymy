@@ -2,7 +2,10 @@ export type Dossier = {
   id: string;
   created_at: string;
   statut: string;
+  /** Montant HT retenu au rapport d'expertise. */
   montant: number | null;
+  /** Taux de TVA du dossier, en % (v40) — sert à afficher aussi le TTC. */
+  tva?: number | null;
 
   // Véhicule
   immatriculation: string | null;
@@ -382,4 +385,41 @@ export type Email = {
   corps: string | null;
   statut: string;
   erreur: string | null;
+};
+
+/* ==================================================================
+ *  MÉMOIRE DE L'ANALYSE (v40) — « l'IA apprend » des corrections
+ *  du garage sur les devis / factures générés depuis un rapport.
+ * ================================================================== */
+
+export type TypeRegle =
+  | "libelle" // écrire « valeur » à la place de la désignation « cle »
+  | "categorie" // ranger « cle » dans le tableau « valeur » (piece|mo|autre)
+  | "taux" // taux horaire habituel de « cle » (indication pour l'IA)
+  | "ignorer" // ne pas extraire la ligne « cle »
+  | "consigne"; // consigne libre écrite par le garage
+
+export type IaRegle = {
+  id: string;
+  created_at: string;
+  updated_at?: string | null;
+  type: TypeRegle;
+  /** Désignation d'origine, normalisée (minuscules, sans accents). */
+  cle: string;
+  valeur: string;
+  source: "auto" | "manuel";
+  occurrences: number;
+  actif: boolean;
+  exemple: string | null;
+};
+
+export type IaCorrection = {
+  id: string;
+  created_at: string;
+  dossier_id: string | null;
+  document_id: string | null;
+  type: TypeRegle;
+  cle: string;
+  valeur: string;
+  exemple: string | null;
 };

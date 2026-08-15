@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { DelaiDepasse, avecDelai } from "@/lib/delai";
+import { appliquerRegles, blocRegles } from "@/lib/apprentissage";
+import { IaRegle } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -78,6 +80,15 @@ Extrais UNIQUEMENT le CHIFFRAGE (aucune information d'identité) et renvoie cet 
 
 {"montant":number|null,"tva":number|null,"l":[[designation,quantite,prix_unitaire,remise,categorie],...]}
 
+CE QUE TU PRODUIS DEVIENT UNE FACTURE, telle quelle, sans relecture ligne à ligne.
+La facture reprend le rapport en TROIS tableaux, et rien d'autre :
+  "p" → tableau 1 « Pièces, fournitures & prestations » (Désignation / Qté / PU HT / Remise / Total HT) ;
+  "m" → tableau 2 « Main d'œuvre & peinture », LISTE FERMÉE : T1, T2, T3, Peinture, Ingrédients de peinture ;
+  "a" → tableau 3 « Autres éléments retenus au rapport ».
+Une ligne oubliée, un taux recalculé « au jugé » ou une remise confondue avec une
+vétusté produisent une facture FAUSSE envoyée à l'assurance. Dans le doute :
+recopie le rapport, ne l'interprète pas, n'arrondis rien, n'invente aucune ligne.
+
 - "montant" = total des réparations HT ; "tva" = taux en % (ex: 20), null si absent.
 - Chaque ligne est un TABLEAU de 5 valeurs, dans cet ordre exact :
   [designation:string, quantite:number, prix_unitaire:number, remise:number, categorie:"m"|"p"|"a"]
@@ -108,13 +119,16 @@ Extrais UNIQUEMENT le CHIFFRAGE (aucune information d'identité) et renvoie cet 
    contrôle de géométrie, produits divers.
 4. NE COMPTE PAS DEUX FOIS LES PIÈCES : si les conclusions donnent un total "Pièces" ET que
    le détail existe, n'extrais QUE le détail. Sans détail : ["Pièces selon rapport d'expertise",1,montant_pieces,0,"p"].
-5. VÉRIFICATIONS avant de répondre :
+5. VÉRIFICATIONS avant de répondre — fais-les VRAIMENT, dans cet ordre :
    a) autant de lignes de pièces que dans le tableau du rapport ;
-   b) somme des (quantite × prix_unitaire × (1 − remise/100)) = TOTAL HT du rapport
+   b) poste par poste : quantite × prix_unitaire = le Total HT imprimé sur la ligne ;
+   c) somme des (quantite × prix_unitaire × (1 − remise/100)) = TOTAL HT du rapport
       à ±1 € près. C'est la vérification LA PLUS IMPORTANTE : le total facturé doit
-      correspondre au rapport. Si l'écart dépasse 1 €, reprends la lecture des heures,
-      des taux horaires et des montants de pièces avant de répondre.
-   c) chaque poste "m" est bien l'un de : T1, T2, T3, Peinture, Ingrédients.
+      correspondre au rapport. Si l'écart dépasse 1 €, NE RENDS PAS ta réponse :
+      reprends la lecture des heures, des taux horaires et des montants de pièces,
+      cherche la ligne oubliée ou le chiffre mal lu, corrige, puis recompte.
+   d) chaque poste "m" est bien l'un de : T1, T2, T3, Peinture, Ingrédients —
+      et il n'y a AUCUN doublon (une même pièce ne figure qu'une fois).
 6. Si le rapport ne donne qu'un montant global : [["Réparations selon rapport d'expertise",1,montant_global,0,"p"]].
    Si aucun montant : "l":[].
 
@@ -139,12 +153,20 @@ type Partie = "identite" | "chiffrage" | "complet";
 
 const CATEGORIES: Record<string, string> = { m: "mo", p: "piece", a: "autre" };
 
+type LigneExtraite = {
+  designation: string;
+  quantite: number;
+  prix_unitaire: number;
+  remise: number;
+  categorie: string;
+};
+
 // Le format court [designation, qte, pu, remise, cat] revient au format
 // attendu par l'application (lib/documents.ts).
-function developperLignes(brut: unknown): unknown[] {
+function developperLignes(brut: unknown): LigneExtraite[] {
   if (!Array.isArray(brut)) return [];
   return brut
-    .map((l) => {
+    .map((l): LigneExtraite | null => {
       if (Array.isArray(l)) {
         return {
           designation: String(l[0] ?? "Prestation"),
@@ -155,10 +177,53 @@ function developperLignes(brut: unknown): unknown[] {
         };
       }
       // Tolérance : si le modèle renvoie quand même des objets détaillés.
-      if (l && typeof l === "object") return l;
+      if (l && typeof l === "object") {
+        const o = l as Record<string, unknown>;
+        const cat = String(o.categorie ?? "piece");
+        return {
+          designation: String(o.designation ?? "Prestation"),
+          quantite: Number(o.quantite) || 0,
+          prix_unitaire: Number(o.prix_unitaire) || 0,
+          remise: Number(o.remise) || 0,
+          categorie: CATEGORIES[cat] || (["piece", "mo", "autre"].includes(cat) ? cat : "piece"),
+        };
+      }
       return null;
     })
-    .filter(Boolean) as unknown[];
+    .filter((l): l is LigneExtraite => l !== null);
+}
+
+const centimes = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+/**
+ * CONTRÔLE DE COHÉRENCE (v7.7) — la somme des lignes extraites doit retomber
+ * sur le TOTAL HT du rapport. C'est LE garde-fou contre une facture fausse :
+ * on ne corrige rien automatiquement (l'humain tranche), mais on le dit.
+ *
+ * Effet de bord utile : si le modèle n'a pas su lire le total global alors
+ * qu'il a lu le détail, on renseigne le montant depuis la somme des lignes —
+ * sinon le dossier partait avec un montant vide et plus aucun contrôle.
+ */
+function controlerChiffrage(lignes: LigneExtraite[], montantBrut: unknown) {
+  const somme = centimes(
+    lignes.reduce(
+      (s, l) =>
+        s + l.quantite * l.prix_unitaire * (1 - Math.min(100, Math.max(0, l.remise || 0)) / 100),
+      0
+    )
+  );
+  const ref = Number(montantBrut);
+  const montantConnu = Number.isFinite(ref) && ref > 0;
+  const montant = montantConnu ? centimes(ref) : somme > 0 ? somme : null;
+  const ecart = montantConnu ? centimes(somme - ref) : 0;
+  return {
+    montant,
+    somme,
+    ecart,
+    coherent: Math.abs(ecart) <= 1,
+    /** true quand le montant a été déduit de la somme des lignes. */
+    montantDeduit: !montantConnu && somme > 0,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -172,6 +237,16 @@ export async function POST(req: NextRequest) {
   const quota = await etatQuota(user.id);
   if (quota.depasse) {
     return NextResponse.json({ error: MESSAGE_QUOTA_DEPASSE }, { status: 402 });
+  }
+
+  // MÉMOIRE DE L'ANALYSE : les règles apprises des corrections du garage
+  // sont ajoutées au prompt ET appliquées aux lignes extraites (v7.7).
+  let regles: IaRegle[] = [];
+  try {
+    const { chargerReglesServeur } = await import("@/lib/apprentissageServeur");
+    regles = await chargerReglesServeur(user.id);
+  } catch {
+    /* mémoire indisponible : on analyse sans */
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -219,8 +294,11 @@ export async function POST(req: NextRequest) {
           },
         };
 
-    const prompt =
+    const base =
       partie === "identite" ? PROMPT_IDENTITE : partie === "chiffrage" ? PROMPT_CHIFFRAGE : PROMPT_COMPLET;
+    // Les règles apprises ne concernent que le chiffrage (libellés, tableaux,
+    // taux) : inutile d'alourdir le prompt d'identité avec.
+    const prompt = partie === "identite" ? base : base + blocRegles(regles);
 
     // Le bloc "document" (PDF) n'est pas encore typé dans certaines versions du SDK,
     // mais l'API l'accepte : on contourne le typage via un cast.
@@ -273,10 +351,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Format court → format applicatif
+    // Format court → format applicatif, puis application des règles apprises
+    // (libellés et tableau d'affectation UNIQUEMENT — jamais les montants).
     if (data.l !== undefined) {
-      data.lignes = developperLignes(data.l);
+      const brutes = developperLignes(data.l);
+      const { lignes, appliquees } = appliquerRegles(brutes, regles);
+      data.lignes = lignes;
+      data.regles_appliquees = appliquees;
       delete data.l;
+
+      // Le total des lignes doit retomber sur le total HT du rapport.
+      const controle = controlerChiffrage(lignes, data.montant);
+      if (controle.montant != null) data.montant = controle.montant;
+      data.controle = controle;
     }
 
     return NextResponse.json({ data, partie });

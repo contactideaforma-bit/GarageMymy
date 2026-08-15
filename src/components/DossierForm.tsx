@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { analyserRapport } from "@/lib/extraction";
+import { analyserRapport, type ControleChiffrage } from "@/lib/extraction";
 import FilePicker from "@/components/FilePicker";
 import { Dossier } from "@/lib/types";
-import { STATUTS_ORDRE, addJoursOuvres, libelleStatut, ymd } from "@/lib/format";
+import { STATUTS_ORDRE, addJoursOuvres, formatEuros, libelleStatut, ymd } from "@/lib/format";
+import { TVA_DEFAUT, ttc } from "@/lib/tva";
 import { genNumeroOR } from "@/lib/atelier";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
@@ -49,6 +50,8 @@ type FormState = {
   reparation_fin: string;
   reparateur: string;
   montant: string;
+  /** Taux de TVA du dossier en % (v40) — sert à afficher aussi le TTC. */
+  tva: string;
   statut: string;
   // Vitrage (métier vitrage)
   type_vitrage: string;
@@ -87,6 +90,7 @@ function toForm(d?: Partial<Dossier> | null): FormState {
     reparation_fin: d?.reparation_fin ?? "",
     reparateur: d?.reparateur ?? "",
     montant: d?.montant != null ? String(d.montant) : "",
+    tva: d?.tva != null ? String(d.tva) : String(TVA_DEFAUT),
     statut: d?.statut ?? "nouveau",
     type_vitrage: d?.type_vitrage ?? "",
     nature_intervention: d?.nature_intervention ?? "",
@@ -133,7 +137,12 @@ export default function DossierForm({
   const { metier } = useMetier();
   const t = termes(metier);
   const estVitrage = metier === "vitrage";
-  const [form, setForm] = useState<FormState>(toForm(dossier ?? prefill));
+  const [form, setForm] = useState<FormState>(() => {
+    const base = toForm(dossier ?? prefill);
+    // Taux venu de l'analyse faite sur la page /import
+    if (prefillTva != null) base.tva = String(prefillTva);
+    return base;
+  });
   // Calibrage ADAS (booléens gérés à part du FormState texte)
   const [calibrageRequis, setCalibrageRequis] = useState<boolean>(
     Boolean(dossier?.calibrage_requis ?? prefill?.calibrage_requis)
@@ -154,8 +163,15 @@ export default function DossierForm({
 
   // Lignes du chiffrage extraites du rapport → devis/facture auto
   const [autoLignes, setAutoLignes] = useState<LigneExtraite[]>(prefillLignes ?? []);
-  const [autoTva, setAutoTva] = useState<number>(prefillTva ?? 20);
   const [analysed, setAnalysed] = useState<boolean>(Boolean(prefillLignes));
+  // Cohérence « somme des lignes = total HT du rapport » (contrôle serveur)
+  const [controle, setControle] = useState<ControleChiffrage | null>(null);
+
+  // La TVA vit désormais SUR LE DOSSIER : un seul taux, celui du formulaire,
+  // sert à la fois à l'affichage HT/TTC et aux documents générés.
+  const tauxTva = form.tva === "" ? TVA_DEFAUT : Number(form.tva) || 0;
+  const montantHt = Number(form.montant) || 0;
+  const montantTtc = ttc(montantHt, tauxTva);
 
   async function creerDocument(
     type: "devis" | "facture",
@@ -305,7 +321,7 @@ export default function DossierForm({
     setError(null);
     try {
       // Deux appels EN PARALLÈLE (identités / chiffrage) : cf. lib/extraction.ts.
-      const { data: extrait, avertissement } = await analyserRapport(file);
+      const { data: extrait, avertissement, controle: ctrl } = await analyserRapport(file);
       const d = extrait as Partial<Dossier> & {
         lignes?: LigneExtraite[];
         tva?: number | null;
@@ -322,12 +338,16 @@ export default function DossierForm({
         return next;
       });
       setAutoLignes(Array.isArray(d.lignes) ? d.lignes : []);
-      if (d.tva) setAutoTva(Number(d.tva) || 20);
       setAnalysed(true);
+      setControle(ctrl);
+      const apprises = Number(extrait.regles_appliquees) || 0;
       setAnalyzeMsg(
         avertissement
           ? `⚠ ${avertissement}`
-          : "✓ Dossier pré-rempli. Devis, facture, ordre de réparation et cession de créance seront générés automatiquement à l'enregistrement, conformes au chiffrage."
+          : "✓ Dossier pré-rempli. Devis, facture, ordre de réparation et cession de créance seront générés automatiquement à l'enregistrement, conformes au chiffrage." +
+            (apprises > 0
+              ? ` ${apprises} correction${apprises > 1 ? "s" : ""} de la mémoire de l'analyse appliquée${apprises > 1 ? "s" : ""}.`
+              : "")
       );
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur d'analyse.");
@@ -383,6 +403,7 @@ export default function DossierForm({
         reparation_fin: form.reparation_fin || null,
         reparateur: form.reparateur || null,
         montant: form.montant ? Number(form.montant) : 0,
+        tva: tauxTva,
         statut: form.statut,
         // Vitrage (renseigné pour les comptes vitrage, vide sinon)
         type_vitrage: form.type_vitrage || null,
@@ -443,10 +464,10 @@ export default function DossierForm({
               signataire_nom: form.client_nom || null,
             });
             if (eOr) throw new Error(`Ordre de réparation non créé : ${eOr.message}`);
-            await creerDocument("devis", newId, lignes, autoTva);
-            await creerDocument("facture", newId, lignes, autoTva);
+            await creerDocument("devis", newId, lignes, tauxTva);
+            await creerDocument("facture", newId, lignes, tauxTva);
             // Cession de créance prête à signer (montant = TTC du chiffrage)
-            const totauxAuto = computeTotaux(lignes, autoTva);
+            const totauxAuto = computeTotaux(lignes, tauxTva);
             const { error: eCess } = await supabase.from("cessions_creance").insert({
               dossier_id: newId,
               date_cession: ymd(),
@@ -519,6 +540,35 @@ export default function DossierForm({
               <p className="text-xs text-emerald-300 mt-2">
                 Devis, facture, ordre de réparation et cession de créance seront générés
                 automatiquement à l&apos;enregistrement, conformes au chiffrage.
+              </p>
+            )}
+
+            {/* CONTRÔLE DE COHÉRENCE : la somme des lignes lues doit retomber
+                sur le total HT du rapport. On signale, on ne corrige jamais. */}
+            {controle && (
+              controle.coherent ? (
+                <p className="mt-2 text-xs text-emerald-300">
+                  ✓ Chiffrage vérifié : les lignes totalisent {formatEuros(controle.somme)} HT
+                  {controle.montantDeduit
+                    ? " (montant du dossier déduit du détail des lignes)."
+                    : ", conforme au total du rapport."}
+                </p>
+              ) : (
+                <div className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-xs text-amber-100">
+                  <span className="font-semibold">⚠ À vérifier — </span>
+                  les lignes lues totalisent {formatEuros(controle.somme)} HT alors que le rapport
+                  retient {formatEuros(controle.montant)} HT (écart de{" "}
+                  {formatEuros(Math.abs(controle.ecart))}{" "}
+                  {controle.ecart > 0 ? "en trop" : "en moins"}). Une ligne a pu être oubliée ou mal
+                  lue : compare avec le rapport et corrige le devis avant de l&apos;envoyer.
+                </div>
+              )
+            )}
+
+            {analysed && (
+              <p className="mt-2 text-[11px] text-white/40">
+                Chaque correction que tu apportes ensuite au devis ou à la facture nourrit la
+                mémoire de l&apos;analyse : la même erreur ne se reproduira plus.
               </p>
             )}
           </div>
@@ -652,8 +702,9 @@ export default function DossierForm({
 
           <section>
             <h3 className="text-sm font-semibold text-accent-pink mb-3">Suivi</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Montant (€)" name="montant" value={form.montant} onChange={set} type="number" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Field label="Montant HT (€)" name="montant" value={form.montant} onChange={set} type="number" />
+              <Field label="TVA (%)" name="tva" value={form.tva} onChange={set} type="number" />
               <div>
                 <label className="field-label">Statut</label>
                 <select className="field-input" value={form.statut} onChange={(e) => set("statut", e.target.value)}>
@@ -662,6 +713,20 @@ export default function DossierForm({
                   ))}
                 </select>
               </div>
+            </div>
+
+            {/* Le montant du rapport est un HT : on affiche aussi le TTC, seul
+                chiffre que le client et l'assurance regardent réellement. */}
+            <div className="glass-soft mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl p-3">
+              <span className="text-sm text-white/60">Montant du dossier</span>
+              <span className="text-right">
+                <span className="text-sm font-semibold text-white">{formatEuros(montantHt)} HT</span>
+                <span className="text-white/30"> · </span>
+                <span className="text-sm font-semibold text-accent-teal">
+                  {formatEuros(montantTtc)} TTC
+                </span>
+                <span className="block text-[11px] text-white/40">TVA {tauxTva} %</span>
+              </span>
             </div>
           </section>
 

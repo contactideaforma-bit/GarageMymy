@@ -198,7 +198,10 @@ export default function DocumentsView({ type }: { type: DocumentType }) {
                     {labelStatutDoc(d.statut)}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right text-white/90 whitespace-nowrap">{formatEuros(d.total_ttc)}</td>
+                <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums">
+                  <div className="text-xs text-white/60">{formatEuros(d.total_ht)} HT</div>
+                  <div className="font-medium text-white/90">{formatEuros(d.total_ttc)} TTC</div>
+                </td>
                 <td className="px-4 py-3 text-right whitespace-nowrap">
                   <button onClick={() => exportPdf(d)} className="text-accent-teal hover:underline mr-3">
                     PDF

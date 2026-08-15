@@ -250,6 +250,7 @@ export default function PaiementsPanel({
                 <div>
                   <div className="text-xs text-white/40">Total TTC</div>
                   <div className="text-white/90 font-medium">{formatEuros(f.total_ttc)}</div>
+                  <div className="text-[11px] text-white/40">{formatEuros(f.total_ht)} HT</div>
                 </div>
                 <div>
                   <div className="text-xs text-white/40">Encaissé</div>
@@ -409,7 +410,7 @@ function PaiementModal({
   return (
     <ModalShell title={`Encaisser — ${facture.numero || "facture"}`} onClose={onClose}>
       <div className="text-sm text-white/60">
-        Total TTC {formatEuros(facture.total_ttc)} · reste à payer{" "}
+        Total {formatEuros(facture.total_ht)} HT · {formatEuros(facture.total_ttc)} TTC · reste à payer{" "}
         <span className="text-amber-300 font-medium">{formatEuros(reste)}</span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

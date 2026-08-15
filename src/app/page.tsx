@@ -17,6 +17,7 @@ import {
   CessionCreance,
 } from "@/lib/types";
 import { formatEuros, formatDate, formatDateTime, estActif, messageErreur } from "@/lib/format";
+import { montantTtc, tauxTva, totalTtc } from "@/lib/tva";
 import { totalPaye, resteAPayer } from "@/lib/paiements";
 import { ProchaineAction, calculeProchaineAction, URGENCE_STYLE } from "@/lib/actions";
 import {
@@ -96,6 +97,9 @@ export default function DashboardPage() {
   const presentsDossiers = dossiers.filter((d) => d.au_garage);
   const presentsLibres = vehicules.filter((v) => v.au_garage);
   const presentsCount = presentsDossiers.length + presentsLibres.length;
+  // Encours des dossiers actifs, en HT (chiffre du rapport) et en TTC.
+  const totalEnCoursHt = enCours.reduce((s, d) => s + (d.montant || 0), 0);
+  const totalEnCoursTtc = totalTtc(enCours);
   const factures = documents.filter((f) => f.type === "facture");
   // Total des factures créées le mois en cours
   const totalMois = factures
@@ -106,6 +110,16 @@ export default function DashboardPage() {
       return dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
     })
     .reduce((sum, f) => sum + (Number(f.total_ttc) || 0), 0);
+
+  // Même sélection, en HT : le garage veut lire les deux chiffres.
+  const totalMoisHt = factures
+    .filter((f) => {
+      const ref = f.date_document || f.created_at;
+      if (!ref) return false;
+      const dt = new Date(ref);
+      return dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
+    })
+    .reduce((sum, f) => sum + (Number(f.total_ht) || 0), 0);
 
   // Reste à encaisser : somme des restes sur toutes les factures
   const resteEncaisser = factures.reduce((sum, f) => {
@@ -313,14 +327,19 @@ export default function DashboardPage() {
           <StatCard accent="teal" label="Véhicules au garage" value={String(presentsCount)} hint="actuellement présents" />
         </Link>
         <Link href="/sinistres">
-          <StatCard accent="violet" label="Dossiers en cours" value={String(enCours.length)} hint="sinistres actifs" />
+          <StatCard
+            accent="violet"
+            label="Dossiers en cours"
+            value={String(enCours.length)}
+            hint={`${formatEuros(totalEnCoursHt)} HT · ${formatEuros(totalEnCoursTtc)} TTC`}
+          />
         </Link>
         <Link href="/factures">
           <StatCard
             accent="pink"
             label="Facturé ce mois"
-            value={formatEuros(totalMois)}
-            hint={`${now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })} · TTC`}
+            value={`${formatEuros(totalMoisHt)} HT`}
+            hint={`${formatEuros(totalMois)} TTC · ${now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`}
           />
         </Link>
         <Link href="/finance">
@@ -408,7 +427,7 @@ export default function DashboardPage() {
                   <th className="px-5 py-2 font-medium">Client</th>
                   <th className="px-5 py-2 font-medium">Véhicule</th>
                   <th className="px-5 py-2 font-medium">Statut</th>
-                  <th className="px-5 py-2 font-medium text-right">Montant HT</th>
+                  <th className="px-5 py-2 font-medium text-right">Montant HT / TTC</th>
                 </tr>
               </thead>
               <tbody>
@@ -435,7 +454,12 @@ export default function DashboardPage() {
                         <ProgressionDossier statut={d.statut} size="sm" />
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-right text-white/90">{formatEuros(d.montant)}</td>
+                    <td className="px-5 py-3 text-right tabular-nums">
+                      <div className="text-white/90">{formatEuros(d.montant)}</div>
+                      <div className="text-[11px] text-accent-teal" title={`TVA ${tauxTva(d)} %`}>
+                        {formatEuros(montantTtc(d))} TTC
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>

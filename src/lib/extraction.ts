@@ -16,16 +16,33 @@ import { Dossier } from "./types";
 import { LigneExtraite } from "./documents";
 import { fetchAuth, lireReponse } from "./apiClient";
 
+/**
+ * Contrôle rendu par le serveur : la somme des lignes extraites retombe-t-elle
+ * sur le TOTAL HT du rapport ? (v7.7 — on signale, on ne corrige jamais.)
+ */
+export type ControleChiffrage = {
+  montant: number | null;
+  somme: number;
+  ecart: number;
+  coherent: boolean;
+  montantDeduit: boolean;
+};
+
 export type Extraction = Partial<Dossier> & {
   lignes?: LigneExtraite[];
   tva?: number | null;
   montant?: number | null;
+  controle?: ControleChiffrage | null;
+  /** Nombre de corrections appliquées depuis la mémoire de l'analyse. */
+  regles_appliquees?: number | null;
 };
 
 export type ResultatAnalyse = {
   data: Extraction;
   /** Message à afficher quand une seule des deux moitiés a abouti. */
   avertissement: string | null;
+  /** Cohérence du chiffrage avec le total du rapport (null si non calculé). */
+  controle: ControleChiffrage | null;
 };
 
 async function appeler(file: File, partie: "identite" | "chiffrage"): Promise<Extraction> {
@@ -75,5 +92,5 @@ export async function analyserRapport(file: File): Promise<ResultatAnalyse> {
       "(véhicule, client, assurance) : complète-les à la main.";
   }
 
-  return { data, avertissement };
+  return { data, avertissement, controle: data.controle ?? null };
 }

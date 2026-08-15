@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -14,6 +14,8 @@ import {
   ymd,
 } from "@/lib/format";
 import { exporterXlsx, type ColonneExcel } from "@/lib/excel";
+import { ecrireEtatListe, lireEtatListe } from "@/lib/filtresListe";
+import { montantTtc, tauxTva, totalTtc } from "@/lib/tva";
 import DossierForm from "@/components/DossierForm";
 import StatutBadge from "@/components/StatutBadge";
 import ProgressionDossier from "@/components/ProgressionDossier";
@@ -51,6 +53,40 @@ type CleTri =
   | "montant";
 
 type Tri = { cle: CleTri; sens: "asc" | "desc" };
+
+/* ==================================================================
+ *  MÉMOIRE DE LA SÉLECTION (v7.7)
+ *  On ouvre un dossier depuis une liste filtrée, on revient : on doit
+ *  retrouver EXACTEMENT la même sélection (filtres, tri, recherche) et
+ *  la même position de défilement. Stocké pour la session de l'onglet.
+ * ================================================================== */
+const CLE_ETAT_LISTE = "sinistres.selection";
+
+type EtatListe = {
+  q: string;
+  filtreStatut: string;
+  filtreExpert: string;
+  filtrePart: string;
+  champDate: "date_sinistre" | "created_at";
+  du: string;
+  au: string;
+  triCle: CleTri;
+  triSens: "asc" | "desc";
+  scroll: number;
+};
+
+const ETAT_VIDE: EtatListe = {
+  q: "",
+  filtreStatut: "",
+  filtreExpert: "",
+  filtrePart: "",
+  champDate: "date_sinistre",
+  du: "",
+  au: "",
+  triCle: "created_at",
+  triSens: "desc",
+  scroll: 0,
+};
 
 // Combinaisons proposées dans le select « Trier par ».
 const TRIS_PREDEFINIS = [
@@ -141,6 +177,67 @@ export default function SinistresPage() {
     load();
   }, [load]);
 
+  // ---------- Mémoire de la sélection ----------
+  // Restauration APRÈS le montage (le sessionStorage n'existe pas côté serveur).
+  const [selectionPrete, setSelectionPrete] = useState(false);
+  const scrollARestaurer = useRef<number>(0);
+
+  useEffect(() => {
+    const e = lireEtatListe(CLE_ETAT_LISTE, ETAT_VIDE);
+    setQ(e.q);
+    setFiltreStatut(e.filtreStatut);
+    setFiltreExpert(e.filtreExpert);
+    setFiltrePart(e.filtrePart);
+    setChampDate(e.champDate);
+    setDu(e.du);
+    setAu(e.au);
+    setTri({ cle: e.triCle, sens: e.triSens });
+    scrollARestaurer.current = e.scroll || 0;
+    setSelectionPrete(true);
+  }, []);
+
+  const etatCourant = useCallback(
+    (scroll = 0): EtatListe => ({
+      q,
+      filtreStatut,
+      filtreExpert,
+      filtrePart,
+      champDate,
+      du,
+      au,
+      triCle: tri.cle,
+      triSens: tri.sens,
+      scroll,
+    }),
+    [q, filtreStatut, filtreExpert, filtrePart, champDate, du, au, tri]
+  );
+
+  // Enregistrement à chaque changement — mais JAMAIS avant la restauration,
+  // sinon l'état vide du premier rendu écraserait la sélection mémorisée.
+  useEffect(() => {
+    if (!selectionPrete) return;
+    ecrireEtatListe(CLE_ETAT_LISTE, etatCourant(0));
+  }, [selectionPrete, etatCourant]);
+
+  // Retour depuis un dossier : on remet la liste là où elle était.
+  useEffect(() => {
+    if (loading || !selectionPrete) return;
+    const y = scrollARestaurer.current;
+    if (!y) return;
+    scrollARestaurer.current = 0;
+    // Après peinture, sinon la page n'est pas encore assez haute pour défiler.
+    requestAnimationFrame(() => window.scrollTo({ top: y }));
+  }, [loading, selectionPrete]);
+
+  // Ouvrir un dossier : on garde la position de défilement pour le retour.
+  const ouvrirDossier = useCallback(
+    (id: string) => {
+      ecrireEtatListe(CLE_ETAT_LISTE, etatCourant(window.scrollY));
+      router.push(`/sinistres/${id}`);
+    },
+    [etatCourant, router]
+  );
+
   // Les dossiers archivés vivent dans l'onglet Archives.
   const actifs = useMemo(() => dossiers.filter((d) => !d.archive), [dossiers]);
 
@@ -201,8 +298,10 @@ export default function SinistresPage() {
     return copie;
   }, [filtered, tri]);
 
-  // Synthèse (sur la sélection visible).
+  // Synthèse (sur la sélection visible) — en HT ET en TTC : le HT est le
+  // chiffre du rapport, le TTC celui que voient le client et l'assurance.
   const totalHT = visibles.reduce((s, d) => s + (d.montant || 0), 0);
+  const totalTTC = totalTtc(visibles);
   const enCours = visibles.filter((d) => estActif(d.statut)).length;
 
   const filtresActifs = !!(term || filtreStatut || filtreExpert || filtrePart || du || au);
@@ -241,6 +340,7 @@ export default function SinistresPage() {
       { header: t.dateDossier, key: "date_sinistre", width: 14 },
       { header: "Statut", key: "statut", width: 16 },
       { header: "Montant HT", key: "montant", type: "euro", width: 14 },
+      { header: "Montant TTC", key: "montant_ttc", type: "euro", width: 14 },
       { header: "Particularités", key: "particularites", width: 24 },
       { header: "Cession", key: "cession", width: 10 },
       { header: "Réparateur", key: "reparateur", width: 18 },
@@ -255,6 +355,7 @@ export default function SinistresPage() {
       date_sinistre: formatDate(d.date_sinistre) === "—" ? "" : formatDate(d.date_sinistre),
       statut: libelleStatut(d.statut, metier),
       montant: d.montant ?? "",
+      montant_ttc: d.montant != null ? montantTtc(d) : "",
       particularites: (partsParDossier[d.id] || []).map((p) => p.nom).join(", "),
       cession: d.mode_cession ? "Oui" : "",
       reparateur: d.reparateur || "",
@@ -298,9 +399,9 @@ export default function SinistresPage() {
         {/* Pleine largeur sous les deux autres : plus de carte esseulée. */}
         <div className="col-span-2 lg:col-span-1">
           <StatCard
-            label="MONTANT HT TOTAL"
-            value={formatEuros(totalHT)}
-            hint="sur la sélection"
+            label="MONTANT TOTAL"
+            value={`${formatEuros(totalHT)} HT`}
+            hint={`${formatEuros(totalTTC)} TTC · sur la sélection`}
             accent="teal"
           />
         </div>
@@ -429,7 +530,7 @@ export default function SinistresPage() {
         {visibles.map((d) => (
           <button
             key={d.id}
-            onClick={() => router.push(`/sinistres/${d.id}`)}
+            onClick={() => ouvrirDossier(d.id)}
             className="glass-card block w-full p-3 text-left"
           >
             <div className="flex items-start justify-between gap-2">
@@ -442,8 +543,13 @@ export default function SinistresPage() {
                   {d.immatriculation ? ` · ${d.immatriculation}` : ""}
                 </span>
               </span>
-              <span className="shrink-0 text-sm font-semibold text-white tabular-nums">
-                {formatEuros(d.montant)}
+              <span className="shrink-0 text-right tabular-nums">
+                <span className="block text-sm font-semibold text-white">
+                  {formatEuros(d.montant)} HT
+                </span>
+                <span className="block text-[11px] text-accent-teal">
+                  {formatEuros(montantTtc(d))} TTC
+                </span>
               </span>
             </div>
 
@@ -500,7 +606,7 @@ export default function SinistresPage() {
               <ThTri label="Assureur" cle="assureur" tri={tri} onSort={trierPar} fleche={fleche} className="hidden xl:table-cell" />
               <ThTri label={t.dateDossier} cle="date_sinistre" tri={tri} onSort={trierPar} fleche={fleche} className="hidden lg:table-cell" />
               <ThTri label="Statut" cle="statut" tri={tri} onSort={trierPar} fleche={fleche} />
-              <ThTri label="Montant HT" cle="montant" tri={tri} onSort={trierPar} fleche={fleche} align="right" />
+              <ThTri label="Montant HT / TTC" cle="montant" tri={tri} onSort={trierPar} fleche={fleche} align="right" />
               <th className="cellule hidden font-medium lg:table-cell">Rapport</th>
             </tr>
           </thead>
@@ -518,7 +624,7 @@ export default function SinistresPage() {
             {visibles.map((d) => (
               <tr
                 key={d.id}
-                onClick={() => router.push(`/sinistres/${d.id}`)}
+                onClick={() => ouvrirDossier(d.id)}
                 className="cursor-pointer border-t border-white/5 hover:bg-white/5"
               >
                 <td className="cellule">
@@ -573,8 +679,11 @@ export default function SinistresPage() {
                     <ProgressionDossier statut={d.statut} size="sm" />
                   </div>
                 </td>
-                <td className="cellule whitespace-nowrap text-right text-white/90 tabular-nums">
-                  {formatEuros(d.montant)}
+                <td className="cellule whitespace-nowrap text-right tabular-nums">
+                  <div className="text-white/90">{formatEuros(d.montant)}</div>
+                  <div className="text-[11px] text-accent-teal" title={`TVA ${tauxTva(d)} %`}>
+                    {formatEuros(montantTtc(d))} TTC
+                  </div>
                 </td>
                 <td className="cellule hidden lg:table-cell">
                   {d.rapport_path ? (

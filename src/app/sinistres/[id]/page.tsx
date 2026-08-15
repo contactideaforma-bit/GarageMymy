@@ -30,6 +30,7 @@ import { archiverDossier } from "@/lib/archive";
 import { marquerFactureEnvoyee } from "@/lib/dossierSync";
 import { fichierBase64, ouvrirFichier } from "@/lib/storage";
 import { formatEuros, formatDate, formatDateTime, messageErreur } from "@/lib/format";
+import { montantTtc, tauxTva } from "@/lib/tva";
 import { badgeStatutDoc, controlerRapport, labelStatutDoc, modeParDefaut } from "@/lib/documents";
 import ModePaiementModal from "@/components/ModePaiementModal";
 import { apercuDocumentPdf, cessionPdfBase64, documentPdfBase64Auto, ordreReparationPdfBase64, ribPdfBase64 } from "@/lib/pdf";
@@ -646,7 +647,12 @@ export default function DossierDetailPage() {
         </Card>
 
         <Card title="Suivi & documents">
-          <InfoRow label="Montant (HT)" value={formatEuros(dossier.montant)} />
+          {/* Le montant du rapport est un HT : on affiche aussi le TTC. */}
+          <InfoRow label="Montant HT (rapport)" value={formatEuros(dossier.montant)} />
+          <InfoRow
+            label={`Montant TTC (TVA ${tauxTva(dossier)} %)`}
+            value={formatEuros(montantTtc(dossier))}
+          />
           <InfoRow label="Créé le" value={formatDate(dossier.created_at)} />
           <div className="flex justify-between gap-4 py-2">
             <span className="text-sm text-white/50">{t.rapport}</span>
@@ -752,6 +758,7 @@ export default function DossierDetailPage() {
                     </div>
                     <div className="mt-1 text-xs text-white/50">
                       {fem ? "Émise" : "Émis"} le {formatDate(doc.date_document)}
+                      {doc.total_ht != null ? ` · ${formatEuros(doc.total_ht)} HT` : ""}
                       {doc.total_ttc != null ? ` · ${formatEuros(doc.total_ttc)} TTC` : ""}
                       {doc.signe_le
                         ? ` · signé${fem ? "e" : ""} le ${formatDate(doc.signe_le)} par ${doc.signataire_nom || "le client"}`
