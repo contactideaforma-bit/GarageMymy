@@ -368,6 +368,21 @@ export type ActionFaite = {
   fait_le: string;
 };
 
+// Rappel écrit par le garage (table `ardoise`) — v41.
+// Peut être rattaché à un dossier et porter une échéance, laquelle crée
+// un rendez-vous dans l'agenda (`evenement_id`).
+export type LigneArdoise = {
+  id: string;
+  created_at: string;
+  texte: string;
+  fait: boolean;
+  fait_le?: string | null;
+  ordre: number;
+  dossier_id?: string | null;
+  echeance?: string | null;
+  evenement_id?: string | null;
+};
+
 export type ListeDiffusion = {
   id: string;
   created_at: string;

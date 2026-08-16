@@ -3,16 +3,33 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { messageErreur } from "@/lib/format";
+import { LigneArdoise } from "@/lib/types";
+import {
+  ajouterRappel,
+  basculerRappel,
+  chargerRappels,
+  estAujourdhui,
+  estEnRetard,
+  libelleEcheance,
+  localVersIso,
+  supprimerRappel,
+} from "@/lib/ardoise";
 
 /**
- * NOTE LIBRE DU DOSSIER (v7.2).
+ * NOTE DU DOSSIER (v7.2, étendue en v41).
  *
- * Un bouton rond en bas à droite de l'écran ouvre un bloc-notes rattaché au
- * sinistre : rappels, échanges téléphoniques, points de vigilance… Un clic en
- * dehors du panneau (ou sur la croix, ou Échap) le réduit à nouveau en bouton.
+ * Un bouton rond en bas à droite de la fiche sinistre ouvre DEUX choses,
+ * utilisables ensemble :
  *
- * L'enregistrement est AUTOMATIQUE (à l'arrêt de la frappe et à la fermeture) :
- * pas de bouton « Enregistrer » à oublier.
+ *  1. LE COMMENTAIRE — un bloc-notes libre qui reste sur le dossier
+ *     (échanges téléphoniques, points de vigilance…). Enregistrement
+ *     AUTOMATIQUE : 800 ms après la dernière frappe, et à la fermeture.
+ *
+ *  2. LES RAPPELS — des lignes courtes qui remontent dans le bloc
+ *     « À faire » du TABLEAU DE BORD, rattachées à ce dossier. Une date
+ *     facultative crée en plus un rendez-vous dans l'AGENDA.
+ *
+ * Un clic en dehors du panneau (ou la croix, ou Échap) le réduit en bouton.
  */
 export default function NoteDossier({
   dossierId,
@@ -28,6 +45,25 @@ export default function NoteDossier({
   const zoneRef = useRef<HTMLTextAreaElement>(null);
   const dernierEnregistre = useRef(noteInitiale || "");
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // --- Rappels rattachés à ce dossier (table `ardoise`) ---
+  const [rappels, setRappels] = useState<LigneArdoise[]>([]);
+  const [rappelsDispo, setRappelsDispo] = useState(true);
+  const [nouveau, setNouveau] = useState("");
+  const [echeance, setEcheance] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const chargerListe = useCallback(async () => {
+    const { lignes, dispo } = await chargerRappels(dossierId);
+    setRappelsDispo(dispo);
+    setRappels(lignes);
+  }, [dossierId]);
+
+  // Chargés une fois, dès le montage : la pastille du bouton rond doit être
+  // juste AVANT même d'ouvrir le panneau.
+  useEffect(() => {
+    chargerListe();
+  }, [chargerListe]);
 
   // Le dossier peut se recharger (autre action sur la page) : on resynchronise
   // seulement si l'utilisateur n'a pas de modification en cours.
@@ -85,7 +121,63 @@ export default function NoteDossier({
     return () => window.removeEventListener("keydown", onKey);
   }, [ouvert, fermer]);
 
+  /* ------------------------------ Rappels ------------------------------ */
+
+  async function ajouter() {
+    const t = nouveau.trim();
+    if (!t || busy) return;
+    setBusy(true);
+    setErreur(null);
+    const ordre = Math.min(0, ...rappels.map((l) => l.ordre)) - 1;
+    try {
+      const ligne = await ajouterRappel({
+        texte: t,
+        dossierId,
+        echeance: localVersIso(echeance),
+        ordre,
+      });
+      setRappels((prev) => [ligne, ...prev]);
+      setNouveau("");
+      setEcheance("");
+    } catch (err) {
+      setErreur(messageErreur(err, "Rappel non ajouté (migrations v38 et v41 exécutées ?)."));
+    }
+    setBusy(false);
+  }
+
+  async function cocher(ligne: LigneArdoise, fait: boolean) {
+    const avant = rappels;
+    setRappels((prev) => prev.map((x) => (x.id === ligne.id ? { ...x, fait } : x)));
+    try {
+      await basculerRappel(ligne, fait);
+    } catch (err) {
+      setRappels(avant);
+      setErreur(messageErreur(err, "Modification impossible."));
+    }
+  }
+
+  async function retirer(ligne: LigneArdoise) {
+    const avant = rappels;
+    setRappels((prev) => prev.filter((x) => x.id !== ligne.id));
+    try {
+      await supprimerRappel(ligne);
+    } catch (err) {
+      setRappels(avant);
+      setErreur(messageErreur(err, "Suppression impossible."));
+    }
+  }
+
+  // « Reprendre la note » : on pré-remplit la saisie avec le commentaire
+  // (tronqué), à raccourcir avant d'envoyer sur le tableau de bord.
+  function reprendreLaNote() {
+    const t = texte.trim().replace(/\s+/g, " ");
+    if (!t) return;
+    setNouveau(t.length > 200 ? `${t.slice(0, 197)}…` : t);
+  }
+
   const remplie = texte.trim().length > 0;
+  const actifs = rappels.filter((r) => !r.fait);
+  const enRetard = actifs.some((r) => estEnRetard(r.echeance));
 
   /* ----------------------------- Bouton rond ----------------------------- */
   if (!ouvert) {
@@ -94,8 +186,14 @@ export default function NoteDossier({
         onClick={() => setOuvert(true)}
         className="fixed bottom-4 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition hover:brightness-110 active:translate-y-0.5 sm:bottom-6 sm:right-6"
         style={{ backgroundColor: "#ec4899", border: "2px solid #9d174d", boxShadow: "0 4px 0 #9d174d" }}
-        title={remplie ? "Note du dossier (remplie)" : "Ajouter une note à ce dossier"}
-        aria-label="Note du dossier"
+        title={
+          actifs.length > 0
+            ? `Note du dossier · ${actifs.length} rappel(s) en cours`
+            : remplie
+              ? "Note du dossier (remplie)"
+              : "Ajouter une note ou un rappel à ce dossier"
+        }
+        aria-label="Note et rappels du dossier"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
           <path
@@ -113,6 +211,19 @@ export default function NoteDossier({
             aria-hidden
           />
         )}
+        {actifs.length > 0 && (
+          <span
+            className="absolute -left-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1 text-[10px] font-bold"
+            style={{
+              backgroundColor: enRetard ? "#e11d48" : "#f59e0b",
+              color: "#1d1836",
+              border: "2px solid #1d1836",
+            }}
+            aria-hidden
+          >
+            {actifs.length}
+          </span>
+        )}
       </button>
     );
   }
@@ -123,7 +234,7 @@ export default function NoteDossier({
       {/* Voile transparent : un clic n'importe où en dehors réduit la note. */}
       <div className="fixed inset-0 z-40" onMouseDown={fermer} aria-hidden />
 
-      <div className="glass-card fixed bottom-4 right-4 z-50 flex w-[calc(100vw-2rem)] max-w-md flex-col sm:bottom-6 sm:right-6">
+      <div className="glass-card fixed bottom-4 right-4 z-50 flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-md flex-col sm:bottom-6 sm:right-6">
         <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
           <span className="titre-bloc">Note du dossier</span>
           <div className="flex items-center gap-2">
@@ -143,15 +254,125 @@ export default function NoteDossier({
           </div>
         </div>
 
-        <textarea
-          ref={zoneRef}
-          value={texte}
-          onChange={(e) => saisir(e.target.value)}
-          rows={9}
-          placeholder="Rappels, échanges téléphoniques, points de vigilance… Tout ce qui compte sur ce dossier."
-          className="field-input min-h-[9rem] resize-y rounded-none border-0 bg-transparent text-sm focus:shadow-none"
-          style={{ borderColor: "transparent" }}
-        />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* 1. Commentaire libre du dossier */}
+          <div className="px-3 pt-2 text-[11px] uppercase tracking-wider text-white/40">
+            Commentaire · reste sur ce dossier
+          </div>
+          <textarea
+            ref={zoneRef}
+            value={texte}
+            onChange={(e) => saisir(e.target.value)}
+            rows={6}
+            placeholder="Rappels, échanges téléphoniques, points de vigilance… Tout ce qui compte sur ce dossier."
+            className="field-input min-h-[7rem] resize-y rounded-none border-0 bg-transparent text-sm focus:shadow-none"
+            style={{ borderColor: "transparent" }}
+          />
+
+          {/* 2. Rappels remontés au tableau de bord */}
+          {rappelsDispo && (
+            <div className="border-t border-white/10 px-3 py-2">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] uppercase tracking-wider text-white/40">
+                  Rappels · tableau de bord
+                </span>
+                {remplie && (
+                  <button
+                    onClick={reprendreLaNote}
+                    className="text-[11px] text-accent-teal hover:underline"
+                    title="Pré-remplir le rappel avec le commentaire ci-dessus"
+                  >
+                    Reprendre la note
+                  </button>
+                )}
+              </div>
+
+              {actifs.length === 0 && rappels.length === 0 && (
+                <p className="mb-2 text-xs text-white/40">
+                  Aucun rappel. Ce que tu écris ici apparaît dans « À faire » sur le tableau de bord.
+                </p>
+              )}
+
+              <ul className="divide-y divide-white/5">
+                {rappels.map((r) => {
+                  const retard = !r.fait && estEnRetard(r.echeance);
+                  const auj = !r.fait && estAujourdhui(r.echeance);
+                  return (
+                    <li key={r.id} className={`flex items-start gap-2 py-1.5 text-sm ${r.fait ? "opacity-50" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={r.fait}
+                        onChange={(e) => cocher(r, e.target.checked)}
+                        className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-500"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className={`block break-words text-white/85 ${r.fait ? "line-through" : ""}`}>
+                          {r.texte}
+                        </span>
+                        {r.echeance && (
+                          <span
+                            className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                              retard
+                                ? "bg-rose-100 text-rose-700"
+                                : auj
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-white/10 text-white/70"
+                            }`}
+                          >
+                            📅 {retard ? "En retard · " : ""}
+                            {libelleEcheance(r.echeance)}
+                          </span>
+                        )}
+                      </span>
+                      <button
+                        onClick={() => retirer(r)}
+                        className="shrink-0 text-white/30 hover:text-rose-300"
+                        title="Supprimer ce rappel"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              {/* Saisie d'un rappel */}
+              <div className="mt-2 space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    className="field-input field-compact flex-1"
+                    placeholder="Nouveau rappel…"
+                    value={nouveau}
+                    onChange={(e) => setNouveau(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        ajouter();
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={ajouter}
+                    disabled={busy || !nouveau.trim()}
+                    className="btn-ghost btn-compact shrink-0"
+                  >
+                    Ajouter
+                  </button>
+                </div>
+                <label className="flex flex-wrap items-center gap-2 text-[11px] text-white/45">
+                  📅 Agenda (optionnel)
+                  <input
+                    type="datetime-local"
+                    className="field-input field-compact w-auto"
+                    value={echeance}
+                    onChange={(e) => setEcheance(e.target.value)}
+                  />
+                  {echeance && <span className="text-accent-teal">→ RDV créé dans l&apos;agenda</span>}
+                </label>
+              </div>
+            </div>
+          )}
+        </div>
 
         {erreur && (
           <div className="border-t border-rose-400/30 bg-rose-500/15 px-3 py-2 text-xs text-rose-200">
@@ -159,7 +380,7 @@ export default function NoteDossier({
           </div>
         )}
         <div className="border-t border-white/10 px-3 py-1.5 text-[11px] text-white/30">
-          Enregistrement automatique — clique en dehors pour réduire.
+          Commentaire enregistré automatiquement — clique en dehors pour réduire.
         </div>
       </div>
     </>

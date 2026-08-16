@@ -19,11 +19,10 @@ import {
 import { formatEuros, formatDate, formatDateTime, estActif, messageErreur } from "@/lib/format";
 import { montantTtc, tauxTva, totalTtc } from "@/lib/tva";
 import { totalPaye, resteAPayer } from "@/lib/paiements";
-import { ProchaineAction, calculeProchaineAction, URGENCE_STYLE } from "@/lib/actions";
+import { ProchaineAction, calculeProchaineAction } from "@/lib/actions";
 import {
   annulerActionFaite,
   cleAction,
-  estActionFaite,
   marquerActionFaite,
   marquesObsoletes,
   purgerMarques,
@@ -34,7 +33,7 @@ import StatCard from "@/components/StatCard";
 import StatutBadge from "@/components/StatutBadge";
 import ProgressionDossier from "@/components/ProgressionDossier";
 import GuideProcedure from "@/components/GuideProcedure";
-import Ardoise from "@/components/Ardoise";
+import BlocAFaire from "@/components/BlocAFaire";
 import ConfigBanner from "@/components/ConfigBanner";
 
 export default function DashboardPage() {
@@ -54,7 +53,6 @@ export default function DashboardPage() {
   const [demandes, setDemandes] = useState<{ dossier_id: string; demande: string; date_envoi: string | null }[]>([]);
   // Actions cochées « faites » sur le tableau de bord (v35)
   const [faites, setFaites] = useState<ActionFaite[]>([]);
-  const [voirFaites, setVoirFaites] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -230,9 +228,6 @@ export default function DashboardPage() {
     purgerMarques(obsoletes.map((f) => f.id).filter((id) => !id.startsWith("temp-")));
   }, [loading, aFaireTous, faites]);
 
-  const aFaire = aFaireTous.filter((x) => !estActionFaite(faites, x.dossier.id, x.action.code));
-  const dejaFaites = aFaireTous.filter((x) => estActionFaite(faites, x.dossier.id, x.action.code));
-
   // Coche / décoche une action. Mise à jour optimiste + rollback si erreur.
   const basculerFait = useCallback(
     async (dossierId: string, action: ProchaineAction, fait: boolean) => {
@@ -265,52 +260,6 @@ export default function DashboardPage() {
     },
     [faites]
   );
-
-  // Une ligne de la liste (fonction de rendu, pas un sous-composant : un
-  // composant redéclaré à chaque rendu serait remonté à chaque clic).
-  const renderAction = (d: Dossier, action: ProchaineAction, fait: boolean) => {
-    const st = URGENCE_STYLE[action.urgence];
-    return (
-      <li
-        key={`${d.id}-${action.code}`}
-        className={`flex flex-wrap items-center justify-between gap-3 py-2.5 text-sm ${fait ? "opacity-50" : ""}`}
-      >
-        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
-          <input
-            type="checkbox"
-            checked={fait}
-            onChange={(e) => basculerFait(d.id, action, e.target.checked)}
-            className="mt-1 h-4 w-4 shrink-0 accent-emerald-500"
-            title={fait ? "Remettre dans la liste à faire" : "Marquer comme fait"}
-          />
-          <span className="min-w-0">
-            <span className="flex flex-wrap items-center gap-2">
-              {!fait && (
-                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${st.badge}`}>
-                  {st.label}
-                </span>
-              )}
-              <span className={`font-medium text-white ${fait ? "line-through" : ""}`}>{action.titre}</span>
-            </span>
-            <span className="mt-0.5 block truncate text-xs text-white/50">
-              {d.client_nom || "—"} · {d.marque_modele || ""}
-              {d.immatriculation ? ` (${d.immatriculation})` : ""} · dossier {d.numero_sinistre || "—"}
-            </span>
-          </span>
-        </label>
-        <span className="flex shrink-0 items-center gap-3">
-          <Link href={`/sinistres/${d.id}`} className="text-white/50 hover:text-white hover:underline">
-            Dossier
-          </Link>
-          {!fait && (
-            <Link href={action.href} className="btn-ghost py-1.5 px-3 text-xs">
-              {action.ctaLabel}
-            </Link>
-          )}
-        </span>
-      </li>
-    );
-  };
 
   return (
     <div>
@@ -352,63 +301,16 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Ardoise : le pense-bête libre du garage (v7.2) */}
-      <Ardoise />
-
-      {/* À faire aujourd'hui : guidage automatique selon le processus.
-          Chaque ligne se coche pour être considérée comme faite (v35). */}
-      {!loading && aFaireTous.length > 0 && (
-        <section className="glass-card p-5 mb-8">
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <h2 className="font-semibold text-white">
-              À faire aujourd&apos;hui
-              <span className="ml-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700">
-                {aFaire.length}
-              </span>
-            </h2>
-            <div className="flex items-center gap-3">
-              {dejaFaites.length > 0 && (
-                <button
-                  onClick={() => setVoirFaites((v) => !v)}
-                  className="text-xs text-emerald-300/80 hover:text-emerald-200 hover:underline"
-                >
-                  {voirFaites ? "Masquer" : "Voir"} les {dejaFaites.length} faite
-                  {dejaFaites.length > 1 ? "s" : ""}
-                </button>
-              )}
-              <span className="font-pixel text-[0.5rem] text-white/40">GUIDE AUTO</span>
-            </div>
-          </div>
-
-          {aFaire.length === 0 ? (
-            <p className="py-3 text-sm text-emerald-300/80">
-              Tout est coché — plus rien à faire pour l&apos;instant.
-            </p>
-          ) : (
-            <>
-              {/* Liste déroulante : ~5 lignes visibles, le reste au défilement */}
-              <ul className="divide-y divide-white/10 max-h-[300px] overflow-y-auto pr-1">
-                {aFaire.map(({ dossier: d, action }) => renderAction(d, action, false))}
-              </ul>
-              {aFaire.length > 5 && (
-                <p className="mt-2 text-xs text-white/40">Fais défiler pour voir les {aFaire.length} actions.</p>
-              )}
-            </>
-          )}
-
-          {voirFaites && dejaFaites.length > 0 && (
-            <div className="mt-4 border-t border-white/10 pt-3">
-              <div className="mb-1 text-xs font-semibold uppercase text-white/40">Faites</div>
-              <ul className="divide-y divide-white/5 max-h-[220px] overflow-y-auto pr-1">
-                {dejaFaites.map(({ dossier: d, action }) => renderAction(d, action, true))}
-              </ul>
-              <p className="mt-2 text-xs text-white/30">
-                Décoche une ligne pour la remettre à faire. Une coche disparaît d&apos;elle-même dès que le dossier avance.
-              </p>
-            </div>
-          )}
-        </section>
-      )}
+      {/* BLOC « À FAIRE » (v41) — une seule liste : les rappels AUTOMATIQUES
+          calculés depuis les dossiers + les rappels ÉCRITS par le garage
+          (ex-« ardoise »). Remplace les deux blocs redondants d'avant. */}
+      <BlocAFaire
+        auto={aFaireTous}
+        dossiers={dossiers}
+        faites={faites}
+        onBasculerAuto={(dossierId, action, fait) => basculerFait(dossierId, action, fait)}
+        loading={loading}
+      />
 
       <div className="space-y-6">
         <section className="glass-card">

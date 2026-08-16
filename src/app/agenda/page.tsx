@@ -19,6 +19,8 @@ const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const CAT: Record<string, { label: string; cls: string }> = {
   rdv_client: { label: "Client", cls: "from-accent-violet/40 to-accent-violet/20" },
   rdv_expert: { label: "Expert", cls: "from-accent-teal/40 to-accent-teal/20" },
+  // v41 : rendez-vous créé depuis un rappel du bloc « À faire ».
+  rappel: { label: "Rappel", cls: "from-amber-400/40 to-amber-400/20" },
   autre: { label: "Autre", cls: "from-white/20 to-white/10" },
 };
 
@@ -236,6 +238,7 @@ export default function AgendaPage() {
                 <select className="field-input" value={fCat} onChange={(e) => setFCat(e.target.value)}>
                   <option value="rdv_client">RDV client</option>
                   <option value="rdv_expert">RDV expert</option>
+                  <option value="rappel">Rappel</option>
                   <option value="autre">Autre</option>
                 </select>
               </div>
