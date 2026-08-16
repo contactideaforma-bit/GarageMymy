@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
@@ -9,9 +9,20 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
+  // NOTIFICATIONS PUSH (v42) : on ré-enregistre le service worker à chaque
+  // ouverture de l'appli. Sans ça, une correction de /sw.js ne s'appliquerait
+  // que le jour où l'utilisateur ferme tous ses onglets. L'appel est silencieux
+  // (aucune autorisation demandée ici) et sans effet si le navigateur ne gère
+  // pas les service workers. Exclu des pages publiques.
+  const publique = pathname?.startsWith("/signer/") || pathname === "/mentions-legales";
+  useEffect(() => {
+    if (publique || typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
+  }, [publique]);
+
   // Pages publiques (signature à distance, mentions légales) : pas de barre
   // latérale ni de menu.
-  if (pathname?.startsWith("/signer/") || pathname === "/mentions-legales") {
+  if (publique) {
     return <main className="min-h-screen">{children}</main>;
   }
 

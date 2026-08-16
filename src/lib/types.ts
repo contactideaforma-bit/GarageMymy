@@ -197,6 +197,25 @@ export type Entreprise = {
   signature_path?: string | null;
   modele_pdf?: string | null; // modèle de mise en page des PDF : classique | bandeau | epure (v31)
   couleur_pdf?: string | null; // couleur d'accent des PDF, hex #rrggbb (v31)
+  // Contenu du résumé push quotidien (v42)
+  push_rdv?: boolean | null;
+  push_rappels?: boolean | null;
+  push_urgents?: boolean | null;
+};
+
+// Appareil autorisé à recevoir les notifications push (v42).
+// `endpoint` + les 2 clés sont fournis par le navigateur ; sans elles,
+// la notification ne peut pas être déchiffrée par le téléphone.
+export type PushAbonnement = {
+  id: string;
+  created_at: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  appareil: string | null;
+  derniere_erreur?: string | null;
+  dernier_envoi?: string | null;
+  actif: boolean;
 };
 
 export type Client = {

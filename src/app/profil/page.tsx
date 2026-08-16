@@ -7,6 +7,7 @@ import ConfigBanner from "@/components/ConfigBanner";
 import SignaturePad from "@/components/SignaturePad";
 import FilePicker from "@/components/FilePicker";
 import MailSettings from "@/components/MailSettings";
+import NotificationsPanel from "@/components/NotificationsPanel";
 import CompteSettings from "@/components/CompteSettings";
 import ConsommationIA from "@/components/ConsommationIA";
 import MemoireIA from "@/components/MemoireIA";
@@ -483,6 +484,14 @@ export default function ProfilPage() {
       <div className="glass-card p-6 mt-6">
         <h2 className="text-sm font-semibold text-accent-pink mb-3">Envoi des emails (SMTP)</h2>
         <MailSettings />
+      </div>
+
+      <div className="glass-card p-6 mt-6">
+        <h2 className="text-sm font-semibold text-accent-pink mb-1">Notifications sur le téléphone</h2>
+        <p className="mb-3 text-xs text-white/40">
+          Un résumé chaque matin : rendez-vous, rappels et dossiers urgents.
+        </p>
+        <NotificationsPanel />
       </div>
 
       <div className="glass-card p-6 mt-6">

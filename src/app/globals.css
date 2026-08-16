@@ -307,6 +307,8 @@ html.light .text-amber-300 { color: #b45309; }
 html.light .text-emerald-300, html.light .text-emerald-200 { color: #047857; }
 html.light .text-emerald-300\/80 { color: rgba(4, 120, 87, 0.9); }
 html.light .text-rose-200, html.light .text-rose-300 { color: #be123c; }
+html.light .text-rose-300\/80 { color: rgba(190, 18, 60, 0.9); }
+html.light .text-amber-200, html.light .text-amber-200\/80 { color: #92400e; }
 html.light .text-accent-teal { color: #0d9488; }
 html.light .file\:text-white::file-selector-button { color: #241f3d; }
 
