@@ -245,19 +245,59 @@ export type LigneSaisie = {
   prix_unitaire: string;
   remise: string;
   categorie: CategorieLigne;
+  /**
+   * v8.1 — Temps saisi À LA MAIN sur une ligne « ingrédients de peinture » :
+   * la recopie automatique du temps de peinture est débrayée pour cette ligne.
+   * Champ d'interface uniquement (jamais enregistré en base) : à la réouverture
+   * du document il est redéduit de l'écart entre les deux temps.
+   */
+  tempsLibre?: boolean;
 };
 
 export function ligneVide(categorie: CategorieLigne = "piece"): LigneSaisie {
   return { designation: "", quantite: "1", prix_unitaire: "0", remise: "0", categorie };
 }
 
-// Les ingrédients de peinture suivent TOUJOURS la quantité (le temps) de la
-// ligne Peinture : on la recopie à chaque modification.
+// Les ingrédients de peinture reprennent PAR DÉFAUT la quantité (le temps) de
+// la ligne Peinture. Exception (v8.1) : une ligne dont le temps a été saisi à
+// la main (`tempsLibre`) n'est plus écrasée — certains rapports retiennent pour
+// les ingrédients un nombre d'heures différent de celui de la peinture.
 export function syncIngredientsPeinture(items: LigneSaisie[]): LigneSaisie[] {
   const peinture = items.find((l) => estLignePeinture(l.designation));
   if (!peinture) return items;
   return items.map((l) =>
-    estLigneIngredients(l.designation) ? { ...l, quantite: peinture.quantite } : l
+    estLigneIngredients(l.designation) && !l.tempsLibre
+      ? { ...l, quantite: peinture.quantite }
+      : l
+  );
+}
+
+// À l'ouverture d'un document existant : si le temps des ingrédients diffère
+// déjà de celui de la peinture, c'est qu'il a été fixé volontairement — on le
+// marque libre pour ne pas l'écraser dès la première frappe dans l'éditeur.
+export function marquerTempsLibre(items: LigneSaisie[]): LigneSaisie[] {
+  const peinture = items.find((l) => estLignePeinture(l.designation));
+  if (!peinture) return items;
+  const ref = Number(peinture.quantite) || 0;
+  return items.map((l) =>
+    estLigneIngredients(l.designation) && (Number(l.quantite) || 0) !== ref
+      ? { ...l, tempsLibre: true }
+      : l
+  );
+}
+
+// Y a-t-il une ligne d'ingrédients désolidarisée du temps de peinture ?
+export function ingredientsDesynchronises(items: LigneSaisie[]): boolean {
+  return (
+    items.some((l) => estLignePeinture(l.designation)) &&
+    items.some((l) => estLigneIngredients(l.designation) && l.tempsLibre)
+  );
+}
+
+// Remet les ingrédients de peinture sur le temps de la ligne Peinture.
+export function resynchroniserIngredients(items: LigneSaisie[]): LigneSaisie[] {
+  return syncIngredientsPeinture(
+    items.map((l) => (estLigneIngredients(l.designation) ? { ...l, tempsLibre: false } : l))
   );
 }
 

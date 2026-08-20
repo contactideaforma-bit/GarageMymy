@@ -9,13 +9,17 @@ import {
   LigneSaisie,
   categorieDe,
   computeTotaux,
+  estLigneIngredients,
   genNumero,
   groupeLignes,
+  ingredientsDesynchronises,
   joursFacture,
   ligneVide,
   lignesToDb,
   controlerRapport,
+  marquerTempsLibre,
   montantRemiseLigne,
+  resynchroniserIngredients,
   sousTotal,
   syncIngredientsPeinture,
   totalLigne,
@@ -23,6 +27,16 @@ import {
 import { formatEuros, messageErreur, ymd } from "@/lib/format";
 import { detecterCorrections, type LigneComparable } from "@/lib/apprentissage";
 import { apprendreDesCorrections } from "@/lib/apprentissageDb";
+
+/**
+ * Grille d'une ligne de saisie (v8.1).
+ * Mobile : 12 colonnes classiques. Desktop : colonnes à largeur FIXE pour les
+ * montants — les anciennes `col-span-1` (≈ 70 px) rognaient les centimes
+ * (« 739,66 » s'affichait « 739, »). Désignation = 1re colonne élastique.
+ * Ordre : désignation · tableau · qté/temps · PU/taux · remise · total · ×
+ */
+const GRILLE_LIGNE =
+  "grid grid-cols-12 gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_5.5rem_7.5rem_5rem_7rem_1.5rem]";
 
 export default function DocumentEditor({
   dossier,
@@ -56,13 +70,15 @@ export default function DocumentEditor({
   const jours = String(joursFacture(document, dossier) ?? "");
   const [items, setItems] = useState<LigneSaisie[]>(
     lignes && lignes.length
-      ? lignes.map((l) => ({
-          designation: l.designation || "",
-          quantite: String(l.quantite ?? 1),
-          prix_unitaire: String(l.prix_unitaire ?? 0),
-          remise: String(l.remise ?? 0),
-          categorie: categorieDe(l),
-        }))
+      ? marquerTempsLibre(
+          lignes.map((l) => ({
+            designation: l.designation || "",
+            quantite: String(l.quantite ?? 1),
+            prix_unitaire: String(l.prix_unitaire ?? 0),
+            remise: String(l.remise ?? 0),
+            categorie: categorieDe(l),
+          }))
+        )
       : [ligneVide()]
   );
   const [saving, setSaving] = useState(false);
@@ -97,10 +113,29 @@ export default function DocumentEditor({
   function majItems(maj: (arr: LigneSaisie[]) => LigneSaisie[]) {
     setItems((arr) => syncIngredientsPeinture(maj(arr)));
   }
-  function setItem(i: number, key: keyof LigneSaisie, val: string) {
+  function setItem(
+    i: number,
+    key: "designation" | "quantite" | "prix_unitaire" | "remise" | "categorie",
+    val: string
+  ) {
     majItems((arr) =>
-      arr.map((it, idx) => (idx === i ? ({ ...it, [key]: val } as LigneSaisie) : it))
+      arr.map((it, idx) => {
+        if (idx !== i) return it;
+        const maj = { ...it, [key]: val } as LigneSaisie;
+        // v8.1 — Saisir un temps à la main sur une ligne « ingrédients de
+        // peinture » débraye la recopie automatique : sans ça le champ était
+        // réécrit à chaque frappe et le nombre d'heures restait bloqué.
+        if (key === "quantite" && estLigneIngredients(maj.designation)) {
+          maj.tempsLibre = true;
+        }
+        return maj;
+      })
     );
+  }
+  // Remettre les ingrédients sur le temps de la peinture.
+  const ingrLibres = ingredientsDesynchronises(items);
+  function resyncIngredients() {
+    setItems((arr) => resynchroniserIngredients(arr));
   }
   function addLine(categorie: CategorieLigne) {
     majItems((arr) => [...arr, ligneVide(categorie)]);
@@ -195,16 +230,17 @@ export default function DocumentEditor({
   // chaque rendu serait remonté à chaque frappe (perte du focus clavier).
   const renderLigne = (it: LigneSaisie, i: number) => {
     const total = totalLigne(it);
+    const ingr = estLigneIngredients(it.designation);
     return (
-      <div key={i} className="grid grid-cols-12 gap-2 items-center">
+      <div key={i} className={`${GRILLE_LIGNE} items-center`}>
         <input
-          className="field-input col-span-12 sm:col-span-5"
+          className="field-input col-span-12 sm:col-span-1"
           placeholder="Désignation"
           value={it.designation}
           onChange={(e) => setItem(i, "designation", e.target.value)}
         />
         <select
-          className="field-input col-span-6 sm:col-span-2 text-xs"
+          className="field-input col-span-6 sm:col-span-1 px-2 text-xs"
           value={it.categorie}
           onChange={(e) => setItem(i, "categorie", e.target.value)}
           title="Tableau de la facture dans lequel cette ligne apparaît"
@@ -216,15 +252,21 @@ export default function DocumentEditor({
         <input
           type="number"
           step="0.01"
-          className="field-input col-span-3 sm:col-span-1 text-right"
+          inputMode="decimal"
+          className="field-input col-span-3 sm:col-span-1 px-2 text-right tabular-nums"
           value={it.quantite}
-          title="Quantité (ou temps en heures pour la main d'œuvre)"
+          title={
+            ingr
+              ? "Temps des ingrédients de peinture — repris de la ligne « Peinture », modifiable à la main"
+              : "Quantité (ou temps en heures pour la main d'œuvre)"
+          }
           onChange={(e) => setItem(i, "quantite", e.target.value)}
         />
         <input
           type="number"
           step="0.01"
-          className="field-input col-span-3 sm:col-span-1 text-right"
+          inputMode="decimal"
+          className="field-input col-span-3 sm:col-span-1 px-2 text-right tabular-nums"
           value={it.prix_unitaire}
           title="Prix unitaire HT (ou taux horaire)"
           onChange={(e) => setItem(i, "prix_unitaire", e.target.value)}
@@ -234,17 +276,18 @@ export default function DocumentEditor({
           step="0.01"
           min="0"
           max="100"
-          className="field-input col-span-3 sm:col-span-1 text-right"
+          inputMode="decimal"
+          className="field-input col-span-3 sm:col-span-1 px-2 text-right tabular-nums"
           value={it.remise}
           title="Remise en %"
           onChange={(e) => setItem(i, "remise", e.target.value)}
         />
-        <div className="col-span-2 sm:col-span-1 text-right text-sm text-white/80 whitespace-nowrap">
+        <div className="col-span-2 sm:col-span-1 text-right text-sm text-white/80 whitespace-nowrap tabular-nums">
           {formatEuros(total)}
         </div>
         <button
           onClick={() => removeLine(i)}
-          className="col-span-1 text-white/40 hover:text-rose-300"
+          className="col-span-1 sm:col-span-1 text-white/40 hover:text-rose-300"
           title="Supprimer"
         >
           ×
@@ -271,13 +314,14 @@ export default function DocumentEditor({
             + Ligne
           </button>
         </div>
-        <div className="hidden sm:grid grid-cols-12 gap-2 text-[11px] text-white/40 px-1 mb-1">
-          <span className="col-span-5">Désignation</span>
-          <span className="col-span-2">Tableau</span>
-          <span className="col-span-1 text-right">{categorie === "mo" ? "Temps" : "Qté"}</span>
-          <span className="col-span-1 text-right">{categorie === "mo" ? "Taux" : "PU HT"}</span>
-          <span className="col-span-1 text-right">Remise %</span>
-          <span className="col-span-1 text-right">Total HT</span>
+        <div className={`hidden sm:grid ${GRILLE_LIGNE} text-[11px] text-white/40 px-1 mb-1`}>
+          <span className="sm:col-span-1">Désignation</span>
+          <span className="sm:col-span-1">Tableau</span>
+          <span className="sm:col-span-1 text-right">{categorie === "mo" ? "Temps" : "Qté"}</span>
+          <span className="sm:col-span-1 text-right">{categorie === "mo" ? "Taux" : "PU HT"}</span>
+          <span className="sm:col-span-1 text-right">Remise %</span>
+          <span className="sm:col-span-1 text-right">Total HT</span>
+          <span className="sm:col-span-1" />
         </div>
         <div className="space-y-2">
           {indices.length === 0 && (
@@ -285,6 +329,17 @@ export default function DocumentEditor({
           )}
           {indices.map((i) => renderLigne(items[i], i))}
         </div>
+        {categorie === "mo" && ingrLibres && (
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
+            <span className="text-[11px] text-white/50">
+              Le temps des ingrédients de peinture a été saisi à la main : il ne suit plus
+              automatiquement la ligne « Peinture ».
+            </span>
+            <button onClick={resyncIngredients} className="btn-ghost py-1 px-3 text-xs whitespace-nowrap">
+              ↻ Reprendre le temps de peinture
+            </button>
+          </div>
+        )}
         {indices.length > 0 && (
           <div className="flex justify-end mt-2 text-xs text-white/50">
             Sous-total HT&nbsp;: <span className="text-white/80 ml-2">{formatEuros(st)}</span>
@@ -299,7 +354,7 @@ export default function DocumentEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm">
-      <div className="w-full max-w-5xl glass-card my-8 modal-panel">
+      <div className="w-full max-w-6xl glass-card my-8 modal-panel">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-white">
             {isEdit ? `Modifier ${titre.toLowerCase()}` : `Nouveau ${titre.toLowerCase()}`}
@@ -339,7 +394,8 @@ export default function DocumentEditor({
 
           <p className="text-[11px] text-white/40 -mt-2">
             Le mode de paiement imprimé sur le PDF est choisi au moment de générer le document.
-            Les ingrédients de peinture reprennent automatiquement le temps de la ligne « Peinture ».
+            Les ingrédients de peinture reprennent automatiquement le temps de la ligne « Peinture »,
+            sauf si tu saisis toi-même un nombre d&apos;heures différent.
             {isEdit && (
               <>
                 {" "}Tes corrections (libellé, tableau, taux horaire, ligne retirée) nourrissent la
@@ -359,7 +415,7 @@ export default function DocumentEditor({
             )}
             {renderBloc(
               "Main d'œuvre & peinture",
-              "T1, T2, T3, Peinture, Ingr. de peinture (temps = celui de la peinture)",
+              "T1, T2, T3, Peinture, Ingr. de peinture (temps repris de la peinture, modifiable)",
               "mo",
               indicesPar("mo")
             )}
