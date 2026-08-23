@@ -41,6 +41,28 @@ type Item =
 
 type Filtre = "tout" | "auto" | "perso";
 
+/**
+ * RETOUR EN ARRIÈRE (v8.2).
+ *
+ * Cocher une ligne la fait disparaître de la liste : d'un clic de trop, on
+ * perd de vue une tâche. Chaque geste (coche, décoche, suppression, ajout,
+ * échéance) empile donc une ANNULATION réversible — les 10 derniers gestes
+ * sont rattrapables, au bouton ou au clavier (Ctrl+Z / ⌘Z).
+ */
+type Annulation = {
+  /** Ce qui sera défait, montré dans l'info-bulle du bouton. */
+  libelle: string;
+  restaurer: () => void | Promise<void>;
+};
+
+const PROFONDEUR_HISTORIQUE = 10;
+
+/** Texte court d'une ligne, pour l'info-bulle (« … »). */
+function extrait(texte: string, max = 42): string {
+  const t = texte.trim();
+  return t.length > max ? `${t.slice(0, max)}…` : t;
+}
+
 /** Ordre d'affichage : le retard d'abord, le pense-bête sans date en dernier. */
 function rang(it: Item): number {
   if (it.genre === "perso") {
@@ -81,6 +103,14 @@ export default function BlocAFaire({
   const [editionId, setEditionId] = useState<string | null>(null);
   const [editionValeur, setEditionValeur] = useState("");
 
+  // Pile des gestes annulables (le dernier en tête) + message éphémère.
+  const [historique, setHistorique] = useState<Annulation[]>([]);
+  const [annonce, setAnnonce] = useState<string | null>(null);
+
+  const empiler = useCallback((a: Annulation) => {
+    setHistorique((prev) => [a, ...prev].slice(0, PROFONDEUR_HISTORIQUE));
+  }, []);
+
   const charger = useCallback(async () => {
     const { lignes, dispo: ok } = await chargerRappels();
     setDispo(ok);
@@ -117,17 +147,30 @@ export default function BlocAFaire({
       setTexte("");
       setDossierLie(null);
       setEcheance("");
+      empiler({
+        libelle: `l'ajout de « ${extrait(ligne.texte)} »`,
+        restaurer: async () => {
+          setRappels((prev) => prev.filter((x) => x.id !== ligne.id));
+          await supprimerRappel(ligne);
+        },
+      });
     } catch (err) {
       setErreur(messageErreur(err, "Rappel non ajouté (migrations v38 et v41 exécutées ?)."));
     }
     setBusy(false);
   }
 
-  async function cocher(ligne: LigneArdoise, fait: boolean) {
+  async function cocher(ligne: LigneArdoise, fait: boolean, enregistrer = true) {
     const avant = rappels;
     setRappels((prev) => prev.map((x) => (x.id === ligne.id ? { ...x, fait } : x)));
     try {
       await basculerRappel(ligne, fait);
+      if (enregistrer) {
+        empiler({
+          libelle: `${fait ? "la coche" : "la décoche"} de « ${extrait(ligne.texte)} »`,
+          restaurer: () => cocher(ligne, !fait, false),
+        });
+      }
     } catch (err) {
       setRappels(avant);
       setErreur(messageErreur(err, "Modification impossible."));
@@ -139,22 +182,91 @@ export default function BlocAFaire({
     setRappels((prev) => prev.filter((x) => x.id !== ligne.id));
     try {
       await supprimerRappel(ligne);
+      // Le rappel est recréé à l'identique (texte, dossier, échéance) :
+      // une suppression par erreur n'est plus définitive.
+      empiler({
+        libelle: `la suppression de « ${extrait(ligne.texte)} »`,
+        restaurer: async () => {
+          const recree = await ajouterRappel({
+            texte: ligne.texte,
+            dossierId: ligne.dossier_id || null,
+            echeance: ligne.echeance || null,
+            ordre: ligne.ordre,
+          });
+          setRappels((prev) => [recree, ...prev]);
+        },
+      });
     } catch (err) {
       setRappels(avant);
       setErreur(messageErreur(err, "Suppression impossible."));
     }
   }
 
-  async function enregistrerEcheance(ligne: LigneArdoise, valeur: string) {
+  async function enregistrerEcheance(ligne: LigneArdoise, valeur: string, enregistrer = true) {
     setErreur(null);
+    const ancienne = ligne.echeance || null;
     try {
       const maj = await definirEcheance(ligne, localVersIso(valeur));
       setRappels((prev) => prev.map((x) => (x.id === maj.id ? maj : x)));
       setEditionId(null);
+      if (enregistrer) {
+        empiler({
+          libelle: `l'échéance de « ${extrait(ligne.texte)} »`,
+          restaurer: () => enregistrerEcheance(maj, isoVersLocal(ancienne), false),
+        });
+      }
     } catch (err) {
       setErreur(messageErreur(err, "Échéance non enregistrée (migration v41 exécutée ?)."));
     }
   }
+
+  /** Coche/décoche une action AUTOMATIQUE, en gardant le geste annulable. */
+  function basculerAuto(d: Dossier, action: ProchaineAction, fait: boolean, enregistrer = true) {
+    onBasculerAuto(d.id, action, fait);
+    if (enregistrer) {
+      empiler({
+        libelle: `${fait ? "la coche" : "la décoche"} de « ${extrait(action.titre)} »`,
+        restaurer: () => basculerAuto(d, action, !fait, false),
+      });
+    }
+  }
+
+  /* ------------------------- Retour en arrière ------------------------ */
+
+  const annulerDernier = useCallback(async () => {
+    const [dernier, ...reste] = historique;
+    if (!dernier) return;
+    setHistorique(reste);
+    setErreur(null);
+    try {
+      await dernier.restaurer();
+      setAnnonce(`Annulé : ${dernier.libelle}.`);
+    } catch (err) {
+      setErreur(messageErreur(err, "Impossible d'annuler cette action."));
+    }
+  }, [historique]);
+
+  // Le message d'annulation s'efface tout seul.
+  useEffect(() => {
+    if (!annonce) return;
+    const t = setTimeout(() => setAnnonce(null), 4000);
+    return () => clearTimeout(t);
+  }, [annonce]);
+
+  // Ctrl+Z / ⌘Z — ignoré si l'utilisateur est en train de saisir du texte.
+  useEffect(() => {
+    const surTouche = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== "z" || e.shiftKey) return;
+      const cible = e.target as HTMLElement | null;
+      const balise = cible?.tagName?.toLowerCase();
+      if (balise === "input" || balise === "textarea" || cible?.isContentEditable) return;
+      if (historique.length === 0) return;
+      e.preventDefault();
+      annulerDernier();
+    };
+    window.addEventListener("keydown", surTouche);
+    return () => window.removeEventListener("keydown", surTouche);
+  }, [historique, annulerDernier]);
 
   /* ------------------------------ Données ----------------------------- */
 
@@ -199,7 +311,7 @@ export default function BlocAFaire({
           <input
             type="checkbox"
             checked={fait}
-            onChange={(e) => onBasculerAuto(d.id, action, e.target.checked)}
+            onChange={(e) => basculerAuto(d, action, e.target.checked)}
             className="mt-1 h-4 w-4 shrink-0 accent-emerald-500"
             title={fait ? "Remettre dans la liste à faire" : "Marquer comme fait"}
           />
@@ -336,30 +448,52 @@ export default function BlocAFaire({
     <button
       key={valeur}
       onClick={() => setFiltre(valeur)}
-      className={`rounded-lg px-2.5 py-1 text-xs transition ${
-        filtre === valeur ? "bg-white/15 font-semibold text-white" : "text-white/50 hover:text-white"
-      }`}
+      className={`segment-btn ${filtre === valeur ? "actif" : ""}`}
     >
       {label}
-      {typeof n === "number" && <span className="ml-1 text-white/40">{n}</span>}
+      {typeof n === "number" && <span className="ml-1 opacity-70">{n}</span>}
     </button>
   );
 
   return (
     <section className="glass-card mb-6 p-3 sm:p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="titre-bloc">
+        <h2 className="titre-section">
           À faire
-          <span className="ml-2 inline-block rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
-            {aFaire.length}
-          </span>
+          <span className="badge badge-warn ml-2">{aFaire.length}</span>
         </h2>
-        <div className="inline-flex items-center rounded-xl border border-white/10 bg-white/5 p-0.5">
-          {onglet("tout", "Tout", nbAuto + nbPerso)}
-          {onglet("auto", "Automatique", nbAuto)}
-          {dispo && onglet("perso", "Mes rappels", nbPerso)}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* RETOUR EN ARRIÈRE : rattrape la dernière coche, suppression
+              ou modification. Raccourci clavier Ctrl+Z / ⌘Z. */}
+          <button
+            onClick={annulerDernier}
+            disabled={historique.length === 0}
+            className="btn-ghost btn-compact inline-flex items-center gap-1.5 disabled:opacity-40"
+            title={
+              historique.length === 0
+                ? "Rien à annuler pour l'instant"
+                : `Annuler ${historique[0].libelle} (Ctrl+Z)`
+            }
+          >
+            ↩ Annuler
+            {historique.length > 1 && <span className="opacity-60">{historique.length}</span>}
+          </button>
+          <div className="segment">
+            {onglet("tout", "Tout", nbAuto + nbPerso)}
+            {onglet("auto", "Automatique", nbAuto)}
+            {dispo && onglet("perso", "Mes rappels", nbPerso)}
+          </div>
         </div>
       </div>
+
+      {annonce && (
+        <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border-2 border-accent-teal/40 bg-white/5 px-3 py-1.5 text-xs text-white/75 anim-apparition">
+          <span>{annonce}</span>
+          <button onClick={() => setAnnonce(null)} className="text-white/40 hover:text-white">
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Saisie d'un rappel libre */}
       {dispo && (
@@ -449,8 +583,8 @@ export default function BlocAFaire({
                 {dejaFaites.map(renderItem)}
               </ul>
               <p className="mt-2 text-xs text-white/30">
-                Décoche une ligne pour la remettre à faire. Une coche automatique disparaît d&apos;elle-même dès que le
-                dossier avance.
+                Décoche une ligne pour la remettre à faire, ou utilise « ↩ Annuler » (Ctrl+Z) pour revenir en
+                arrière. Une coche automatique disparaît d&apos;elle-même dès que le dossier avance.
               </p>
             </>
           )}

@@ -457,3 +457,51 @@ export type IaCorrection = {
   valeur: string;
   exemple: string | null;
 };
+
+// ============================================================
+//  ASSISTANCE — tickets d'incident (v43)
+// ============================================================
+
+export type Ticket = {
+  id: string;
+  created_at: string;
+  maj_le?: string | null;
+  numero?: string | null;
+  sujet: string;
+  description: string;
+  /** bug | lenteur | donnees | document | question | amelioration | autre */
+  categorie: string;
+  /** bloquant | gene | mineur */
+  gravite: string;
+  /** nouveau | en_cours | resolu | ferme */
+  statut: string;
+  page?: string | null;
+  navigateur?: string | null;
+  version_app?: string | null;
+  contact_email?: string | null;
+  contact_tel?: string | null;
+  garage_nom?: string | null;
+  lu_admin?: boolean;
+  lu_garage?: boolean;
+  ferme_le?: string | null;
+  owner_id?: string | null;
+};
+
+export type TicketMessage = {
+  id: string;
+  created_at: string;
+  ticket_id: string;
+  /** 'garage' = le carrossier ; 'support' = l'éditeur */
+  auteur: string;
+  auteur_nom?: string | null;
+  message: string;
+  owner_id?: string | null;
+};
+
+/** Ticket enrichi côté admin : identité du garage résolue par le serveur. */
+export type TicketAdmin = Ticket & {
+  compte_email?: string | null;
+  entreprise_nom?: string | null;
+  nb_messages?: number;
+  messages?: TicketMessage[];
+};

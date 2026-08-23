@@ -263,8 +263,18 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="titre-page">Tableau de bord</h1>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="titre-page">Tableau de bord</h1>
+          <p className="mt-1 text-xs capitalize text-white/45">
+            {now.toLocaleDateString("fr-FR", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </p>
+        </div>
         <Link href="/import" className="btn-primary">{t.importer}</Link>
       </div>
 
@@ -273,11 +283,12 @@ export default function DashboardPage() {
       {/* HUD : les 4 compteurs du garage */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Link href="/vehicules">
-          <StatCard accent="teal" label="Véhicules au garage" value={String(presentsCount)} hint="actuellement présents" />
+          <StatCard accent="teal" icone="🚗" label="Véhicules au garage" value={String(presentsCount)} hint="actuellement présents" />
         </Link>
         <Link href="/sinistres">
           <StatCard
             accent="violet"
+            icone="📁"
             label="Dossiers en cours"
             value={String(enCours.length)}
             hint={`${formatEuros(totalEnCoursHt)} HT · ${formatEuros(totalEnCoursTtc)} TTC`}
@@ -286,6 +297,7 @@ export default function DashboardPage() {
         <Link href="/factures">
           <StatCard
             accent="pink"
+            icone="🧾"
             label="Facturé ce mois"
             value={`${formatEuros(totalMoisHt)} HT`}
             hint={`${formatEuros(totalMois)} TTC · ${now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`}
@@ -294,6 +306,7 @@ export default function DashboardPage() {
         <Link href="/finance">
           <StatCard
             accent="emerald"
+            icone="💶"
             label="Encaissé ce mois"
             value={formatEuros(encaisseMois)}
             hint={`TTC · reste à encaisser : ${formatEuros(resteEncaisser)}`}
@@ -313,9 +326,9 @@ export default function DashboardPage() {
       />
 
       <div className="space-y-6">
-        <section className="glass-card">
+        <section className="glass-card anim-apparition">
           <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
-            <h2 className="font-semibold text-white">Dossiers en cours</h2>
+            <h2 className="titre-section">Dossiers en cours</h2>
             <Link href="/sinistres" className="text-sm text-accent-pink hover:underline">
               Voir tout
             </Link>
@@ -333,9 +346,16 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {loading && (
-                  <tr><td colSpan={5} className="px-5 py-6 text-center text-white/40">Chargement…</td></tr>
-                )}
+                {loading &&
+                  [0, 1, 2].map((i) => (
+                    <tr key={`sk-${i}`} className="border-t border-white/5">
+                      <td className="px-5 py-3"><div className="skeleton h-4 w-24" /></td>
+                      <td className="px-5 py-3"><div className="skeleton h-4 w-32" /></td>
+                      <td className="px-5 py-3"><div className="skeleton h-4 w-40" /></td>
+                      <td className="px-5 py-3"><div className="skeleton h-4 w-28" /></td>
+                      <td className="px-5 py-3"><div className="skeleton ml-auto h-4 w-24" /></td>
+                    </tr>
+                  ))}
                 {!loading && enCours.length === 0 && (
                   <tr><td colSpan={5} className="px-5 py-6 text-center text-white/40">Aucun dossier en cours.</td></tr>
                 )}
@@ -371,7 +391,7 @@ export default function DashboardPage() {
 
         <section className="glass-card">
           <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
-            <h2 className="titre-bloc">Agenda</h2>
+            <h2 className="titre-section">Agenda</h2>
             <Link href="/agenda" className="text-sm text-accent-pink hover:underline">Ouvrir l&apos;agenda</Link>
           </div>
           <div className="grid grid-cols-1 gap-4 p-3 sm:p-4 md:grid-cols-2">

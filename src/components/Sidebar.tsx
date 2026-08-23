@@ -9,6 +9,8 @@ import SnakeGame from "@/components/SnakeGame";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { useMetier } from "@/components/MetierProvider";
 import { METIER_INFOS, termes } from "@/lib/metier";
+import { estAdmin } from "@/lib/support";
+import { VERSION_LABEL } from "@/lib/version";
 
 const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
   {
@@ -45,14 +47,27 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
       { href: "/agenda", label: "Agenda" },
     ],
   },
+  {
+    titre: "Assistance",
+    items: [{ href: "/support", label: "Aide & incidents" }],
+  },
 ];
 
 export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    href === "/"
+      ? pathname === "/"
+      : // « Aide & incidents » ne doit pas s'allumer quand on est sur la
+        // console d'assistance (/support/admin), qui a son propre lien.
+        href === "/support"
+        ? pathname === "/support"
+        : pathname.startsWith(href);
 
   const [email, setEmail] = useState<string | null>(null);
+  // Onglet console d'assistance : visible pour l'éditeur uniquement.
+  // (Affichage seulement — le contrôle réel est fait côté serveur.)
+  const admin = estAdmin(email);
   const { metier } = useMetier();
   const sousTitre = METIER_INFOS[metier].sousTitre;
   const t = termes(metier);
@@ -148,6 +163,19 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         >
           Profil du garage
         </Link>
+        {admin && (
+          <Link
+            href="/support/admin"
+            onClick={onNavigate}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+              isActive("/support/admin")
+                ? "bg-white/15 text-white font-medium"
+                : "text-white/70 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            🛠️ Console d&apos;assistance
+          </Link>
+        )}
         <ThemeToggle />
         {email && (
           <button
@@ -158,7 +186,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           </button>
         )}
         {email && <div className="px-3 pt-1 text-[11px] text-white/30 truncate">{email}</div>}
-        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · v8.1</div>
+        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · {VERSION_LABEL}</div>
       </div>
 
       {snakeOpen && <SnakeGame onClose={() => setSnakeOpen(false)} />}

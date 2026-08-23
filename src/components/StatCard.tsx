@@ -1,14 +1,18 @@
+import type { CSSProperties } from "react";
+
 // Compteur façon HUD d'arcade : liseré coloré, libellé en police pixel,
 // grosse valeur lisible.
 // v7.0 : bloc COMPACT et typographie fluide — sur téléphone, la valeur ne se
 // casse plus sur deux lignes et la carte ne mange plus la moitié de l'écran.
-const ACCENTS: Record<string, string> = {
-  violet: "#8b5cf6",
-  pink: "#ec4899",
-  teal: "#2dd4bf",
-  amber: "#f59e0b",
-  emerald: "#10b981",
-  blue: "#3b82f6",
+// v8.2 : montée en gamme — liseré en dégradé, halo de couleur, pastille
+// d'icône et léger relief au survol quand la carte est cliquable.
+const ACCENTS: Record<string, { couleur: string; clair: string }> = {
+  violet: { couleur: "#8b5cf6", clair: "#c4b5fd" },
+  pink: { couleur: "#ec4899", clair: "#f9a8d4" },
+  teal: { couleur: "#2dd4bf", clair: "#99f6e4" },
+  amber: { couleur: "#f59e0b", clair: "#fcd34d" },
+  emerald: { couleur: "#10b981", clair: "#6ee7b7" },
+  blue: { couleur: "#3b82f6", clair: "#93c5fd" },
 };
 
 export default function StatCard({
@@ -16,23 +20,45 @@ export default function StatCard({
   value,
   hint,
   accent = "violet",
+  icone,
 }: {
   label: string;
   value: string;
   hint?: string;
   accent?: keyof typeof ACCENTS;
+  /** Petit pictogramme (emoji) affiché en pastille à droite. */
+  icone?: string;
 }) {
-  const color = ACCENTS[accent] || ACCENTS.violet;
+  const a = ACCENTS[accent] || ACCENTS.violet;
   return (
-    <div className="glass-card relative overflow-hidden p-3 sm:p-4">
-      <span className="absolute inset-x-0 top-0 h-1" style={{ backgroundColor: color }} />
-      <div className="font-pixel text-[0.42rem] leading-relaxed text-white/60 sm:text-[0.5rem]">
-        {label}
+    <div
+      className="glass-card hud relative overflow-hidden p-3 sm:p-4"
+      style={{ "--hud-teinte": `${a.couleur}33` } as CSSProperties}
+    >
+      <span
+        className="hud-barre"
+        style={{ backgroundImage: `linear-gradient(90deg, ${a.couleur}, ${a.clair})` }}
+      />
+      <div className="relative flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-pixel text-[0.42rem] leading-relaxed text-white/60 sm:text-[0.5rem]">
+            {label}
+          </div>
+          <div className="valeur-hud mt-1 truncate" title={value}>
+            {value}
+          </div>
+          {hint && <div className="mt-0.5 truncate text-[11px] text-white/40">{hint}</div>}
+        </div>
+        {icone && (
+          <span
+            className="hud-icone shrink-0"
+            style={{ borderColor: `${a.couleur}66`, color: a.couleur }}
+            aria-hidden
+          >
+            {icone}
+          </span>
+        )}
       </div>
-      <div className="valeur-hud mt-1 truncate" title={value}>
-        {value}
-      </div>
-      {hint && <div className="mt-0.5 truncate text-[11px] text-white/40">{hint}</div>}
     </div>
   );
 }

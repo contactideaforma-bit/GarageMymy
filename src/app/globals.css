@@ -419,3 +419,245 @@ html.light body:has(.landing-pro)::after {
   }
   .field-label { font-size: 0.75rem; }
 }
+
+/* ====================================================================
+   DESIGN v8.2 — MONTÉE EN GAMME
+   Même identité rétro-arcade, exécution plus soignée : surfaces avec
+   relief, badges lisibles dans les DEUX thèmes, onglets segmentés,
+   cartes de liste qui répondent au survol, squelettes de chargement.
+
+   Règle : ces classes s'appuient sur des VARIABLES (--mea-*) redéfinies
+   en thème clair. Plus de piège du « text-white/95 invisible sur crème ».
+==================================================================== */
+
+:root {
+  --mea-surface: #1d1836;
+  --mea-surface-2: #272052;
+  --mea-surface-3: #120e26;
+  --mea-bordure: #453c74;
+  --mea-bordure-2: #6b5fae;
+  --mea-texte: #eef0fb;
+  --mea-texte-2: rgba(238, 240, 251, 0.64);
+  --mea-texte-3: rgba(238, 240, 251, 0.42);
+  --mea-ombre: rgba(0, 0, 0, 0.45);
+  --mea-halo: rgba(255, 255, 255, 0.06);
+  --mea-lisere: rgba(255, 255, 255, 0.06);
+  --mea-violet: #8b5cf6;
+  --mea-rose: #ec4899;
+  --mea-teal: #2dd4bf;
+}
+
+html.light {
+  --mea-surface: #fffdf4;
+  --mea-surface-2: #fbf6e8;
+  --mea-surface-3: #ffffff;
+  --mea-bordure: #241f3d;
+  --mea-bordure-2: #4b4374;
+  --mea-texte: #241f3d;
+  --mea-texte-2: rgba(36, 31, 61, 0.68);
+  --mea-texte-3: rgba(36, 31, 61, 0.45);
+  --mea-ombre: rgba(36, 31, 61, 0.2);
+  --mea-halo: rgba(36, 31, 61, 0.05);
+  --mea-lisere: rgba(255, 255, 255, 0.85);
+}
+
+/* ---------- Surfaces : relief discret plutôt qu'aplat ---------- */
+.glass-card {
+  background-image: linear-gradient(180deg, var(--mea-halo), transparent 96px);
+  box-shadow: 5px 5px 0 var(--mea-ombre), inset 0 1px 0 var(--mea-lisere);
+}
+.glass-soft {
+  background-image: linear-gradient(180deg, var(--mea-halo), transparent 60px);
+  box-shadow: 3px 3px 0 var(--mea-ombre), inset 0 1px 0 var(--mea-lisere);
+}
+
+/* ---------- Bouton principal : dégradé + brillance ---------- */
+.btn-primary {
+  background-image: linear-gradient(180deg, #f472b6 0%, #ec4899 55%, #db2777 100%);
+}
+.btn-primary:hover { filter: brightness(1.06) saturate(1.05); }
+
+/* ---------- Badges lisibles dans les deux thèmes ----------
+   Fond pastel + texte foncé : aucune surcharge html.light nécessaire.
+   À préférer aux couples text-emerald-300 / text-rose-300. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.12rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+.badge-ok      { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+.badge-warn    { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.badge-danger  { background: #ffe4e6; color: #9f1239; border-color: #fda4af; }
+.badge-info    { background: #ede9fe; color: #5b21b6; border-color: #c4b5fd; }
+.badge-neutral { background: #e5e7eb; color: #374151; border-color: #cbd5e1; }
+
+/* Pastille « nouveau / non lu » */
+.pastille-neuve {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--mea-rose);
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.22);
+  flex-shrink: 0;
+}
+
+/* ---------- Onglets segmentés (remplace les faux boutons) ---------- */
+.segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border-radius: 0.7rem;
+  background: var(--mea-halo);
+  border: 2px solid var(--mea-bordure);
+}
+.segment-btn {
+  border-radius: 0.5rem;
+  padding: 0.32rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--mea-texte-2);
+  transition: background 0.15s, color 0.15s;
+}
+.segment-btn:hover { color: var(--mea-texte); }
+.segment-btn.actif {
+  background: linear-gradient(180deg, var(--mea-violet), #6d34d6);
+  color: #fff;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.28);
+}
+
+/* ---------- Carte de liste cliquable ---------- */
+.carte-liste {
+  position: relative;
+  display: block;
+  border-radius: 0.6rem;
+  border: 2px solid var(--mea-bordure);
+  background: var(--mea-surface-2);
+  box-shadow: 3px 3px 0 var(--mea-ombre);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.carte-liste:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--mea-ombre);
+  border-color: var(--mea-bordure-2);
+}
+.carte-liste:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--mea-ombre); }
+.carte-liste-active {
+  border-color: var(--mea-rose);
+  box-shadow: 4px 4px 0 rgba(236, 72, 153, 0.35);
+}
+
+/* ---------- Titre de section avec barre d'accent ---------- */
+.titre-section {
+  position: relative;
+  padding-left: 0.7rem;
+  font-weight: 700;
+  color: var(--mea-texte);
+  font-size: clamp(0.9rem, 3.2vw, 1.02rem);
+  line-height: 1.3;
+}
+.titre-section::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.12em;
+  bottom: 0.12em;
+  width: 4px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--mea-rose), var(--mea-violet));
+}
+
+/* ---------- Compteurs HUD (StatCard) ---------- */
+.hud-barre {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+}
+.hud::after {
+  content: "";
+  position: absolute;
+  right: -25%;
+  top: -70%;
+  width: 55%;
+  height: 170%;
+  pointer-events: none;
+  background: radial-gradient(circle, var(--hud-teinte, rgba(139, 92, 246, 0.2)), transparent 70%);
+}
+.hud-icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  border: 2px solid;
+  background: var(--mea-halo);
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+/* ---------- Squelettes de chargement ---------- */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.45rem;
+  background: var(--mea-halo);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  animation: mea-shimmer 1.4s infinite;
+}
+html.light .skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(36, 31, 61, 0.08), transparent);
+}
+@keyframes mea-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* ---------- Apparition douce des blocs ---------- */
+@keyframes mea-apparition {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.anim-apparition { animation: mea-apparition 0.28s ease-out both; }
+
+/* ---------- Barres de défilement discrètes ---------- */
+* { scrollbar-width: thin; scrollbar-color: var(--mea-bordure-2) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--mea-bordure-2);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+/* ---------- Respect des préférences système ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .anim-apparition,
+  .skeleton::after { animation: none !important; }
+  .carte-liste:hover { transform: none; }
+}
+
+/* ---------- Densité mobile (rappel après le bloc v8.2) ---------- */
+@media (max-width: 640px) {
+  .glass-card { box-shadow: 3px 3px 0 var(--mea-ombre), inset 0 1px 0 var(--mea-lisere); }
+  .glass-soft { box-shadow: 2px 2px 0 var(--mea-ombre); }
+  .carte-liste { box-shadow: 2px 2px 0 var(--mea-ombre); }
+  .segment-btn { padding: 0.28rem 0.55rem; font-size: 0.7rem; }
+}
