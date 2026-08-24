@@ -4,6 +4,7 @@ import { DelaiDepasse, avecDelai } from "@/lib/delai";
 import { appliquerRegles, blocRegles } from "@/lib/apprentissage";
 import { IaRegle } from "@/lib/types";
 import { estPosteMo } from "@/lib/documents";
+import { texteDuPdf } from "@/lib/pdfTexte";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -32,7 +33,8 @@ const BUDGET_MS = 50_000;
 
 const REGLES_COMMUNES = `Le document peut être un SCAN (pages en images) : lis-le tel quel, ne commente jamais la qualité de l'image.
 Réponds UNIQUEMENT par le JSON demandé, en COMPACT (aucun espace ni retour à la ligne superflu, aucun bloc markdown, aucun commentaire).
-Dates au format AAAA-MM-JJ. Nombres sans symbole ni espace, point décimal (ex: 2450.50). N'invente rien : null si absent.`;
+Dates au format AAAA-MM-JJ. Nombres sans symbole ni espace, point décimal (ex: 2450.50). N'invente rien : null si absent.
+Si un bloc « TEXTE EXACT DU RAPPORT » t'est fourni, c'est LA source : recopie les libellés et les chiffres DEPUIS CE TEXTE, caractère par caractère. L'image du PDF ne sert qu'à comprendre la mise en page. Dans un tableau en grille, une valeur appartient à la colonne dont l'en-tête est aligné verticalement avec elle DANS CE TEXTE — compte les espaces, ne juge pas à l'œil.`;
 
 const PROMPT_IDENTITE = `Tu es un assistant pour une carrosserie. On te fournit un RAPPORT D'EXPERTISE automobile.
 Extrais UNIQUEMENT les informations d'identité (PAS le chiffrage, PAS la liste des pièces) et renvoie cet objet JSON :
@@ -438,8 +440,38 @@ export async function POST(req: NextRequest) {
 
     // Le bloc "document" (PDF) n'est pas encore typé dans certaines versions du SDK,
     // mais l'API l'accepte : on contourne le typage via un cast.
+    // CALQUE TEXTE (v9.0) — LA correction des « factures fausses ».
+    //
+    // Envoyé seul, le PDF est lu comme une IMAGE : le modèle devait deviner
+    // visuellement quelle valeur se trouve sous quelle colonne. Sur les
+    // rapports en grille (BCA), il ratait T1 et T2 et le total tombait faux.
+    // On joint donc le TEXTE EXACT du PDF, colonnes reconstituées à partir
+    // des coordonnées de chaque fragment. Le modèle n'a plus rien à deviner.
+    //
+    // Un scan (aucun calque texte) renvoie une chaîne vide : on retombe alors
+    // sur la lecture de l'image, comme avant.
+    const calqueTexte = isPdf ? texteDuPdf(bytes) : "";
+    const blocTexte = calqueTexte
+      ? [
+          {
+            type: "text",
+            text:
+              "TEXTE EXACT DU RAPPORT (extrait du calque texte du PDF, colonnes et " +
+              "alignements conservés). IL FAIT FOI pour TOUS les libellés et TOUS les " +
+              "chiffres : lis-les ici, caractère par caractère. L'image du PDF ne sert " +
+              "qu'à comprendre la mise en page (cadres, regroupements).\n" +
+              "Dans un tableau en grille, la valeur appartient à la colonne dont " +
+              "l'en-tête est ALIGNÉ VERTICALEMENT avec elle dans ce texte.\n\n" +
+              "-----DÉBUT DU TEXTE DU RAPPORT-----\n" +
+              calqueTexte +
+              "\n-----FIN DU TEXTE DU RAPPORT-----",
+          },
+        ]
+      : [];
+
     const content = [
       documentBlock,
+      ...blocTexte,
       { type: "text", text: prompt },
     ] as unknown as Anthropic.MessageParam["content"];
 
