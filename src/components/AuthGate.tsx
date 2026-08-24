@@ -6,6 +6,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import LandingPage from "@/components/LandingPage";
 import { METIER_INFOS, Metier } from "@/lib/metier";
+import { estRoutePublique } from "@/lib/routesPubliques";
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -44,7 +45,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   // Pages PUBLIQUES : signature à distance (accès par jeton) et mentions
   // légales (liées depuis la page d'accueil) — pas de login.
-  if (pathname?.startsWith("/signer/") || pathname === "/mentions-legales") {
+  if (estRoutePublique(pathname)) {
     return <>{children}</>;
   }
 

@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import BandeauService from "@/components/BandeauService";
+import BandeauHorsLigne from "@/components/BandeauHorsLigne";
+import { estRoutePublique } from "@/lib/routesPubliques";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -14,7 +17,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // que le jour où l'utilisateur ferme tous ses onglets. L'appel est silencieux
   // (aucune autorisation demandée ici) et sans effet si le navigateur ne gère
   // pas les service workers. Exclu des pages publiques.
-  const publique = pathname?.startsWith("/signer/") || pathname === "/mentions-legales";
+  const publique = estRoutePublique(pathname);
   useEffect(() => {
     if (publique || typeof window === "undefined" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js").catch(() => undefined);
@@ -27,7 +30,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="lg:flex min-h-screen">
+    <div>
+      {/* Bandeau d'incident (v45) : au-dessus de tout, sur toutes les pages
+          de l'appli — un garage bloqué doit savoir tout de suite que ça ne
+          vient pas de lui. */}
+      <BandeauService />
+      {/* Mode dégradé (v47) : coupure réseau et modifications en attente. */}
+      <BandeauHorsLigne />
+      <div className="lg:flex min-h-screen">
       {/* Barre du haut (mobile uniquement) — fond opaque pour que le
           contenu ne soit pas visible derrière en défilant */}
       <div className="lg:hidden sticky top-0 z-30 p-3 topbar-mobile">
@@ -73,8 +83,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      {/* Contenu */}
-      <main className="min-w-0 flex-1 p-3 sm:p-4 lg:p-6">{children}</main>
+        {/* Contenu */}
+        <main className="min-w-0 flex-1 p-3 sm:p-4 lg:p-6">{children}</main>
+      </div>
     </div>
   );
 }

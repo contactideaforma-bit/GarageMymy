@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { dateDuCache, erreurReseau, memoriser, relire } from "@/lib/horsLigne";
 import {
   Dossier,
   Evenement,
@@ -95,6 +96,20 @@ function Card({
   );
 }
 
+/** Copie locale d'une fiche dossier (mode dégradé, v47). */
+type CopieDossier = {
+  dossier: Dossier | null;
+  evenements: Evenement[];
+  documents: Document[];
+  paiements: Paiement[];
+  relances: Relance[];
+  ordres: OrdreReparation[];
+  restitutions: Restitution[];
+  cessions: CessionCreance[];
+  pieces: PieceDossier[];
+  demandes: DemandeAssurance[];
+};
+
 export default function DossierDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -168,6 +183,9 @@ export default function DossierDetailPage() {
   // Vrai dès que le dossier a été chargé une première fois (cf. load()).
   const dossierCharge = useRef(false);
 
+  // Date de la copie locale affichée quand le réseau est absent (v47).
+  const [copieLocale, setCopieLocale] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     // Écran « Chargement… » UNIQUEMENT au premier affichage : chaque petite
     // mutation (cocher « Acquittée », ajouter un événement…) rappelait load()
@@ -185,16 +203,47 @@ export default function DossierDetailPage() {
       supabase.from("pieces_dossier").select("*").eq("dossier_id", id).order("created_at", { ascending: false }),
       supabase.from("demandes_assurance").select("*").eq("dossier_id", id).order("created_at", { ascending: false }),
     ]);
-    if (d.data) setDossier(d.data as Dossier);
-    if (e.data) setEvenements(e.data as Evenement[]);
-    if (docs.data) setDocuments(docs.data as Document[]);
-    setPaiements((pay.data as Paiement[]) || []);
-    setRelances((rel.data as Relance[]) || []);
-    setOrdres((ors.data as OrdreReparation[]) || []);
-    setRestitutions((rests.data as Restitution[]) || []);
-    setCessions((cess.data as CessionCreance[]) || []);
-    setPieces((pcs.data as PieceDossier[]) || []);
-    setDemandes((dem.data as DemandeAssurance[]) || []);
+    const appliquer = (x: CopieDossier) => {
+      setDossier(x.dossier);
+      setEvenements(x.evenements);
+      setDocuments(x.documents);
+      setPaiements(x.paiements);
+      setRelances(x.relances);
+      setOrdres(x.ordres);
+      setRestitutions(x.restitutions);
+      setCessions(x.cessions);
+      setPieces(x.pieces);
+      setDemandes(x.demandes);
+    };
+
+    // MODE DÉGRADÉ (v47) : la fiche du dossier consultée le matin doit
+    // rester lisible dans l'atelier, même sans réseau.
+    if (d.error && erreurReseau(d.error)) {
+      const cache = await relire<CopieDossier>(`dossier-${id}`);
+      if (cache) {
+        appliquer(cache.donnees);
+        setCopieLocale(cache.le);
+        dossierCharge.current = true;
+        setLoading(false);
+        return;
+      }
+    }
+
+    const copie: CopieDossier = {
+      dossier: (d.data as Dossier) || null,
+      evenements: (e.data as Evenement[]) || [],
+      documents: (docs.data as Document[]) || [],
+      paiements: (pay.data as Paiement[]) || [],
+      relances: (rel.data as Relance[]) || [],
+      ordres: (ors.data as OrdreReparation[]) || [],
+      restitutions: (rests.data as Restitution[]) || [],
+      cessions: (cess.data as CessionCreance[]) || [],
+      pieces: (pcs.data as PieceDossier[]) || [],
+      demandes: (dem.data as DemandeAssurance[]) || [],
+    };
+    appliquer(copie);
+    setCopieLocale(null);
+    if (copie.dossier) memoriser(`dossier-${id}`, copie);
     dossierCharge.current = true;
     setLoading(false);
   }, [id]);
@@ -449,6 +498,11 @@ export default function DossierDetailPage() {
         <Link href="/sinistres" className="text-sm text-accent-pink hover:underline">← {t.dossiers}</Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
+            {copieLocale && (
+              <p className="mb-1 text-xs text-amber-300">
+                Hors ligne — fiche du {dateDuCache(copieLocale)} enregistrée sur cet appareil
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="titre-page">
                 Dossier {dossier.numero_sinistre || "sans numéro"}

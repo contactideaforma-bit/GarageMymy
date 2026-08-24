@@ -195,6 +195,8 @@ export type Entreprise = {
   // Signature du garage (PNG, bucket PRIVÉ 'prive') — superposée au tampon
   // sur les documents générés (v7.6)
   signature_path?: string | null;
+  // Date du dernier export complet des données (v46)
+  derniere_sauvegarde?: string | null;
   modele_pdf?: string | null; // modèle de mise en page des PDF : classique | bandeau | epure (v31)
   couleur_pdf?: string | null; // couleur d'accent des PDF, hex #rrggbb (v31)
   // Contenu du résumé push quotidien (v42)
@@ -504,4 +506,20 @@ export type TicketAdmin = Ticket & {
   entreprise_nom?: string | null;
   nb_messages?: number;
   messages?: TicketMessage[];
+};
+
+// Photo d'état du véhicule, à l'entrée ou à la sortie (v47).
+export type PhotoEtat = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  /** entree | sortie */
+  moment: string;
+  /** code d'angle (cf. lib/photosEtat.ts) */
+  angle: string;
+  path: string;
+  commentaire?: string | null;
+  prise_le: string;
+  kilometrage?: number | null;
+  owner_id?: string | null;
 };

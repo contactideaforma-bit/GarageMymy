@@ -16,6 +16,7 @@ import {
   resumeNavigateur,
 } from "@/lib/support";
 import StatCard from "@/components/StatCard";
+import IncidentsPanel from "@/components/IncidentsPanel";
 
 /**
  * CONSOLE D'ASSISTANCE (v43) — réservée à l'éditeur.
@@ -171,6 +172,11 @@ export default function SupportAdminPage() {
           {erreur}
         </div>
       )}
+
+      {/* Pilotage de la page publique d'état du service (v45) */}
+      <div className="mb-6">
+        <IncidentsPanel />
+      </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="segment">

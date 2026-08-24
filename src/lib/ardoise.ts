@@ -17,6 +17,7 @@
 // ============================================================
 
 import { supabase } from "./supabaseClient";
+import { ecrireOuEnfiler } from "./horsLigne";
 import { LigneArdoise } from "./types";
 
 /** Catégorie utilisée pour les RDV créés depuis un rappel. */
@@ -107,13 +108,22 @@ export async function ajouterRappel(args: {
   return data as LigneArdoise;
 }
 
-/** Coche / décoche un rappel. Le RDV d'agenda est conservé (trace). */
+/**
+ * Coche / décoche un rappel. Le RDV d'agenda est conservé (trace).
+ *
+ * MODE DÉGRADÉ (v47) : cocher une tâche est le geste le plus fréquent et
+ * le plus anodin — il ne doit jamais échouer parce que le Wi-Fi de
+ * l'atelier a coupé. L'opération part en file d'attente le cas échéant.
+ */
 export async function basculerRappel(ligne: LigneArdoise, fait: boolean): Promise<void> {
-  const { error } = await supabase
-    .from("ardoise")
-    .update({ fait, fait_le: fait ? new Date().toISOString() : null })
-    .eq("id", ligne.id);
-  if (error) throw error;
+  await ecrireOuEnfiler({
+    table: "ardoise",
+    type: "update",
+    colonne: "id",
+    valeur: ligne.id,
+    donnees: { fait, fait_le: fait ? new Date().toISOString() : null },
+    libelle: fait ? `Rappel coché : ${ligne.texte.slice(0, 40)}` : `Rappel décoché : ${ligne.texte.slice(0, 40)}`,
+  });
 }
 
 /** Supprime un rappel ET son rendez-vous d'agenda. */

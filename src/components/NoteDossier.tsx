@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { ecrireOuEnfiler } from "@/lib/horsLigne";
 import { messageErreur } from "@/lib/format";
 import { LigneArdoise } from "@/lib/types";
 import {
@@ -81,17 +82,27 @@ export default function NoteDossier({
       if (valeur === dernierEnregistre.current) return;
       setEtat("encours");
       setErreur(null);
-      const { error } = await supabase
-        .from("dossiers")
-        .update({ note: valeur || null, note_maj: new Date().toISOString() })
-        .eq("id", dossierId);
-      if (error) {
+      // MODE DÉGRADÉ (v47) : dans l'atelier, la connexion tombe souvent au
+      // moment précis où l'on note quelque chose. L'écriture part si le
+      // réseau répond, sinon elle est mise en file et rejouée toute seule.
+      try {
+        const partie = await ecrireOuEnfiler({
+          table: "dossiers",
+          type: "update",
+          colonne: "id",
+          valeur: dossierId,
+          donnees: { note: valeur || null, note_maj: new Date().toISOString() },
+          libelle: "Note de dossier",
+        });
+        dernierEnregistre.current = valeur;
+        setEtat("ok");
+        if (!partie) {
+          setErreur("Hors ligne : la note est gardée sur cet appareil et partira au retour du réseau.");
+        }
+      } catch (error) {
         setEtat("erreur");
         setErreur(messageErreur(error, "Note non enregistrée (migration v38 exécutée ?)."));
-        return;
       }
-      dernierEnregistre.current = valeur;
-      setEtat("ok");
     },
     [dossierId]
   );

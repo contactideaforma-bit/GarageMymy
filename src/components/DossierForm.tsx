@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { deposerFichier } from "@/lib/storage";
 import { analyserRapport, type ControleChiffrage } from "@/lib/extraction";
 import FilePicker from "@/components/FilePicker";
 import { Dossier } from "@/lib/types";
@@ -366,10 +367,9 @@ export default function DossierForm({
 
       if (file) {
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const path = `${Date.now()}_${safeName}`;
-        const { error: upErr } = await supabase.storage.from("rapports").upload(path, file);
-        if (upErr) throw upErr;
-        rapport_path = path;
+        // v44 : le fichier est déposé dans le dossier du garage
+        // (<owner_id>/…) — plus aucun rapport lisible par un autre compte.
+        rapport_path = await deposerFichier("rapports", `${Date.now()}_${safeName}`, file);
         rapport_nom = file.name;
       }
 

@@ -45,11 +45,15 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
     items: [
       { href: "/planning", label: "Planning réparation" },
       { href: "/agenda", label: "Agenda" },
+      { href: "/sauvegarde", label: "Sauvegarde" },
     ],
   },
   {
     titre: "Assistance",
-    items: [{ href: "/support", label: "Aide & incidents" }],
+    items: [
+      { href: "/support", label: "Aide & incidents" },
+      { href: "/etat", label: "État du service" },
+    ],
   },
 ];
 

@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Dossier, PieceDossier } from "@/lib/types";
 import { formatDate, messageErreur } from "@/lib/format";
 import { TYPES_PIECES, completudePieces } from "@/lib/pieces";
-import { ouvrirFichier } from "@/lib/storage";
+import { ouvrirFichier, deposerFichier } from "@/lib/storage";
 import { fichierVersPdf, imageDataUrlVersPdf } from "@/lib/photoPdf";
 import CameraModal from "@/components/CameraModal";
 
@@ -58,11 +58,10 @@ export default function PiecesPanel({
     setUploading(true);
     setError(null);
     try {
-      const path = `${dossier.id}/${type}-${Date.now()}.pdf`;
-      const { error: e1 } = await supabase.storage
-        .from("pieces")
-        .upload(path, blob, { contentType: "application/pdf" });
-      if (e1) throw e1;
+      // v44 : chemin cloisonné <owner_id>/<dossier>/…
+      const path = await deposerFichier("pieces", `${dossier.id}/${type}-${Date.now()}.pdf`, blob, {
+        contentType: "application/pdf",
+      });
       const label = TYPES_PIECES.find((t) => t.type === type)?.label || type;
       const { error: e2 } = await supabase.from("pieces_dossier").insert({
         dossier_id: dossier.id,

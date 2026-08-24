@@ -35,6 +35,26 @@ import ProgressionDossier from "@/components/ProgressionDossier";
 import GuideProcedure from "@/components/GuideProcedure";
 import BlocAFaire from "@/components/BlocAFaire";
 import ConfigBanner from "@/components/ConfigBanner";
+import { erreurReseau, dateDuCache, memoriser, relire } from "@/lib/horsLigne";
+import RappelSauvegarde from "@/components/RappelSauvegarde";
+
+/** Copie locale du tableau de bord (mode dégradé, v47). */
+const CLE_CACHE_DASHBOARD = "tableau-de-bord";
+
+type CopieTableauBord = {
+  dossiers: Dossier[];
+  evenements: Evenement[];
+  documents: Document[];
+  vehicules: Vehicule[];
+  paiements: Paiement[];
+  relances: Relance[];
+  ordres: OrdreReparation[];
+  restitutions: Restitution[];
+  cessions: CessionCreance[];
+  pieces: { dossier_id: string; type: string }[];
+  demandes: { dossier_id: string; demande: string; date_envoi: string | null }[];
+  faites: ActionFaite[];
+};
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -55,6 +75,9 @@ export default function DashboardPage() {
   const [faites, setFaites] = useState<ActionFaite[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // MODE DÉGRADÉ (v47) : date de la copie locale affichée, si on l'utilise.
+  const [copieLocale, setCopieLocale] = useState<string | null>(null);
+
   useEffect(() => {
     (async () => {
       const [d, e, docs, v, p, r, ors, rests, cess, pcs, dem, af] = await Promise.all([
@@ -72,18 +95,53 @@ export default function DashboardPage() {
         // Migration v35 non exécutée => erreur ignorée, la liste reste utilisable
         supabase.from("actions_faites").select("*"),
       ]);
-      if (d.data) setDossiers(d.data as Dossier[]);
-      if (e.data) setEvenements(e.data as Evenement[]);
-      if (docs.data) setDocuments(docs.data as Document[]);
-      if (v.data) setVehicules(v.data as Vehicule[]);
-      if (p.data) setPaiements(p.data as Paiement[]);
-      if (r.data) setRelances(r.data as Relance[]);
-      setOrdres((ors.data as OrdreReparation[]) || []);
-      setRestitutions((rests.data as Restitution[]) || []);
-      setCessions((cess.data as CessionCreance[]) || []);
-      setPieces((pcs.data as { dossier_id: string; type: string }[]) || []);
-      setDemandes((dem.data as { dossier_id: string; demande: string; date_envoi: string | null }[]) || []);
-      setFaites((af.data as ActionFaite[]) || []);
+      // Applique un jeu de données, qu'il vienne du serveur ou du cache.
+      const appliquer = (x: CopieTableauBord) => {
+        setDossiers(x.dossiers);
+        setEvenements(x.evenements);
+        setDocuments(x.documents);
+        setVehicules(x.vehicules);
+        setPaiements(x.paiements);
+        setRelances(x.relances);
+        setOrdres(x.ordres);
+        setRestitutions(x.restitutions);
+        setCessions(x.cessions);
+        setPieces(x.pieces);
+        setDemandes(x.demandes);
+        setFaites(x.faites);
+      };
+
+      // MODE DÉGRADÉ (v47) : plutôt qu'un tableau de bord vide quand le
+      // réseau lâche, on réaffiche la dernière copie enregistrée sur
+      // l'appareil, en indiquant clairement de quand elle date.
+      if (d.error && erreurReseau(d.error)) {
+        const cache = await relire<CopieTableauBord>(CLE_CACHE_DASHBOARD);
+        if (cache) {
+          appliquer(cache.donnees);
+          setCopieLocale(cache.le);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const copie: CopieTableauBord = {
+        dossiers: (d.data as Dossier[]) || [],
+        evenements: (e.data as Evenement[]) || [],
+        documents: (docs.data as Document[]) || [],
+        vehicules: (v.data as Vehicule[]) || [],
+        paiements: (p.data as Paiement[]) || [],
+        relances: (r.data as Relance[]) || [],
+        ordres: (ors.data as OrdreReparation[]) || [],
+        restitutions: (rests.data as Restitution[]) || [],
+        cessions: (cess.data as CessionCreance[]) || [],
+        pieces: (pcs.data as { dossier_id: string; type: string }[]) || [],
+        demandes:
+          (dem.data as { dossier_id: string; demande: string; date_envoi: string | null }[]) || [],
+        faites: (af.data as ActionFaite[]) || [],
+      };
+      appliquer(copie);
+      // Rangement silencieux pour la prochaine coupure.
+      memoriser(CLE_CACHE_DASHBOARD, copie);
       setLoading(false);
     })();
   }, []);
@@ -266,6 +324,11 @@ export default function DashboardPage() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <h1 className="titre-page">Tableau de bord</h1>
+          {copieLocale && (
+            <p className="mt-1 text-xs text-amber-300">
+              Copie enregistrée sur cet appareil — données du {dateDuCache(copieLocale)}
+            </p>
+          )}
           <p className="mt-1 text-xs capitalize text-white/45">
             {now.toLocaleDateString("fr-FR", {
               weekday: "long",
@@ -313,6 +376,10 @@ export default function DashboardPage() {
           />
         </Link>
       </div>
+
+      {/* Rappel de sauvegarde (v46) : au-dessus du travail du jour, parce
+          qu'une sauvegarde repoussée indéfiniment ne sert à rien. */}
+      <RappelSauvegarde />
 
       {/* BLOC « À FAIRE » (v41) — une seule liste : les rappels AUTOMATIQUES
           calculés depuis les dossiers + les rappels ÉCRITS par le garage

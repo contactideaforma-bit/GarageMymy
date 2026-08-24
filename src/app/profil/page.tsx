@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { deposerFichier } from "@/lib/storage";
 import { Entreprise } from "@/lib/types";
 import ConfigBanner from "@/components/ConfigBanner";
 import SignaturePad from "@/components/SignaturePad";
@@ -83,10 +84,8 @@ export default function ProfilPage() {
   // sensibles (v33) — jamais accessibles par simple URL.
   async function upload(file: File, prefix: string, bucket: "entreprise" | "prive" = "entreprise"): Promise<string> {
     const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `${prefix}_${Date.now()}_${safe}`;
-    const { error: e } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
-    if (e) throw e;
-    return path;
+    // v44 : dépôt dans le dossier du garage (<owner_id>/…).
+    return deposerFichier(bucket, `${prefix}_${Date.now()}_${safe}`, file, { upsert: true });
   }
 
   // Ouvre le RIB : lien signé 5 min sur le bucket privé, repli sur l'ancien

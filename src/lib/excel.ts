@@ -157,12 +157,11 @@ function worksheetXml<T extends Record<string, unknown>>(
  * @param colonnes   définition des colonnes
  * @param lignes     données (tableau d'objets indexés par `key`)
  */
-export async function exporterXlsx<T extends Record<string, unknown>>(
-  nomFichier: string,
+export async function construireXlsx<T extends Record<string, unknown>>(
   nomFeuille: string,
   colonnes: ColonneExcel[],
   lignes: T[]
-): Promise<void> {
+): Promise<Blob> {
   const zip = new JSZip();
   zip.file("[Content_Types].xml", CONTENT_TYPES);
   zip.folder("_rels")!.file(".rels", RELS);
@@ -172,11 +171,23 @@ export async function exporterXlsx<T extends Record<string, unknown>>(
   xl.folder("_rels")!.file("workbook.xml.rels", WORKBOOK_RELS);
   xl.folder("worksheets")!.file("sheet1.xml", worksheetXml(colonnes, lignes));
 
-  const blob = await zip.generateAsync({
+  return zip.generateAsync({
     type: "blob",
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
+}
 
+/**
+ * Même chose, mais TÉLÉCHARGE directement le fichier.
+ * (`construireXlsx` sert à glisser le classeur dans une sauvegarde ZIP.)
+ */
+export async function exporterXlsx<T extends Record<string, unknown>>(
+  nomFichier: string,
+  nomFeuille: string,
+  colonnes: ColonneExcel[],
+  lignes: T[]
+): Promise<void> {
+  const blob = await construireXlsx(nomFeuille, colonnes, lignes);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

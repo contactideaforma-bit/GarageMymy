@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { dateDuCache, erreurReseau, memoriser, relire } from "@/lib/horsLigne";
 import { Dossier } from "@/lib/types";
 import {
   estActif,
@@ -197,13 +198,31 @@ export default function SinistresPage() {
   // filtres actifs.
   const [filtresOuverts, setFiltresOuverts] = useState(false);
 
+  // Date de la copie locale affichée quand le réseau est absent (v47).
+  const [copieLocale, setCopieLocale] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("dossiers")
       .select("*")
       .order("created_at", { ascending: false });
-    if (data) setDossiers(data as Dossier[]);
+    // MODE DÉGRADÉ (v47) : la liste des dossiers est l'écran le plus
+    // consulté dans l'atelier — il doit rester lisible sans réseau.
+    if (error && erreurReseau(error)) {
+      const cache = await relire<Dossier[]>("liste-sinistres");
+      if (cache) {
+        setDossiers(cache.donnees);
+        setCopieLocale(cache.le);
+        setLoading(false);
+        return;
+      }
+    }
+    if (data) {
+      setDossiers(data as Dossier[]);
+      setCopieLocale(null);
+      memoriser("liste-sinistres", data as Dossier[]);
+    }
     // Étiquettes : si la migration v37 n'est pas passée, on reste silencieux.
     try {
       const [cat, lns] = await Promise.all([chargerParticularites(), chargerLiens()]);
@@ -415,7 +434,14 @@ export default function SinistresPage() {
       {/* En-tête : sur téléphone, action principale en pleine largeur puis
           les deux actions secondaires côte à côte (au lieu d'un empilement). */}
       <div className="mb-4 sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-2">
-        <h1 className="titre-page mb-2 sm:mb-0">{t.dossiers}</h1>
+        <div className="mb-2 sm:mb-0">
+          <h1 className="titre-page">{t.dossiers}</h1>
+          {copieLocale && (
+            <p className="mt-1 text-xs text-amber-300">
+              Hors ligne — liste du {dateDuCache(copieLocale)} enregistrée sur cet appareil
+            </p>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <button
             onClick={() => setShowForm(true)}
