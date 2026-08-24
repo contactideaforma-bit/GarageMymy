@@ -40,6 +40,33 @@ export default function NoteDossier({
   dossierId: string;
   noteInitiale?: string | null;
 }) {
+  // ================================================================
+  //  CADRAGE MOBILE (v8.7) — pourquoi tout ce code pour un panneau
+  //
+  //  Sur iPhone, ouvrir la note donnait le focus au textarea, donc le
+  //  clavier montait. Or un élément `position: fixed` reste calé sur la
+  //  fenêtre de mise en page (celle d'AVANT le clavier) : le panneau
+  //  partait sous le clavier et débordait à droite — le « hors champ »
+  //  signalé. Deux réponses :
+  //
+  //   1. sur téléphone, le panneau devient une FEUILLE PLEIN ÉCRAN
+  //      positionnée sur la zone RÉELLEMENT visible, lue via
+  //      `window.visualViewport` (largeur, hauteur et décalage réels,
+  //      clavier compris). Plus aucun calcul de marge à se tromper ;
+  //   2. le focus automatique est réservé au bureau : sur téléphone, le
+  //      clavier ne s'ouvre que si l'utilisateur touche le champ.
+  // ================================================================
+  const [mobile, setMobile] = useState(false);
+  const [zone, setZone] = useState<{ top: number; left: number; w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const maj = () => setMobile(mq.matches);
+    maj();
+    mq.addEventListener("change", maj);
+    return () => mq.removeEventListener("change", maj);
+  }, []);
+
   // PORTAIL (v8.6) : le panneau était rendu DANS la fiche dossier, dont
   // les cartes créent un « containing block » (fond dégradé + animations).
   // Résultat : le `position: fixed` se calait sur la carte et le panneau
@@ -137,9 +164,32 @@ export default function NoteDossier({
       if (e.key === "Escape") fermer();
     };
     window.addEventListener("keydown", onKey);
-    zoneRef.current?.focus();
+    // Focus automatique BUREAU uniquement : sur téléphone il ferait monter
+    // le clavier avant même que l'utilisateur ait vu le panneau.
+    if (!mobile) zoneRef.current?.focus();
     return () => window.removeEventListener("keydown", onKey);
-  }, [ouvert, fermer]);
+  }, [ouvert, fermer, mobile]);
+
+  // Zone visible du navigateur : recalculée à l'ouverture, quand le clavier
+  // monte ou descend (`resize`), et quand iOS fait glisser la page sous le
+  // clavier (`scroll`).
+  useEffect(() => {
+    if (!ouvert || !mobile) {
+      setZone(null);
+      return;
+    }
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const maj = () =>
+      setZone({ top: vv.offsetTop, left: vv.offsetLeft, w: vv.width, h: vv.height });
+    maj();
+    vv.addEventListener("resize", maj);
+    vv.addEventListener("scroll", maj);
+    return () => {
+      vv.removeEventListener("resize", maj);
+      vv.removeEventListener("scroll", maj);
+    };
+  }, [ouvert, mobile]);
 
   /* ------------------------------ Rappels ------------------------------ */
 
@@ -257,13 +307,37 @@ export default function NoteDossier({
       {/* Voile transparent : un clic n'importe où en dehors réduit la note. */}
       <div className="fixed inset-0 z-40" onMouseDown={fermer} aria-hidden />
 
-      {/* Mobile : feuille collée en bas, pleine largeur (le clavier peut
-          monter sans couper le panneau, grâce à dvh). PC : carte ancrée en
-          bas à droite, largeur fixe. */}
-      <div className="glass-card fixed inset-x-2 bottom-2 z-50 flex max-h-[78dvh] flex-col sm:inset-x-auto sm:bottom-6 sm:right-6 sm:max-h-[80vh] sm:w-[26rem]">
-        <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
-          <span className="titre-bloc">Note du dossier</span>
-          <div className="flex items-center gap-2">
+      {/* Mobile : feuille PLEIN ÉCRAN sur la zone visible (clavier compris).
+          PC : carte ancrée en bas à droite, largeur fixe. */}
+      <div
+        className={`glass-card fixed z-50 flex flex-col overflow-hidden ${
+          mobile
+            ? "inset-0 rounded-none border-x-0"
+            : "bottom-6 right-6 max-h-[80vh] w-[26rem]"
+        }`}
+        style={
+          mobile
+            ? {
+                // L'ombre portée « cartouche » n'a pas de sens en plein écran
+                // et est écrite en CSS non utilitaire : on la coupe ici.
+                boxShadow: "none",
+                ...(zone
+                  ? {
+                      top: zone.top,
+                      left: zone.left,
+                      width: zone.w,
+                      height: zone.h,
+                      right: "auto",
+                      bottom: "auto",
+                    }
+                  : {}),
+              }
+            : undefined
+        }
+      >
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
+          <span className="titre-bloc min-w-0 truncate">Note du dossier</span>
+          <div className="flex shrink-0 items-center gap-2">
             <span className="text-[11px] text-white/40">
               {etat === "encours" && "Enregistrement…"}
               {etat === "ok" && "Enregistré"}
@@ -405,8 +479,15 @@ export default function NoteDossier({
             {erreur}
           </div>
         )}
-        <div className="border-t border-white/10 px-3 py-1.5 text-[11px] text-white/30">
-          Commentaire enregistré automatiquement — clique en dehors pour réduire.
+        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-white/10 px-3 py-1.5 text-[11px] text-white/30">
+          <span className="min-w-0 truncate">
+            Commentaire enregistré automatiquement{mobile ? "." : " — clique en dehors pour réduire."}
+          </span>
+          {mobile && (
+            <button onClick={fermer} className="btn-ghost btn-compact shrink-0">
+              Fermer
+            </button>
+          )}
         </div>
       </div>
     </>,
