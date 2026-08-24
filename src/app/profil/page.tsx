@@ -22,7 +22,7 @@ const EMPTY: FormE = {
   nom: "", adresse: "", code_postal: "", ville: "", tel: "", email: "",
   siret: "", tva_intra: "", iban: "", bic: "", mentions: "",
   logo_path: null, modele_facture_path: null,
-  signature_mail: "", rib_path: null, signature_path: null,
+  signature_mail: "", rib_path: null, signature_path: null, lien_avis: "",
   modele_pdf: MODELE_PDF_DEFAUT, couleur_pdf: COULEUR_PDF_DEFAUT,
 };
 
@@ -68,6 +68,7 @@ export default function ProfilPage() {
           logo_path: e.logo_path, modele_facture_path: e.modele_facture_path,
           signature_mail: e.signature_mail ?? "", rib_path: e.rib_path ?? null,
           signature_path: e.signature_path ?? null,
+          lien_avis: e.lien_avis ?? "",
           modele_pdf: e.modele_pdf ?? MODELE_PDF_DEFAUT,
           couleur_pdf: e.couleur_pdf ?? COULEUR_PDF_DEFAUT,
         });
@@ -331,6 +332,24 @@ export default function ProfilPage() {
               />
               <span className="text-xs text-white/40">ou une couleur personnalisée</span>
             </div>
+          </div>
+        </section>
+
+        {/* Suivi client (v48) : le lien d'avis proposé à la restitution. */}
+        <section>
+          <h2 className="text-sm font-semibold text-accent-pink mb-3">Suivi client &amp; avis</h2>
+          <div className="glass-soft p-4">
+            <label className="field-label">Lien pour laisser un avis (Google, Pages Jaunes…)</label>
+            <input
+              className="field-input"
+              value={form.lien_avis ?? ""}
+              onChange={(e) => set("lien_avis", e.target.value)}
+              placeholder="https://g.page/r/…/review"
+            />
+            <p className="text-xs text-white/40 mt-1">
+              Proposé au client sur son suivi une fois le véhicule restitué — au moment précis où il
+              est content. Sur Google : fiche d&apos;établissement → « Demander des avis » → copier le lien.
+            </p>
           </div>
         </section>
 

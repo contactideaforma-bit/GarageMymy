@@ -41,6 +41,10 @@ export type Dossier = {
   client_ville: string | null;
   client_email?: string | null;
   client_tel?: string | null;
+  // RENTABILITÉ (v49) : heures réellement passées à l'atelier et coût
+  // d'achat des pièces quand aucune commande n'est saisie.
+  heures_passees?: number | null;
+  cout_pieces_reel?: number | null;
 
   // Réparation (planning)
   reparation_debut: string | null;
@@ -197,6 +201,11 @@ export type Entreprise = {
   signature_path?: string | null;
   // Date du dernier export complet des données (v46)
   derniere_sauvegarde?: string | null;
+  // Lien de dépôt d'avis proposé au client à la restitution (v48)
+  lien_avis?: string | null;
+  // Coût horaire de l'atelier, charges comprises (v49) — sert au calcul
+  // de marge ; à ne pas confondre avec le taux horaire FACTURÉ.
+  cout_horaire?: number | null;
   modele_pdf?: string | null; // modèle de mise en page des PDF : classique | bandeau | epure (v31)
   couleur_pdf?: string | null; // couleur d'accent des PDF, hex #rrggbb (v31)
   // Contenu du résumé push quotidien (v42)
@@ -521,5 +530,18 @@ export type PhotoEtat = {
   commentaire?: string | null;
   prise_le: string;
   kilometrage?: number | null;
+  owner_id?: string | null;
+};
+
+// Lien de suivi partagé au client d'un dossier (v48).
+export type PartageSuivi = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  token: string;
+  actif: boolean;
+  expire_le?: string | null;
+  vues: number;
+  derniere_vue?: string | null;
   owner_id?: string | null;
 };

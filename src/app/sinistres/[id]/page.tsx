@@ -22,6 +22,8 @@ import {
 import { calculeProchaineAction } from "@/lib/actions";
 import ProchaineActionCard from "@/components/ProchaineActionCard";
 import PiecesPanel from "@/components/PiecesPanel";
+import PhotosEtatPanel from "@/components/PhotosEtatPanel";
+import PartageSuiviPanel from "@/components/PartageSuiviPanel";
 import DemandesPanel from "@/components/DemandesPanel";
 import CommandesPanel from "@/components/CommandesPanel";
 import SignatureDocModal from "@/components/SignatureDocModal";
@@ -885,6 +887,13 @@ export default function DossierDetailPage() {
       <TransfertGarantiePanel dossier={dossier} onChanged={load} />
 
       {/* Pièces du dossier (checklist) — placé en fin de fiche (v7.0) */}
+      {/* Lien de suivi envoyé au client (v48) */}
+      <PartageSuiviPanel dossier={dossier} />
+
+      {/* État du véhicule en photos (v47) : juste avant les pièces, parce
+          que c'est le même geste — on documente le dossier. */}
+      <PhotosEtatPanel dossier={dossier} />
+
       <PiecesPanel dossier={dossier} pieces={pieces} onChanged={load} />
 
       {/* Événements liés */}

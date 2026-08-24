@@ -12,6 +12,7 @@ import {
 } from "./documents";
 import { AUTORISATION_OR, CESSION_OBJET, CESSION_NOTIFICATION, DECHARGE_RESTITUTION } from "./atelier";
 import { supabase } from "./supabaseClient";
+import { ajouterPlanchesPhotos, photosDuDossier } from "./photosEtatPdf";
 import { ModelePdf, themePdf } from "./pdfTheme";
 
 const DEFAUT: Partial<Entreprise> = {
@@ -1442,6 +1443,16 @@ async function buildRestitutionPdf(rest: Restitution, dossier: Dossier): Promise
 
   drawParagraphe(ctx, "Décharge", DECHARGE_RESTITUTION);
   drawSignatureBloc(ctx, rest.signataire_nom, rest.signature, rest.signe_le);
+
+  // ANNEXE PHOTOS (v47) : la série d'état (entrée + sortie) est jointe au
+  // PV. C'est elle qui éteint le « cette rayure n'y était pas ». Une photo
+  // illisible ou une table absente ne doit jamais empêcher le PV de sortir.
+  try {
+    const photos = await photosDuDossier(dossier.id);
+    await ajouterPlanchesPhotos(ctx.pdf, dossier, photos);
+  } catch {
+    /* PV délivré sans annexe */
+  }
 
   return ctx.pdf;
 }
