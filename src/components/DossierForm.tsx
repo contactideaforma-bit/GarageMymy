@@ -561,7 +561,10 @@ export default function DossierForm({
             {controle && (
               controle.coherent ? (
                 <p className="mt-2 text-xs text-emerald-300">
-                  ✓ Chiffrage vérifié : les lignes totalisent {formatEuros(controle.somme)} HT
+                  {controle.source === "grille"
+                    ? "✓ Chiffrage lu directement dans le rapport (sans IA) et vérifié : les lignes totalisent "
+                    : "✓ Chiffrage vérifié : les lignes totalisent "}
+                  {formatEuros(controle.somme)} HT
                   {controle.montantDeduit
                     ? " (montant du dossier déduit du détail des lignes)."
                     : ", conforme au total du rapport."}

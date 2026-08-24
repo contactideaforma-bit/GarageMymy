@@ -32,6 +32,11 @@ export type ControleChiffrage = {
    * rapport n'imprime pas de sous-totaux.
    */
   blocs?: string[];
+  /**
+   * « grille » = chiffrage lu DIRECTEMENT dans le rapport par le code, sans
+   * IA, et vérifié contre les totaux imprimés (v9.1). Absent = lecture IA.
+   */
+  source?: "grille" | "ia";
 };
 
 export type Extraction = Partial<Dossier> & {

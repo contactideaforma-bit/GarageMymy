@@ -5,6 +5,7 @@ import { appliquerRegles, blocRegles } from "@/lib/apprentissage";
 import { IaRegle } from "@/lib/types";
 import { estPosteMo } from "@/lib/documents";
 import { texteDuPdf } from "@/lib/pdfTexte";
+import { lireChiffrageGrille } from "@/lib/chiffrageGrille";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -451,6 +452,50 @@ export async function POST(req: NextRequest) {
     // Un scan (aucun calque texte) renvoie une chaîne vide : on retombe alors
     // sur la lecture de l'image, comme avant.
     const calqueTexte = isPdf ? texteDuPdf(bytes) : "";
+    // ================================================================
+    //  LECTURE DÉTERMINISTE D'ABORD (v9.1)
+    //
+    //  Les rapports en GRILLE (BCA/Allianz) ont une mise en page
+    //  parfaitement régulière : à partir du calque texte, les colonnes
+    //  T1/T2/T3/TP sont des positions de caractères. On les lit EN CODE,
+    //  et on ne retient le résultat QUE s'il retombe sur le total imprimé
+    //  par le rapport. Quand ça marche, on n'appelle même pas l'IA :
+    //  c'est exact, instantané et gratuit. Sinon, l'analyse IA reprend.
+    // ================================================================
+    if (partie === "chiffrage" && calqueTexte) {
+      const grille = lireChiffrageGrille(calqueTexte);
+      if (grille) {
+        const brutes = grille.lignes.map((l) => ({
+          designation: l.designation,
+          quantite: l.quantite,
+          prix_unitaire: l.prix_unitaire,
+          remise: l.remise,
+          categorie: l.categorie as string,
+        }));
+        const { lignes, appliquees } = appliquerRegles(brutes, regles);
+        const controle = controlerChiffrage(lignes, grille.montant);
+        return NextResponse.json({
+          data: {
+            montant: grille.montant,
+            tva: grille.tva,
+            lignes,
+            regles_appliquees: appliquees,
+            controle: {
+              ...controle,
+              blocs: controlerBlocs(lignes, {
+                mo: grille.recap.mo,
+                pieces: grille.recap.pieces,
+                ingredients: grille.recap.ingTotal,
+                total: grille.recap.total,
+              }),
+              source: "grille" as const,
+            },
+          },
+          partie,
+        });
+      }
+    }
+
     const blocTexte = calqueTexte
       ? [
           {
