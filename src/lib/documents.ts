@@ -23,16 +23,36 @@ const RE_AUTRE =
 // TABLEAU DES POSTES — liste FERMÉE (v7.5, exigence du garage) :
 // UNIQUEMENT T1, T2, T3, Peinture et Ingrédients de peinture. Tout le reste
 // (main d'œuvre générique, tôlerie, forfaits…) part dans « Autres éléments ».
-const RE_T123 = /(^|[^a-z0-9])(mo\s*|main\s*d.?\s*(œ|oe)uvre\s*)?t\s*-?\s*[123]([^0-9]|$)/;
-const RE_INGREDIENTS = /ingr[ée]d/;
-// « Peinture » seule (ou « forfait peinture », « MO peinture ») — mais PAS
-// « baguette peinture » ni une pièce dont le libellé contient « peint ».
-const RE_PEINTURE = /(^|[^a-z])(mo\s*|forfait\s*|main\s*d.?\s*(œ|oe)uvre\s*)?peinture([^a-z]|$)/;
+//
+// ⚠️ v8.8 — RECONNAISSANCE ANCRÉE AU DÉBUT DU LIBELLÉ.
+// L'ancienne version cherchait le mot n'importe où : « BAGUETTE PEINTURE »
+// ou « SUPPORT T2 » (des PIÈCES) atterrissaient dans le tableau des postes,
+// qui se retrouvait avec autre chose que les cinq postes autorisés. Un poste
+// de main d'œuvre commence TOUJOURS par son nom, éventuellement précédé de
+// « MO », « M.O. », « main d'œuvre » ou « forfait ».
+// Le préfixe doit être SUIVI d'un séparateur : sans ce garde-fou, « MOULURE »
+// perdait son « MO » et « MOTEUR » aussi. Couvre « MO », « M.O. »,
+// « main d'œuvre » et « forfait ».
+const RE_PREFIXE_MO =
+  /^\s*(?:mo|m\.\s*o\.?|main\s*d.?\s*(?:œ|oe)uvre|forfait)(?=[\s:.\-–])[\s:.\-–]*/;
+
+/** Retire le préfixe « MO / main d'œuvre / forfait » d'un libellé. */
+function sansPrefixeMo(designation: string | null | undefined): string {
+  return (designation || "").trim().toLowerCase().replace(RE_PREFIXE_MO, "").trim();
+}
+
+const RE_T123 = /^t\s*-?\s*[123]\b/;
+// « Ingr.(MV) » est l'abréviation réellement imprimée par certains cabinets
+// (Adenes/Roadia) : la reconnaissance doit accepter la forme abrégée.
+const RE_INGREDIENTS = /^ingr(?:[ée]d|\.|\s|$)/;
+const RE_PEINTURE = /^peinture\b/;
 
 export function estPosteMo(designation: string | null | undefined): boolean {
-  const d = (designation || "").trim().toLowerCase();
+  const d = sansPrefixeMo(designation);
   if (!d) return false;
-  return RE_T123.test(d) || RE_INGREDIENTS.test(d) || RE_PEINTURE.test(d);
+  // Ingrédients AVANT peinture : « Ingrédients de peinture » est un poste
+  // distinct, il ne doit pas être pris pour la ligne « Peinture ».
+  return RE_INGREDIENTS.test(d) || RE_T123.test(d) || RE_PEINTURE.test(d);
 }
 
 export function categoriseLigne(designation: string | null | undefined): CategorieLigne {
@@ -49,22 +69,31 @@ export function categoriseLigne(designation: string | null | undefined): Categor
 // Ordre d'affichage imposé dans le tableau des postes :
 // T1, T2, T3, Peinture, Ingrédients de peinture, puis le reste.
 export function rangPosteMo(designation: string | null | undefined): number {
-  const d = (designation || "").toLowerCase();
-  if (/ingr[ée]d/.test(d)) return 5;
-  if (/(^|[^a-z0-9])(mo\s*)?t\s*-?\s*1([^0-9]|$)/.test(d)) return 1;
-  if (/(^|[^a-z0-9])(mo\s*)?t\s*-?\s*2([^0-9]|$)/.test(d)) return 2;
-  if (/(^|[^a-z0-9])(mo\s*)?t\s*-?\s*3([^0-9]|$)/.test(d)) return 3;
-  if (/peinture/.test(d)) return 4;
+  const d = sansPrefixeMo(designation);
+  if (RE_INGREDIENTS.test(d)) return 5;
+  if (/^t\s*-?\s*1\b/.test(d)) return 1;
+  if (/^t\s*-?\s*2\b/.test(d)) return 2;
+  if (/^t\s*-?\s*3\b/.test(d)) return 3;
+  if (RE_PEINTURE.test(d)) return 4;
   return 6;
 }
 
+/**
+ * La ligne « Peinture » du tableau des postes — celle dont les ingrédients
+ * recopient le temps. Elle DOIT être un poste (v8.8) : sans ça, une pièce
+ * intitulée « baguette peinture » servait de référence à la recopie.
+ */
 export function estLignePeinture(designation: string | null | undefined): boolean {
-  const d = (designation || "").toLowerCase();
-  return /peinture/.test(d) && !/ingr[ée]d/.test(d);
+  return estPosteMo(designation) && RE_PEINTURE.test(sansPrefixeMo(designation));
 }
 
+/**
+ * La ligne « Ingrédients de peinture ». Ancrée elle aussi (v8.8) : la recopie
+ * automatique du temps ne doit jamais écraser la quantité d'une pièce dont le
+ * libellé contiendrait le mot « ingrédients ».
+ */
 export function estLigneIngredients(designation: string | null | undefined): boolean {
-  return /ingr[ée]d/.test((designation || "").toLowerCase());
+  return RE_INGREDIENTS.test(sansPrefixeMo(designation));
 }
 
 type LigneBase = {
@@ -373,6 +402,48 @@ export function normaliseLignes(
     ];
   }
   return normalisees;
+}
+
+/* ==================================================================
+ *  CHIFFRAGE DU RAPPORT (v50) — source de vérité régénérable
+ *
+ *  Les lignes lues dans le rapport sont rangées sur `dossiers.chiffrage`.
+ *  Elles servent à REGÉNÉRER un devis ou une facture à l'identique, y
+ *  compris après suppression : le bouton « + Facture » ne repart plus
+ *  jamais d'une page blanche quand le dossier a été analysé.
+ *
+ *  ⚠️ Les lignes SANS PRIX sont conservées telles quelles : au rapport,
+ *  ce sont des opérations comprises dans la main d'œuvre (D/R/P/G), et le
+ *  garage veut les voir sur la facture. Ne jamais les filtrer.
+ * ================================================================== */
+
+/** Une ligne du chiffrage telle qu'elle est rangée sur le dossier. */
+export type LigneChiffrage = {
+  designation: string;
+  quantite: number;
+  prix_unitaire: number;
+  remise: number;
+  categorie: CategorieLigne;
+};
+
+/** Lignes prêtes à pré-remplir l'éditeur — lecture TOLÉRANTE du JSON. */
+export function lignesDepuisChiffrage(chiffrage: unknown): LigneChiffrage[] {
+  if (!Array.isArray(chiffrage)) return [];
+  return chiffrage
+    .filter((l): l is Record<string, unknown> => Boolean(l) && typeof l === "object")
+    .map((l) => ({
+      designation: String(l.designation ?? "").trim(),
+      quantite: Number(l.quantite) || 0,
+      prix_unitaire: Number(l.prix_unitaire) || 0,
+      remise: tauxRemise(l.remise as number),
+      categorie: categorieDe(l as LigneBase),
+    }))
+    .filter((l) => l.designation !== "");
+}
+
+/** Total HT d'un chiffrage — sert à vérifier qu'on retombe sur le rapport. */
+export function totalChiffrage(lignes: LigneChiffrage[]): number {
+  return sousTotal(lignes);
 }
 
 export function lignesToDb(lignes: LigneSaisie[]): Omit<DocumentLigne, "id" | "document_id">[] {

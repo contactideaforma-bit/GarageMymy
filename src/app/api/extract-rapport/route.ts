@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { DelaiDepasse, avecDelai } from "@/lib/delai";
 import { appliquerRegles, blocRegles } from "@/lib/apprentissage";
 import { IaRegle } from "@/lib/types";
+import { estPosteMo } from "@/lib/documents";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -190,7 +191,16 @@ function developperLignes(brut: unknown): LigneExtraite[] {
       }
       return null;
     })
-    .filter((l): l is LigneExtraite => l !== null);
+    .filter((l): l is LigneExtraite => l !== null)
+    // FILET DE SÉCURITÉ (v8.8) : le tableau « Main d'œuvre » est une LISTE
+    // FERMÉE (T1, T2, T3, Peinture, Ingrédients de peinture). Le prompt le dit,
+    // mais un modèle peut s'en écarter — on le corrige ici, à la source, plutôt
+    // que de laisser une tôlerie ou un forfait polluer le tableau des postes.
+    .map((l) =>
+      l.categorie === "mo" && !estPosteMo(l.designation)
+        ? { ...l, categorie: "autre" }
+        : l
+    );
 }
 
 const centimes = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;

@@ -29,6 +29,7 @@ import CommandesPanel from "@/components/CommandesPanel";
 import SignatureDocModal from "@/components/SignatureDocModal";
 import ModalShell from "@/components/ModalShell";
 import TransfertGarantiePanel from "@/components/TransfertGarantiePanel";
+import { lignesDepuisChiffrage } from "@/lib/documents";
 import { archiverDossier } from "@/lib/archive";
 import { marquerFactureEnvoyee } from "@/lib/dossierSync";
 import { fichierBase64, ouvrirFichier } from "@/lib/storage";
@@ -42,7 +43,7 @@ import StatutBadge from "@/components/StatutBadge";
 import StatutPipeline from "@/components/StatutPipeline";
 import ProgressionDossier from "@/components/ProgressionDossier";
 import DossierForm from "@/components/DossierForm";
-import DocumentEditor from "@/components/DocumentEditor";
+import DocumentEditor, { type LigneSource } from "@/components/DocumentEditor";
 import PaiementsPanel from "@/components/PaiementsPanel";
 import AtelierPanel, { TypeDocAtelier, labelOrdre } from "@/components/AtelierPanel";
 import EmailComposer from "@/components/EmailComposer";
@@ -134,7 +135,12 @@ export default function DossierDetailPage() {
 
   // éditeur de document
   const [editor, setEditor] = useState<
-    { type: DocumentType; document?: Document | null; lignes?: DocumentLigne[] } | null
+    {
+      type: DocumentType;
+      document?: Document | null;
+      lignes?: LigneSource[];
+      origine?: "rapport" | "document" | null;
+    } | null
   >(null);
 
   // composer email (devis/facture)
@@ -396,8 +402,70 @@ export default function DossierDetailPage() {
 
   async function supprimerDoc(doc: Document) {
     if (!confirm("Supprimer ce document ?")) return;
-    await supabase.from("documents").delete().eq("id", doc.id);
+    // L'erreur était AVALÉE : une suppression refusée (contrainte, RLS)
+    // laissait le document en place sans rien dire, et le garage croyait que
+    // c'était la création suivante qui échouait.
+    const { error } = await supabase.from("documents").delete().eq("id", doc.id);
+    if (error) {
+      alert(messageErreur(error, "Suppression impossible — le document n'a PAS été supprimé."));
+      return;
+    }
     load();
+  }
+
+  /**
+   * NOUVEAU DEVIS / NOUVELLE FACTURE (v50).
+   *
+   * Avant, « + Facture » ouvrait une page blanche : après avoir supprimé la
+   * facture générée à l'import, le chiffrage du rapport était perdu et il
+   * fallait tout ressaisir. On repart désormais, dans l'ordre :
+   *   1. du CHIFFRAGE du rapport conservé sur le dossier (migration v50) ;
+   *   2. à défaut, du document existant le plus récent (devis d'abord) ;
+   *   3. et seulement sinon, d'une ligne vide.
+   */
+  async function ouvrirNouveauDocument(type: DocumentType) {
+    if (!dossier) return;
+
+    const duRapport = lignesDepuisChiffrage(dossier.chiffrage);
+    if (duRapport.length > 0) {
+      setEditor({ type, lignes: duRapport, origine: "rapport" });
+      return;
+    }
+
+    // Repli : recopier un document déjà présent (le devis fait foi sur le
+    // chiffrage, sinon la facture la plus récente).
+    const source =
+      documents.find((d) => d.type === "devis") || documents.find((d) => d.type === "facture");
+    if (source) {
+      const { data } = await supabase
+        .from("document_lignes")
+        .select("*")
+        .eq("document_id", source.id)
+        .order("ordre", { ascending: true });
+      const reprises = (data as DocumentLigne[]) || [];
+      if (reprises.length > 0) {
+        // RATTRAPAGE des dossiers antérieurs à la v50 : on range ce chiffrage
+        // sur le dossier, pour que la prochaine régénération parte de la
+        // source et survive à la suppression de TOUS les documents.
+        const { error: eChiff } = await supabase
+          .from("dossiers")
+          .update({
+            chiffrage: reprises.map((l) => ({
+              designation: l.designation,
+              quantite: l.quantite,
+              prix_unitaire: l.prix_unitaire,
+              remise: l.remise ?? 0,
+              categorie: l.categorie,
+            })),
+          })
+          .eq("id", dossier.id);
+        if (eChiff) console.warn("Chiffrage non conservé :", eChiff.message);
+        setEditor({ type, lignes: reprises, origine: "document" });
+        return;
+      }
+    }
+
+    setEditor({ type, origine: null });
   }
 
   // Coche/décoche la mention « Acquittée » (apposée sur le PDF de la facture).
@@ -769,10 +837,10 @@ export default function DossierDetailPage() {
         {/* BARRE D'ACTIONS UNIQUE : tous les documents du dossier se créent
             depuis ici (devis, facture, OR, cession, restitution). */}
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => setEditor({ type: "devis" })} className="btn-ghost py-1.5 px-3 text-xs">
+          <button onClick={() => ouvrirNouveauDocument("devis")} className="btn-ghost py-1.5 px-3 text-xs">
             + Devis
           </button>
-          <button onClick={() => setEditor({ type: "facture" })} className="btn-primary py-1.5 px-3 text-xs">
+          <button onClick={() => ouvrirNouveauDocument("facture")} className="btn-primary py-1.5 px-3 text-xs">
             + Facture
           </button>
           <button onClick={() => setAtelierModal("or")} className="btn-ghost py-1.5 px-3 text-xs">
@@ -941,6 +1009,7 @@ export default function DossierDetailPage() {
           type={editor.type}
           document={editor.document}
           lignes={editor.lignes}
+          origineLignes={editor.origine}
           onClose={() => setEditor(null)}
           onSaved={load}
         />

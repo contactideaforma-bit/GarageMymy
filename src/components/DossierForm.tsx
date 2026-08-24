@@ -443,6 +443,19 @@ export default function DossierForm({
           );
           if (lignes.length) {
             const totalHt = lignes.reduce((s, l) => s + l.quantite * l.prix_unitaire, 0);
+
+            // CHIFFRAGE CONSERVÉ SUR LE DOSSIER (v50) : c'est cette copie qui
+            // permet de REGÉNÉRER une facture identique au rapport si celle
+            // d'origine est supprimée. Tolérant : si la migration v50 n'est
+            // pas passée, on continue sans bloquer la création du dossier.
+            const { error: eChiff } = await supabase
+              .from("dossiers")
+              .update({ chiffrage: lignes })
+              .eq("id", newId);
+            // Erreur volontairement IGNORÉE : si la migration v50 n'est pas
+            // encore passée, le dossier et ses documents doivent quand même
+            // être créés. On perd seulement la régénération.
+            if (eChiff) console.warn("Chiffrage non conservé :", eChiff.message);
             const travaux =
               "Conforme au chiffrage du rapport d'expertise :\n" +
               lignes

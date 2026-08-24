@@ -10,6 +10,7 @@ import {
   categorieDe,
   computeTotaux,
   estLigneIngredients,
+  estPosteMo,
   genNumero,
   groupeLignes,
   ingredientsDesynchronises,
@@ -23,6 +24,7 @@ import {
   sousTotal,
   syncIngredientsPeinture,
   totalLigne,
+  lignesDepuisChiffrage,
 } from "@/lib/documents";
 import { formatEuros, messageErreur, ymd } from "@/lib/format";
 import { detecterCorrections, type LigneComparable } from "@/lib/apprentissage";
@@ -38,18 +40,31 @@ import { apprendreDesCorrections } from "@/lib/apprentissageDb";
 const GRILLE_LIGNE =
   "grid grid-cols-12 gap-2 sm:grid-cols-[minmax(0,1fr)_10rem_5.5rem_7.5rem_5rem_7rem_1.5rem]";
 
+/**
+ * Lignes de pré-remplissage : soit les lignes en base d'un document existant,
+ * soit le CHIFFRAGE du rapport rangé sur le dossier (v50). Seuls ces cinq
+ * champs sont lus — inutile d'exiger un `DocumentLigne` complet.
+ */
+export type LigneSource = Pick<
+  DocumentLigne,
+  "designation" | "quantite" | "prix_unitaire" | "remise" | "categorie"
+>;
+
 export default function DocumentEditor({
   dossier,
   type,
   document,
   lignes,
+  origineLignes,
   onClose,
   onSaved,
 }: {
   dossier: Dossier;
   type: DocumentType;
   document?: Document | null;
-  lignes?: DocumentLigne[];
+  lignes?: LigneSource[];
+  /** D'où viennent les lignes pré-remplies (affiché à l'utilisateur). */
+  origineLignes?: "rapport" | "document" | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -83,6 +98,33 @@ export default function DocumentEditor({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // CHIFFRAGE DU RAPPORT (v50) : conservé sur le dossier, il permet de
+  // reconstituer le document à l'identique — à la demande de l'utilisateur,
+  // JAMAIS tout seul (règle : l'appli signale, l'humain décide).
+  const chiffrage = lignesDepuisChiffrage(dossier.chiffrage);
+  function reprendreLeChiffrage() {
+    if (chiffrage.length === 0) return;
+    if (
+      items.some((l) => l.designation.trim() !== "") &&
+      !confirm(
+        "Remplacer toutes les lignes par le chiffrage du rapport d'expertise ? Vos modifications en cours seront perdues."
+      )
+    ) {
+      return;
+    }
+    setItems(
+      marquerTempsLibre(
+        chiffrage.map((l) => ({
+          designation: l.designation,
+          quantite: String(l.quantite),
+          prix_unitaire: String(l.prix_unitaire),
+          remise: String(l.remise),
+          categorie: l.categorie,
+        }))
+      )
+    );
+  }
 
   // MÉMOIRE DE L'ANALYSE (v7.7) : photo des lignes À L'OUVERTURE. À
   // l'enregistrement, l'écart avec ce qu'on a sous les yeux, c'est exactement
@@ -145,6 +187,16 @@ export default function DocumentEditor({
   }
 
   async function save() {
+    // Un document sans aucune ligne n'a pas de sens : avant, il partait en
+    // base avec un total de 0 € et le garage croyait avoir généré une facture.
+    if (items.every((l) => l.designation.trim() === "")) {
+      setError(
+        chiffrage.length > 0
+          ? "Aucune ligne : utilise « ↺ Reprendre le chiffrage du rapport » ou saisis au moins une ligne."
+          : "Aucune ligne : saisis au moins une désignation avant d'enregistrer."
+      );
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -231,6 +283,11 @@ export default function DocumentEditor({
   const renderLigne = (it: LigneSaisie, i: number) => {
     const total = totalLigne(it);
     const ingr = estLigneIngredients(it.designation);
+    // Le tableau des postes est VERROUILLÉ sur T1, T2, T3, Peinture et
+    // Ingrédients de peinture. Une ligne rangée à la main dans « main d'œuvre »
+    // sans en être un poste bascule dans « Autres » : on le DIT (v8.8), au
+    // lieu de la déplacer en silence à l'impression.
+    const moInvalide = it.categorie === "mo" && !estPosteMo(it.designation);
     return (
       <div key={i} className={`${GRILLE_LIGNE} items-center`}>
         <input
@@ -240,10 +297,16 @@ export default function DocumentEditor({
           onChange={(e) => setItem(i, "designation", e.target.value)}
         />
         <select
-          className="field-input col-span-6 sm:col-span-1 px-2 text-xs"
+          className={`field-input col-span-6 sm:col-span-1 px-2 text-xs ${
+            moInvalide ? "border-amber-400" : ""
+          }`}
           value={it.categorie}
           onChange={(e) => setItem(i, "categorie", e.target.value)}
-          title="Tableau de la facture dans lequel cette ligne apparaît"
+          title={
+            moInvalide
+              ? "Le tableau « Main d'œuvre » n'accepte que T1, T2, T3, Peinture et Ingrédients de peinture — cette ligne sera imprimée dans « Autres éléments »."
+              : "Tableau de la facture dans lequel cette ligne apparaît"
+          }
         >
           {(Object.keys(CATEGORIES_LIGNE) as CategorieLigne[]).map((c) => (
             <option key={c} value={c}>{CATEGORIES_LIGNE[c]}</option>
@@ -455,12 +518,60 @@ export default function DocumentEditor({
             />
           </div>
 
-          {/* Alerte de cohérence avec le rapport d'expertise */}
-          {!controle.coherent && controle.message && (
-            <div className="rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
-              <span className="font-semibold">⚠ À vérifier — </span>
-              {controle.message}
+          {/* CONFRONTATION AU RAPPORT — affichée EN PERMANENCE (v8.8).
+              La facture doit reprendre le rapport ligne pour ligne : le
+              garage doit voir le verdict à chaque ouverture, pas seulement
+              quand ça cloche. Correction toujours MANUELLE. */}
+          {controle.montantRapport !== null && (
+            <div
+              className={`rounded-lg border-2 px-3 py-2 text-sm ${
+                controle.coherent
+                  ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-100"
+                  : "border-amber-400/50 bg-amber-500/15 text-amber-100"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  {controle.coherent ? "✓ " : "⚠ "}
+                  Rapport d&apos;expertise : {formatEuros(controle.montantRapport)} HT · ce document :{" "}
+                  {formatEuros(controle.totalHt)} HT
+                  {!controle.coherent && (
+                    <span className="font-semibold">
+                      {" "}
+                      · écart {formatEuros(Math.abs(controle.ecart))}{" "}
+                      {controle.ecart > 0 ? "en trop" : "en moins"}
+                    </span>
+                  )}
+                </span>
+                {chiffrage.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={reprendreLeChiffrage}
+                    className="btn-ghost btn-compact shrink-0"
+                    title="Remplacer les lignes par celles lues dans le rapport d'expertise"
+                  >
+                    ↺ Reprendre le chiffrage du rapport
+                  </button>
+                )}
+              </div>
+              {!controle.coherent && (
+                <p className="mt-1 text-xs opacity-90">
+                  Vérifie les heures, les taux horaires et les pièces, puis corrige à la main —
+                  l&apos;appli ne modifie jamais un montant à ta place.
+                </p>
+              )}
             </div>
+          )}
+
+          {/* D'où viennent les lignes quand on rouvre un document */}
+          {!isEdit && origineLignes && (
+            <p className="text-xs text-white/50">
+              {origineLignes === "rapport"
+                ? `Pré-rempli avec le chiffrage du rapport d'expertise (${chiffrage.length} ligne${
+                    chiffrage.length > 1 ? "s" : ""
+                  }, lignes sans prix comprises).`
+                : "Pré-rempli en reprenant le document existant le plus récent de ce dossier."}
+            </p>
           )}
 
           {/* Totaux */}

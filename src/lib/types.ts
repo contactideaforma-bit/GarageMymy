@@ -45,6 +45,11 @@ export type Dossier = {
   // d'achat des pièces quand aucune commande n'est saisie.
   heures_passees?: number | null;
   cout_pieces_reel?: number | null;
+  // CHIFFRAGE DU RAPPORT (v50) : les lignes lues dans le rapport
+  // d'expertise, conservées pour pouvoir REGÉNÉRER devis et facture à
+  // l'identique — y compris après suppression. Tableau JSON, cf.
+  // `lignesDepuisChiffrage` dans lib/documents.ts.
+  chiffrage?: unknown;
 
   // Réparation (planning)
   reparation_debut: string | null;
