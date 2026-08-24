@@ -34,6 +34,9 @@ export default function DemandesPanel({
   onChanged?: () => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
+  // Demande ouverte pour consultation / modification (v8.6) : cliquer sur
+  // une demande déjà enregistrée ouvre son détail au lieu de ne rien faire.
+  const [demandeEditee, setDemandeEditee] = useState<DemandeAssurance | null>(null);
   const [emailDemande, setEmailDemande] = useState<DemandeAssurance | null>(null);
 
   const enAttente = demandes.filter((d) => !d.date_envoi).length;
@@ -68,7 +71,7 @@ export default function DemandesPanel({
           <span className={`shrink-0 text-white/40 transition-transform ${plie ? "" : "rotate-90"}`} aria-hidden>
             ▸
           </span>
-          <h2 className="titre-bloc truncate">Demandes de l&apos;assurance</h2>
+          <h2 className="titre-bloc truncate">Demandes du sinistre</h2>
         </button>
         {!plie && (
           <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
@@ -92,15 +95,20 @@ export default function DemandesPanel({
       <div className="px-5 py-4 space-y-3">
         {demandes.length === 0 && (
           <p className="text-sm text-white/40">
-            L&apos;assurance ou l&apos;expert réclame une pièce (facture d&apos;achat, photos, relevé
-            d&apos;information…) ? Note-la ici pour ne pas bloquer le paiement.
+            L&apos;assurance, l&apos;expert ou le client réclame une pièce (facture d&apos;achat,
+            photos, relevé d&apos;information…) ? Note-la ici pour ne pas bloquer le paiement.
           </p>
         )}
         {demandes.map((d) => (
           <div key={d.id} className="glass-soft p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDemandeEditee(d)}
+                className="min-w-0 flex-1 text-left"
+                title="Voir et modifier cette demande"
+              >
+                <div className="flex flex-wrap items-center gap-2">
                   {d.date_envoi ? (
                     <span className="inline-block rounded-full px-2 py-0.5 text-xs font-semibold bg-emerald-100 text-emerald-700">
                       Envoyé le {formatDate(d.date_envoi)}
@@ -110,13 +118,13 @@ export default function DemandesPanel({
                       À envoyer
                     </span>
                   )}
-                  <span className="font-medium text-white truncate">{d.demande}</span>
+                  <span className="font-medium text-white">{d.demande}</span>
                 </div>
                 <div className="mt-0.5 text-xs text-white/50">
                   Demandé par {DEMANDEURS[d.demandeur] || d.demandeur} le {formatDate(d.date_demande)}
                   {d.notes ? ` — ${d.notes}` : ""}
                 </div>
-              </div>
+              </button>
               <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
                 {!d.date_envoi && (
                   <>
@@ -128,6 +136,12 @@ export default function DemandesPanel({
                     </button>
                   </>
                 )}
+                <button
+                  onClick={() => setDemandeEditee(d)}
+                  className="text-white/60 hover:text-white hover:underline"
+                >
+                  Voir / modifier
+                </button>
                 <button onClick={() => supprimer(d)} className="text-white/40 hover:text-rose-300">
                   Suppr.
                 </button>
@@ -143,6 +157,17 @@ export default function DemandesPanel({
           onClose={() => setModalOpen(false)}
           onSaved={() => {
             setModalOpen(false);
+            onChanged?.();
+          }}
+        />
+      )}
+      {demandeEditee && (
+        <DemandeModal
+          dossier={dossier}
+          demande={demandeEditee}
+          onClose={() => setDemandeEditee(null)}
+          onSaved={() => {
+            setDemandeEditee(null);
             onChanged?.();
           }}
         />
@@ -192,17 +217,22 @@ export default function DemandesPanel({
 
 function DemandeModal({
   dossier,
+  demande: existante,
   onClose,
   onSaved,
 }: {
   dossier: Dossier;
+  /** Fournie = on OUVRE une demande existante pour la lire et la modifier. */
+  demande?: DemandeAssurance;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [demande, setDemande] = useState("");
-  const [demandeur, setDemandeur] = useState("assurance");
-  const [date, setDate] = useState(ymd());
-  const [notes, setNotes] = useState("");
+  const edition = Boolean(existante);
+  const [demande, setDemande] = useState(existante?.demande || "");
+  const [demandeur, setDemandeur] = useState(existante?.demandeur || "assurance");
+  const [date, setDate] = useState(existante?.date_demande || ymd());
+  const [notes, setNotes] = useState(existante?.notes || "");
+  const [dateEnvoi, setDateEnvoi] = useState(existante?.date_envoi || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -213,15 +243,27 @@ function DemandeModal({
     }
     setSaving(true);
     setError(null);
+    const valeurs = {
+      demande: demande.trim(),
+      demandeur,
+      date_demande: date || null,
+      notes: notes || null,
+    };
     try {
-      const { error: e1 } = await supabase.from("demandes_assurance").insert({
-        dossier_id: dossier.id,
-        demande: demande.trim(),
-        demandeur,
-        date_demande: date || null,
-        notes: notes || null,
-      });
-      if (e1) throw e1;
+      if (existante) {
+        const { error: e1 } = await supabase
+          .from("demandes_assurance")
+          // En édition, on gère aussi l'envoi : vider la date remet la
+          // demande « à envoyer », ce qui la fait revenir dans les actions.
+          .update({ ...valeurs, date_envoi: dateEnvoi || null })
+          .eq("id", existante.id);
+        if (e1) throw e1;
+      } else {
+        const { error: e1 } = await supabase
+          .from("demandes_assurance")
+          .insert({ dossier_id: dossier.id, ...valeurs });
+        if (e1) throw e1;
+      }
       onSaved();
     } catch (err: unknown) {
       setError(messageErreur(err, "Enregistrement impossible (migration v16 exécutée ?)."));
@@ -231,11 +273,14 @@ function DemandeModal({
   }
 
   return (
-    <ModalShell title="Demande de documents reçue" onClose={onClose}>
+    <ModalShell
+      title={edition ? "Demande du sinistre" : "Demande de documents reçue"}
+      onClose={onClose}
+    >
       <div>
         <label className="field-label">Ce qui est demandé</label>
-        <input
-          className="field-input"
+        <textarea
+          className="field-input min-h-[5.5rem]"
           value={demande}
           onChange={(e) => setDemande(e.target.value)}
           placeholder="Ex. photos du véhicule, relevé d'information, facture d'achat…"
@@ -259,13 +304,24 @@ function DemandeModal({
         <label className="field-label">Notes (optionnel)</label>
         <input className="field-input" value={notes} onChange={(e) => setNotes(e.target.value)} />
       </div>
+      {edition && (
+        <div>
+          <label className="field-label">Envoyée le (vide = encore à envoyer)</label>
+          <input
+            type="date"
+            className="field-input"
+            value={dateEnvoi}
+            onChange={(e) => setDateEnvoi(e.target.value)}
+          />
+        </div>
+      )}
       {error && (
         <div className="rounded-lg bg-rose-500/15 border border-rose-400/30 px-3 py-2 text-sm text-rose-200">{error}</div>
       )}
       <div className="flex justify-end gap-3">
         <button onClick={onClose} className="btn-ghost">Annuler</button>
         <button onClick={save} disabled={saving} className="btn-primary">
-          {saving ? "Enregistrement…" : "Enregistrer"}
+          {saving ? "Enregistrement…" : edition ? "Enregistrer les modifications" : "Enregistrer"}
         </button>
       </div>
     </ModalShell>

@@ -126,6 +126,26 @@ export async function basculerRappel(ligne: LigneArdoise, fait: boolean): Promis
   });
 }
 
+/**
+ * Modifie le TEXTE d'un rappel (v8.6). Le rendez-vous d'agenda associé
+ * suit : son titre est le texte du rappel, il doit rester cohérent.
+ */
+export async function modifierRappel(ligne: LigneArdoise, texte: string): Promise<LigneArdoise> {
+  const t = texte.trim();
+  if (!t) throw new Error("Le rappel ne peut pas être vide.");
+  const { data, error } = await supabase
+    .from("ardoise")
+    .update({ texte: t })
+    .eq("id", ligne.id)
+    .select("*")
+    .single();
+  if (error) throw error;
+  if (ligne.evenement_id) {
+    await supabase.from("evenements").update({ titre: t }).eq("id", ligne.evenement_id);
+  }
+  return data as LigneArdoise;
+}
+
 /** Supprime un rappel ET son rendez-vous d'agenda. */
 export async function supprimerRappel(ligne: LigneArdoise): Promise<void> {
   const { error } = await supabase.from("ardoise").delete().eq("id", ligne.id);

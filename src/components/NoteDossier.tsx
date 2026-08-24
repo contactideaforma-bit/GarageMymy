@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { ecrireOuEnfiler } from "@/lib/horsLigne";
 import { messageErreur } from "@/lib/format";
@@ -39,6 +40,14 @@ export default function NoteDossier({
   dossierId: string;
   noteInitiale?: string | null;
 }) {
+  // PORTAIL (v8.6) : le panneau était rendu DANS la fiche dossier, dont
+  // les cartes créent un « containing block » (fond dégradé + animations).
+  // Résultat : le `position: fixed` se calait sur la carte et le panneau
+  // sortait de l'écran, sur mobile comme sur PC. On le sort donc sur
+  // <body>, comme toutes les modales du projet (cf. ModalShell).
+  const [monte, setMonte] = useState(false);
+  useEffect(() => setMonte(true), []);
+
   const [ouvert, setOuvert] = useState(false);
   const [texte, setTexte] = useState(noteInitiale || "");
   const [etat, setEtat] = useState<"repos" | "encours" | "ok" | "erreur">("repos");
@@ -191,8 +200,10 @@ export default function NoteDossier({
   const enRetard = actifs.some((r) => estEnRetard(r.echeance));
 
   /* ----------------------------- Bouton rond ----------------------------- */
+  if (!monte) return null;
+
   if (!ouvert) {
-    return (
+    return createPortal(
       <button
         onClick={() => setOuvert(true)}
         className="fixed bottom-4 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition hover:brightness-110 active:translate-y-0.5 sm:bottom-6 sm:right-6"
@@ -235,17 +246,21 @@ export default function NoteDossier({
             {actifs.length}
           </span>
         )}
-      </button>
+      </button>,
+      document.body
     );
   }
 
   /* ------------------------------- Panneau ------------------------------- */
-  return (
+  return createPortal(
     <>
       {/* Voile transparent : un clic n'importe où en dehors réduit la note. */}
       <div className="fixed inset-0 z-40" onMouseDown={fermer} aria-hidden />
 
-      <div className="glass-card fixed bottom-4 right-4 z-50 flex max-h-[85vh] w-[calc(100vw-2rem)] max-w-md flex-col sm:bottom-6 sm:right-6">
+      {/* Mobile : feuille collée en bas, pleine largeur (le clavier peut
+          monter sans couper le panneau, grâce à dvh). PC : carte ancrée en
+          bas à droite, largeur fixe. */}
+      <div className="glass-card fixed inset-x-2 bottom-2 z-50 flex max-h-[78dvh] flex-col sm:inset-x-auto sm:bottom-6 sm:right-6 sm:max-h-[80vh] sm:w-[26rem]">
         <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
           <span className="titre-bloc">Note du dossier</span>
           <div className="flex items-center gap-2">
@@ -370,11 +385,11 @@ export default function NoteDossier({
                     Ajouter
                   </button>
                 </div>
-                <label className="flex flex-wrap items-center gap-2 text-[11px] text-white/45">
-                  📅 Agenda (optionnel)
+                <label className="block text-[11px] text-white/45">
+                  <span className="mb-1 block">📅 Agenda (optionnel)</span>
                   <input
                     type="datetime-local"
-                    className="field-input field-compact w-auto"
+                    className="field-input field-compact w-full"
                     value={echeance}
                     onChange={(e) => setEcheance(e.target.value)}
                   />
@@ -394,6 +409,7 @@ export default function NoteDossier({
           Commentaire enregistré automatiquement — clique en dehors pour réduire.
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }

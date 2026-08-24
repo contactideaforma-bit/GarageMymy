@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ActionFaite, Dossier, LigneArdoise } from "@/lib/types";
 import { messageErreur } from "@/lib/format";
 import { ProchaineAction, URGENCE_STYLE } from "@/lib/actions";
@@ -11,6 +12,7 @@ import {
   basculerRappel,
   chargerRappels,
   definirEcheance,
+  modifierRappel,
   estAujourdhui,
   estEnRetard,
   isoVersLocal,
@@ -86,6 +88,7 @@ export default function BlocAFaire({
   onBasculerAuto: (dossierId: string, action: ProchaineAction, fait: boolean) => void;
   loading: boolean;
 }) {
+  const router = useRouter();
   const [rappels, setRappels] = useState<LigneArdoise[]>([]);
   const [dispo, setDispo] = useState(true);
   const [filtre, setFiltre] = useState<Filtre>("tout");
@@ -102,6 +105,7 @@ export default function BlocAFaire({
   // Édition de l'échéance d'un rappel existant : id de la ligne + valeur saisie
   const [editionId, setEditionId] = useState<string | null>(null);
   const [editionValeur, setEditionValeur] = useState("");
+  const [editionTexte, setEditionTexte] = useState("");
 
   // Pile des gestes annulables (le dernier en tête) + message éphémère.
   const [historique, setHistorique] = useState<Annulation[]>([]);
@@ -220,6 +224,38 @@ export default function BlocAFaire({
     }
   }
 
+  /**
+   * Enregistre le nouveau libellé d'un rappel (v8.6). Cliquer sur le texte
+   * d'une ligne ne doit PAS la cocher : ça ouvre sa modification.
+   */
+  async function enregistrerTexte(ligne: LigneArdoise, texte: string) {
+    const t = texte.trim();
+    if (!t || t === ligne.texte) return;
+    const avant = ligne.texte;
+    setErreur(null);
+    try {
+      const maj = await modifierRappel(ligne, t);
+      setRappels((prev) => prev.map((x) => (x.id === maj.id ? maj : x)));
+      empiler({
+        libelle: `la modification de « ${extrait(t)} »`,
+        restaurer: async () => {
+          const retour = await modifierRappel(maj, avant);
+          setRappels((prev) => prev.map((x) => (x.id === retour.id ? retour : x)));
+        },
+      });
+    } catch (err) {
+      setErreur(messageErreur(err, "Rappel non modifié."));
+    }
+  }
+
+  /** Ouvre (ou referme) le panneau d'édition d'une ligne. */
+  function ouvrirEdition(ligne: LigneArdoise) {
+    const memeLigne = editionId === ligne.id;
+    setEditionId(memeLigne ? null : ligne.id);
+    setEditionValeur(isoVersLocal(ligne.echeance));
+    setEditionTexte(ligne.texte);
+  }
+
   /** Coche/décoche une action AUTOMATIQUE, en gardant le geste annulable. */
   function basculerAuto(d: Dossier, action: ProchaineAction, fait: boolean, enregistrer = true) {
     onBasculerAuto(d.id, action, fait);
@@ -305,9 +341,10 @@ export default function BlocAFaire({
     return (
       <li
         key={`auto-${d.id}-${action.code}`}
-        className={`flex flex-wrap items-center justify-between gap-3 py-2.5 text-sm ${fait ? "opacity-50" : ""}`}
+        className={`py-2.5 text-sm ${fait ? "opacity-50" : ""}`}
       >
-        <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          {/* SEULE la case à cocher coche la tâche (v8.6). */}
           <input
             type="checkbox"
             checked={fait}
@@ -315,7 +352,13 @@ export default function BlocAFaire({
             className="mt-1 h-4 w-4 shrink-0 accent-emerald-500"
             title={fait ? "Remettre dans la liste à faire" : "Marquer comme fait"}
           />
-          <span className="min-w-0">
+          {/* Le texte prend toute la largeur et ouvre le dossier. */}
+          <button
+            type="button"
+            onClick={() => router.push(`/sinistres/${d.id}`)}
+            className="min-w-0 flex-1 text-left"
+            title="Ouvrir le dossier"
+          >
             <span className="flex flex-wrap items-center gap-2">
               {!fait && (
                 <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${st.badge}`}>
@@ -324,22 +367,27 @@ export default function BlocAFaire({
               )}
               <span className={`font-medium text-white ${fait ? "line-through" : ""}`}>{action.titre}</span>
             </span>
-            <span className="mt-0.5 block truncate text-xs text-white/50">
+            <span className="mt-0.5 block text-xs text-white/50">
               {d.client_nom || "—"} · {d.marque_modele || ""}
               {d.immatriculation ? ` (${d.immatriculation})` : ""} · dossier {d.numero_sinistre || "—"}
             </span>
-          </span>
-        </label>
-        <span className="flex shrink-0 items-center gap-3">
-          <Link href={`/sinistres/${d.id}`} className="text-white/50 hover:text-white hover:underline">
-            Dossier
+          </button>
+        </div>
+        {/* Actions SOUS le texte : sur téléphone, les mettre à droite
+            écrasait le libellé sur une colonne de trois mots. */}
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-7">
+          <Link
+            href={`/sinistres/${d.id}`}
+            className="text-xs text-white/50 hover:text-white hover:underline"
+          >
+            Ouvrir le dossier
           </Link>
           {!fait && (
-            <Link href={action.href} className="btn-ghost py-1.5 px-3 text-xs">
+            <Link href={action.href} className="btn-ghost btn-compact">
               {action.ctaLabel}
             </Link>
           )}
-        </span>
+        </div>
       </li>
     );
   };
@@ -356,83 +404,108 @@ export default function BlocAFaire({
       : "";
     return (
       <li key={`perso-${ligne.id}`} className={`py-2.5 text-sm ${fait ? "opacity-50" : ""}`}>
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              checked={fait}
-              onChange={(e) => cocher(ligne, e.target.checked)}
-              className="mt-1 h-4 w-4 shrink-0 accent-emerald-500"
-            />
-            <span className="min-w-0">
-              <span className={`block break-words text-white/85 ${fait ? "line-through" : ""}`}>
-                {ligne.texte}
-              </span>
-              <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                <span className="inline-block rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
-                  Mon rappel
-                </span>
-                {ligne.echeance && (
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeEcheance}`}>
-                    {retard ? "En retard · " : ""}
-                    {libelleEcheance(ligne.echeance)}
-                  </span>
-                )}
-              </span>
+        <div className="flex min-w-0 items-start gap-3">
+          {/* SEULE la case à cocher coche le rappel (v8.6). */}
+          <input
+            type="checkbox"
+            checked={fait}
+            onChange={(e) => cocher(ligne, e.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0 accent-emerald-500"
+          />
+          {/* Cliquer sur le texte ouvre la modification (ou le dossier lié). */}
+          <button
+            type="button"
+            onClick={() => ouvrirEdition(ligne)}
+            className="min-w-0 flex-1 text-left"
+            title="Modifier ce rappel"
+          >
+            <span className={`block break-words text-white/85 ${fait ? "line-through" : ""}`}>
+              {ligne.texte}
             </span>
-          </label>
+            <span className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span className="inline-block rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+                Mon rappel
+              </span>
+              {ligne.echeance && (
+                <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeEcheance}`}>
+                  {retard ? "En retard · " : ""}
+                  {libelleEcheance(ligne.echeance)}
+                </span>
+              )}
+            </span>
+          </button>
+          <button
+            onClick={() => supprimer(ligne)}
+            className="shrink-0 text-white/30 hover:text-rose-300"
+            title="Supprimer ce rappel"
+          >
+            ×
+          </button>
+        </div>
 
-          <span className="flex shrink-0 items-center gap-2.5 text-xs">
-            {d && (
-              <Link href={`/sinistres/${d.id}`} className="max-w-[12rem] truncate text-white/50 hover:text-white hover:underline" title={libelleDossier(d)}>
-                {d.immatriculation || d.numero_sinistre || "Dossier"}
-              </Link>
-            )}
-            <button
-              onClick={() => {
-                setEditionId(editionId === ligne.id ? null : ligne.id);
-                setEditionValeur(isoVersLocal(ligne.echeance));
-              }}
-              className="text-white/40 hover:text-accent-teal"
-              title={ligne.echeance ? "Modifier l'échéance (agenda)" : "Programmer dans l'agenda"}
+        {/* Actions sous le texte, pleine largeur sur téléphone. */}
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-7 text-xs">
+          {d && (
+            <Link
+              href={`/sinistres/${d.id}`}
+              className="max-w-[14rem] truncate text-white/50 hover:text-white hover:underline"
+              title={libelleDossier(d)}
             >
-              📅
-            </button>
-            <button
-              onClick={() => supprimer(ligne)}
-              className="text-white/30 hover:text-rose-300"
-              title="Supprimer ce rappel"
-            >
-              ×
-            </button>
-          </span>
+              Ouvrir le dossier {d.immatriculation || d.numero_sinistre || ""}
+            </Link>
+          )}
+          <button
+            onClick={() => ouvrirEdition(ligne)}
+            className="text-white/40 hover:text-accent-teal"
+            title={ligne.echeance ? "Modifier le rappel et son échéance" : "Modifier le rappel"}
+          >
+            ✎ Modifier
+          </button>
         </div>
 
         {editionId === ligne.id && (
-          <div className="mt-2 flex flex-wrap items-center gap-2 pl-7">
+          <div className="mt-2 space-y-2 rounded-lg border-2 border-white/10 bg-white/5 p-2 pl-3">
             <input
-              type="datetime-local"
-              className="field-input field-compact w-auto"
-              value={editionValeur}
-              onChange={(e) => setEditionValeur(e.target.value)}
+              className="field-input field-compact w-full"
+              value={editionTexte}
+              onChange={(e) => setEditionTexte(e.target.value)}
+              placeholder="Texte du rappel"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  enregistrerTexte(ligne, editionTexte);
+                  enregistrerEcheance(ligne, editionValeur);
+                }
+              }}
             />
-            <button
-              onClick={() => enregistrerEcheance(ligne, editionValeur)}
-              className="btn-ghost btn-compact"
-            >
-              Enregistrer
-            </button>
-            {ligne.echeance && (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="datetime-local"
+                className="field-input field-compact w-auto"
+                value={editionValeur}
+                onChange={(e) => setEditionValeur(e.target.value)}
+              />
               <button
-                onClick={() => enregistrerEcheance(ligne, "")}
-                className="text-xs text-white/40 hover:text-rose-300 hover:underline"
+                onClick={async () => {
+                  await enregistrerTexte(ligne, editionTexte);
+                  await enregistrerEcheance(ligne, editionValeur);
+                }}
+                className="btn-ghost btn-compact"
               >
-                Retirer de l&apos;agenda
+                Enregistrer
               </button>
-            )}
-            <span className="text-[11px] text-white/40">
+              {ligne.echeance && (
+                <button
+                  onClick={() => enregistrerEcheance(ligne, "")}
+                  className="text-xs text-white/40 hover:text-rose-300 hover:underline"
+                >
+                  Retirer de l&apos;agenda
+                </button>
+              )}
+            </div>
+            <p className="text-[11px] text-white/40">
               Une date crée un rendez-vous dans l&apos;agenda.
-            </span>
+            </p>
           </div>
         )}
       </li>
