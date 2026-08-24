@@ -30,6 +30,7 @@ import SignatureDocModal from "@/components/SignatureDocModal";
 import ModalShell from "@/components/ModalShell";
 import TransfertGarantiePanel from "@/components/TransfertGarantiePanel";
 import { lignesDepuisChiffrage } from "@/lib/documents";
+import { reanalyserChiffrage } from "@/lib/extraction";
 import { archiverDossier } from "@/lib/archive";
 import { marquerFactureEnvoyee } from "@/lib/dossierSync";
 import { fichierBase64, ouvrirFichier } from "@/lib/storage";
@@ -313,6 +314,45 @@ export default function DossierDetailPage() {
   }
 
   const [archivage, setArchivage] = useState<string | null>(null);
+
+  /* RÉ-ANALYSE DU CHIFFRAGE (v9.2) — voir lib/extraction.ts.
+     Le chiffrage figé à l'import peut être faux (lecture antérieure à la
+     v9.1 sur une grille BCA). On relit le PDF conservé, on remplace le
+     chiffrage du dossier, et « + Facture » repart de la bonne lecture. */
+  const [reanalyse, setReanalyse] = useState(false);
+  const [reanalyseMsg, setReanalyseMsg] = useState<string | null>(null);
+
+  async function relireRapport() {
+    if (!dossier || reanalyse) return;
+    if (!dossier.rapport_path) {
+      alert("Aucun rapport d'expertise n'est enregistré sur ce dossier : modifie le dossier pour joindre le PDF.");
+      return;
+    }
+    setReanalyse(true);
+    setReanalyseMsg(null);
+    try {
+      const r = await reanalyserChiffrage(dossier);
+      setDossier({
+        ...dossier,
+        chiffrage: r.lignes,
+        montant: r.montant ?? dossier.montant,
+        tva: r.tva ?? dossier.tva,
+      });
+      const src = r.controle?.source === "grille" ? "lue directement dans le rapport (sans IA)" : "lue par l'analyse IA";
+      const coh =
+        r.controle && !r.controle.coherent
+          ? ` ⚠ Écart de ${formatEuros(Math.abs(r.controle.ecart))} avec le total du rapport — vérifie les lignes avant de facturer.`
+          : " ✓ Somme des lignes identique au total du rapport.";
+      setReanalyseMsg(
+        `✓ Chiffrage relu : ${r.lignes.length} lignes, ${formatEuros(r.montant)} HT, ${src}.${coh} ` +
+          "Génère maintenant une nouvelle facture (« + Facture ») ou, dans une facture existante, « ↺ Reprendre le chiffrage du rapport »."
+      );
+    } catch (err) {
+      setReanalyseMsg(`✗ ${messageErreur(err, "La ré-analyse a échoué.")}`);
+    } finally {
+      setReanalyse(false);
+    }
+  }
 
   async function archiver() {
     if (!dossier) return;
@@ -860,7 +900,28 @@ export default function DossierDetailPage() {
           <button onClick={() => setAtelierModal("restitution")} className="btn-ghost py-1.5 px-3 text-xs">
             + Restitution
           </button>
+          {/* v9.2 — relit le PDF du rapport et remplace le chiffrage du dossier
+              (correction des dossiers importés avec une lecture fausse). */}
+          <button
+            onClick={relireRapport}
+            disabled={reanalyse}
+            className="btn-ghost py-1.5 px-3 text-xs disabled:opacity-50"
+            title="Relit le PDF du rapport d'expertise et remplace le chiffrage du dossier (lignes, montant HT). Les documents déjà émis ne sont pas modifiés."
+          >
+            {reanalyse ? "Relecture du rapport…" : "↻ Relire le rapport"}
+          </button>
         </div>
+        {reanalyseMsg && (
+          <p
+            className={`mt-2 rounded-lg px-3 py-2 text-xs ${
+              reanalyseMsg.startsWith("✗") || reanalyseMsg.includes("⚠")
+                ? "bg-amber-500/10 text-amber-200"
+                : "bg-emerald-500/10 text-emerald-200"
+            }`}
+          >
+            {reanalyseMsg}
+          </p>
+        )}
 
         {/* UNE SEULE LISTE, les documents les uns sous les autres :
             devis · factures · ordre de réparation · cession · restitution.

@@ -13,8 +13,9 @@
 // est pré-rempli quand même (analyse partielle plutôt qu'échec total).
 
 import { Dossier } from "./types";
-import { LigneExtraite } from "./documents";
+import { LigneExtraite, normaliseLignes } from "./documents";
 import { fetchAuth, lireReponse } from "./apiClient";
+import { supabase } from "./supabaseClient";
 
 /**
  * Contrôle rendu par le serveur : la somme des lignes extraites retombe-t-elle
@@ -104,4 +105,59 @@ export async function analyserRapport(file: File): Promise<ResultatAnalyse> {
   }
 
   return { data, avertissement, controle: data.controle ?? null };
+}
+
+/* ====================================================================
+ *  RÉ-ANALYSE DU CHIFFRAGE D'UN DOSSIER EXISTANT (v9.2)
+ *
+ *  Le chiffrage est FIGÉ sur `dossiers.chiffrage` au moment de l'import.
+ *  Quand la lecture des rapports s'améliore (v9.1 : lecture déterministe
+ *  des grilles BCA/Allianz), les dossiers déjà importés gardent l'ancienne
+ *  lecture — et « + Facture » ou « ↺ Reprendre le chiffrage » reproduisent
+ *  fidèlement… l'erreur d'origine. C'est exactement ce qui s'est passé sur
+ *  EP-242-VP : T1 et T2 absents, total faux, alors que le code corrigé
+ *  lisait le rapport au centime près.
+ *
+ *  Cette fonction relit le PDF conservé dans le Storage, relance UNIQUEMENT
+ *  la partie « chiffrage » (lecture en grille d'abord, IA en repli), puis
+ *  remplace le chiffrage et le montant du dossier. Elle ne touche à rien
+ *  d'autre (ni aux identités, ni aux documents déjà émis).
+ * ==================================================================== */
+
+export type ResultatReanalyse = {
+  lignes: ReturnType<typeof normaliseLignes>;
+  montant: number | null;
+  tva: number | null;
+  controle: ControleChiffrage | null;
+};
+
+export async function reanalyserChiffrage(
+  dossier: Pick<Dossier, "id" | "rapport_path" | "rapport_nom">
+): Promise<ResultatReanalyse> {
+  if (!dossier.rapport_path) {
+    throw new Error("Aucun rapport d'expertise n'est enregistré sur ce dossier.");
+  }
+  const { data, error } = await supabase.storage.from("rapports").download(dossier.rapport_path);
+  if (error || !data) {
+    throw new Error("Impossible de relire le rapport dans le Storage (connexion requise).");
+  }
+  const nom = dossier.rapport_nom || dossier.rapport_path.split("/").pop() || "rapport.pdf";
+  const type = nom.toLowerCase().endsWith(".pdf") ? "application/pdf" : data.type || "application/pdf";
+  const file = new File([data], nom, { type });
+
+  const extrait = await appeler(file, "chiffrage");
+  const montant = extrait.montant != null && !Number.isNaN(Number(extrait.montant)) ? Number(extrait.montant) : null;
+  const lignes = normaliseLignes(extrait.lignes, montant);
+  if (lignes.length === 0) {
+    throw new Error("La ré-analyse n'a rendu aucune ligne : le chiffrage du dossier est conservé tel quel.");
+  }
+  const tva = extrait.tva != null && !Number.isNaN(Number(extrait.tva)) ? Number(extrait.tva) : null;
+
+  const patch: Record<string, unknown> = { chiffrage: lignes };
+  if (montant != null) patch.montant = montant;
+  if (tva != null) patch.tva = tva;
+  const { error: eMaj } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
+  if (eMaj) throw new Error(`Chiffrage relu mais non enregistré : ${eMaj.message}`);
+
+  return { lignes, montant, tva, controle: extrait.controle ?? null };
 }
