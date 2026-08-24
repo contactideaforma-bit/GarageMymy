@@ -26,6 +26,12 @@ export type ControleChiffrage = {
   ecart: number;
   coherent: boolean;
   montantDeduit: boolean;
+  /**
+   * Écarts constatés BLOC PAR BLOC (v8.9) — « Main d'œuvre : 1 160 € lu
+   * contre 1 880 € au rapport ». Vide quand tout tombe juste ou quand le
+   * rapport n'imprime pas de sous-totaux.
+   */
+  blocs?: string[];
 };
 
 export type Extraction = Partial<Dossier> & {

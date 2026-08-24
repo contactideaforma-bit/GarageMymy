@@ -79,7 +79,7 @@ ${REGLES_COMMUNES}`;
 const PROMPT_CHIFFRAGE = `Tu es un assistant pour une carrosserie. On te fournit un RAPPORT D'EXPERTISE automobile.
 Extrais UNIQUEMENT le CHIFFRAGE (aucune information d'identité) et renvoie cet objet JSON :
 
-{"montant":number|null,"tva":number|null,"l":[[designation,quantite,prix_unitaire,remise,categorie],...]}
+{"montant":number|null,"tva":number|null,"recap":{"mo":number|null,"pieces":number|null,"ingredients":number|null,"total":number|null},"l":[[designation,quantite,prix_unitaire,remise,categorie],...]}
 
 CE QUE TU PRODUIS DEVIENT UNE FACTURE, telle quelle, sans relecture ligne à ligne.
 La facture reprend le rapport en TROIS tableaux, et rien d'autre :
@@ -98,39 +98,104 @@ recopie le rapport, ne l'interprète pas, n'arrondis rien, n'invente aucune lign
   peinture. Rien d'autre ne prend "m" — une main d'œuvre générique, de la tôlerie,
   un forfait ou une prestation annexe prennent "a". Les pièces prennent "p".
 
-1. POSTES ("m") : bloc "CONCLUSIONS" (souvent page 1), tableau du type
-   "Postes / Temps / Taux Hor. / Total HT" (T1, T2, T3, Peinture, Ingrédients (MV), Ingr.).
-   - quantite = le NOMBRE D'HEURES EXACT lu dans la colonne "Temps" ;
-   - prix_unitaire = le TAUX HORAIRE EXACT lu dans la colonne "Taux Hor." ;
-   - RECOPIE ces deux nombres tels quels, ne les recalcule JAMAIS depuis le total.
-   - "Ingrédients (de peinture)" : sa quantite est TOUJOURS identique à celle de
-     "Peinture", MAIS son TAUX HORAIRE EST DIFFÉRENT — reprends celui du rapport,
-     ne recopie pas le taux de la peinture.
-   - Vérifie poste par poste : quantite × prix_unitaire = Total HT de la ligne.
-2. PIÈCES ("p") — EXHAUSTIVITÉ OBLIGATOIRE : tableau "LISTE DES PIECES" (souvent sur une
-   page suivante, colonnes Qté ! Libellé ! Réf. Constr. ! Opé. ! Mnt HT ! %Vét. ! %Rem. ! TVA,
-   séparées par des "!"). Extrais TOUTES les lignes, sans AUCUNE exception :
-   - designation = libellé (recolle les libellés coupés sur 2 lignes) + code opération entre
-     parenthèses s'il existe, ex: "PORTE AR D (R P)" ;
-   - quantite = Qté ; prix_unitaire = Mnt HT / Qté, ou 0 si aucun montant (opération déjà
-     comprise dans la main d'œuvre : la ligne doit QUAND MÊME figurer, avec 0) ;
-   - remise = colonne "%Rem." (0 si vide). NE CONFONDS PAS avec "%Vét." (vétusté) : la
-     vétusté n'est PAS une remise, ignore-la. Si le "Mnt HT" est déjà net de remise, mets 0.
-3. AUTRES ("a") : forfaits, petites fournitures, frais de gestion/recyclage, calibrage,
-   contrôle de géométrie, produits divers.
-4. NE COMPTE PAS DEUX FOIS LES PIÈCES : si les conclusions donnent un total "Pièces" ET que
-   le détail existe, n'extrais QUE le détail. Sans détail : ["Pièces selon rapport d'expertise",1,montant_pieces,0,"p"].
-5. VÉRIFICATIONS avant de répondre — fais-les VRAIMENT, dans cet ordre :
-   a) autant de lignes de pièces que dans le tableau du rapport ;
-   b) poste par poste : quantite × prix_unitaire = le Total HT imprimé sur la ligne ;
-   c) somme des (quantite × prix_unitaire × (1 − remise/100)) = TOTAL HT du rapport
-      à ±1 € près. C'est la vérification LA PLUS IMPORTANTE : le total facturé doit
-      correspondre au rapport. Si l'écart dépasse 1 €, NE RENDS PAS ta réponse :
-      reprends la lecture des heures, des taux horaires et des montants de pièces,
-      cherche la ligne oubliée ou le chiffre mal lu, corrige, puis recompte.
-   d) chaque poste "m" est bien l'un de : T1, T2, T3, Peinture, Ingrédients —
-      et il n'y a AUCUN doublon (une même pièce ne figure qu'une fois).
-6. Si le rapport ne donne qu'un montant global : [["Réparations selon rapport d'expertise",1,montant_global,0,"p"]].
+⚠️ LES RAPPORTS N'ONT PAS TOUS LA MÊME MISE EN PAGE. Repère D'ABORD le format
+du chiffrage, puis applique la règle correspondante. Ne suppose jamais qu'un
+tableau absent n'existe pas : cherche-le sous une autre forme.
+
+1. POSTES DE MAIN D'ŒUVRE ("m") — DEUX MISES EN PAGE POSSIBLES.
+
+   FORMAT A — un tableau EN LIGNES (bloc « CONCLUSIONS », cabinets Adenes /
+   Roadia…), colonnes « Postes / Temps / Taux Hor. / Total HT », une ligne par
+   poste (T1, T2, T3, Peinture, Ingrédients (MV), Ingr.) :
+   → quantite = colonne « Temps » ; prix_unitaire = colonne « Taux Hor. ».
+
+   FORMAT B — une GRILLE / MATRICE (BCA, Allianz, Stelliant…) : les POSTES sont
+   des COLONNES (T1, T2, T3, TP) et les natures de travaux sont des LIGNES
+   (« Dép. Chgt. Contrôle », « Redressage », « Remplacement », « Tôlerie »,
+   « Sellerie »…), avec une ligne « Taux horaires » et parfois une ligne
+   « Forfait ». Exemple RÉEL, à savoir lire :
+
+        PUB                     T1       T2       T3       TP
+        Dép. Chgt. Contrôle    6,00                       9,00
+        Redressage                      0,50
+        Taux horaires        120,00   120,00   120,00   120,00
+        Forfait                        20,00
+
+   → pour CHAQUE colonne de poste : quantite = SOMME des heures de la colonne
+     (toutes les lignes de travaux confondues), prix_unitaire = le taux de la
+     ligne « Taux horaires » DE CETTE COLONNE.
+     Sur cet exemple, tu dois produire EXACTEMENT :
+       ["T1", 6, 120, 0, "m"]  et  ["T2", 0.5, 120, 0, "m"]  et  ["Peinture", 9, 120, 0, "m"]
+     Une colonne SANS heure (ici T3) ne produit AUCUNE ligne.
+   → « TP », « T.P. », « T Peinture », « Peint. » = le poste PEINTURE. La
+     designation que tu renvoies est « Peinture » — JAMAIS « TP ».
+   → la case « Forfait » d'une grille est un MONTANT EN EUROS, pas des heures :
+     elle totalise les lignes « F » (forfait MO) du tableau des libellés. Ne la
+     transforme pas en poste et ne la compte pas deux fois.
+
+   INGRÉDIENTS DE PEINTURE : souvent donnés dans le récapitulatif sous la forme
+   « Ingredients peinture HT   <taux>   <total> » (ex. : 115,00 puis 1035,00).
+   → prix_unitaire = le TAUX (115,00) ; quantite = total ÷ taux (1035 ÷ 115 = 9),
+     qui doit tomber sur le temps de peinture ; designation = « Ingrédients de
+     peinture ». Le taux des ingrédients DIFFÈRE de celui de la peinture : lis-le,
+     ne le recopie pas.
+
+   RECOPIE les heures et les taux tels quels. Ne les recalcule JAMAIS depuis un
+   total. Vérifie poste par poste : quantite × prix_unitaire = le montant imprimé.
+
+2. PIÈCES ET OPÉRATIONS ("p") — EXHAUSTIVITÉ ABSOLUE.
+   Le tableau des libellés porte selon les cabinets les colonnes
+   « N° / Act / Libellé / Prix (HT) / Q / T » ou
+   « Qté ! Libellé ! Réf. Constr. ! Opé. ! Mnt HT ! %Vét. ! %Rem. ! TVA ».
+   Extrais TOUTES les lignes, dans l'ordre du rapport, SANS AUCUNE EXCEPTION :
+   - designation = le libellé complet (recolle les libellés coupés sur deux
+     lignes) + le code opération entre parenthèses s'il est dans une colonne
+     séparée, ex. « PORTE AR D (R P) » ;
+   - quantite = colonne Q / Qté (1 si la colonne est vide) ;
+   - prix_unitaire = « Prix (HT) », ou « Mnt HT » ÷ quantite ;
+   - ⚠️⚠️ COLONNE DE PRIX VIDE → prix_unitaire = 0, ET LA LIGNE EST EXTRAITE
+     QUAND MÊME. Ce sont les opérations de peinture, de remise en état, de
+     dépose/repose (Act = P, R, D, T, G) dont le coût est DÉJÀ dans les heures
+     de main d'œuvre. Exemples réels à ne surtout pas perdre :
+       « AILE AV G PEINTURE S3 G », « AILE AV G REMISE EN ETAT G »,
+       « AILE AR G SECTION CENTRALE PEINTURE S2 G »,
+       « POIGNEE EXTERIEURE DE PORTE AV G PEINTURE S2 G », « PEC peinture ».
+     Les omettre est l'erreur la PLUS visible pour le garage : la facture ne
+     décrit plus le travail réellement fait. Compte tes lignes : tu dois en
+     avoir autant que le rapport.
+   - remise = colonne « %Rem. » (0 si vide). NE CONFONDS PAS avec « %Vét. »
+     (vétusté) : la vétusté n'est PAS une remise, ignore-la. Si le montant est
+     déjà net de remise, mets 0.
+   - une ligne dont le code opération est « F » (forfait MO, ex. « AGRAFES /
+     VISSERIE », « ENLEVEMENT DECHET ») prend la catégorie "a", avec son prix.
+
+3. AUTRES ("a") : forfaits, petites fournitures, frais de gestion, recyclage,
+   enlèvement des déchets, calibrage, géométrie, produits divers, ingrédients
+   autres que peinture.
+
+4. RÉCAPITULATIF — remplis "recap" ET sers-t'en pour te corriger.
+   La plupart des rapports impriment les sous-totaux : « Main d'oeuvre HT »,
+   « Pièces HT », « Ingredients peinture HT », « Total HTVA » ou « Montant
+   réparation HTVA ». Renseigne-les dans "recap" tels qu'ils sont imprimés
+   (null si absent), puis VÉRIFIE, vraiment, dans cet ordre :
+   a) somme de tes postes "m" HORS ingrédients + tes forfaits « F » = « Main
+      d'oeuvre HT » ;
+   b) somme de tes lignes "p" = « Pièces HT » ;
+   c) ta ligne d'ingrédients = « Ingredients peinture HT » ;
+   d) somme de TOUTES tes lignes = « Total HTVA », à ±1 € près.
+   Un sous-total qui ne tombe pas veut dire : une colonne de poste oubliée, une
+   pièce manquante, ou un forfait compté deux fois. NE RENDS PAS ta réponse —
+   reprends la lecture, corrige, recompte.
+
+5. NE COMPTE PAS DEUX FOIS : si le récapitulatif donne un total « Pièces » ET
+   que le détail des pièces existe, n'extrais QUE le détail. Sans détail :
+   ["Pièces selon rapport d'expertise",1,montant_pieces,0,"p"].
+
+6. "montant" = le total HORS TAXES des réparations (« Total HTVA », « Montant
+   réparation HTVA », « TOTAL HT »). JAMAIS un montant TTC : si le rapport
+   n'affiche qu'un TTC en haut de page (ex. « Montant réparat. : 6010 TTC »),
+   ignore-le et prends le HT du récapitulatif.
+   Si le rapport ne donne qu'un montant global : [["Réparations selon rapport d'expertise",1,montant_global,0,"p"]].
    Si aucun montant : "l":[].
 
 ${REGLES_COMMUNES}`;
@@ -143,7 +208,7 @@ const PROMPT_COMPLET = `${PROMPT_IDENTITE.replace(
 )}
 
 Ajoute dans le MÊME objet les clés du chiffrage :
-"montant":number|null,"tva":number|null,"l":[[designation,quantite,prix_unitaire,remise,"m"|"p"|"a"],...]
+"montant":number|null,"tva":number|null,"recap":{"mo":number|null,"pieces":number|null,"ingredients":number|null,"total":number|null},"l":[[designation,quantite,prix_unitaire,remise,"m"|"p"|"a"],...]
 
 ${PROMPT_CHIFFRAGE.replace(
   "Extrais UNIQUEMENT le CHIFFRAGE (aucune information d'identité) et renvoie cet objet JSON :",
@@ -214,6 +279,67 @@ const centimes = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
  * qu'il a lu le détail, on renseigne le montant depuis la somme des lignes —
  * sinon le dossier partait avec un montant vide et plus aucun contrôle.
  */
+/** Sous-totaux imprimés dans le récapitulatif du rapport. */
+type Recap = {
+  mo?: unknown;
+  pieces?: unknown;
+  ingredients?: unknown;
+  total?: unknown;
+};
+
+const nombreOuNull = (v: unknown): number | null => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? centimes(n) : null;
+};
+
+const totalLignes = (lignes: LigneExtraite[]): number =>
+  centimes(
+    lignes.reduce(
+      (s, l) =>
+        s + l.quantite * l.prix_unitaire * (1 - Math.min(100, Math.max(0, l.remise || 0)) / 100),
+      0
+    )
+  );
+
+/**
+ * CONTRÔLE PAR BLOC (v8.9) — le total global ne suffisait pas à dire CE QUI
+ * manque. Les rapports impriment « Main d'oeuvre HT », « Pièces HT » et
+ * « Ingredients peinture HT » : on confronte chaque bloc et on nomme le
+ * coupable, pour que le garage sache exactement où regarder.
+ *
+ * ⚠️ Le sous-total « Main d'oeuvre » des rapports en grille INCLUT les
+ * forfaits (lignes « F ») : on les additionne donc aux postes.
+ */
+function controlerBlocs(lignes: LigneExtraite[], recap: Recap | undefined): string[] {
+  if (!recap) return [];
+  const ecarts: string[] = [];
+  const euros = (n: number) =>
+    new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(n);
+
+  const postes = lignes.filter((l) => l.categorie === "mo" && !/ingr/i.test(l.designation));
+  const ingredients = lignes.filter((l) => l.categorie === "mo" && /ingr/i.test(l.designation));
+  const pieces = lignes.filter((l) => l.categorie === "piece");
+  const autres = lignes.filter((l) => l.categorie === "autre");
+
+  const verifier = (libelle: string, calcule: number, attendu: number | null) => {
+    if (attendu === null) return;
+    const ecart = centimes(calcule - attendu);
+    if (Math.abs(ecart) > 1) {
+      ecarts.push(
+        `${libelle} : ${euros(calcule)} lu contre ${euros(attendu)} au rapport (${
+          ecart > 0 ? "+" : "−"
+        }${euros(Math.abs(ecart))})`
+      );
+    }
+  };
+
+  // Main d'œuvre = postes T1/T2/T3/Peinture + forfaits, hors ingrédients.
+  verifier("Main d'œuvre", totalLignes([...postes, ...autres]), nombreOuNull(recap.mo));
+  verifier("Pièces", totalLignes(pieces), nombreOuNull(recap.pieces));
+  verifier("Ingrédients de peinture", totalLignes(ingredients), nombreOuNull(recap.ingredients));
+  return ecarts;
+}
+
 function controlerChiffrage(lignes: LigneExtraite[], montantBrut: unknown) {
   const somme = centimes(
     lignes.reduce(
@@ -371,9 +497,14 @@ export async function POST(req: NextRequest) {
       delete data.l;
 
       // Le total des lignes doit retomber sur le total HT du rapport.
-      const controle = controlerChiffrage(lignes, data.montant);
+      // Le récapitulatif sert de repli quand « montant » n'a pas été lu, et
+      // de grille de diagnostic bloc par bloc.
+      const recap = (data as { recap?: Recap }).recap;
+      const reference = data.montant ?? (recap ? nombreOuNull(recap.total) : null);
+      const controle = controlerChiffrage(lignes, reference);
       if (controle.montant != null) data.montant = controle.montant;
-      data.controle = controle;
+      data.controle = { ...controle, blocs: controlerBlocs(lignes, recap) };
+      delete (data as { recap?: Recap }).recap;
     }
 
     return NextResponse.json({ data, partie });

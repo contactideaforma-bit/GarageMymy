@@ -572,8 +572,29 @@ export default function DossierForm({
                   les lignes lues totalisent {formatEuros(controle.somme)} HT alors que le rapport
                   retient {formatEuros(controle.montant)} HT (écart de{" "}
                   {formatEuros(Math.abs(controle.ecart))}{" "}
-                  {controle.ecart > 0 ? "en trop" : "en moins"}). Une ligne a pu être oubliée ou mal
-                  lue : compare avec le rapport et corrige le devis avant de l&apos;envoyer.
+                  {controle.ecart > 0 ? "en trop" : "en moins"}).
+                  {/* DIAGNOSTIC PAR BLOC (v8.9) : dire OÙ ça cloche vaut mieux
+                      que dire QUE ça cloche — le garage va droit au bon
+                      tableau au lieu de tout recompter. */}
+                  {controle.blocs && controle.blocs.length > 0 ? (
+                    <>
+                      <span className="mt-1 block font-semibold">Blocs en écart :</span>
+                      <ul className="ml-4 list-disc">
+                        {controle.blocs.map((b) => (
+                          <li key={b}>{b}</li>
+                        ))}
+                      </ul>
+                      <span className="mt-1 block">
+                        Corrige ces lignes dans le devis avant de l&apos;envoyer.
+                      </span>
+                    </>
+                  ) : (
+                    <span>
+                      {" "}
+                      Une ligne a pu être oubliée ou mal lue : compare avec le rapport et corrige le
+                      devis avant de l&apos;envoyer.
+                    </span>
+                  )}
                 </div>
               )
             )}

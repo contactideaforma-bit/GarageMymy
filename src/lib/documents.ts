@@ -18,7 +18,7 @@ export const CATEGORIES_LIGNE: Record<CategorieLigne, string> = {
 
 // Éléments annexes du rapport (ni pièce, ni temps de main d'œuvre)
 const RE_AUTRE =
-  /(forfait|petites?\s+fournitures?|consommables?|frais|gestion|recyclage|d[ée]placement|remorquage|gardiennage|contr[ôo]le|calibrage|adas|g[ée]om[ée]trie|parall[ée]lisme|nettoyage|lustrage|location|v[ée]hicule\s+de\s+(pr[êe]t|remplacement)|mise\s+[àa]\s+disposition|expertise|environnement)/;
+  /(forfait|petites?\s+fournitures?|consommables?|agrafes?|visserie|frais|gestion|recyclage|d[ée]chets?|enl[èe]vement|d[ée]placement|remorquage|gardiennage|contr[ôo]le|calibrage|adas|g[ée]om[ée]trie|parall[ée]lisme|nettoyage|lustrage|location|v[ée]hicule\s+de\s+(pr[êe]t|remplacement)|mise\s+[àa]\s+disposition|expertise|environnement)/;
 
 // TABLEAU DES POSTES — liste FERMÉE (v7.5, exigence du garage) :
 // UNIQUEMENT T1, T2, T3, Peinture et Ingrédients de peinture. Tout le reste
@@ -45,7 +45,10 @@ const RE_T123 = /^t\s*-?\s*[123]\b/;
 // « Ingr.(MV) » est l'abréviation réellement imprimée par certains cabinets
 // (Adenes/Roadia) : la reconnaissance doit accepter la forme abrégée.
 const RE_INGREDIENTS = /^ingr(?:[ée]d|\.|\s|$)/;
-const RE_PEINTURE = /^peinture\b/;
+// « TP », « T.P. », « T Peinture », « Temps peinture » : c'est la colonne
+// PEINTURE des rapports en GRILLE (BCA, Allianz…). Le libellé normalisé
+// attendu reste « Peinture », mais on accepte la forme brute au cas où.
+const RE_PEINTURE = /^(?:peinture\b|t\.?\s*p\.?(?:$|[\s(\-–])|temps\s+(?:de\s+)?peinture)/;
 
 export function estPosteMo(designation: string | null | undefined): boolean {
   const d = sansPrefixeMo(designation);
