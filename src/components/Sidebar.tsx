@@ -15,7 +15,10 @@ import { VERSION_LABEL } from "@/lib/version";
 const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
   {
     titre: "Pilotage",
-    items: [{ href: "/", label: "Tableau de bord" }],
+    items: [
+      { href: "/", label: "Tableau de bord" },
+      { href: "/rentabilite", label: "Rentabilité" },
+    ],
   },
   {
     titre: "Dossiers",

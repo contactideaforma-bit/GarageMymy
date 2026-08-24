@@ -18,6 +18,7 @@ import {
 } from "@/lib/paiements";
 import StatCard from "@/components/StatCard";
 import ConfigBanner from "@/components/ConfigBanner";
+import RecouvrementPanel from "@/components/RecouvrementPanel";
 import EmailComposer from "@/components/EmailComposer";
 import { destinataireRelance } from "@/lib/dossierSync";
 
@@ -127,6 +128,10 @@ export default function FinancePage() {
           hint={`${kpi.retardCount} facture${kpi.retardCount > 1 ? "s" : ""}`}
         />
       </div>
+
+      {/* Escalade des impayés (v50) : ce qu'il faut faire aujourd'hui,
+          et ce que les relances ont déjà rapporté. */}
+      {!loading && <RecouvrementPanel lignes={rows} onRelancer={ouvrirRelance} />}
 
       <div className="flex flex-wrap gap-2 mb-4">
         {FILTRES.map((f) => (

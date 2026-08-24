@@ -37,6 +37,7 @@ import BlocAFaire from "@/components/BlocAFaire";
 import ConfigBanner from "@/components/ConfigBanner";
 import { erreurReseau, dateDuCache, memoriser, relire } from "@/lib/horsLigne";
 import RappelSauvegarde from "@/components/RappelSauvegarde";
+import { euroRecuperes } from "@/lib/recouvrement";
 
 /** Copie locale du tableau de bord (mode dégradé, v47). */
 const CLE_CACHE_DASHBOARD = "tableau-de-bord";
@@ -176,6 +177,11 @@ export default function DashboardPage() {
       return dt.getMonth() === now.getMonth() && dt.getFullYear() === now.getFullYear();
     })
     .reduce((sum, f) => sum + (Number(f.total_ht) || 0), 0);
+
+  // CE QUE LES RELANCES RAPPORTENT (v50) : encaissements survenus APRÈS
+  // une relance. Chiffre volontairement prudent (plancher), affiché parce
+  // qu'un garage doit VOIR ce que l'outil lui ramène.
+  const recupere = euroRecuperes(factures, paiements, relances);
 
   // Reste à encaisser : somme des restes sur toutes les factures
   const resteEncaisser = factures.reduce((sum, f) => {
@@ -376,6 +382,21 @@ export default function DashboardPage() {
           />
         </Link>
       </div>
+
+      {/* Ce que les relances ont ramené (v50) */}
+      {recupere.montant > 0 && (
+        <Link
+          href="/finance"
+          className="anim-apparition mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border-2 border-emerald-400/40 bg-emerald-500/10 px-4 py-2.5"
+        >
+          <span className="text-sm text-emerald-100">
+            💪 Les relances automatiques ont ramené{" "}
+            <span className="font-bold">{formatEuros(recupere.montant)}</span> sur{" "}
+            {recupere.factures} facture{recupere.factures > 1 ? "s" : ""}.
+          </span>
+          <span className="text-xs text-emerald-200/70 hover:underline">Voir le recouvrement →</span>
+        </Link>
+      )}
 
       {/* Rappel de sauvegarde (v46) : au-dessus du travail du jour, parce
           qu'une sauvegarde repoussée indéfiniment ne sert à rien. */}

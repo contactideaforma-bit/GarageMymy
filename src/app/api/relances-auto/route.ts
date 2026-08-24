@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 import { envoyerEmailServeur } from "@/lib/mailer";
 import { templateRelance, totalPaye, estSoldee } from "@/lib/paiements";
+import { PALIERS, etatRecouvrement } from "@/lib/recouvrement";
+import { envoyerPush } from "@/lib/pushServeur";
+import { Document, Paiement, Relance } from "@/lib/types";
 
 // RELANCES AUTOMATIQUES (cron quotidien planifié dans vercel.json).
 // Pour chaque facture : échéance dépassée + reste à payer + dossier avec
@@ -12,8 +15,10 @@ import { templateRelance, totalPaye, estSoldee } from "@/lib/paiements";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const DELAI_ENTRE_RELANCES_JOURS = 7;
-const MAX_RELANCES_AUTO = 2;
+// ESCALADE (v50) : les paliers sont définis dans lib/recouvrement.ts et
+// comptés en JOURS DE RETARD (J+15 courtoise, J+30 ferme, J+45 mise en
+// demeure). Seuls les paliers non manuels partent tout seuls — la mise en
+// demeure est un acte juridique, elle reste à la main du garage.
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -86,6 +91,9 @@ async function executer(req: Request) {
 
   let envoyees = 0;
   const details: string[] = [];
+  // Factures arrivées au palier « mise en demeure » : jamais envoyées
+  // automatiquement, mais signalées au garage par notification.
+  const aPreparer: { owner: string; libelle: string }[] = [];
 
   for (const f of factures) {
     const dossier = dossiers.find((d) => d.id === f.dossier_id);
@@ -117,12 +125,26 @@ async function executer(req: Request) {
     // ne doit pas déclencher de relance pour un reste d'arrondi de 0,004 €.
     if (estSoldee(f.total_ttc, paye)) continue;
 
-    const rels = relances.filter((r) => r.document_id === f.id);
-    if (rels.length >= MAX_RELANCES_AUTO) continue; // la mise en demeure reste manuelle
-    const derniere = rels[0]?.date_relance ? new Date(rels[0].date_relance) : null;
-    if (derniere && (today.getTime() - derniere.getTime()) / 86400000 < DELAI_ENTRE_RELANCES_JOURS) continue;
+    const etat = etatRecouvrement(
+      f as Document,
+      paiements as Paiement[],
+      relances as Relance[]
+    );
+    // Rien à faire à ce stade du retard : le palier suivant n'est pas atteint.
+    if (!etat.aFaire) continue;
 
-    const niveau = rels.length + 1;
+    // Palier MANUEL (mise en demeure) : on ne l'envoie jamais tout seul,
+    // on prévient le garage pour qu'il décide.
+    if (etat.aFaire.manuel) {
+      aPreparer.push({
+        owner: f.owner_id,
+        libelle: `${f.numero || "facture"} — ${dossier.client_nom || dossier.assureur || "client"} (${etat.retard} j)`,
+      });
+      details.push(`${f.numero || f.id} → mise en demeure à préparer (${etat.retard} j de retard)`);
+      continue;
+    }
+
+    const niveau = etat.aFaire.niveau;
     const { subject, body } = templateRelance(niveau, f, dossier, enCession);
     const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#222;line-height:1.5">${escapeHtml(
       body
@@ -141,7 +163,7 @@ async function executer(req: Request) {
         document_id: f.id,
         date_relance: todayIso,
         canal: "email",
-        notes: `Relance automatique n°${niveau}`,
+        notes: `Relance automatique n°${niveau} — ${PALIERS[niveau - 1]?.label || "relance"}`,
         owner_id: f.owner_id,
         auto: true,
       })
@@ -182,7 +204,36 @@ async function executer(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, examinees: factures.length, envoyees, details });
+  // NOTIFICATION des mises en demeure à préparer (une par garage).
+  const parGarage = new Map<string, string[]>();
+  for (const x of aPreparer) {
+    if (!parGarage.has(x.owner)) parGarage.set(x.owner, []);
+    parGarage.get(x.owner)!.push(x.libelle);
+  }
+  for (const [owner, libelles] of Array.from(parGarage.entries())) {
+    try {
+      await envoyerPush(admin, owner, {
+        titre:
+          libelles.length === 1
+            ? "Une mise en demeure à envoyer"
+            : `${libelles.length} mises en demeure à envoyer`,
+        corps: libelles.slice(0, 3).join(" · "),
+        url: "/finance",
+        tag: "mise-en-demeure",
+        persistante: true,
+      });
+    } catch {
+      /* la notification ne doit jamais bloquer le cron */
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    examinees: factures.length,
+    envoyees,
+    misesEnDemeureAPreparer: aPreparer.length,
+    details,
+  });
 }
 
 export async function GET(req: Request) {

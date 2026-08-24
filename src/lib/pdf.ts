@@ -1456,3 +1456,112 @@ async function buildRestitutionPdf(rest: Restitution, dossier: Dossier): Promise
 
   return ctx.pdf;
 }
+
+/* ====================================================================
+   MISE EN DEMEURE DE PAYER (v50)
+
+   Dernier palier de l'escalade, et le seul qui ne parte JAMAIS tout seul :
+   c'est un acte juridique, le garage doit le vouloir. Le document reprend
+   les mentions qui le rendent opposable — référence de la créance, délai
+   de huit jours, pénalités de retard et indemnité forfaitaire de 40 €
+   (art. L441-10 et D441-5 du Code de commerce) pour un débiteur
+   professionnel, intérêts au taux légal pour un particulier.
+==================================================================== */
+
+export type CibleMiseEnDemeure = {
+  nom: string;
+  adresse?: string | null;
+  codePostalVille?: string | null;
+  /** true = assurance / professionnel → pénalités L441-10 applicables. */
+  professionnel: boolean;
+};
+
+async function buildMiseEnDemeurePdf(
+  facture: Document,
+  dossier: Dossier,
+  cible: CibleMiseEnDemeure,
+  reste: number
+): Promise<jsPDF> {
+  const aujourdhui = new Date().toISOString();
+  const ctx = await startAttestationPdf("MISE EN DEMEURE DE PAYER", facture.numero || null, aujourdhui);
+  const { pdf, M, pageW } = ctx;
+
+  // Destinataire, en haut à droite comme sur un courrier.
+  pdf.setFontSize(10);
+  pdf.setTextColor(30);
+  const lignesCible = [
+    cible.nom,
+    cible.adresse || "",
+    cible.codePostalVille || "",
+  ].filter(Boolean);
+  pdf.text(lignesCible, pageW - M, ctx.y, { align: "right" });
+  ctx.y += lignesCible.length * 5 + 10;
+
+  drawParagraphe(
+    ctx,
+    "Objet",
+    `Mise en demeure de payer — facture ${facture.numero || "—"}` +
+      (dossier.numero_sinistre ? ` · sinistre n° ${dossier.numero_sinistre}` : "") +
+      (dossier.immatriculation ? ` · véhicule ${dossier.immatriculation}` : "")
+  );
+
+  const echeance = facture.date_echeance ? dateFr(facture.date_echeance) : "à réception";
+  drawParagraphe(
+    ctx,
+    "Rappel des faits",
+    `La facture n° ${facture.numero || "—"}, d'un montant de ${euros(
+      Number(facture.total_ttc) || 0
+    )} TTC, était payable au ${echeance}.\n` +
+      `À ce jour, une somme de ${euros(reste)} TTC demeure impayée malgré nos relances restées sans effet.`
+  );
+
+  const consequences = cible.professionnel
+    ? "À défaut de règlement dans ce délai, seront exigibles de plein droit : les pénalités de retard au taux de trois fois le taux d'intérêt légal (art. L441-10 du Code de commerce), ainsi que l'indemnité forfaitaire de recouvrement de 40 € (art. D441-5 du Code de commerce). Nous nous réservons en outre le droit d'engager toute procédure de recouvrement, y compris judiciaire, sans nouvel avis."
+    : "À défaut de règlement dans ce délai, les sommes dues porteront intérêt au taux légal à compter de la réception de la présente, et nous nous réservons le droit d'engager toute procédure de recouvrement, y compris judiciaire, sans nouvel avis.";
+
+  drawParagraphe(
+    ctx,
+    "Mise en demeure",
+    `Par la présente, nous vous mettons en demeure de régler la somme de ${euros(reste)} TTC ` +
+      `dans un délai de HUIT (8) JOURS à compter de la réception de ce courrier.\n\n${consequences}`
+  );
+
+  drawParagraphe(
+    ctx,
+    null,
+    "La présente vaut mise en demeure au sens des articles 1344 et suivants du Code civil. " +
+      "Si le règlement a été effectué entre-temps, nous vous prions de considérer ce courrier comme sans objet."
+  );
+
+  drawSignatureBloc(ctx, ctx.ent.nom || null, null, null);
+  return ctx.pdf;
+}
+
+export async function generateMiseEnDemeurePdf(
+  facture: Document,
+  dossier: Dossier,
+  cible: CibleMiseEnDemeure,
+  reste: number
+) {
+  const pdf = await buildMiseEnDemeurePdf(facture, dossier, cible, reste);
+  pdf.save(`mise-en-demeure-${facture.numero || dossier.numero_sinistre || "facture"}.pdf`);
+}
+
+export async function apercuMiseEnDemeurePdf(
+  facture: Document,
+  dossier: Dossier,
+  cible: CibleMiseEnDemeure,
+  reste: number
+) {
+  ouvrirPdf(await buildMiseEnDemeurePdf(facture, dossier, cible, reste));
+}
+
+export async function miseEnDemeurePdfBase64(
+  facture: Document,
+  dossier: Dossier,
+  cible: CibleMiseEnDemeure,
+  reste: number
+): Promise<string> {
+  const pdf = await buildMiseEnDemeurePdf(facture, dossier, cible, reste);
+  return pdf.output("datauristring").split(",")[1];
+}
