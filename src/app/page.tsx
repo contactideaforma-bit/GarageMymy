@@ -421,27 +421,92 @@ export default function DashboardPage() {
               Voir tout
             </Link>
           </div>
-          {/* ~5 dossiers visibles, le reste au défilement */}
-          <div className="overflow-x-auto max-h-[330px] overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="text-left text-white/50 sticky top-0 bg-inherit">
-                <tr>
-                  <th className="px-5 py-2 font-medium">N° sinistre</th>
-                  <th className="px-5 py-2 font-medium">Client</th>
-                  <th className="px-5 py-2 font-medium">Véhicule</th>
-                  <th className="px-5 py-2 font-medium">Statut</th>
-                  <th className="px-5 py-2 font-medium text-right">Montant HT / TTC</th>
+          {/* ~5 dossiers visibles, le reste au défilement.
+              v9.3 — deux rendus : CARTES sur téléphone (le tableau à 5 colonnes
+              débordait), tableau `table-fixed` sur écran large. L'en-tête sticky
+              a un fond OPAQUE (--mea-surface) : avec `bg-inherit` il était
+              transparent et survolait les lignes au défilement. */}
+          <div className="max-h-[360px] overflow-y-auto">
+            {/* ----- MOBILE : une carte par dossier ----- */}
+            <div className="space-y-2 p-3 sm:hidden">
+              {loading &&
+                [0, 1, 2].map((i) => (
+                  <div key={`skm-${i}`} className="glass-soft p-3">
+                    <div className="skeleton h-4 w-40" />
+                    <div className="skeleton mt-2 h-3 w-56" />
+                    <div className="skeleton mt-3 h-3 w-full" />
+                  </div>
+                ))}
+              {!loading && enCours.length === 0 && (
+                <p className="py-4 text-center text-sm text-white/40">Aucun dossier en cours.</p>
+              )}
+              {enCours.map((d) => (
+                <button
+                  key={`m-${d.id}`}
+                  type="button"
+                  onClick={() => router.push(`/sinistres/${d.id}`)}
+                  className="glass-soft block w-full p-3 text-left"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-white">
+                        {d.client_nom || "—"}
+                      </span>
+                      <span className="block truncate text-xs text-white/55">
+                        {d.marque_modele || "—"}
+                        {d.immatriculation ? ` · ${d.immatriculation}` : ""}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right tabular-nums">
+                      <span className="block text-sm font-semibold text-white">
+                        {formatEuros(d.montant)} HT
+                      </span>
+                      <span className="block text-[11px] text-accent-teal" title={`TVA ${tauxTva(d)} %`}>
+                        {formatEuros(montantTtc(d))} TTC
+                      </span>
+                    </span>
+                  </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <StatutBadge statut={d.statut} />
+                    <span className="truncate text-[11px] text-white/35">{d.numero_sinistre || "sans n°"}</span>
+                  </div>
+                  <div className="mt-2">
+                    <ProgressionDossier statut={d.statut} size="sm" />
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* ----- ÉCRAN LARGE : tableau à colonnes fixes ----- */}
+            <table className="hidden w-full table-fixed text-sm sm:table">
+              <colgroup>
+                <col className="hidden w-[16%] md:table-column" />
+                <col className="w-[28%] md:w-[22%]" />
+                <col className="w-[40%] md:w-[30%]" />
+                <col className="w-[32%] md:w-[16%]" />
+                <col className="hidden w-[16%] md:table-column" />
+              </colgroup>
+              <thead
+                className="sticky top-0 z-10 text-left text-white/50"
+                style={{ backgroundColor: "var(--mea-surface)" }}
+              >
+                <tr className="border-b border-white/10">
+                  <th className="cellule hidden font-medium md:table-cell">N° sinistre</th>
+                  <th className="cellule font-medium">Client</th>
+                  <th className="cellule font-medium">Véhicule</th>
+                  <th className="cellule font-medium">Statut</th>
+                  <th className="cellule hidden text-right font-medium md:table-cell">HT / TTC</th>
                 </tr>
               </thead>
               <tbody>
                 {loading &&
                   [0, 1, 2].map((i) => (
                     <tr key={`sk-${i}`} className="border-t border-white/5">
-                      <td className="px-5 py-3"><div className="skeleton h-4 w-24" /></td>
-                      <td className="px-5 py-3"><div className="skeleton h-4 w-32" /></td>
-                      <td className="px-5 py-3"><div className="skeleton h-4 w-40" /></td>
-                      <td className="px-5 py-3"><div className="skeleton h-4 w-28" /></td>
-                      <td className="px-5 py-3"><div className="skeleton ml-auto h-4 w-24" /></td>
+                      <td className="cellule hidden md:table-cell"><div className="skeleton h-4 w-20" /></td>
+                      <td className="cellule"><div className="skeleton h-4 w-28" /></td>
+                      <td className="cellule"><div className="skeleton h-4 w-36" /></td>
+                      <td className="cellule"><div className="skeleton h-4 w-24" /></td>
+                      <td className="cellule hidden md:table-cell"><div className="skeleton ml-auto h-4 w-20" /></td>
                     </tr>
                   ))}
                 {!loading && enCours.length === 0 && (
@@ -453,18 +518,25 @@ export default function DashboardPage() {
                     onClick={() => router.push(`/sinistres/${d.id}`)}
                     className="border-t border-white/5 hover:bg-white/5 cursor-pointer"
                   >
-                    <td className="px-5 py-3 font-medium text-white">{d.numero_sinistre || "—"}</td>
-                    <td className="px-5 py-3 text-white/80">{d.client_nom || "—"}</td>
-                    <td className="px-5 py-3 text-white/80">
-                      {d.marque_modele || "—"}{d.immatriculation ? ` (${d.immatriculation})` : ""}
+                    <td className="cellule hidden truncate font-medium text-white md:table-cell" title={d.numero_sinistre || ""}>
+                      {d.numero_sinistre || "—"}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="cellule truncate text-white/80" title={d.client_nom || ""}>
+                      {d.client_nom || "—"}
+                    </td>
+                    <td className="cellule text-white/80">
+                      <div className="truncate" title={d.marque_modele || ""}>{d.marque_modele || "—"}</div>
+                      {d.immatriculation && (
+                        <div className="truncate text-[11px] text-white/45">{d.immatriculation}</div>
+                      )}
+                    </td>
+                    <td className="cellule">
                       <StatutBadge statut={d.statut} />
-                      <div className="mt-1.5 w-32">
+                      <div className="mt-1.5 max-w-[8rem]">
                         <ProgressionDossier statut={d.statut} size="sm" />
                       </div>
                     </td>
-                    <td className="px-5 py-3 text-right tabular-nums">
+                    <td className="cellule hidden text-right tabular-nums md:table-cell">
                       <div className="text-white/90">{formatEuros(d.montant)}</div>
                       <div className="text-[11px] text-accent-teal" title={`TVA ${tauxTva(d)} %`}>
                         {formatEuros(montantTtc(d))} TTC
