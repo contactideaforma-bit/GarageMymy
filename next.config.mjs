@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // UNE SEULE variable pour les comptes admin (v9.4) : `ADMIN_EMAILS` (serveur)
+  // est recopiée dans le bundle navigateur au moment du build. Plus besoin
+  // de définir NEXT_PUBLIC_ADMIN_EMAILS sur Vercel — si elle existe quand
+  // même, elle garde la priorité.
+  env: {
+    NEXT_PUBLIC_ADMIN_EMAILS:
+      process.env.NEXT_PUBLIC_ADMIN_EMAILS || process.env.ADMIN_EMAILS || "",
+  },
   // Images libres de droits (banque Unsplash) affichées sur la page d'accueil
   images: {
     remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
