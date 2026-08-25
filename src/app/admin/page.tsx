@@ -34,7 +34,7 @@ export default function AdminAccueil() {
   const k = useMemo(() => {
     const actifs = abos.filter((a) => a.statut === "actif");
     const ca = actifs.reduce((s, a) => s + Number(a.prix_ht), 0);
-    const retro = actifs.reduce((s, a) => s + (a.secretaire_id ? retrocessionMensuelle(Number(a.prix_ht), collabs.find((c) => c.id === a.secretaire_id)?.taux_retrocession ?? null, p) : 0), 0);
+    const retro = actifs.reduce((s, a) => s + (a.secretaire_id ? retrocessionMensuelle(p.formules[a.formule].heures, collabs.find((c) => c.id === a.secretaire_id)?.taux_horaire ?? null, p) : 0), 0);
     const tech = actifs.length * p.coutTechnique;
     const margeMensuelle = ca - retro - tech - p.coutsFixes;
     const aujourdhui = new Date();
@@ -54,7 +54,7 @@ export default function AdminAccueil() {
         <>
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Kpi titre="Garages actifs" valeur={String(k.actifs)} sous={`${collabs.filter((c) => c.statut === "actif" && c.type === "commercial").length} commerciaux · ${collabs.filter((c) => c.statut === "actif" && c.type === "secretaire").length} secrétaires actifs`} />
-            <Kpi titre="CA mensuel récurrent" valeur={euros(k.ca)} sous={`rétrocessions ${euros(k.retro)} · technique ${euros(k.tech)}`} />
+            <Kpi titre="CA mensuel récurrent" valeur={euros(k.ca)} sous={`secrétaires ${euros(k.retro)} · technique ${euros(k.tech)}`} />
             <Kpi titre="Résultat mensuel théorique" valeur={euros(k.margeMensuelle)} sous={`après coûts fixes ${euros(p.coutsFixes)}, hors commissions`} accent />
             <Kpi titre="Encaissé depuis le début" valeur={euros(k.encaisse)} sous={`marge nette cumulée ${euros(k.margeCumulee)} (commissions déduites)`} />
           </section>

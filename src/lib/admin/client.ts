@@ -6,7 +6,7 @@ export type Collaborateur = {
   id: string; created_at: string; type: "commercial" | "secretaire"; nom: string; prenom: string | null;
   email: string | null; tel: string | null; siret: string | null; adresse: string | null;
   statut: "actif" | "pause" | "termine"; date_debut: string | null; date_fin: string | null;
-  iban: string | null; taux_retrocession: number | null; notes: string | null;
+  iban: string | null; taux_retrocession: number | null; taux_horaire: number | null; notes: string | null;
 };
 export type Abonnement = {
   id: string; created_at: string; garage_nom: string; garage_email: string | null; garage_owner_id: string | null;

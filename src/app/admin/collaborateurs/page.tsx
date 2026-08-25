@@ -8,7 +8,7 @@ import AdminShell, { ChampAdmin, dateFr, euros } from "@/components/admin/AdminS
 import ModalShell from "@/components/ModalShell";
 import { Abonnement, Collaborateur, Demande, Reglement, lireTable, nomCollab, supprimerLigne, upsertLigne } from "@/lib/admin/client";
 
-const VIDE: Partial<Collaborateur> = { type: "commercial", nom: "", prenom: "", email: "", tel: "", siret: "", adresse: "", statut: "actif", date_debut: "", date_fin: "", iban: "", taux_retrocession: null, notes: "" };
+const VIDE: Partial<Collaborateur> = { type: "commercial", nom: "", prenom: "", email: "", tel: "", siret: "", adresse: "", statut: "actif", date_debut: "", date_fin: "", iban: "", taux_retrocession: null, taux_horaire: null, notes: "" };
 
 export default function CollaborateursPage() {
   const [collabs, setCollabs] = useState<Collaborateur[]>([]);
@@ -60,7 +60,7 @@ export default function CollaborateursPage() {
     if (!form?.nom?.trim()) return alert("Le nom est obligatoire.");
     setSaving(true);
     try {
-      await upsertLigne<Collaborateur>("collaborateurs", { ...form, taux_retrocession: form.taux_retrocession == null || form.taux_retrocession === ("" as unknown) ? null : Number(form.taux_retrocession) });
+      await upsertLigne<Collaborateur>("collaborateurs", { ...form, taux_horaire: form.taux_horaire == null || form.taux_horaire === ("" as unknown) ? null : Number(form.taux_horaire) });
       setForm(null); load();
     } catch (e) { alert(e instanceof Error ? e.message : "Enregistrement impossible."); }
     finally { setSaving(false); }
@@ -110,7 +110,7 @@ export default function CollaborateursPage() {
                 {c.email && <div className="truncate">{c.email}</div>}
                 {c.tel && <div>{c.tel}</div>}
                 {c.siret && <div>SIRET {c.siret}</div>}
-                {c.type === "secretaire" && <div>Rétrocession : {c.taux_retrocession != null ? `${Math.round(Number(c.taux_retrocession) * 100)} %` : "taux par défaut"}</div>}
+                {c.type === "secretaire" && <div>Taux horaire : {c.taux_horaire != null ? `${Number(c.taux_horaire)} €/h` : "17 €/h (défaut)"}</div>}
                 {c.date_debut && <div>Depuis le {dateFr(c.date_debut)}{c.date_fin ? ` · fin le ${dateFr(c.date_fin)}` : ""}</div>}
               </div>
             </div>
@@ -131,7 +131,7 @@ export default function CollaborateursPage() {
             <ChampAdmin label="IBAN (pour les virements)"><input className="field-input" value={form.iban || ""} onChange={(e) => set("iban", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="Adresse"><input className="field-input" value={form.adresse || ""} onChange={(e) => set("adresse", e.target.value)} /></ChampAdmin>
             {form.type === "secretaire" && (
-              <ChampAdmin label="Taux de rétrocession (vide = 65 % par défaut)"><input className="field-input" type="number" step="0.01" min="0" max="1" placeholder="0.65" value={form.taux_retrocession ?? ""} onChange={(e) => set("taux_retrocession", e.target.value === "" ? null : Number(e.target.value))} /></ChampAdmin>
+              <ChampAdmin label="Taux horaire négocié, € HT / heure (vide = 17 € par défaut)"><input className="field-input" type="number" step="0.5" min="0" placeholder="17" value={form.taux_horaire ?? ""} onChange={(e) => set("taux_horaire", e.target.value === "" ? null : Number(e.target.value))} /></ChampAdmin>
             )}
             <ChampAdmin label="Début de collaboration"><input className="field-input" type="date" value={form.date_debut || ""} onChange={(e) => set("date_debut", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="Fin (le cas échéant)"><input className="field-input" type="date" value={form.date_fin || ""} onChange={(e) => set("date_fin", e.target.value)} /></ChampAdmin>

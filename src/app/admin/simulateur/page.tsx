@@ -84,7 +84,7 @@ export default function SimulateurPage() {
       {/* ---------------- Résultats ---------------- */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Tuile titre="Chiffre d'affaires / mois" valeur={euros(r.caMensuel)} sous={`${r.garages} garage${r.garages > 1 ? "s" : ""}`} />
-        <Tuile titre="Marge avant commercial / mois" valeur={euros(r.margeAvantCommercialMensuelle)} sous={`après ${euros(r.retrocessionsMensuelles)} de rétrocessions et ${euros(r.techniqueMensuel)} de technique`} />
+        <Tuile titre="Marge avant commercial / mois" valeur={euros(r.margeAvantCommercialMensuelle)} sous={`après ${euros(r.retrocessionsMensuelles)} de secrétaires (${euros(p.tauxHoraireSecretaire)}/h) et ${euros(r.techniqueMensuel)} de technique`} />
         <Tuile titre="Résultat / mois — année 1" valeur={euros(r.resultatMensuelAnnee1)} sous={`commissions ${euros(r.commissionsAnnee1)} lissées + fixes ${euros(r.coutsFixesMensuels)}`} accent />
         <Tuile titre="Résultat / mois — croisière" valeur={euros(r.resultatMensuelCroisiere)} sous="année 2 : plus de commission" />
       </section>
@@ -157,7 +157,7 @@ export default function SimulateurPage() {
           </table>
         </div>
         <p className="px-4 py-3 text-xs text-white/45">
-          Bloc « Chaque mois » : ce que le garage paie chaque mois, moins la part de la secrétaire ({Math.round(p.tauxRetrocession * 100)} % des heures) et le coût technique ({euros(p.coutTechnique)} / garage).
+          Bloc « Chaque mois » : ce que le garage paie chaque mois, moins la secrétaire (heures du forfait × {euros(p.tauxHoraireSecretaire)}/h) et le coût technique ({euros(p.coutTechnique)} / garage).
           Bloc « Sur une année » : cette marge × 12, moins la commission du commercial — payée <strong className="text-white/70">une seule fois</strong>, vers le 2e mois (prime + bonus engagement × {Math.round(p.tauxEngagement * 100)} % des garages engagés{p.formules.confort.primeFidelite > 0 ? ` + fidélité × ${Math.round(p.tauxConservationM6 * 100)} %` : ""}).
           Les années suivantes, plus aucune commission. Chiffres HT, avant votre rémunération et impôt.
         </p>
@@ -190,7 +190,7 @@ export default function SimulateurPage() {
             </table>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <Param label="Rétrocession secrétaire" value={p.tauxRetrocession * 100} suffixe="%" onChange={(v) => setP({ ...p, tauxRetrocession: v / 100 })} />
+            <Param label="Secrétaire : taux horaire" value={p.tauxHoraireSecretaire} suffixe="€/h" onChange={(v) => setP({ ...p, tauxHoraireSecretaire: v })} />
             <Param label="Coût technique / garage / mois" value={p.coutTechnique} suffixe="€" onChange={(v) => setP({ ...p, coutTechnique: v })} />
             <Param label="Coûts fixes / mois" value={p.coutsFixes} suffixe="€" onChange={(v) => setP({ ...p, coutsFixes: v })} />
             <Param label="Part engagée 12 mois" value={p.tauxEngagement * 100} suffixe="%" onChange={(v) => setP({ ...p, tauxEngagement: v / 100 })} />

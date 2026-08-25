@@ -37,10 +37,12 @@ create table if not exists public.collaborateurs (
   date_debut         date,
   date_fin           date,
   iban               text,
-  taux_retrocession  numeric,          -- secrétaires : part du CA secrétariat HT (0.65 par défaut)
+  taux_retrocession  numeric,          -- (ancien modèle en %, conservé mais plus utilisé)
+  taux_horaire       numeric,          -- secrétaires : € HT par heure de forfait (17 € par défaut, négociable)
   notes              text
 );
 alter table public.collaborateurs enable row level security;
+alter table public.collaborateurs add column if not exists taux_horaire numeric;
 
 -- 3. Abonnements des garages (ce que facture IDEAFORMA)
 create table if not exists public.abonnements (

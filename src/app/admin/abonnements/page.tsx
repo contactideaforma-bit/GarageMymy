@@ -233,7 +233,7 @@ export default function AbonnementsPage() {
           {Number(form.remise_pct) > 0 && (
             <p className="mt-2 text-xs text-amber-200/80">
               Avec {Number(form.remise_pct)} % de remise, la prime du commercial est réduite dans la même proportion
-              (plancher ESSENTIEL conservé) ; la rétrocession de la secrétaire est calculée sur le montant réellement facturé.
+              (plancher ESSENTIEL conservé) ; la secrétaire est payée aux heures du forfait × son taux horaire, la remise ne la concerne pas.
             </p>
           )}
           <label className="mt-3 flex items-center gap-2 text-sm text-white/80"><input type="checkbox" checked={Boolean(form.engagement_12)} onChange={(e) => set("engagement_12", e.target.checked)} />Engagement 12 mois (mise en service offerte, bonus commercial)</label>

@@ -20,7 +20,8 @@ export type ParamsFormule = {
 
 export type Parametres = {
   formules: Record<Formule, ParamsFormule>;
-  tauxRetrocession: number;      // part du CA secrétariat reversée à la secrétaire
+  tauxHoraireSecretaire: number; // € HT versés à la secrétaire par heure de forfait (v53 : 17 €, négociable)
+  tauxRetrocession: number;      // ANCIEN modèle (% du CA secrétariat) — conservé pour compatibilité, plus utilisé
   coutTechnique: number;         // € / garage / mois
   coutsFixes: number;            // € / mois (hébergement, outils, assurance…)
   tauxEngagement: number;        // part des devis signés avec engagement 12 mois (simulateur)
@@ -39,6 +40,7 @@ export const PARAMETRES_DEFAUT: Parametres = {
     confort: { libelle: "CONFORT", prix: 860, heures: 20, primeSignature: 730, primeFidelite: 0, bonusEngagement: 85 },
     serenite: { libelle: "SÉRÉNITÉ", prix: 1570, heures: 40, primeSignature: 1335, primeFidelite: 0, bonusEngagement: 85 },
   },
+  tauxHoraireSecretaire: 17,
   tauxRetrocession: 0.65,
   coutTechnique: 25,
   coutsFixes: 270,
@@ -63,9 +65,19 @@ export function caSecretariat(prix: number, p: Parametres): number {
   return Math.max(0, prix - p.formules.essentiel.prix);
 }
 
-/** Rétrocession mensuelle à la secrétaire pour une mensualité payée. */
-export function retrocessionMensuelle(prix: number, taux: number | null | undefined, p: Parametres): number {
-  return r2(caSecretariat(prix, p) * (taux ?? p.tauxRetrocession));
+/**
+ * Rémunération mensuelle de la secrétaire pour une mensualité payée :
+ * HEURES du forfait × TAUX HORAIRE (celui de la secrétaire, sinon le taux
+ * par défaut des paramètres). Indépendant du prix vendu : une remise
+ * commerciale ne pèse pas sur la secrétaire.
+ */
+export function retrocessionMensuelle(heures: number, tauxHoraire: number | null | undefined, p: Parametres): number {
+  return r2(Math.max(0, heures) * (tauxHoraire ?? p.tauxHoraireSecretaire));
+}
+
+/** Rémunération mensuelle de la secrétaire pour une formule de la grille. */
+export function retrocessionFormule(f: Formule, p: Parametres, tauxHoraire?: number | null): number {
+  return retrocessionMensuelle(p.formules[f].heures, tauxHoraire, p);
 }
 
 /* ------------------------------------------------------------------
@@ -96,7 +108,7 @@ export function simuler(lignes: LigneSimulation[], p: Parametres): ResultatSimul
     .map((l) => {
       const f = p.formules[l.formule];
       const ca = f.prix * l.nombre;
-      const retro = retrocessionMensuelle(f.prix, null, p) * l.nombre;
+      const retro = retrocessionMensuelle(f.heures, null, p) * l.nombre;
       const tech = p.coutTechnique * l.nombre;
       const marge = ca - retro - tech; // par mois
       const commission = l.avecCommercial
@@ -145,7 +157,7 @@ export type AbonnementCalc = {
   secretaire_id: string | null;
 };
 export type MensualiteCalc = { abonnement_id: string; periode: string; montant_ht: number; payee_le: string | null; heures_faites?: number | null };
-export type CollaborateurCalc = { id: string; type: "commercial" | "secretaire"; taux_retrocession: number | null };
+export type CollaborateurCalc = { id: string; type: "commercial" | "secretaire"; taux_horaire?: number | null; taux_retrocession?: number | null };
 
 export type LigneDue = {
   cle: string;
@@ -162,8 +174,9 @@ export type LigneDue = {
  *  · commercial : prime de signature à la 2e mensualité payée, bonus
  *    engagement avec elle, fidélité à la 6e, reprise si résiliation avant
  *    la 3e mensualité payée ;
- *  · secrétaire : rétrocession pour chaque mensualité payée d'une formule
- *    avec heures (calculée sur le montant réellement facturé).
+ *  · secrétaire : rémunération pour chaque mensualité payée d'une formule
+ *    avec heures = heures × taux horaire (17 € par défaut, ou le taux
+ *    propre à la secrétaire) — indépendante du prix vendu.
  *  REMISE : si le commercial a vendu moins cher que la grille, ses primes
  *  (signature, fidélité) suivent la même proportion — le plancher de la
  *  formule ESSENTIEL est conservé. Le bonus engagement est fixe.
@@ -210,7 +223,7 @@ export function lignesDues(
     }
 
     if (a.secretaire_id && collabs.get(a.secretaire_id)?.type === "secretaire" && f.heures > 0) {
-      const taux = collabs.get(a.secretaire_id)?.taux_retrocession ?? null;
+      const taux = collabs.get(a.secretaire_id)?.taux_horaire ?? null;
       for (const m of payees) {
         lignes.push({
           cle: `ret:${a.id}:${m.periode.slice(0, 7)}`,
@@ -219,7 +232,7 @@ export function lignesDues(
           type: "retrocession",
           libelle: `Rétrocession ${m.periode.slice(0, 7)} — ${a.garage_nom} (${f.libelle})`,
           periode: m.periode,
-          montant: retrocessionMensuelle(Number(m.montant_ht) || a.prix_ht, taux, p),
+          montant: retrocessionMensuelle(f0.heures, taux, p),
         });
       }
     }
