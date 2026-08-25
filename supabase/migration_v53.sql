@@ -50,7 +50,8 @@ create table if not exists public.abonnements (
   garage_email     text,
   garage_owner_id  uuid,               -- compte My Easy Auto du garage (facultatif)
   formule          text not null check (formule in ('essentiel','starter','confort','serenite')),
-  prix_ht          numeric not null,   -- mensualité HT (figée à la signature)
+  prix_ht          numeric not null,   -- mensualité HT réellement facturée (remise déduite)
+  remise_pct       numeric not null default 0, -- remise accordée par le commercial, en %
   heures           integer not null default 0,
   date_signature   date not null,
   date_debut       date not null,      -- 1re mensualité
@@ -62,6 +63,7 @@ create table if not exists public.abonnements (
   notes            text
 );
 alter table public.abonnements enable row level security;
+alter table public.abonnements add column if not exists remise_pct numeric not null default 0;
 create index if not exists abonnements_commercial_idx on public.abonnements (commercial_id);
 create index if not exists abonnements_secretaire_idx on public.abonnements (secretaire_id);
 
