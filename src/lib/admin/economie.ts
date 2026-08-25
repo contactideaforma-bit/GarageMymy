@@ -31,10 +31,13 @@ export type Parametres = {
 
 export const PARAMETRES_DEFAUT: Parametres = {
   formules: {
-    essentiel: { libelle: "ESSENTIEL", prix: 79, heures: 0, primeSignature: 130, primeFidelite: 40, bonusEngagement: 40 },
-    starter: { libelle: "STARTER", prix: 490, heures: 10, primeSignature: 415, primeFidelite: 210, bonusEngagement: 85 },
-    confort: { libelle: "CONFORT", prix: 860, heures: 20, primeSignature: 730, primeFidelite: 365, bonusEngagement: 85 },
-    serenite: { libelle: "SÉRÉNITÉ", prix: 1570, heures: 40, primeSignature: 1335, primeFidelite: 665, bonusEngagement: 85 },
+    // Grille v1.2 (25/08/2026) : UNE prime par garage signé (85 % d'une
+    // mensualité), PLUS de prime de fidélité (primeFidelite = 0, conservé pour
+    // compatibilité et pour pouvoir la réactiver dans les paramètres).
+    essentiel: { libelle: "ESSENTIEL", prix: 79, heures: 0, primeSignature: 130, primeFidelite: 0, bonusEngagement: 40 },
+    starter: { libelle: "STARTER", prix: 490, heures: 10, primeSignature: 415, primeFidelite: 0, bonusEngagement: 85 },
+    confort: { libelle: "CONFORT", prix: 860, heures: 20, primeSignature: 730, primeFidelite: 0, bonusEngagement: 85 },
+    serenite: { libelle: "SÉRÉNITÉ", prix: 1570, heures: 40, primeSignature: 1335, primeFidelite: 0, bonusEngagement: 85 },
   },
   tauxRetrocession: 0.65,
   coutTechnique: 25,
@@ -134,7 +137,7 @@ export type AbonnementCalc = {
   id: string;
   garage_nom: string;
   formule: Formule;
-  prix_ht: number;
+  prix_ht: number; // mensualité réellement facturée (remise déduite)
   date_signature: string;
   engagement_12: boolean;
   statut: "actif" | "suspendu" | "resilie";
@@ -160,7 +163,10 @@ export type LigneDue = {
  *    engagement avec elle, fidélité à la 6e, reprise si résiliation avant
  *    la 3e mensualité payée ;
  *  · secrétaire : rétrocession pour chaque mensualité payée d'une formule
- *    avec heures.
+ *    avec heures (calculée sur le montant réellement facturé).
+ *  REMISE : si le commercial a vendu moins cher que la grille, ses primes
+ *  (signature, fidélité) suivent la même proportion — le plancher de la
+ *  formule ESSENTIEL est conservé. Le bonus engagement est fixe.
  * Les bonus de volume trimestriels ne sont pas générés ici (validation
  * manuelle par l'éditeur).
  */
@@ -173,7 +179,14 @@ export function lignesDues(
   const lignes: LigneDue[] = [];
   const collabs = new Map(collaborateurs.map((c) => [c.id, c]));
   for (const a of abonnements) {
-    const f = p.formules[a.formule];
+    const f0 = p.formules[a.formule];
+    const ratio = f0.prix > 0 ? Math.min(1, Math.max(0, (Number(a.prix_ht) || f0.prix) / f0.prix)) : 1;
+    const plancher = p.formules.essentiel.primeSignature;
+    const f = {
+      ...f0,
+      primeSignature: r2(Math.max(a.formule === "essentiel" ? plancher : 0, f0.primeSignature * ratio)),
+      primeFidelite: r2(f0.primeFidelite * ratio),
+    };
     const payees = mensualites
       .filter((m) => m.abonnement_id === a.id && m.payee_le)
       .sort((x, y) => x.periode.localeCompare(y.periode));
@@ -187,7 +200,7 @@ export function lignesDues(
           lignes.push({ cle: `eng:${a.id}`, collaborateur_id: cid, abonnement_id: a.id, type: "bonus", libelle: `Bonus engagement 12 mois — ${a.garage_nom}`, periode: payees[1].periode, montant: f.bonusEngagement });
         }
       }
-      if (nbPayees >= 6 && a.statut !== "resilie") {
+      if (f.primeFidelite > 0 && nbPayees >= 6 && a.statut !== "resilie") {
         lignes.push({ cle: `fid:${a.id}`, collaborateur_id: cid, abonnement_id: a.id, type: "fidelite", libelle: `Prime de fidélité — ${a.garage_nom} (${f.libelle})`, periode: payees[5].periode, montant: f.primeFidelite });
       }
       if (a.statut === "resilie" && nbPayees >= 2 && nbPayees < p.mensualitesReprise) {

@@ -227,12 +227,12 @@ export default function AbonnementsPage() {
           </div>
           {form.periodicite === "annuel" && (
             <p className="mt-2 text-xs text-white/60">
-              Forfait annuel : les 12 mois sont créés d&apos;avance ; cocher « encaissé » les pointe tous d&apos;un coup, ce qui déclenche immédiatement la prime de signature et la prime de fidélité du commercial (le garage a payé l&apos;année).
+              Forfait annuel : les 12 mois sont créés d&apos;avance ; cocher « encaissé » les pointe tous d&apos;un coup, ce qui déclenche immédiatement la prime du commercial (le garage a payé l&apos;année).
             </p>
           )}
           {Number(form.remise_pct) > 0 && (
             <p className="mt-2 text-xs text-amber-200/80">
-              Avec {Number(form.remise_pct)} % de remise, la prime de signature du commercial et sa prime de fidélité sont réduites dans la même proportion
+              Avec {Number(form.remise_pct)} % de remise, la prime du commercial est réduite dans la même proportion
               (plancher ESSENTIEL conservé) ; la rétrocession de la secrétaire est calculée sur le montant réellement facturé.
             </p>
           )}

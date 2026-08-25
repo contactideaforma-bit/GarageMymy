@@ -132,7 +132,7 @@ export default function SimulateurPage() {
           )}
         </table>
         <p className="px-4 py-3 text-xs text-white/45">
-          Commission = prime de signature + bonus engagement × {Math.round(p.tauxEngagement * 100)} % + fidélité × {Math.round(p.tauxConservationM6 * 100) } % (espérance sur la 1re année, versée en réalité vers M2 et M6).
+          Commission = prime de signature + bonus engagement × {Math.round(p.tauxEngagement * 100)} %{p.formules.confort.primeFidelite > 0 ? ` + fidélité × ${Math.round(p.tauxConservationM6 * 100)} %` : ""} (versée une seule fois, vers le 2e mois).
           Résultat = CA − rétrocessions − technique − commissions − coûts fixes, avant votre rémunération et impôt.
         </p>
       </section>

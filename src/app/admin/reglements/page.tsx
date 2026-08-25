@@ -146,7 +146,7 @@ export default function ReglementsPage() {
         </table>
       </div>
       <p className="text-xs text-white/45">
-        Règles appliquées : prime de signature à la 2e mensualité payée, bonus engagement avec elle, fidélité à la 6e, reprise si résiliation avant la 3e ; rétrocession secrétaire pour chaque mensualité payée d&apos;une formule avec heures. Les bonus de volume trimestriels se saisissent en ligne manuelle.
+        Règles appliquées : prime de signature à la 2e mensualité payée, bonus engagement avec elle, reprise si résiliation avant la 3e (la prime de fidélité est à 0 dans la grille v1.2) ; rétrocession secrétaire pour chaque mensualité payée d&apos;une formule avec heures. Les bonus de volume trimestriels se saisissent en ligne manuelle.
       </p>
 
       {paiement && (
