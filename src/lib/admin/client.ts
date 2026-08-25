@@ -10,7 +10,7 @@ export type Collaborateur = {
 };
 export type Abonnement = {
   id: string; created_at: string; garage_nom: string; garage_email: string | null; garage_owner_id: string | null;
-  formule: "essentiel" | "starter" | "confort" | "serenite"; prix_ht: number; heures: number;
+  formule: "essentiel" | "starter" | "confort" | "serenite"; prix_ht: number; remise_pct: number; periodicite: "mensuel" | "annuel"; montant_annuel: number | null; heures: number;
   date_signature: string; date_debut: string; engagement_12: boolean; statut: "actif" | "suspendu" | "resilie";
   date_fin: string | null; commercial_id: string | null; secretaire_id: string | null; notes: string | null;
 };

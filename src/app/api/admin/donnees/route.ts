@@ -92,12 +92,24 @@ export async function POST(req: Request) {
     const { data: a, error } = await admin.from("abonnements").select("*").eq("id", body.abonnement_id || "").maybeSingle();
     if (error || !a) return NextResponse.json({ error: "Abonnement introuvable." }, { status: 404 });
     const debut = new Date(a.date_debut);
-    const fin = a.date_fin ? new Date(a.date_fin) : new Date();
-    const lignes: { abonnement_id: string; periode: string; montant_ht: number }[] = [];
+    const lignes: { abonnement_id: string; periode: string; montant_ht: number; notes?: string }[] = [];
     const d = new Date(debut.getFullYear(), debut.getMonth(), 1);
-    while (d <= fin) {
-      lignes.push({ abonnement_id: a.id, periode: premierDuMois(d), montant_ht: Number(a.prix_ht) });
-      d.setMonth(d.getMonth() + 1);
+    if (a.periodicite === "annuel") {
+      // FORFAIT ANNUEL payé en une fois : 12 mois créés d'avance, chacun
+      // valant un douzième (le dernier absorbe l'arrondi). Le pointage du
+      // paiement annuel coche les 12 d'un coup (côté interface).
+      const total = Number(a.montant_annuel) || Number(a.prix_ht) * 12;
+      const part = Math.floor((total / 12) * 100) / 100;
+      for (let i = 0; i < 12; i++) {
+        lignes.push({ abonnement_id: a.id, periode: premierDuMois(d), montant_ht: i === 11 ? Math.round((total - part * 11) * 100) / 100 : part, notes: "Forfait annuel" });
+        d.setMonth(d.getMonth() + 1);
+      }
+    } else {
+      const fin = a.date_fin ? new Date(a.date_fin) : new Date();
+      while (d <= fin) {
+        lignes.push({ abonnement_id: a.id, periode: premierDuMois(d), montant_ht: Number(a.prix_ht) });
+        d.setMonth(d.getMonth() + 1);
+      }
     }
     if (!lignes.length) return NextResponse.json({ ok: true, ajoutees: 0 });
     const { error: e2 } = await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });

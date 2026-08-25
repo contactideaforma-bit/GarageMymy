@@ -39,17 +39,59 @@ export default function AbonnementsPage() {
   const visibles = abos.filter((a) => filtre === "tous" || a.statut === "actif");
 
   function nouveau() {
-    setForm({ garage_nom: "", garage_email: "", formule: "confort", prix_ht: p.formules.confort.prix, heures: p.formules.confort.heures, date_signature: aujourdhui(), date_debut: aujourdhui(), engagement_12: true, statut: "actif", commercial_id: null, secretaire_id: null, notes: "" });
+    setForm({ garage_nom: "", garage_email: "", formule: "confort", prix_ht: p.formules.confort.prix, remise_pct: 0, periodicite: "mensuel", montant_annuel: null, heures: p.formules.confort.heures, date_signature: aujourdhui(), date_debut: aujourdhui(), engagement_12: true, statut: "actif", commercial_id: null, secretaire_id: null, notes: "" });
   }
   const set = <K extends keyof Abonnement>(k: K, v: Abonnement[K]) => setForm((f) => ({ ...(f || {}), [k]: v }));
+  const r2 = (n: number) => Math.round(n * 100) / 100;
   function changerFormule(f: Formule) {
-    setForm((x) => ({ ...(x || {}), formule: f, prix_ht: p.formules[f].prix, heures: p.formules[f].heures }));
+    setForm((x) => {
+      const remise = Number(x?.remise_pct) || 0;
+      return { ...(x || {}), formule: f, prix_ht: r2(p.formules[f].prix * (1 - remise / 100)), heures: p.formules[f].heures };
+    });
+  }
+  // Remise en % → prix net ; prix net saisi → remise recalculée. Les deux restent cohérents.
+  function changerRemise(remise: number) {
+    setForm((x) => {
+      const f = (x?.formule || "confort") as Formule;
+      const pct = Math.min(100, Math.max(0, remise));
+      return { ...(x || {}), remise_pct: pct, prix_ht: r2(p.formules[f].prix * (1 - pct / 100)) };
+    });
+  }
+  // FORFAIT ANNUEL payé en une fois : on saisit le montant de l'année,
+  // l'équivalent mensuel (prix_ht) et la remise en découlent.
+  function changerAnnuel(total: number) {
+    setForm((x) => {
+      const f = (x?.formule || "confort") as Formule;
+      const base = p.formules[f].prix * 12;
+      const mensuel = r2(total / 12);
+      const pct = base > 0 ? r2(Math.max(0, (1 - total / base) * 100)) : 0;
+      return { ...(x || {}), montant_annuel: total, prix_ht: mensuel, remise_pct: pct };
+    });
+  }
+  function changerPeriodicite(per: Abonnement["periodicite"]) {
+    setForm((x) => {
+      const f = (x?.formule || "confort") as Formule;
+      if (per === "annuel") {
+        // Proposition par défaut : 10 mois payés pour 12 (≈ 2 mois offerts).
+        const total = Number(x?.montant_annuel) || r2(p.formules[f].prix * 10);
+        return { ...(x || {}), periodicite: per, montant_annuel: total, prix_ht: r2(total / 12), remise_pct: r2(Math.max(0, (1 - total / (p.formules[f].prix * 12)) * 100)) };
+      }
+      return { ...(x || {}), periodicite: per, montant_annuel: null, prix_ht: r2(p.formules[f].prix * (1 - (Number(x?.remise_pct) || 0) / 100)) };
+    });
+  }
+  function changerPrix(prix: number) {
+    setForm((x) => {
+      const f = (x?.formule || "confort") as Formule;
+      const base = p.formules[f].prix;
+      const pct = base > 0 ? r2(Math.max(0, (1 - prix / base) * 100)) : 0;
+      return { ...(x || {}), prix_ht: prix, remise_pct: pct };
+    });
   }
   async function enregistrer() {
     if (!form?.garage_nom?.trim()) return alert("Le nom du garage est obligatoire.");
     setSaving(true);
     try {
-      const res = await upsertLigne<Abonnement>("abonnements", { ...form, prix_ht: Number(form.prix_ht) || 0, heures: Number(form.heures) || 0 });
+      const res = await upsertLigne<Abonnement>("abonnements", { ...form, prix_ht: Number(form.prix_ht) || 0, remise_pct: Number(form.remise_pct) || 0, montant_annuel: form.periodicite === "annuel" ? Number(form.montant_annuel) || 0 : null, heures: Number(form.heures) || 0 });
       // Les mensualités du 1er mois à aujourd'hui sont créées d'office (à pointer).
       if (res.row?.id) await genererMensualites(res.row.id);
       setForm(null); load();
@@ -64,6 +106,15 @@ export default function AbonnementsPage() {
     try {
       await upsertLigne<Mensualite>("abonnement_mensualites", { id: m.id, abonnement_id: m.abonnement_id, periode: m.periode, montant_ht: m.montant_ht, payee_le: payee ? aujourdhui() : null });
       setMens((ms) => ms.map((x) => (x.id === m.id ? { ...x, payee_le: payee ? aujourdhui() : null } : x)));
+    } catch (e) { alert(e instanceof Error ? e.message : "Pointage impossible."); }
+  }
+  async function pointerAnnee(a: Abonnement, payee: boolean) {
+    const ms = mens.filter((m) => m.abonnement_id === a.id);
+    try {
+      for (const m of ms) {
+        await upsertLigne<Mensualite>("abonnement_mensualites", { id: m.id, abonnement_id: m.abonnement_id, periode: m.periode, montant_ht: m.montant_ht, payee_le: payee ? aujourdhui() : null });
+      }
+      setMens((all) => all.map((x) => (x.abonnement_id === a.id ? { ...x, payee_le: payee ? aujourdhui() : null } : x)));
     } catch (e) { alert(e instanceof Error ? e.message : "Pointage impossible."); }
   }
   async function completerMois(a: Abonnement) {
@@ -101,6 +152,8 @@ export default function AbonnementsPage() {
                   <div className="font-semibold text-white">{a.garage_nom}</div>
                   <div className="mt-1 flex flex-wrap gap-1.5">
                     <span className="badge badge-info">{p.formules[a.formule].libelle} · {euros(a.prix_ht)}/mois</span>
+                    {a.periodicite === "annuel" && <span className="badge badge-ok">forfait annuel {euros(a.montant_annuel)}</span>}
+                    {Number(a.remise_pct) > 0 && <span className="badge badge-warn">remise {Number(a.remise_pct)} %</span>}
                     <span className={`badge ${a.statut === "actif" ? "badge-ok" : a.statut === "suspendu" ? "badge-warn" : "badge-neutral"}`}>{a.statut === "actif" ? "Actif" : a.statut === "suspendu" ? "Suspendu" : "Résilié"}</span>
                     {a.engagement_12 && <span className="badge badge-neutral">12 mois</span>}
                     {retard > 0 && <span className="badge badge-danger">{retard} mensualité{retard > 1 ? "s" : ""} en retard</span>}
@@ -119,6 +172,12 @@ export default function AbonnementsPage() {
               </div>
               {ouvert === a.id && (
                 <div className="mt-3 border-t border-white/10 pt-3">
+                  {a.periodicite === "annuel" && (
+                    <label className="mb-2 flex cursor-pointer items-center gap-2 text-sm text-white/80">
+                      <input type="checkbox" checked={ms.length > 0 && ms.every((m) => m.payee_le)} onChange={(e) => pointerAnnee(a, e.target.checked)} />
+                      Forfait annuel de {euros(a.montant_annuel)} encaissé (pointe les 12 mois)
+                    </label>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {ms.map((m) => (
                       <label key={m.id} className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1 text-xs ${m.payee_le ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" : new Date(m.periode) <= new Date() ? "border-rose-400/40 bg-rose-500/10 text-rose-200" : "border-white/15 text-white/60"}`}>
@@ -142,7 +201,23 @@ export default function AbonnementsPage() {
             <ChampAdmin label="Garage *"><input className="field-input" value={form.garage_nom || ""} onChange={(e) => set("garage_nom", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="Email du garage"><input className="field-input" type="email" value={form.garage_email || ""} onChange={(e) => set("garage_email", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="Formule"><select className="field-input" value={form.formule} onChange={(e) => changerFormule(e.target.value as Formule)}>{FORMULES.map((f) => <option key={f} value={f}>{p.formules[f].libelle} — {euros(p.formules[f].prix)}</option>)}</select></ChampAdmin>
-            <ChampAdmin label="Mensualité HT (négociée)"><input className="field-input text-right tabular-nums" type="number" step="0.01" value={form.prix_ht ?? ""} onChange={(e) => set("prix_ht", Number(e.target.value))} /></ChampAdmin>
+            <ChampAdmin label="Périodicité de paiement">
+              <select className="field-input" value={form.periodicite || "mensuel"} onChange={(e) => changerPeriodicite(e.target.value as Abonnement["periodicite"])}>
+                <option value="mensuel">Mensuel</option>
+                <option value="annuel">Annuel, payé en une fois</option>
+              </select>
+            </ChampAdmin>
+            {form.periodicite === "annuel" && (
+              <ChampAdmin label={`Montant annuel HT payé en une fois — grille ${euros(p.formules[(form.formule || "confort") as Formule].prix * 12)}`}>
+                <input className="field-input text-right tabular-nums" type="number" step="1" value={form.montant_annuel ?? ""} onChange={(e) => changerAnnuel(Number(e.target.value) || 0)} />
+              </ChampAdmin>
+            )}
+            <ChampAdmin label={`Remise commerciale (%) — grille ${euros(p.formules[(form.formule || "confort") as Formule].prix)}`}>
+              <input className="field-input text-right tabular-nums" type="number" step="0.5" min="0" max="100" value={form.remise_pct ?? 0} disabled={form.periodicite === "annuel"} onChange={(e) => changerRemise(Number(e.target.value) || 0)} />
+            </ChampAdmin>
+            <ChampAdmin label={form.periodicite === "annuel" ? "Équivalent mensuel HT (calculé)" : "Mensualité HT facturée (remise déduite)"}>
+              <input className="field-input text-right tabular-nums" type="number" step="0.01" value={form.prix_ht ?? ""} disabled={form.periodicite === "annuel"} onChange={(e) => changerPrix(Number(e.target.value) || 0)} />
+            </ChampAdmin>
             <ChampAdmin label="Date de signature"><input className="field-input" type="date" value={form.date_signature || ""} onChange={(e) => set("date_signature", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="1re mensualité"><input className="field-input" type="date" value={form.date_debut || ""} onChange={(e) => set("date_debut", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="Commercial"><select className="field-input" value={form.commercial_id || ""} onChange={(e) => set("commercial_id", e.target.value || null)}><option value="">— sans commercial —</option>{commerciaux.map((c) => <option key={c.id} value={c.id}>{nomCollab(c)}</option>)}</select></ChampAdmin>
@@ -150,6 +225,17 @@ export default function AbonnementsPage() {
             <ChampAdmin label="Statut"><select className="field-input" value={form.statut} onChange={(e) => set("statut", e.target.value as Abonnement["statut"])}><option value="actif">Actif</option><option value="suspendu">Suspendu</option><option value="resilie">Résilié</option></select></ChampAdmin>
             <ChampAdmin label="Date de fin (si résilié)"><input className="field-input" type="date" value={form.date_fin || ""} onChange={(e) => set("date_fin", e.target.value)} /></ChampAdmin>
           </div>
+          {form.periodicite === "annuel" && (
+            <p className="mt-2 text-xs text-white/60">
+              Forfait annuel : les 12 mois sont créés d&apos;avance ; cocher « encaissé » les pointe tous d&apos;un coup, ce qui déclenche immédiatement la prime de signature et la prime de fidélité du commercial (le garage a payé l&apos;année).
+            </p>
+          )}
+          {Number(form.remise_pct) > 0 && (
+            <p className="mt-2 text-xs text-amber-200/80">
+              Avec {Number(form.remise_pct)} % de remise, la prime de signature du commercial et sa prime de fidélité sont réduites dans la même proportion
+              (plancher ESSENTIEL conservé) ; la rétrocession de la secrétaire est calculée sur le montant réellement facturé.
+            </p>
+          )}
           <label className="mt-3 flex items-center gap-2 text-sm text-white/80"><input type="checkbox" checked={Boolean(form.engagement_12)} onChange={(e) => set("engagement_12", e.target.checked)} />Engagement 12 mois (mise en service offerte, bonus commercial)</label>
           <ChampAdmin label="Notes"><textarea className="field-input mt-3" rows={2} value={form.notes || ""} onChange={(e) => set("notes", e.target.value)} /></ChampAdmin>
           <div className="mt-4 flex justify-end gap-2">

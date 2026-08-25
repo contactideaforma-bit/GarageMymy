@@ -52,6 +52,8 @@ create table if not exists public.abonnements (
   formule          text not null check (formule in ('essentiel','starter','confort','serenite')),
   prix_ht          numeric not null,   -- mensualité HT réellement facturée (remise déduite)
   remise_pct       numeric not null default 0, -- remise accordée par le commercial, en %
+  periodicite      text not null default 'mensuel' check (periodicite in ('mensuel','annuel')),
+  montant_annuel   numeric,            -- forfait annuel payé en une fois (prix_ht = montant_annuel / 12)
   heures           integer not null default 0,
   date_signature   date not null,
   date_debut       date not null,      -- 1re mensualité
@@ -64,6 +66,8 @@ create table if not exists public.abonnements (
 );
 alter table public.abonnements enable row level security;
 alter table public.abonnements add column if not exists remise_pct numeric not null default 0;
+alter table public.abonnements add column if not exists periodicite text not null default 'mensuel';
+alter table public.abonnements add column if not exists montant_annuel numeric;
 create index if not exists abonnements_commercial_idx on public.abonnements (commercial_id);
 create index if not exists abonnements_secretaire_idx on public.abonnements (secretaire_id);
 
