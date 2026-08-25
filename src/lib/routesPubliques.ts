@@ -20,6 +20,7 @@ export function estRoutePublique(pathname?: string | null): boolean {
     pathname === "/mentions-legales" ||
     pathname === "/cgu" ||
     pathname === "/confidentialite" ||
-    pathname === "/contact"
+    pathname === "/contact" ||
+    pathname === "/facturation-electronique"
   );
 }

@@ -41,6 +41,10 @@ export type Dossier = {
   client_ville: string | null;
   client_email?: string | null;
   client_tel?: string | null;
+  // FACTURATION ÉLECTRONIQUE (v52) : SIREN du client professionnel et de
+  // l'assureur — mention obligatoire sur les factures électroniques.
+  client_siren?: string | null;
+  assureur_siren?: string | null;
   // RENTABILITÉ (v49) : heures réellement passées à l'atelier et coût
   // d'achat des pièces quand aucune commande n'est saisie.
   heures_passees?: number | null;
@@ -122,6 +126,7 @@ export type Assureur = {
   email: string | null;
   source: string;
   notes: string | null;
+  siren?: string | null; // v52 — facturation électronique
 };
 
 export type Evenement = {
@@ -166,6 +171,11 @@ export type Document = {
   // Durée d'immobilisation en jours (surcharge le calcul fait depuis le
   // planning de réparation du dossier) — v34
   jours_reparation?: number | null;
+  // FACTURATION ÉLECTRONIQUE (v52) — cycle de vie renvoyé par la plateforme
+  // agréée (étape 2) : deposee | rejetee | recue | acceptee | refusee | payee
+  fe_statut?: string | null;
+  fe_reference?: string | null;
+  fe_transmis_le?: string | null;
 };
 
 export type DocumentLigne = {
@@ -217,6 +227,13 @@ export type Entreprise = {
   push_rdv?: boolean | null;
   push_rappels?: boolean | null;
   push_urgents?: boolean | null;
+  // FACTURATION ÉLECTRONIQUE (v52) : plateforme agréée désignée + option
+  // « TVA sur les débits »
+  fe_plateforme?: string | null;
+  fe_plateforme_ref?: string | null;
+  fe_choisie_le?: string | null;
+  fe_reception_ok?: boolean | null;
+  tva_debits?: boolean | null;
 };
 
 // Appareil autorisé à recevoir les notifications push (v42).
@@ -245,6 +262,7 @@ export type Client = {
   ville: string | null;
   source: string;
   notes: string | null;
+  siren?: string | null; // v52 — client professionnel
 };
 
 export type Paiement = {

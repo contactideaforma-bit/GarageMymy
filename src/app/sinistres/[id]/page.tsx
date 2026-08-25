@@ -38,7 +38,7 @@ import { formatEuros, formatDate, formatDateTime, messageErreur } from "@/lib/fo
 import { montantTtc, tauxTva } from "@/lib/tva";
 import { badgeStatutDoc, controlerRapport, labelStatutDoc, modeParDefaut } from "@/lib/documents";
 import ModePaiementModal from "@/components/ModePaiementModal";
-import { apercuDocumentPdf, cessionPdfBase64, documentPdfBase64Auto, ordreReparationPdfBase64, ribPdfBase64 } from "@/lib/pdf";
+import { apercuDocumentPdf, cessionPdfBase64, documentPdfBase64Auto, ordreReparationPdfBase64, ribPdfBase64, telechargerFacturx } from "@/lib/pdf";
 import type { PieceJointeOption } from "@/components/EmailComposer";
 import StatutBadge from "@/components/StatutBadge";
 import StatutPipeline from "@/components/StatutPipeline";
@@ -438,6 +438,23 @@ export default function DossierDetailPage() {
     await apercuDocumentPdf(doc, (data as DocumentLigne[]) || [], dossier, mode);
     setPdfDoc(null);
     load();
+  }
+
+  // FACTUR-X (v52) : la facture au format électronique (PDF + XML CII),
+  // prête pour la plateforme agréée. Les mentions manquantes (SIREN…)
+  // sont listées AVANT de générer, jamais devinées.
+  async function exporterFacturx(doc: Document) {
+    if (!dossier) return;
+    const { data } = await supabase
+      .from("document_lignes").select("*").eq("document_id", doc.id).order("ordre", { ascending: true });
+    const r = await telechargerFacturx(doc, (data as DocumentLigne[]) || [], dossier, doc.mode_paiement);
+    if (!r.ok) {
+      alert(
+        r.manques.length
+          ? `Factur-X impossible, il manque :\n\n• ${r.manques.join("\n• ")}`
+          : `Factur-X impossible : ${r.erreur || "erreur inconnue"}`
+      );
+    }
   }
 
   async function supprimerDoc(doc: Document) {
@@ -978,6 +995,15 @@ export default function DossierDetailPage() {
                   </div>
                   <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
                     <button onClick={() => exporterPdf(doc)} className="text-accent-teal hover:underline">PDF</button>
+                    {doc.type === "facture" && (
+                      <button
+                        onClick={() => exporterFacturx(doc)}
+                        className="text-accent-teal hover:underline"
+                        title="Facture électronique : PDF + XML Factur-X, à déposer sur votre plateforme agréée"
+                      >
+                        Factur-X
+                      </button>
+                    )}
                     <button onClick={() => setEmailDoc(doc)} className="text-accent-teal hover:underline">Envoyer</button>
                     {!doc.signature && (
                       <button onClick={() => setSignDoc(doc)} className="text-accent-teal hover:underline">Signer</button>

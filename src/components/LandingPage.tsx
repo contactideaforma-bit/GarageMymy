@@ -339,6 +339,25 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
           </p>
         </section>
 
+        {/* ===================== Note d'information — facturation électronique (v52) ===================== */}
+        <section id="facturation-electronique" className="scroll-mt-20 pb-16 sm:pb-20">
+          <div className="lp-card flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+            <div className="max-w-2xl">
+              <span className="lp-chip">Réforme 2026-2027 · Facturation électronique</span>
+              <h3 className="mt-2 !text-lg font-semibold">Vos factures sont déjà prêtes pour la facturation électronique.</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                Depuis le 1er septembre 2026, chaque entreprise doit recevoir ses factures via une plateforme agréée ;
+                à partir du 1er septembre 2027, les PME devront aussi les émettre par ce canal. My Easy Auto produit
+                vos factures au format Factur-X avec les nouvelles mentions obligatoires, et la transmission
+                automatique à votre plateforme arrive avant l&apos;échéance de 2027.
+              </p>
+            </div>
+            <Link href="/facturation-electronique" className="lp-btn-ghost shrink-0">
+              Comprendre ce qui change
+            </Link>
+          </div>
+        </section>
+
         {/* ============================ Bande finale ============================ */}
         <section className="pb-16 sm:pb-20">
           <div className="lp-card relative overflow-hidden p-8 text-center sm:p-12">

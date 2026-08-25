@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Client } from "@/lib/types";
 
-const EMPTY = { nom: "", email: "", telephone: "", adresse: "", code_postal: "", ville: "", notes: "" };
+const EMPTY = { nom: "", email: "", telephone: "", adresse: "", code_postal: "", ville: "", siren: "", notes: "" };
 type FormC = typeof EMPTY;
 
 export default function ClientsView() {
@@ -30,7 +30,7 @@ export default function ClientsView() {
     setEditingId(c.id);
     setForm({
       nom: c.nom ?? "", email: c.email ?? "", telephone: c.telephone ?? "",
-      adresse: c.adresse ?? "", code_postal: c.code_postal ?? "", ville: c.ville ?? "", notes: c.notes ?? "",
+      adresse: c.adresse ?? "", code_postal: c.code_postal ?? "", ville: c.ville ?? "", siren: c.siren ?? "", notes: c.notes ?? "",
     });
     setShowForm(true);
   }
@@ -68,6 +68,7 @@ export default function ClientsView() {
             <input className="field-input" placeholder="Adresse" value={form.adresse} onChange={(e) => set("adresse", e.target.value)} />
             <input className="field-input" placeholder="Code postal" value={form.code_postal} onChange={(e) => set("code_postal", e.target.value)} />
             <input className="field-input" placeholder="Ville" value={form.ville} onChange={(e) => set("ville", e.target.value)} />
+            <input className="field-input" placeholder="SIREN (si professionnel)" value={form.siren} onChange={(e) => set("siren", e.target.value)} />
           </div>
           <div className="mt-3">
             <label className="field-label">Commentaire</label>

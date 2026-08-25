@@ -24,6 +24,7 @@ const EMPTY: FormE = {
   logo_path: null, modele_facture_path: null,
   signature_mail: "", rib_path: null, signature_path: null, lien_avis: "",
   modele_pdf: MODELE_PDF_DEFAUT, couleur_pdf: COULEUR_PDF_DEFAUT,
+  fe_plateforme: "", fe_plateforme_ref: "", fe_choisie_le: null, fe_reception_ok: false, tva_debits: false,
 };
 
 function Field({
@@ -71,6 +72,9 @@ export default function ProfilPage() {
           lien_avis: e.lien_avis ?? "",
           modele_pdf: e.modele_pdf ?? MODELE_PDF_DEFAUT,
           couleur_pdf: e.couleur_pdf ?? COULEUR_PDF_DEFAUT,
+          fe_plateforme: e.fe_plateforme ?? "", fe_plateforme_ref: e.fe_plateforme_ref ?? "",
+          fe_choisie_le: e.fe_choisie_le ?? null, fe_reception_ok: Boolean(e.fe_reception_ok),
+          tva_debits: Boolean(e.tva_debits),
         });
         // Aperçu de la signature enregistrée (lien signé, bucket privé).
         if (e.signature_path) chargerApercuSignature(e.signature_path);
@@ -79,7 +83,7 @@ export default function ProfilPage() {
     })();
   }, []);
 
-  const set = (k: keyof FormE, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const set = <K extends keyof FormE>(k: K, v: FormE[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   // bucket 'entreprise' = public (logo, modèle) ; 'prive' = RIB & docs
   // sensibles (v33) — jamais accessibles par simple URL.
@@ -219,6 +223,42 @@ export default function ProfilPage() {
           <div className="mt-4">
             <label className="field-label">Mentions (conditions de paiement, garantie…)</label>
             <textarea className="field-input" rows={2} value={form.mentions ?? ""} onChange={(e) => set("mentions", e.target.value)} />
+          </div>
+        </section>
+
+        {/* FACTURATION ÉLECTRONIQUE (v52) — réforme 2026-2027 */}
+        <section>
+          <h2 className="text-sm font-semibold text-accent-pink mb-3">Facturation électronique</h2>
+          <div className="glass-soft p-4 space-y-4">
+            <p className="text-xs text-white/60">
+              Depuis le <strong className="text-white">1er septembre 2026</strong>, toute entreprise doit pouvoir
+              recevoir ses factures via une <strong className="text-white">plateforme agréée</strong> (PA). À partir du{" "}
+              <strong className="text-white">1er septembre 2027</strong>, les PME devront aussi les émettre par ce canal.
+              My Easy Auto produit déjà vos factures au format <strong className="text-white">Factur-X</strong> (PDF + XML)
+              avec les nouvelles mentions ; indiquez ici la plateforme que vous avez désignée.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Plateforme agréée choisie" value={form.fe_plateforme ?? ""} onChange={(v) => set("fe_plateforme", v)} placeholder="ex. celle de votre expert-comptable" />
+              <Field label="Identifiant / n° d'immatriculation de la plateforme" value={form.fe_plateforme_ref ?? ""} onChange={(v) => set("fe_plateforme_ref", v)} />
+              <div>
+                <label className="field-label">Désignée le</label>
+                <input type="date" className="field-input" value={form.fe_choisie_le ?? ""} onChange={(e) => set("fe_choisie_le", e.target.value || null)} />
+              </div>
+              <div className="space-y-2 pt-1 sm:pt-6">
+                <label className="flex items-center gap-2 text-sm text-white/80">
+                  <input type="checkbox" checked={Boolean(form.fe_reception_ok)} onChange={(e) => set("fe_reception_ok", e.target.checked)} />
+                  Réception des factures testée sur la plateforme
+                </label>
+                <label className="flex items-center gap-2 text-sm text-white/80">
+                  <input type="checkbox" checked={Boolean(form.tva_debits)} onChange={(e) => set("tva_debits", e.target.checked)} />
+                  Option « TVA sur les débits » (mention ajoutée sur les factures)
+                </label>
+              </div>
+            </div>
+            <p className="text-xs text-white/40">
+              Le SIREN du garage est déduit du SIRET ci-dessus. Le SIREN de chaque assureur se renseigne dans l&apos;annuaire
+              (repris automatiquement sur les dossiers), celui d&apos;un client professionnel dans la fiche dossier.
+            </p>
           </div>
         </section>
 

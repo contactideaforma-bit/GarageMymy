@@ -41,12 +41,14 @@ type FormState = {
   assureur_adresse: string;
   assureur_tel: string;
   assureur_email: string;
+  assureur_siren: string; // v52 — facturation électronique
   client_nom: string;
   client_adresse: string;
   client_code_postal: string;
   client_ville: string;
   client_email: string;
   client_tel: string;
+  client_siren: string; // v52 — client professionnel
   reparation_debut: string;
   reparation_fin: string;
   reparateur: string;
@@ -81,11 +83,13 @@ function toForm(d?: Partial<Dossier> | null): FormState {
     assureur_adresse: d?.assureur_adresse ?? "",
     assureur_tel: d?.assureur_tel ?? "",
     assureur_email: d?.assureur_email ?? "",
+    assureur_siren: d?.assureur_siren ?? "",
     client_nom: d?.client_nom ?? "",
     client_adresse: d?.client_adresse ?? "",
     client_code_postal: d?.client_code_postal ?? "",
     client_ville: d?.client_ville ?? "",
     client_email: d?.client_email ?? "",
+    client_siren: d?.client_siren ?? "",
     client_tel: d?.client_tel ?? "",
     reparation_debut: d?.reparation_debut ?? "",
     reparation_fin: d?.reparation_fin ?? "",
@@ -100,18 +104,19 @@ function toForm(d?: Partial<Dossier> | null): FormState {
 }
 
 function Field({
-  label, name, value, onChange, type = "text",
+  label, name, value, onChange, type = "text", placeholder,
 }: {
   label: string;
   name: keyof FormState;
   value: string;
   onChange: (name: keyof FormState, value: string) => void;
   type?: string;
+  placeholder?: string;
 }) {
   return (
     <div>
       <label className="field-label">{label}</label>
-      <input type={type} className="field-input" value={value} onChange={(e) => onChange(name, e.target.value)} />
+      <input type={type} className="field-input" value={value} placeholder={placeholder} onChange={(e) => onChange(name, e.target.value)} />
     </div>
   );
 }
@@ -228,7 +233,7 @@ export default function DossierForm({
   // Alimente / complète l'annuaire (clients, experts, assureurs) depuis le
   // dossier — SANS doublon : si la fiche existe, on ne remplit que les champs
   // vides (jamais d'écrasement).
-  async function synchroniserAnnuaire() {
+  async function synchroniserAnnuaire(dossierId?: string) {
     // Client (doublon par nom, insensible à la casse)
     if (form.client_nom) {
       const { data: existing } = await supabase
@@ -293,7 +298,7 @@ export default function DossierForm({
     if (form.assureur) {
       const { data: as } = await supabase
         .from("assureurs")
-        .select("id,adresse,tel,email")
+        .select("id,adresse,tel,email,siren")
         .ilike("nom", form.assureur.trim())
         .limit(1)
         .maybeSingle();
@@ -303,6 +308,7 @@ export default function DossierForm({
           adresse: form.assureur_adresse || null,
           tel: form.assureur_tel || null,
           email: form.assureur_email || null,
+          siren: form.assureur_siren || null,
           source: "auto",
         });
       } else {
@@ -310,7 +316,13 @@ export default function DossierForm({
         if (form.assureur_adresse && !as.adresse) maj.adresse = form.assureur_adresse;
         if (form.assureur_tel && !as.tel) maj.tel = form.assureur_tel;
         if (form.assureur_email && !as.email) maj.email = form.assureur_email;
+        if (form.assureur_siren && !as.siren) maj.siren = form.assureur_siren;
         if (Object.keys(maj).length) await supabase.from("assureurs").update(maj).eq("id", as.id);
+        // v52 : l'annuaire connaît déjà le SIREN de l'assureur → on le
+        // reporte sur le dossier (mention obligatoire de la facture).
+        if (!form.assureur_siren && as.siren && dossierId) {
+          await supabase.from("dossiers").update({ assureur_siren: as.siren }).eq("id", dossierId);
+        }
       }
     }
   }
@@ -393,6 +405,8 @@ export default function DossierForm({
         assureur_adresse: form.assureur_adresse || null,
         assureur_tel: form.assureur_tel || null,
         assureur_email: form.assureur_email || null,
+        assureur_siren: form.assureur_siren || null,
+        client_siren: form.client_siren || null,
         client_nom: form.client_nom || null,
         client_adresse: form.client_adresse || null,
         client_email: form.client_email || null,
@@ -420,7 +434,7 @@ export default function DossierForm({
         const { error: updErr } = await supabase.from("dossiers").update(payload).eq("id", dossier.id);
         if (updErr) throw updErr;
         idFinal = dossier.id;
-        await synchroniserAnnuaire();
+        await synchroniserAnnuaire(dossier.id);
       } else {
         const { data: created, error: insErr } = await supabase
           .from("dossiers")
@@ -431,7 +445,7 @@ export default function DossierForm({
         const newId = created?.id as string | undefined;
         idFinal = newId;
 
-        await synchroniserAnnuaire();
+        await synchroniserAnnuaire(newId);
 
         // NOUVEAU PROCESSUS : à réception du chiffrage (pré-rapport), on émet
         // un ORDRE DE RÉPARATION strictement conforme au chiffrage + la facture
@@ -713,6 +727,7 @@ export default function DossierForm({
               <Field label="Adresse assureur" name="assureur_adresse" value={form.assureur_adresse} onChange={set} />
               <Field label="Téléphone assureur" name="assureur_tel" value={form.assureur_tel} onChange={set} />
               <Field label="Email assureur" name="assureur_email" value={form.assureur_email} onChange={set} />
+              <Field label="SIREN assureur (facture électronique)" name="assureur_siren" value={form.assureur_siren} onChange={set} placeholder="9 chiffres" />
             </div>
           </section>
 
@@ -722,6 +737,7 @@ export default function DossierForm({
               <Field label="Nom et prénom" name="client_nom" value={form.client_nom} onChange={set} />
               <Field label="Email" name="client_email" value={form.client_email} onChange={set} type="email" />
               <Field label="Téléphone" name="client_tel" value={form.client_tel} onChange={set} />
+              <Field label="SIREN (si client professionnel)" name="client_siren" value={form.client_siren} onChange={set} placeholder="9 chiffres" />
               <Field label="Adresse postale" name="client_adresse" value={form.client_adresse} onChange={set} />
               <Field label="Code postal" name="client_code_postal" value={form.client_code_postal} onChange={set} />
               <Field label="Ville" name="client_ville" value={form.client_ville} onChange={set} />

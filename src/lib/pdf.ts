@@ -12,6 +12,8 @@ import {
 } from "./documents";
 import { AUTORISATION_OR, CESSION_OBJET, CESSION_NOTIFICATION, DECHARGE_RESTITUTION } from "./atelier";
 import { supabase } from "./supabaseClient";
+import { fetchAuth, lireReponse } from "./apiClient";
+import { construireXmlFacturx, libelleNature, natureOperation, sirenDepuis, verifierFacturx } from "./facturx";
 import { ajouterPlanchesPhotos, photosDuDossier } from "./photosEtatPdf";
 import { ModelePdf, themePdf } from "./pdfTheme";
 
@@ -503,6 +505,69 @@ export async function documentPdfBase64(
   return uri.substring(uri.indexOf(",") + 1);
 }
 
+/* ==================================================================
+ *  FACTUR-X (v52) — PDF de la facture + XML CII embarqué par /api/facturx.
+ * ================================================================== */
+
+export type ResultatFacturx =
+  | { ok: true; base64: string; nomFichier: string }
+  | { ok: false; manques: string[]; erreur?: string };
+
+/** Produit la facture au format Factur-X (base64). Vérifie d'abord les mentions. */
+export async function facturxBase64(
+  doc: Document,
+  lignes: DocumentLigne[],
+  dossier: Dossier,
+  modePaiement?: string | null
+): Promise<ResultatFacturx> {
+  const ent = await getEntreprise();
+  const manques = verifierFacturx(doc, dossier, ent);
+  if (manques.length) return { ok: false, manques };
+  const pdf = await buildDocumentPdf(doc, lignes, dossier, modePaiement);
+  const uri = pdf.output("datauristring");
+  const pdfBase64 = uri.substring(uri.indexOf(",") + 1);
+  const xml = construireXmlFacturx(doc, lignes, dossier, ent);
+  try {
+    const res = await fetchAuth("/api/facturx", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pdf: pdfBase64, xml, numero: doc.numero || "" }),
+    });
+    const r = await lireReponse<{ pdf: string }>(res);
+    if (!r.ok || !r.data?.pdf) return { ok: false, manques: [], erreur: r.error || "Incrustation impossible." };
+    return { ok: true, base64: r.data.pdf, nomFichier: `${doc.numero || "FACTURE"}-facturx.pdf` };
+  } catch (err) {
+    return { ok: false, manques: [], erreur: err instanceof Error ? err.message : "Réseau indisponible." };
+  }
+}
+
+/** Téléchargement direct du Factur-X depuis le navigateur. */
+export async function telechargerFacturx(
+  doc: Document,
+  lignes: DocumentLigne[],
+  dossier: Dossier,
+  modePaiement?: string | null
+): Promise<ResultatFacturx> {
+  const r = await facturxBase64(doc, lignes, dossier, modePaiement);
+  if (!r.ok) return r;
+  const octets = Uint8Array.from(atob(r.base64), (c) => c.charCodeAt(0));
+  const url = URL.createObjectURL(new Blob([octets], { type: "application/pdf" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = r.nomFichier;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  return r;
+}
+
+/** Le XML seul (pour un dépôt manuel sur la plateforme agréée). */
+export async function xmlFacturx(doc: Document, lignes: DocumentLigne[], dossier: Dossier): Promise<string> {
+  const ent = await getEntreprise();
+  return construireXmlFacturx(doc, lignes, dossier, ent);
+}
+
 async function buildDocumentPdf(
   doc: Document,
   lignes: DocumentLigne[],
@@ -570,6 +635,8 @@ async function buildDocumentPdf(
         `${dossier.client_code_postal || ""} ${dossier.client_ville || ""}`.trim(),
         dossier.client_tel ? `Tél. ${dossier.client_tel}` : "",
         dossier.client_email || "",
+        // v52 (facturation électronique) : SIREN du client professionnel
+        estFacture && sirenDepuis(dossier.client_siren) ? `SIREN ${sirenDepuis(dossier.client_siren)}` : "",
       ],
     },
     {
@@ -589,6 +656,7 @@ async function buildDocumentPdf(
         dossier.numero_police ? `Police n° ${dossier.numero_police}` : "",
         `Assureur : ${dossier.assureur || "—"}`,
         dossier.assureur_tel ? `Tél. ${dossier.assureur_tel}` : "",
+        estFacture && sirenDepuis(dossier.assureur_siren) ? `SIREN ${sirenDepuis(dossier.assureur_siren)}` : "",
       ],
     },
   ], accent) + 4;
@@ -828,6 +896,11 @@ async function buildDocumentPdf(
         `Travaux exécutés conformément au rapport d'expertise${dossier.cabinet_expert ? ` du cabinet ${dossier.cabinet_expert}` : ""} et à l'ordre de réparation signé par le client.`,
         `Échéance de paiement : ${doc.date_echeance ? dateFr(doc.date_echeance) : "à réception de la facture"} — mode de règlement : ${labelModeReglement(mode)}.`,
         tauxTva === 0 ? "TVA non applicable, art. 293 B du CGI." : "",
+        // v52 — mentions de la facturation électronique : nature de
+        // l'opération, lieu de la prestation (≠ adresse de facturation),
+        // option TVA sur les débits.
+        `Nature de l'opération : ${libelleNature(natureOperation(lignes))}. Lieu de la prestation : ${[ent.nom, ent.adresse, [ent.code_postal, ent.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "atelier du garage"}.`,
+        ent.tva_debits && tauxTva > 0 ? "Option pour le paiement de la TVA d'après les débits." : "",
         "En cas de retard de paiement : pénalités exigibles au taux de trois fois le taux d'intérêt légal (art. L441-10 C. com.) et, pour les clients professionnels, indemnité forfaitaire de recouvrement de 40 € (art. D441-5 C. com.).",
         "Escompte pour paiement anticipé : néant. Les remises éventuelles figurent, poste par poste, dans la colonne « Remise » des tableaux ci-dessus.",
         "Réserve de propriété : les pièces fournies restent la propriété du garage jusqu'au complet paiement de la facture (loi n° 80-335 du 12 mai 1980).",

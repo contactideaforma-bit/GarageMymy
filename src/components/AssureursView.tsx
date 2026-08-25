@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { messageErreur } from "@/lib/format";
 import { Assureur } from "@/lib/types";
 
-const EMPTY = { nom: "", adresse: "", code_postal: "", ville: "", tel: "", email: "", notes: "" };
+const EMPTY = { nom: "", adresse: "", code_postal: "", ville: "", tel: "", email: "", siren: "", notes: "" };
 type FormA = typeof EMPTY;
 
 export default function AssureursView() {
@@ -32,7 +32,7 @@ export default function AssureursView() {
     setEditingId(r.id);
     setForm({
       nom: r.nom ?? "", adresse: r.adresse ?? "", code_postal: r.code_postal ?? "",
-      ville: r.ville ?? "", tel: r.tel ?? "", email: r.email ?? "", notes: r.notes ?? "",
+      ville: r.ville ?? "", tel: r.tel ?? "", email: r.email ?? "", siren: r.siren ?? "", notes: r.notes ?? "",
     });
     setShowForm(true);
   }
@@ -75,6 +75,7 @@ export default function AssureursView() {
             <input className="field-input" placeholder="Adresse" value={form.adresse} onChange={(e) => set("adresse", e.target.value)} />
             <input className="field-input" placeholder="Code postal" value={form.code_postal} onChange={(e) => set("code_postal", e.target.value)} />
             <input className="field-input" placeholder="Ville" value={form.ville} onChange={(e) => set("ville", e.target.value)} />
+            <input className="field-input" placeholder="SIREN (facture électronique, 9 chiffres)" value={form.siren} onChange={(e) => set("siren", e.target.value)} />
           </div>
           <textarea className="field-input mt-3" rows={2} placeholder="Commentaire" value={form.notes} onChange={(e) => set("notes", e.target.value)} />
           <div className="flex justify-end gap-2 mt-3">
