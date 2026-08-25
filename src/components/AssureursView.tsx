@@ -173,17 +173,28 @@ export default function AssureursView() {
         </div>
       )}
 
-      <div className="glass-card overflow-x-auto">
-        <table className="w-full text-sm">
+      {/* v52 : tableau à colonnes FIXES (le SIREN avait poussé les actions hors
+          cadre). Email / téléphone / origine masqués sur écran étroit. */}
+      <div className="glass-card overflow-hidden">
+        <table className="w-full table-fixed text-sm">
+          <colgroup>
+            <col className="w-[34%] md:w-[26%]" />
+            <col className="hidden w-[13%] md:table-column" />
+            <col className="hidden w-[20%] lg:table-column" />
+            <col className="w-[22%] md:w-[15%]" />
+            <col className="w-[24%] md:w-[13%]" />
+            <col className="hidden w-[9%] md:table-column" />
+            <col className="w-[20%] md:w-[13%]" />
+          </colgroup>
           <thead className="text-left text-white/50">
             <tr>
-              <th className="px-5 py-3 font-medium">Assureur</th>
-              <th className="px-5 py-3 font-medium">Téléphone</th>
-              <th className="px-5 py-3 font-medium">Email</th>
-              <th className="px-5 py-3 font-medium">Ville</th>
-              <th className="px-5 py-3 font-medium">SIREN</th>
-              <th className="px-5 py-3 font-medium">Origine</th>
-              <th className="px-5 py-3 font-medium text-right">Actions</th>
+              <th className="cellule font-medium">Assureur</th>
+              <th className="cellule hidden font-medium md:table-cell">Téléphone</th>
+              <th className="cellule hidden font-medium lg:table-cell">Email</th>
+              <th className="cellule font-medium">Ville</th>
+              <th className="cellule font-medium">SIREN</th>
+              <th className="cellule hidden font-medium md:table-cell">Origine</th>
+              <th className="cellule text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -193,19 +204,22 @@ export default function AssureursView() {
             )}
             {filtered.map((r) => (
               <tr key={r.id} className="border-t border-white/5 hover:bg-white/5">
-                <td className="px-5 py-3 font-medium text-white">{r.nom || "—"}</td>
-                <td className="px-5 py-3 text-white/80">{r.tel || "—"}</td>
-                <td className="px-5 py-3 text-white/80">{r.email || "—"}</td>
-                <td className="px-5 py-3 text-white/80">{r.ville || "—"}</td>
-                <td className="px-5 py-3 font-mono text-xs">
+                <td className="cellule font-medium text-white">
+                  <div className="truncate" title={r.nom || ""}>{r.nom || "—"}</div>
+                  <div className="truncate text-[11px] font-normal text-white/45 md:hidden">{r.tel || ""}</div>
+                </td>
+                <td className="cellule hidden truncate text-white/80 md:table-cell">{r.tel || "—"}</td>
+                <td className="cellule hidden truncate text-white/80 lg:table-cell" title={r.email || ""}>{r.email || "—"}</td>
+                <td className="cellule truncate text-white/80" title={r.ville || ""}>{r.ville || "—"}</td>
+                <td className="cellule font-mono text-xs">
                   {r.siren ? <span className="text-white/80">{r.siren}</span> : <span className="badge badge-warn">manquant</span>}
                 </td>
-                <td className="px-5 py-3">
+                <td className="cellule hidden md:table-cell">
                   <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${r.source === "auto" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-700"}`}>
                     {r.source === "auto" ? "Auto" : "Manuel"}
                   </span>
                 </td>
-                <td className="px-5 py-3 text-right whitespace-nowrap">
+                <td className="cellule text-right whitespace-nowrap">
                   <button onClick={() => ouvrirEdition(r)} className="text-accent-pink hover:underline mr-3">Modifier</button>
                   <button onClick={() => supprimer(r.id)} className="text-white/40 hover:text-rose-300">Suppr.</button>
                 </td>
