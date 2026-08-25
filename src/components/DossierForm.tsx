@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import RechercheSiren from "@/components/RechercheSiren";
 import { supabase } from "@/lib/supabaseClient";
 import { deposerFichier } from "@/lib/storage";
 import { analyserRapport, type ControleChiffrage } from "@/lib/extraction";
@@ -727,7 +728,12 @@ export default function DossierForm({
               <Field label="Adresse assureur" name="assureur_adresse" value={form.assureur_adresse} onChange={set} />
               <Field label="Téléphone assureur" name="assureur_tel" value={form.assureur_tel} onChange={set} />
               <Field label="Email assureur" name="assureur_email" value={form.assureur_email} onChange={set} />
-              <Field label="SIREN assureur (facture électronique)" name="assureur_siren" value={form.assureur_siren} onChange={set} placeholder="9 chiffres" />
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Field label="SIREN assureur (facture électronique)" name="assureur_siren" value={form.assureur_siren} onChange={set} placeholder="9 chiffres" />
+                </div>
+                <RechercheSiren nom={form.assureur} onChoisir={(r) => setForm((f) => ({ ...f, assureur_siren: r.siren, assureur_adresse: f.assureur_adresse || [r.adresse, r.codePostal, r.ville].filter(Boolean).join(" ") }))} />
+              </div>
             </div>
           </section>
 
@@ -737,7 +743,12 @@ export default function DossierForm({
               <Field label="Nom et prénom" name="client_nom" value={form.client_nom} onChange={set} />
               <Field label="Email" name="client_email" value={form.client_email} onChange={set} type="email" />
               <Field label="Téléphone" name="client_tel" value={form.client_tel} onChange={set} />
-              <Field label="SIREN (si client professionnel)" name="client_siren" value={form.client_siren} onChange={set} placeholder="9 chiffres" />
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Field label="SIREN (si client professionnel)" name="client_siren" value={form.client_siren} onChange={set} placeholder="9 chiffres" />
+                </div>
+                <RechercheSiren nom={form.client_nom} onChoisir={(r) => setForm((f) => ({ ...f, client_siren: r.siren, client_adresse: f.client_adresse || r.adresse, client_code_postal: f.client_code_postal || r.codePostal, client_ville: f.client_ville || r.ville }))} />
+              </div>
               <Field label="Adresse postale" name="client_adresse" value={form.client_adresse} onChange={set} />
               <Field label="Code postal" name="client_code_postal" value={form.client_code_postal} onChange={set} />
               <Field label="Ville" name="client_ville" value={form.client_ville} onChange={set} />

@@ -27,6 +27,11 @@ l'API d'une PA.
   date, réception testée, option TVA sur les débits).
 - Annuaire assureurs et clients : champ SIREN ; le SIREN de l'annuaire est
   reporté sur le dossier à l'enregistrement.
+- Recherche de SIREN : `GET /api/siren?q=` (proxy vers l'API publique
+  recherche-entreprises.api.gouv.fr, gratuite, sans clé), composant
+  `RechercheSiren` (bouton « 🔍 SIREN ») dans l'annuaire des assureurs, la
+  liste des clients et le formulaire de dossier ; bouton « Compléter les
+  SIREN » dans l'annuaire (propositions à valider une par une).
 - Vitrine : note d'information sur l'accueil + page publique
   `/facturation-electronique`.
 

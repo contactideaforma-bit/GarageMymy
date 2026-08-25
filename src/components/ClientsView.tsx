@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Client } from "@/lib/types";
+import RechercheSiren from "@/components/RechercheSiren";
 
 const EMPTY = { nom: "", email: "", telephone: "", adresse: "", code_postal: "", ville: "", siren: "", notes: "" };
 type FormC = typeof EMPTY;
@@ -68,7 +69,10 @@ export default function ClientsView() {
             <input className="field-input" placeholder="Adresse" value={form.adresse} onChange={(e) => set("adresse", e.target.value)} />
             <input className="field-input" placeholder="Code postal" value={form.code_postal} onChange={(e) => set("code_postal", e.target.value)} />
             <input className="field-input" placeholder="Ville" value={form.ville} onChange={(e) => set("ville", e.target.value)} />
-            <input className="field-input" placeholder="SIREN (si professionnel)" value={form.siren} onChange={(e) => set("siren", e.target.value)} />
+            <div className="flex gap-2">
+              <input className="field-input" placeholder="SIREN (si professionnel)" value={form.siren} onChange={(e) => set("siren", e.target.value)} />
+              <RechercheSiren nom={form.nom} onChoisir={(r) => setForm((f) => ({ ...f, siren: r.siren, adresse: f.adresse || r.adresse, code_postal: f.code_postal || r.codePostal, ville: f.ville || r.ville }))} />
+            </div>
           </div>
           <div className="mt-3">
             <label className="field-label">Commentaire</label>
