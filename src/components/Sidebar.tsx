@@ -183,6 +183,19 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             🛠️ Console d&apos;assistance
           </Link>
         )}
+        {admin && (
+          <Link
+            href="/admin"
+            onClick={onNavigate}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+              isActive("/admin")
+                ? "bg-white/15 text-white font-medium"
+                : "text-white/70 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            📈 Espace éditeur
+          </Link>
+        )}
         <ThemeToggle />
         {email && (
           <button
