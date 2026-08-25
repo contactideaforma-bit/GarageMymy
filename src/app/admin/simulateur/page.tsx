@@ -90,50 +90,76 @@ export default function SimulateurPage() {
       </section>
 
       <section className="glass-card overflow-hidden">
-        <table className="w-full table-fixed text-sm">
-          <colgroup><col className="w-[26%]" /><col className="w-[8%]" /><col className="w-[14%]" /><col className="w-[14%]" /><col className="w-[12%]" /><col className="w-[13%]" /><col className="w-[13%]" /></colgroup>
-          <thead className="text-left text-white/50">
-            <tr>
-              <th className="cellule font-medium">Formule</th>
-              <th className="cellule text-right font-medium">Nb</th>
-              <th className="cellule text-right font-medium">CA / mois</th>
-              <th className="cellule text-right font-medium">Rétro / mois</th>
-              <th className="cellule text-right font-medium">Commission</th>
-              <th className="cellule text-right font-medium">Résultat an 1</th>
-              <th className="cellule text-right font-medium">Résultat an 2</th>
-            </tr>
-          </thead>
-          <tbody>
-            {r.detail.map((d, i) => (
-              <tr key={i} className="border-t border-white/5">
-                <td className="cellule text-white">{p.formules[d.formule].libelle}{d.avecCommercial ? "" : <span className="ml-2 badge badge-neutral">sans commercial</span>}</td>
-                <td className="cellule text-right tabular-nums">{d.nombre}</td>
-                <td className="cellule text-right tabular-nums">{euros(d.ca)}</td>
-                <td className="cellule text-right tabular-nums text-white/70">{d.retro ? "− " + euros(d.retro) : "—"}</td>
-                <td className="cellule text-right tabular-nums text-white/70">{d.commission ? "− " + euros(d.commission) : "—"}</td>
-                <td className="cellule text-right tabular-nums text-white">{euros(d.resultatA1)}</td>
-                <td className="cellule text-right tabular-nums text-white">{euros(d.resultatA2)}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[56rem] text-sm">
+            <thead className="text-white/50">
+              <tr className="text-center text-[11px] font-semibold uppercase tracking-wider">
+                <th className="cellule" colSpan={2}></th>
+                <th className="cellule border-l border-white/10 bg-white/5" colSpan={4}>Chaque mois</th>
+                <th className="cellule border-l border-white/10 bg-accent-pink/10" colSpan={3}>Sur une année (× 12)</th>
               </tr>
-            ))}
-            {r.detail.length === 0 && <tr><td colSpan={7} className="px-5 py-6 text-center text-white/40">Saisissez au moins une vente.</td></tr>}
-          </tbody>
-          {r.detail.length > 0 && (
-            <tfoot className="border-t border-white/10 font-semibold text-white">
-              <tr>
-                <td className="cellule">Total (hors coûts fixes {euros(r.coutsFixesMensuels)}/mois)</td>
-                <td className="cellule text-right tabular-nums">{r.garages}</td>
-                <td className="cellule text-right tabular-nums">{euros(r.caMensuel)}</td>
-                <td className="cellule text-right tabular-nums">− {euros(r.retrocessionsMensuelles)}</td>
-                <td className="cellule text-right tabular-nums">− {euros(r.commissionsAnnee1)}</td>
-                <td className="cellule text-right tabular-nums">{euros(r.resultatAnnee1)}</td>
-                <td className="cellule text-right tabular-nums">{euros(r.resultatAnnee2)}</td>
+              <tr className="text-left">
+                <th className="cellule font-medium">Formule</th>
+                <th className="cellule text-right font-medium">Nb</th>
+                <th className="cellule border-l border-white/10 text-right font-medium">CA</th>
+                <th className="cellule text-right font-medium">− Secrétaire</th>
+                <th className="cellule text-right font-medium">− Technique</th>
+                <th className="cellule text-right font-medium">= Marge / mois</th>
+                <th className="cellule border-l border-white/10 text-right font-medium">Marge × 12</th>
+                <th className="cellule text-right font-medium">− Commission (1 fois)</th>
+                <th className="cellule text-right font-medium">= Résultat 1re année</th>
               </tr>
-            </tfoot>
-          )}
-        </table>
+            </thead>
+            <tbody>
+              {r.detail.map((d, i) => {
+                const tech = p.coutTechnique * d.nombre;
+                return (
+                  <tr key={i} className="border-t border-white/5">
+                    <td className="cellule text-white">{p.formules[d.formule].libelle}{d.avecCommercial ? "" : <span className="ml-2 badge badge-neutral">sans commercial</span>}</td>
+                    <td className="cellule text-right tabular-nums">{d.nombre}</td>
+                    <td className="cellule border-l border-white/10 text-right tabular-nums">{euros(d.ca)}</td>
+                    <td className="cellule text-right tabular-nums text-white/70">{d.retro ? "− " + euros(d.retro) : "—"}</td>
+                    <td className="cellule text-right tabular-nums text-white/70">− {euros(tech)}</td>
+                    <td className="cellule text-right tabular-nums font-semibold text-white">{euros(d.marge)}</td>
+                    <td className="cellule border-l border-white/10 text-right tabular-nums">{euros(d.marge * 12)}</td>
+                    <td className="cellule text-right tabular-nums text-white/70">{d.commission ? "− " + euros(d.commission) : "—"}</td>
+                    <td className="cellule text-right tabular-nums font-semibold text-white">{euros(d.resultatA1)}</td>
+                  </tr>
+                );
+              })}
+              {r.detail.length === 0 && <tr><td colSpan={9} className="px-5 py-6 text-center text-white/40">Saisissez au moins une vente.</td></tr>}
+            </tbody>
+            {r.detail.length > 0 && (
+              <tfoot className="border-t border-white/10 font-semibold text-white">
+                <tr>
+                  <td className="cellule">Total garages</td>
+                  <td className="cellule text-right tabular-nums">{r.garages}</td>
+                  <td className="cellule border-l border-white/10 text-right tabular-nums">{euros(r.caMensuel)}</td>
+                  <td className="cellule text-right tabular-nums">− {euros(r.retrocessionsMensuelles)}</td>
+                  <td className="cellule text-right tabular-nums">− {euros(r.techniqueMensuel)}</td>
+                  <td className="cellule text-right tabular-nums">{euros(r.margeAvantCommercialMensuelle)}</td>
+                  <td className="cellule border-l border-white/10 text-right tabular-nums">{euros(r.margeAvantCommercialMensuelle * 12)}</td>
+                  <td className="cellule text-right tabular-nums">− {euros(r.commissionsAnnee1)}</td>
+                  <td className="cellule text-right tabular-nums">{euros(r.margeAvantCommercialMensuelle * 12 - r.commissionsAnnee1)}</td>
+                </tr>
+                <tr className="text-white/70">
+                  <td className="cellule" colSpan={6}>− Coûts fixes IDEAFORMA ({euros(r.coutsFixesMensuels)} / mois)</td>
+                  <td className="cellule border-l border-white/10 text-right tabular-nums" colSpan={2}>− {euros(r.coutsFixesMensuels * 12)}</td>
+                  <td className="cellule text-right tabular-nums">− {euros(r.coutsFixesMensuels * 12)}</td>
+                </tr>
+                <tr className="bg-accent-pink/10 text-accent-pink">
+                  <td className="cellule" colSpan={6}>= Ce qu'il vous reste</td>
+                  <td className="cellule border-l border-white/10 text-right tabular-nums" colSpan={2}>1re année : {euros(r.resultatAnnee1)} ({euros(r.resultatMensuelAnnee1)} / mois)</td>
+                  <td className="cellule text-right tabular-nums">Années suivantes : {euros(r.resultatAnnee2)} ({euros(r.resultatMensuelCroisiere)} / mois)</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
         <p className="px-4 py-3 text-xs text-white/45">
-          Commission = prime de signature + bonus engagement × {Math.round(p.tauxEngagement * 100)} %{p.formules.confort.primeFidelite > 0 ? ` + fidélité × ${Math.round(p.tauxConservationM6 * 100)} %` : ""} (versée une seule fois, vers le 2e mois).
-          Résultat = CA − rétrocessions − technique − commissions − coûts fixes, avant votre rémunération et impôt.
+          Bloc « Chaque mois » : ce que le garage paie chaque mois, moins la part de la secrétaire ({Math.round(p.tauxRetrocession * 100)} % des heures) et le coût technique ({euros(p.coutTechnique)} / garage).
+          Bloc « Sur une année » : cette marge × 12, moins la commission du commercial — payée <strong className="text-white/70">une seule fois</strong>, vers le 2e mois (prime + bonus engagement × {Math.round(p.tauxEngagement * 100)} % des garages engagés{p.formules.confort.primeFidelite > 0 ? ` + fidélité × ${Math.round(p.tauxConservationM6 * 100)} %` : ""}).
+          Les années suivantes, plus aucune commission. Chiffres HT, avant votre rémunération et impôt.
         </p>
       </section>
 
