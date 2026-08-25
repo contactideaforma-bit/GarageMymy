@@ -8,7 +8,8 @@
  *   · /etat                 état du service — c'est précisément la page
  *                           qu'on ouvre quand on n'arrive plus à se
  *                           connecter, elle ne doit donc rien exiger ;
- *   · /mentions-legales     obligation légale.
+ *   · /mentions-legales, /cgu, /confidentialite, /contact — vitrine
+ *                           et obligations légales (v9.4).
  */
 export function estRoutePublique(pathname?: string | null): boolean {
   if (!pathname) return false;
@@ -16,6 +17,9 @@ export function estRoutePublique(pathname?: string | null): boolean {
     pathname.startsWith("/signer/") ||
     pathname.startsWith("/suivi/") ||
     pathname === "/etat" ||
-    pathname === "/mentions-legales"
+    pathname === "/mentions-legales" ||
+    pathname === "/cgu" ||
+    pathname === "/confidentialite" ||
+    pathname === "/contact"
   );
 }

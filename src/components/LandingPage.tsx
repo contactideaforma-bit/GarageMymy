@@ -256,7 +256,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <a href="#espaces" className="lp-btn">Se connecter</a>
-              <a href="mailto:contact.ideaforma@gmail.com?subject=Demande de démonstration — My Easy Auto" className="lp-btn-ghost">
+              <a href="mailto:contact@myeasyauto.fr?subject=Demande de démonstration — My Easy Auto" className="lp-btn-ghost">
                 Demander une démonstration
               </a>
             </div>
@@ -330,7 +330,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
           <p className="mt-6 text-center text-xs text-slate-400">
             Les comptes sont créés par l&apos;administrateur —{" "}
             <a
-              href="mailto:contact.ideaforma@gmail.com?subject=Demande de démonstration — My Easy Auto"
+              href="mailto:contact@myeasyauto.fr?subject=Demande de démonstration — My Easy Auto"
               className="text-violet-700 hover:underline"
             >
               demander une démonstration
@@ -353,7 +353,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               devant vous.
             </p>
             <a
-              href="mailto:contact.ideaforma@gmail.com?subject=Demande de démonstration — My Easy Auto"
+              href="mailto:contact@myeasyauto.fr?subject=Demande de démonstration — My Easy Auto"
               className="lp-btn relative mt-6"
             >
               Demander une démonstration
@@ -366,9 +366,12 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
       <footer className="border-t border-slate-200">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-slate-400">
           <p>© {new Date().getFullYear()} My Easy Auto — Tous droits réservés</p>
-          <Link href="/mentions-legales" className="hover:text-slate-700 hover:underline">
-            Mentions légales
-          </Link>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <Link href="/contact" className="hover:text-slate-700 hover:underline">Contact</Link>
+            <Link href="/mentions-legales" className="hover:text-slate-700 hover:underline">Mentions légales</Link>
+            <Link href="/cgu" className="hover:text-slate-700 hover:underline">CGU</Link>
+            <Link href="/confidentialite" className="hover:text-slate-700 hover:underline">Confidentialité</Link>
+          </div>
         </div>
       </footer>
     </div>

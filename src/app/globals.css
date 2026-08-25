@@ -661,3 +661,22 @@ html.light .skeleton::after {
   .carte-liste { box-shadow: 2px 2px 0 var(--mea-ombre); }
   .segment-btn { padding: 0.28rem 0.55rem; font-size: 0.7rem; }
 }
+
+/* Champs du formulaire de contact public (v9.4) */
+.lp-input {
+  width: 100%;
+  border: 1px solid #d5d8e6;
+  border-radius: 0.6rem;
+  background: #fff;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.95rem;
+  color: #1e2233;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.lp-input:focus {
+  outline: none;
+  border-color: #8b5cf6;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.18);
+}
+.lp-input::placeholder { color: #9aa0b8; }
+.lp-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
