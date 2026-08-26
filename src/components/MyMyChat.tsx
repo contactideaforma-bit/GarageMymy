@@ -192,6 +192,10 @@ export default function MyMyChat() {
     if (messages.some((m) => m.action && !m.etatAction)) contexte().then(setCtxPourDescription).catch(() => undefined);
   }, [messages, contexte]);
 
+  // FICHE DOSSIER : la bulle « note de dossier » occupe déjà le coin bas-droit
+  // (NoteDossier). Les deux se chevauchaient → MY-MY s'efface sur cette page.
+  if (/^\/sinistres\/[^/]+/.test(pathname || "")) return null;
+
   return (
     <>
       {/* ---------- Fenêtre de discussion ---------- */}
