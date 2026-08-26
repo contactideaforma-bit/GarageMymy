@@ -14,20 +14,25 @@ import { usePathname, useRouter } from "next/navigation";
 import { useMetier } from "@/components/MetierProvider";
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import {
+  ActionMyMy,
   ContexteMyMy,
   LienMyMy,
   MessageMyMy,
   SUGGESTIONS_MYMY,
   chargerContexteMyMy,
+  decrireAction,
+  executerAction,
   repondreLocalement,
   resumePourIA,
+  validerAction,
 } from "@/lib/mymy";
 
 const ACCUEIL: MessageMyMy = {
   role: "assistant",
   texte:
     "Salut, moi c'est MY-MY 👋 Je connais tous tes dossiers.\n" +
-    "Demande-moi un dossier (immat, client…), ce que tu as à faire, tes impayés, ou pose-moi une question.",
+    "Demande-moi un dossier (immat, client, « c'est une Polo »…), un téléphone, ce que tu as à faire, tes impayés… " +
+    "Je peux aussi créer un rappel ou un RDV : je te demande toujours confirmation avant d'agir.",
 };
 
 // Les données sont rechargées au plus toutes les 2 minutes, ou quand on
@@ -129,19 +134,22 @@ export default function MyMyChat() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           question,
-          resume: resumePourIA(ctx),
+          resume: resumePourIA(ctx, question),
           historique: historique
             .filter((m) => m !== ACCUEIL)
             .slice(-8)
             .map((m) => ({ role: m.role, texte: m.texte })),
         }),
       });
-      const lu = await lireReponse<{ reponse: string; liens?: LienMyMy[] }>(res);
+      const lu = await lireReponse<{ reponse: string; liens?: LienMyMy[]; action?: unknown }>(res);
       if (!lu.ok || !lu.data) {
         setMessages((prev) => [...prev, { role: "assistant", texte: "😕 " + (lu.error || "Je n'ai pas pu répondre.") }]);
         return;
       }
-      setMessages((prev) => [...prev, { role: "assistant", texte: lu.data!.reponse, liens: lu.data!.liens || [] }]);
+      // ACTION PROPOSÉE : validée contre les données locales (dossier
+      // existant), puis affichée avec Confirmer / Annuler. Rien n'est écrit ici.
+      const action = validerAction(ctx, lu.data.action) || undefined;
+      setMessages((prev) => [...prev, { role: "assistant", texte: lu.data!.reponse, liens: lu.data!.liens || [], action }]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       setMessages((prev) => [
@@ -157,6 +165,32 @@ export default function MyMyChat() {
       setOccupe(false);
     }
   };
+
+  // Confirmation d'une action : seule porte d'entrée vers une écriture.
+  const confirmer = async (index: number, action: ActionMyMy) => {
+    if (occupe) return;
+    setOccupe(true);
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, etatAction: "confirmee" } : m)));
+    try {
+      const ctx = await contexte();
+      const resultat = await executerAction(ctx, action);
+      setMessages((prev) => [...prev, resultat]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setMessages((prev) => [...prev, { role: "assistant", texte: "😕 Je n'ai pas réussi à enregistrer : " + (msg || "erreur inconnue") }]);
+    } finally {
+      setOccupe(false);
+    }
+  };
+  const annuler = (index: number) => {
+    setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, etatAction: "annulee" } : m)));
+    setMessages((prev) => [...prev, { role: "assistant", texte: "D'accord, j'annule. Reformule si je n'avais pas bien compris." }]);
+  };
+
+  const [ctxPourDescription, setCtxPourDescription] = useState<ContexteMyMy | null>(null);
+  useEffect(() => {
+    if (messages.some((m) => m.action && !m.etatAction)) contexte().then(setCtxPourDescription).catch(() => undefined);
+  }, [messages, contexte]);
 
   return (
     <>
@@ -203,6 +237,26 @@ export default function MyMyChat() {
                   }`}
                 >
                   {m.texte}
+                  {m.action && (
+                    <div className="mt-2 rounded-md border-2 border-accent-pink/70 bg-accent-pink/10 p-2">
+                      <div className="text-[11px] font-bold uppercase tracking-wide text-accent-pink">
+                        {m.etatAction === "confirmee" ? "✔ Confirmé" : m.etatAction === "annulee" ? "✖ Annulé" : "J'ai compris — je confirme ?"}
+                      </div>
+                      <div className="mt-1 text-xs text-white/90">
+                        {ctxPourDescription ? decrireAction(ctxPourDescription, m.action) : "…"}
+                      </div>
+                      {!m.etatAction && (
+                        <div className="mt-2 flex gap-2">
+                          <button onClick={() => confirmer(i, m.action!)} disabled={occupe} className="btn-primary !px-3 !py-1.5 !text-xs">
+                            Confirmer
+                          </button>
+                          <button onClick={() => annuler(i)} disabled={occupe} className="rounded-md border-2 border-white/30 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/10">
+                            Annuler
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {m.liens && m.liens.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {m.liens.map((l, j) => (

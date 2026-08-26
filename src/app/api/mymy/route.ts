@@ -18,7 +18,13 @@ Tu parles français, tu tutoies, tu es chaleureux, concis et concret : ton utili
 Tu disposes d'un RÉSUMÉ DES DONNÉES du garage (ci-dessous). Réponds UNIQUEMENT à partir de ces données quand la question porte sur le garage ; n'invente jamais un dossier, un montant ou une date. Si l'information manque, dis-le.
 Quand tu cites un ou plusieurs dossiers, propose des liens vers leur fiche : href "/sinistres/<id>".
 Pages utiles : "/" tableau de bord, "/sinistres" liste des dossiers, "/import" nouveau dossier, "/factures", "/finance" paiements & relances, "/planning", "/agenda", "/annuaire", "/vehicules", "/rentabilite", "/emails", "/profil".
-Réponds STRICTEMENT en JSON : {"reponse": "texte (sauts de ligne autorisés, pas de markdown)", "liens": [{"label": "…", "href": "…"}]} — 4 liens maximum, tableau vide si aucun.`;
+ACTIONS : tu peux PROPOSER une action sur les données (elle ne sera exécutée qu'après confirmation de l'utilisateur, ne dis donc jamais que c'est fait — dis « je te propose… », la confirmation est demandée automatiquement). Une seule action par réponse, uniquement si l'utilisateur le demande clairement (« rappelle-moi », « note », « ajoute un rdv », « la voiture est arrivée/repartie », « passe le dossier en… »). Identifie le dossier par le nom du client, l'immatriculation, le véhicule ou le n° de sinistre (tolère les fautes de frappe) et utilise son id exact ; s'il y a plusieurs candidats, ne propose PAS d'action : demande lequel en listant les liens. Formes possibles :
+- {"type":"rappel","dossier_id":"<id ou null>","texte":"<ce qu'il faut faire, formulé court>","echeance":"<AAAA-MM-JJTHH:MM ou null si aucune date/heure n'est demandée>"} — pour « rappelle-moi de… ». Convertis « demain », « lundi », « dans 3 jours » en date à partir de la date du jour ; heure par défaut 09:00.
+- {"type":"rdv","dossier_id":"<id ou null>","titre":"…","date":"AAAA-MM-JJTHH:MM","categorie":"rdv_client|rdv_expert|autre","avec_qui":"<nom ou null>"} — pour un rendez-vous daté.
+- {"type":"note","dossier_id":"<id>","texte":"…"} — pour « note sur le dossier… ».
+- {"type":"au_garage","dossier_id":"<id>","valeur":true|false} — véhicule arrivé / reparti.
+- {"type":"statut","dossier_id":"<id>","statut":"<code de statut>"} — changement d'étape.
+Réponds STRICTEMENT en JSON : {"reponse": "texte (sauts de ligne autorisés, pas de markdown)", "liens": [{"label": "…", "href": "…"}], "action": null ou {…}} — 4 liens maximum, tableau vide si aucun.`;
 
 type Entree = {
   question?: string;
@@ -68,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     const message = await client.messages.create({
       model,
-      max_tokens: 900,
+      max_tokens: 1100,
       system: `${SYSTEM}\n\n=== RÉSUMÉ DES DONNÉES DU GARAGE ===\n${resume || "(aucune donnée transmise)"}`,
       messages,
     });
@@ -80,10 +86,13 @@ export async function POST(req: NextRequest) {
     const match = raw.match(/\{[\s\S]*\}/);
     let reponse = raw.trim();
     let liens: { label: string; href: string }[] = [];
+    let action: unknown = null;
     if (match) {
       try {
-        const j = JSON.parse(match[0]) as { reponse?: string; liens?: { label?: string; href?: string }[] };
+        const j = JSON.parse(match[0]) as { reponse?: string; liens?: { label?: string; href?: string }[]; action?: unknown };
         if (j.reponse) reponse = String(j.reponse);
+        // Validée côté client (le dossier doit exister dans SES données).
+        if (j.action && typeof j.action === "object") action = j.action;
         liens = (j.liens || [])
           .filter((l) => l && l.label && typeof l.href === "string" && l.href.startsWith("/"))
           .slice(0, 4)
@@ -93,7 +102,7 @@ export async function POST(req: NextRequest) {
       }
     }
     if (!reponse) reponse = "Je n'ai pas réussi à formuler une réponse, reformule ta question ?";
-    return NextResponse.json({ reponse, liens });
+    return NextResponse.json({ reponse, liens, action });
   } catch (err: unknown) {
     const anyErr = err as { status?: number; message?: string };
     const surcharge =
