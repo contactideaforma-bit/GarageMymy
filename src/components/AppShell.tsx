@@ -65,10 +65,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* Tiroir / barre latérale */}
+      {/* Tiroir / barre latérale. Sur grand écran : COLLÉE en haut et haute
+          comme l'écran (lg:sticky + lg:h-screen) — elle ne s'étire plus sur
+          toute la longueur d'une page longue, et ses propres liens défilent
+          à l'intérieur (nav overflow-y-auto) si l'écran est petit. */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-64 p-3 transition-transform duration-200
-          lg:static lg:z-auto lg:translate-x-0 lg:shrink-0
+          lg:sticky lg:top-0 lg:h-screen lg:z-auto lg:translate-x-0 lg:shrink-0
           ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="relative h-full">

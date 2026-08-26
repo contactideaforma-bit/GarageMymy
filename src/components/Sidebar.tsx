@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import ThemeToggle from "@/components/ThemeToggle";
 import SnakeGame from "@/components/SnakeGame";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
@@ -82,7 +82,8 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const labelNav = (href: string, label: string) =>
     href === "/sinistres" ? t.dossiers : label;
 
-  // EASTER EGG : 5 clics sur le logo → Snake
+  // LOGO → tableau de bord. EASTER EGG conservé : 5 clics rapides → Snake.
+  const router = useRouter();
   const [snakeOpen, setSnakeOpen] = useState(false);
   const clics = useRef(0);
   const dernierClic = useRef(0);
@@ -94,7 +95,10 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     if (clics.current >= 5) {
       clics.current = 0;
       setSnakeOpen(true);
+      return;
     }
+    router.push("/");
+    onNavigate?.();
   }
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -108,7 +112,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="glass-card h-full flex flex-col p-4">
       <div className="px-2 py-3 flex items-center gap-3">
-        <button onClick={clicLogo} className="shrink-0" aria-label="My Easy Auto" title="My Easy Auto">
+        <button onClick={clicLogo} className="shrink-0" aria-label="Tableau de bord" title="Retour au tableau de bord">
           <Image
             src="/logo.png"
             alt="My Easy Auto"
