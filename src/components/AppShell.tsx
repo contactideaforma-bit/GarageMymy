@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import BandeauService from "@/components/BandeauService";
 import BandeauHorsLigne from "@/components/BandeauHorsLigne";
+import MyMyChat from "@/components/MyMyChat";
 import { estRoutePublique } from "@/lib/routesPubliques";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -86,6 +87,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {/* Contenu */}
         <main className="min-w-0 flex-1 p-3 sm:p-4 lg:p-6">{children}</main>
       </div>
+      {/* MY-MY (v9.5) : l'assistant du garage, en bas à droite de toutes les pages. */}
+      <MyMyChat />
     </div>
   );
 }
