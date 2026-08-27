@@ -288,7 +288,17 @@ export async function POST(req: Request) {
     if (!propre.id) delete propre.id;
     const { data, error } = await admin.from(table).upsert(propre).select("*").single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true, row: data });
+    // FICHE COMMERCIALE rattachée à un compte (v10.2) : le compte devient
+    // automatiquement « commercial » (app_metadata) — pas besoin du bouton.
+    let metierPose: string | null = null;
+    if (table === "collaborateurs" && propre.type === "commercial" && typeof propre.owner_id === "string" && propre.owner_id) {
+      const { data: u } = await admin.auth.admin.getUserById(propre.owner_id);
+      if (u?.user && u.user.app_metadata?.metier !== "commercial") {
+        const { error: eM } = await admin.auth.admin.updateUserById(propre.owner_id, { app_metadata: { ...(u.user.app_metadata || {}), metier: "commercial" } });
+        if (!eM) metierPose = "commercial";
+      }
+    }
+    return NextResponse.json({ ok: true, row: data, metierPose });
   }
   return NextResponse.json({ error: "Action inconnue." }, { status: 400 });
 }

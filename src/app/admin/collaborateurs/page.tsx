@@ -67,7 +67,10 @@ export default function CollaborateursPage() {
     if (!form?.nom?.trim()) return alert("Le nom est obligatoire.");
     setSaving(true);
     try {
-      await upsertLigne<Collaborateur>("collaborateurs", { ...form, taux_horaire: form.taux_horaire == null || form.taux_horaire === ("" as unknown) ? null : Number(form.taux_horaire) });
+      const res = await upsertLigne<Collaborateur>("collaborateurs", { ...form, taux_horaire: form.taux_horaire == null || form.taux_horaire === ("" as unknown) ? null : Number(form.taux_horaire) });
+      if ((res as { metierPose?: string | null }).metierPose === "commercial") {
+        alert("Le compte rattaché est maintenant en métier « commercial ». Sur ce compte : se déconnecter puis se reconnecter (ou recharger la page).");
+      }
       setForm(null); load();
     } catch (e) { alert(e instanceof Error ? e.message : "Enregistrement impossible."); }
     finally { setSaving(false); }
