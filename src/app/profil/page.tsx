@@ -13,6 +13,7 @@ import CompteSettings from "@/components/CompteSettings";
 import ConsommationIA from "@/components/ConsommationIA";
 import MemoireIA from "@/components/MemoireIA";
 import { useMetier } from "@/components/MetierProvider";
+import { estAdmin } from "@/lib/support";
 import { METIER_INFOS } from "@/lib/metier";
 import { MODELES_PDF, COULEURS_PDF, MODELE_PDF_DEFAUT, COULEUR_PDF_DEFAUT } from "@/lib/pdfTheme";
 
@@ -66,6 +67,13 @@ function Field({
 
 export default function ProfilPage() {
   const { metier } = useMetier();
+  // Rôle ÉDITEUR (v10.2) : porté par ADMIN_EMAILS, indépendant du métier
+  // (l'éditeur garde un espace carrosserie pour ses tests et ses ventes).
+  const [emailCompte, setEmailCompte] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setEmailCompte(data.user?.email ?? null));
+  }, []);
+  const admin = estAdmin(emailCompte);
   const [id, setId] = useState<string | null>(null);
   const [form, setForm] = useState<FormE>(EMPTY);
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -220,13 +228,23 @@ export default function ProfilPage() {
               <div className="font-pixel text-[0.7rem] text-white">{METIER_INFOS[metier].label}</div>
               <div className="mt-1 text-xs text-white/50">{METIER_INFOS[metier].accroche}</div>
             </div>
-            <span className="shrink-0 rounded-full border border-accent-teal/40 px-3 py-1 text-xs text-accent-teal">
-              Compte {METIER_INFOS[metier].label.toLowerCase()}
-            </span>
+            <div className="flex shrink-0 flex-wrap justify-end gap-2">
+              {admin && (
+                <span className="rounded-full border border-accent-pink/60 bg-accent-pink/15 px-3 py-1 text-xs font-semibold text-accent-pink">
+                  Administrateur · éditeur IDEAFORMA
+                </span>
+              )}
+              <span className="rounded-full border border-accent-teal/40 px-3 py-1 text-xs text-accent-teal">
+                {metier === "commercial" ? "Compte commercial" : `Espace ${METIER_INFOS[metier].label.toLowerCase()}`}
+              </span>
+            </div>
           </div>
           <p className="text-xs text-white/40 mt-2">
-            Défini à la création du compte et non modifiable ici. Un compte carrosserie et un
-            compte vitrage sont totalement séparés. Pour changer, contacte l&apos;administrateur.
+            {admin
+              ? "Ton compte est celui de l'éditeur : il a accès à l'espace éditeur (📈), à « Mes clients » et à un espace carrosserie de test."
+              : metier === "commercial"
+                ? "Compte d'apporteur d'affaires : espace « Mes clients » + l'application carrosserie pour les démonstrations."
+                : "Défini à la création du compte et non modifiable ici. Un compte carrosserie et un compte vitrage sont totalement séparés. Pour changer, contacte l'administrateur."}
           </p>
         </section>
 
