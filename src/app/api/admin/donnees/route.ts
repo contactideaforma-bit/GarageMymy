@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
-import { estAdminServeur, tousLesComptes } from "@/lib/supportServeur";
+import { estAdminServeur, tousLesComptes, comptesAdmin } from "@/lib/supportServeur";
+import { envoyerEmailServeur } from "@/lib/mailer";
+import { emailBienvenueHtml, emailBienvenueTexte, sujetBienvenue } from "@/lib/admin/emailBienvenue";
+import { randomBytes } from "crypto";
 import { appliquerFinsDeContrat, comptesAPurger, definirEtat, purgerCompte, EtatCompteRow } from "@/lib/admin/comptesServeur";
 import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from "@/lib/admin/economie";
 
@@ -20,6 +23,7 @@ import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from 
 //  POST { action: "parametres", valeur }        → enregistre les paramètres
 //  POST { action: "generer_mensualites", abonnement_id } → crée les mois manquants
 //  POST { action: "generer_releve" }            → lignes dues manquantes
+//  POST { action: "creer_compte_garage", vente_id } → compte Auth + email de bienvenue
 // ============================================================
 
 export const runtime = "nodejs";
@@ -185,6 +189,101 @@ export async function POST(req: Request) {
 
   // ---- VALIDATION D'UNE VENTE (v10.0) : crée l'abonnement + mensualités,
   //      rattache le commercial, passe la vente en « validée ».
+  // ---- CRÉATION DU COMPTE DU GARAGE + EMAIL DE BIENVENUE (v10.5) ----
+  // Remplace la création manuelle dans Supabase : crée l'utilisateur Auth
+  // avec un mot de passe provisoire, rattache l'abonnement, passe la vente
+  // en « compte créé » et envoie l'email de bienvenue aux couleurs de
+  // l'appli (SMTP du compte admin, repli Resend).
+  if (body.action === "creer_compte_garage") {
+    const { data: v } = await admin.from("ventes").select("*").eq("id", body.vente_id || "").maybeSingle();
+    if (!v) return NextResponse.json({ error: "Vente introuvable." }, { status: 404 });
+    const email = String(v.contact_email || "").trim().toLowerCase();
+    if (!/^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(email)) {
+      return NextResponse.json({ error: "Email du garage manquant ou invalide sur la vente." }, { status: 400 });
+    }
+
+    // Compte déjà existant ? On rattache sans toucher au mot de passe.
+    const comptes = await tousLesComptes(admin);
+    const existant = comptes.find((c) => c.email.toLowerCase() === email);
+    let ownerId = existant?.id || null;
+    let motDePasse: string | null = null;
+
+    if (!existant) {
+      // Mot de passe provisoire : 12 caractères lisibles (sans ambigus).
+      const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+      const brut = randomBytes(12);
+      motDePasse = Array.from(brut, (b) => alphabet[b % alphabet.length]).join("");
+      const { data: cree, error: eUser } = await admin.auth.admin.createUser({
+        email,
+        password: motDePasse,
+        email_confirm: true,
+        user_metadata: { garage: v.garage_nom },
+      });
+      if (eUser || !cree?.user) {
+        return NextResponse.json({ error: `Création du compte impossible : ${eUser?.message || "erreur Auth"}` }, { status: 500 });
+      }
+      ownerId = cree.user.id;
+    }
+
+    // Rattachements : abonnement → owner, vente → compte créé.
+    if (v.abonnement_id && ownerId) {
+      await admin.from("abonnements").update({ garage_owner_id: ownerId, garage_email: email }).eq("id", v.abonnement_id);
+    }
+    await admin.from("ventes").update({ statut: "compte_cree" }).eq("id", v.id);
+
+    // Email de bienvenue (seulement si on vient de créer le compte : un
+    // compte existant a déjà son mot de passe).
+    let emailEnvoye = false;
+    let erreurEmail: string | null = null;
+    if (motDePasse) {
+      const p = await lireParametres(admin);
+      const f = p.formules[v.formule as Formule];
+      let secretaireNom: string | null = null;
+      let commercialNom: string | null = null;
+      const ids = [v.collaborateur_id].filter(Boolean);
+      if (v.abonnement_id) {
+        const { data: abo } = await admin.from("abonnements").select("secretaire_id").eq("id", v.abonnement_id).maybeSingle();
+        if (abo?.secretaire_id) ids.push(abo.secretaire_id);
+      }
+      if (ids.length) {
+        const { data: cs } = await admin.from("collaborateurs").select("id,prenom,nom,type").in("id", ids);
+        for (const c of cs || []) {
+          const nomC = [c.prenom, c.nom].filter(Boolean).join(" ");
+          if (c.type === "secretaire") secretaireNom = nomC;
+          else if (c.id === v.collaborateur_id) commercialNom = nomC;
+        }
+      }
+      const b = {
+        garageNom: v.garage_nom as string,
+        contactNom: (v.contact_nom as string) || null,
+        email,
+        motDePasse,
+        formule: f ? f.libelle : null,
+        heures: f?.heures || null,
+        secretaireNom,
+        commercialNom,
+        url: process.env.NEXT_PUBLIC_SITE_URL || "https://myeasyauto.fr",
+      };
+      const expediteur = (await comptesAdmin(admin))[0];
+      const res = await envoyerEmailServeur(
+        { to: email, subject: sujetBienvenue(v.garage_nom), html: emailBienvenueHtml(b), text: emailBienvenueTexte(b) },
+        expediteur?.id || ownerId || ""
+      );
+      emailEnvoye = res.ok;
+      if (!res.ok) erreurEmail = res.error || "Envoi impossible.";
+    }
+
+    return NextResponse.json({
+      ok: true,
+      dejaExistant: Boolean(existant),
+      emailEnvoye,
+      erreurEmail,
+      // Si l'email n'est pas parti, l'éditeur doit pouvoir transmettre le
+      // mot de passe provisoire lui-même : on ne le renvoie QUE dans ce cas.
+      motDePasse: motDePasse && !emailEnvoye ? motDePasse : undefined,
+    });
+  }
+
   if (body.action === "valider_vente") {
     const { data: v, error } = await admin.from("ventes").select("*").eq("id", body.vente_id || "").maybeSingle();
     if (error || !v) return NextResponse.json({ error: "Vente introuvable." }, { status: 404 });

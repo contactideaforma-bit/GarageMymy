@@ -1,6 +1,7 @@
 "use client";
 
-// ESPACE CLIENTS DU COMMERCIAL (v10.2) — liste des garages démarchés.
+// ESPACE CLIENTS DU COMMERCIAL (v10.2 → v10.5) — liste des garages démarchés
+// + alertes de rappel (clients à recontacter, échus ou sous 7 jours).
 // « + Nouveau client » : SIREN / SIRET / nom → l'annuaire officiel des
 // entreprises pré-remplit l'identité ; le reste se complète sur la fiche.
 
@@ -10,7 +11,7 @@ import StatCard from "@/components/StatCard";
 import ModalShell from "@/components/ModalShell";
 import { rechercherSiren, type ResultatSiren } from "@/components/RechercheSiren";
 import { formatDate, messageErreur } from "@/lib/format";
-import { ORIGINES_PROSPECT, Prospect, ProspectOrigine, ProspectStatut, STATUTS_PROSPECT, chargerProspects, enregistrerProspect } from "@/lib/prospects";
+import { ORIGINES_PROSPECT, Prospect, ProspectOrigine, ProspectStatut, STATUTS_PROSPECT, chargerProspects, dateDansJours, enregistrerProspect, etatRappel } from "@/lib/prospects";
 import { ContexteCommercial, chargerContexteCommercial, nomCommercial } from "@/lib/commercialClient";
 
 export default function ProspectsPage() {
@@ -38,7 +39,19 @@ export default function ProspectsPage() {
   }, [liste, q, filtre]);
 
   const compte = (s: ProspectStatut) => liste.filter((p) => p.statut === s).length;
-  const relances = liste.filter((p) => p.prochaine_date && p.prochaine_date <= new Date().toISOString().slice(0, 10) && p.statut !== "perdu" && p.statut !== "client");
+  const relances = liste.filter((p) => ["echu", "aujourdhui"].includes(etatRappel(p) || ""));
+  // ALERTES : rappels échus / du jour + ceux qui tombent sous 7 jours.
+  const alertes = liste
+    .filter((p) => ["echu", "aujourdhui", "bientot"].includes(etatRappel(p) || ""))
+    .sort((a, b) => (a.prochaine_date || "").localeCompare(b.prochaine_date || ""));
+  async function rappelFait(p: Prospect) {
+    const n = await enregistrerProspect({ ...p, prochaine_action: null, prochaine_date: null });
+    setListe((l) => l.map((x) => (x.id === n.id ? n : x)));
+  }
+  async function rappelReporter(p: Prospect, jours: number) {
+    const n = await enregistrerProspect({ ...p, prochaine_date: dateDansJours(jours) });
+    setListe((l) => l.map((x) => (x.id === n.id ? n : x)));
+  }
 
   return (
     <div>
@@ -59,6 +72,33 @@ export default function ProspectsPage() {
         <StatCard label="Signés / clients" value={String(compte("signe") + compte("client"))} hint="ventes réalisées" accent="teal" />
         <StatCard label="À relancer" value={String(relances.length)} hint="prochaine action échue" accent="pink" />
       </div>
+
+      {alertes.length > 0 && (
+        <div className="glass-card mb-4 border border-accent-pink/40 p-4">
+          <h2 className="titre-bloc">🔔 À recontacter</h2>
+          <ul className="mt-2 divide-y divide-white/10">
+            {alertes.map((p) => {
+              const e = etatRappel(p);
+              return (
+                <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <button className="min-w-0 text-left text-sm" onClick={() => router.push(`/prospects/${p.id}`)}>
+                    <span className={`badge ${e === "bientot" ? "badge-warn" : "badge-danger"} mr-2`}>
+                      {e === "echu" ? `En retard · ${formatDate(p.prochaine_date!)}` : e === "aujourdhui" ? "Aujourd'hui" : formatDate(p.prochaine_date!)}
+                    </span>
+                    <span className="font-medium text-white">{p.nom}</span>
+                    <span className="text-white/60">{p.prochaine_action ? ` — ${p.prochaine_action}` : " — à recontacter"}</span>
+                    {p.tel && <span className="text-white/40"> · {p.tel}</span>}
+                  </button>
+                  <div className="flex gap-2 text-xs">
+                    <button className="btn-ghost btn-compact" onClick={() => rappelReporter(p, 7)}>+ 1 sem</button>
+                    <button className="btn-ghost btn-compact" onClick={() => rappelFait(p)}>✓ Fait</button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       <div className="glass-card mb-4 flex flex-wrap items-center gap-2 p-3">
         <input className="field-input field-compact min-w-[12rem] flex-1 sm:max-w-sm" placeholder="Garage, ville, contact, SIREN…" value={q} onChange={(e) => setQ(e.target.value)} />

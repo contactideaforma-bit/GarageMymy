@@ -423,7 +423,7 @@ export function construireContratPdf(
     const lignes: RowInput[] = SECTIONS_BESOINS.filter((s) => !s.interne).flatMap((s) => lignesSection(s, b));
     // Réponses hors référentiel (anciennes clés) : libellé brut.
     for (const [k, val] of Object.entries(b)) {
-      if (k === "demandes" || libelleQuestion(k) !== k) continue;
+      if (k === "demandes" || k === "agrements_liste" || k === "agrements_detail" || libelleQuestion(k) !== k) continue;
       const v = Array.isArray(val) ? val.join(", ") : String(val ?? "");
       if (v) lignes.push([k, v]);
     }

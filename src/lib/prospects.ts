@@ -94,6 +94,36 @@ export const TYPES_DOCUMENT: Record<ProspectDocument["type"], string> = {
 
 export const OFFRE_DEFAUT: ParametresOffre = { formule: "confort", engagement_12: true, periodicite: "mensuel", remise_supp_pct: 0, mode_paiement: "virement", validite_jours: 30 };
 
+/* --------------------------- Rappels (alertes) --------------------------- */
+// Le rappel du commercial = prochaine_action + prochaine_date de la fiche :
+// « le client souhaite être recontacté à telle date / dans tel délai ».
+
+export const DELAIS_RAPPEL: { label: string; jours: number }[] = [
+  { label: "3 jours", jours: 3 },
+  { label: "1 semaine", jours: 7 },
+  { label: "2 semaines", jours: 14 },
+  { label: "1 mois", jours: 30 },
+  { label: "2 mois", jours: 61 },
+];
+
+export function dateDansJours(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+export type EtatRappel = "echu" | "aujourdhui" | "bientot" | "planifie";
+
+/** État du rappel d'un prospect (null si aucun rappel ou dossier clos). */
+export function etatRappel(p: Prospect): EtatRappel | null {
+  if (!p.prochaine_date || p.statut === "perdu") return null;
+  const auj = new Date().toISOString().slice(0, 10);
+  if (p.prochaine_date < auj) return "echu";
+  if (p.prochaine_date === auj) return "aujourdhui";
+  if (p.prochaine_date <= dateDansJours(7)) return "bientot";
+  return "planifie";
+}
+
 /* ------------------------------ CRUD ------------------------------ */
 
 export async function chargerProspects(): Promise<Prospect[]> {

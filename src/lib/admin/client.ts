@@ -82,6 +82,8 @@ export const definirMetierCompte = (owner_id: string, metier: "carrosserie" | "v
 export const appliquerFinsDeContrat = () => post<{ lectureSeule: number; reactives: number }>({ action: "appliquer_fins" });
 export const purgerCompte = (owner_id: string) => post<{ objets: number }>({ action: "purger_compte", owner_id, confirmation: "PURGER" });
 /** Valide une vente déclarée : crée l'abonnement rattaché au commercial, ses mensualités, et passe la vente en « validée ». */
+export type ResultatCompteGarage = { ok: boolean; dejaExistant: boolean; emailEnvoye: boolean; erreurEmail: string | null; motDePasse?: string };
+export const creerCompteGarage = (vente_id: string) => post<ResultatCompteGarage>({ action: "creer_compte_garage", vente_id });
 export const validerVente = (vente_id: string, opts: { date_debut: string; secretaire_id?: string | null; remise_acceptee?: boolean }) =>
   post<{ abonnement_id: string }>({ action: "valider_vente", vente_id, ...opts });
 export const STATUTS_VENTE: Record<Vente["statut"], { label: string; badge: string }> = {

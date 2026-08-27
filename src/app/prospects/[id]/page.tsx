@@ -14,11 +14,11 @@ import EmailComposer from "@/components/EmailComposer";
 import { formatDate, formatDateTime, formatEuros, messageErreur } from "@/lib/format";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  OFFRE_DEFAUT, ORIGINES_PROSPECT, ParametresOffre, Prospect, ProspectDocument, ProspectOrigine, ProspectStatut, STATUTS_PROSPECT, TYPES_DOCUMENT,
+  DELAIS_RAPPEL, OFFRE_DEFAUT, ORIGINES_PROSPECT, ParametresOffre, Prospect, ProspectDocument, ProspectOrigine, ProspectStatut, STATUTS_PROSPECT, TYPES_DOCUMENT, dateDansJours, etatRappel,
   chargerProspect, creerDocument, enregistrerProspect, majDocument, prospectVersContrat, supprimerDocument, supprimerProspect,
 } from "@/lib/prospects";
 import { ContexteCommercial, chargerContexteCommercial, declarerVente, enregistrerSignatureCommercial, majPaiement, nomCommercial } from "@/lib/commercialClient";
-import { DemandeParticuliere, QuestionBesoin, SECTIONS_BESOINS, demandesDe, reponseLisible, tauxRemplissage } from "@/lib/ficheBesoins";
+import { Agrement, DemandeParticuliere, QuestionBesoin, SECTIONS_BESOINS, agrementsDe, demandesDe, reponseLisible, tauxRemplissage } from "@/lib/ficheBesoins";
 import { Formule, Periodicite, grilleTarifs, primeVente, prixVente } from "@/lib/admin/economie";
 import { MODES_PAIEMENT, articlesCGV, conditionsParticulieres } from "@/lib/admin/contratGarage";
 import { construireContratPdf, construireDevisPdf, construireFichePdf, construireSimulationPdf } from "@/lib/admin/contratPdf";
@@ -138,6 +138,8 @@ export default function ProspectPage() {
         </div>
       </div>
       {msg && <p className="mb-3 text-xs text-accent-teal">{msg}</p>}
+
+      <RappelProspect p={p} onSave={sauver} />
 
       <div className="segment mb-4 flex-wrap">
         {([["fiche", "Fiche"], ["besoins", "Questionnaire"], ["offre", "Offre & documents"], ["vente", "Vente & paiement"]] as [Onglet, string][]).map(([k, l]) => (
@@ -277,6 +279,68 @@ export default function ProspectPage() {
 }
 
 /* ------------------------------ Fiche ------------------------------ */
+/* ------------------------- Rappel (alerte commercial) ------------------------- */
+// « Le client souhaite être recontacté à telle date / dans tel délai » :
+// visible sur tous les onglets, alimente les alertes de la liste Mes clients.
+function RappelProspect({ p, onSave }: { p: Prospect; onSave: (patch: Partial<Prospect>) => Promise<void> }) {
+  const [edit, setEdit] = useState(false);
+  const [motif, setMotif] = useState(p.prochaine_action || "");
+  const [date, setDate] = useState(p.prochaine_date || "");
+  useEffect(() => { setMotif(p.prochaine_action || ""); setDate(p.prochaine_date || ""); }, [p]);
+  const e = etatRappel(p);
+  const couleur = e === "echu" || e === "aujourdhui" ? "border-rose-400/60 bg-rose-400/10" : e === "bientot" ? "border-amber-300/50 bg-amber-300/10" : "border-white/15";
+
+  async function programmer(d: string) {
+    await onSave({ prochaine_action: motif || "Recontacter le client", prochaine_date: d });
+    setEdit(false);
+  }
+
+  if (!edit && !p.prochaine_date) {
+    return (
+      <div className="mb-4">
+        <button className="btn-ghost btn-compact" onClick={() => setEdit(true)}>🔔 Programmer un rappel (à recontacter)</button>
+      </div>
+    );
+  }
+  return (
+    <div className={`glass-card mb-4 border p-3 ${couleur}`}>
+      {!edit ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <div className="min-w-0">
+            <span className="mr-2">🔔</span>
+            <span className={e === "echu" ? "font-semibold text-rose-300" : e === "aujourdhui" ? "font-semibold text-amber-200" : "text-white/85"}>
+              {e === "echu" ? "Rappel en retard" : e === "aujourdhui" ? "À recontacter aujourd'hui" : `À recontacter le ${formatDate(p.prochaine_date!)}`}
+              {e === "echu" ? ` (prévu le ${formatDate(p.prochaine_date!)})` : ""}
+            </span>
+            {p.prochaine_action && <span className="text-white/60"> — {p.prochaine_action}</span>}
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <button className="btn-ghost btn-compact" onClick={() => setEdit(true)}>Modifier</button>
+            <button className="btn-ghost btn-compact" onClick={() => onSave({ prochaine_date: dateDansJours(7) })}>+ 1 sem</button>
+            <button className="btn-ghost btn-compact" onClick={() => onSave({ prochaine_action: null, prochaine_date: null })}>✓ Fait</button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="grid gap-2 sm:grid-cols-[1.6fr_auto]">
+            <input className="field-input field-compact" placeholder="Motif (ex : le client veut être rappelé après les congés)" value={motif} onChange={(ev) => setMotif(ev.target.value)} />
+            <input type="date" className="field-input field-compact" value={date} onChange={(ev) => setDate(ev.target.value)} />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-white/50">Ou dans :</span>
+            {DELAIS_RAPPEL.map((d) => (
+              <button key={d.jours} className="btn-ghost btn-compact" onClick={() => programmer(dateDansJours(d.jours))}>{d.label}</button>
+            ))}
+            <span className="flex-1" />
+            <button className="btn-ghost btn-compact" onClick={() => setEdit(false)}>Annuler</button>
+            <button className="btn-primary btn-compact" onClick={() => date && programmer(date)} disabled={!date}>Programmer</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FicheForm({ p, onSave, estAdmin, zone }: { p: Prospect; onSave: (patch: Partial<Prospect>) => Promise<void>; estAdmin: boolean; zone: string | null }) {
   const [f, setF] = useState<Prospect>(p);
   useEffect(() => setF(p), [p]);
@@ -310,6 +374,44 @@ function FicheForm({ p, onSave, estAdmin, zone }: { p: Prospect; onSave: (patch:
         <div className="sm:col-span-2"><label className="field-label">Notes</label><textarea className="field-input" rows={3} value={f.notes || ""} onChange={(e) => set("notes", e.target.value)} /></div>
       </div>
       <div className="mt-3 flex justify-end"><button className="btn-primary" onClick={() => onSave(f)}>Enregistrer</button></div>
+    </div>
+  );
+}
+
+/* ------------------- Agréments (nom + tarif particulier) ------------------- */
+function AgrementsEditor({ b, set }: { b: Record<string, unknown>; set: (cle: string, v: unknown) => void }) {
+  const liste = agrementsDe(b); // inclut la reprise de l'ancien champ « lesquels »
+  const maj = (l: Agrement[]) => {
+    set("agrements_liste", l);
+    set("agrements_detail", ""); // l'ancien champ libre est absorbé par la liste
+  };
+  const [nouveau, setNouveau] = useState<Agrement>({ nom: "", tarif: "" });
+  function ajouter() {
+    if (!nouveau.nom.trim()) return;
+    maj([...liste, { nom: nouveau.nom.trim(), tarif: nouveau.tarif?.trim() || undefined }]);
+    setNouveau({ nom: "", tarif: "" });
+  }
+  return (
+    <div className="mt-2 rounded-lg border border-white/15 p-3">
+      <p className="text-xs text-white/50">Un agrément par ligne — précise le tarif particulier s&apos;il y en a un (taux horaire imposé, remise, forfait…). Ils apparaissent sur la fiche client et l&apos;annexe du contrat.</p>
+      {liste.length > 0 && (
+        <ul className="mt-2 divide-y divide-white/10">
+          {liste.map((a, i) => (
+            <li key={i} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+              <div className="min-w-0">
+                <span className="font-medium text-white">{a.nom}</span>
+                <span className="text-white/60">{a.tarif ? ` — ${a.tarif}` : " — tarif standard"}</span>
+              </div>
+              <button className="text-xs text-white/40 hover:text-rose-300" onClick={() => maj(liste.filter((_, j) => j !== i))}>Retirer</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_1.2fr_auto]">
+        <input className="field-input field-compact" placeholder="Assureur / réseau (ex : AXA, Covéa…)" value={nouveau.nom} onChange={(e) => setNouveau((n) => ({ ...n, nom: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") ajouter(); }} />
+        <input className="field-input field-compact" placeholder="Tarif particulier (facultatif — ex : T1 à 62 € HT)" value={nouveau.tarif || ""} onChange={(e) => setNouveau((n) => ({ ...n, tarif: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") ajouter(); }} />
+        <button className="btn-ghost btn-compact" type="button" onClick={ajouter} disabled={!nouveau.nom.trim()}>+ Ajouter</button>
+      </div>
     </div>
   );
 }
@@ -366,13 +468,16 @@ function BesoinsForm({ p, onSave, docs, onGenerer, onApercu, onEnvoyer }: {
     if (q.type === "ouinon") {
       const val = v === true || v === "Oui" ? "Oui" : v === false || v === "Non" ? "Non" : "";
       return (
-        <div className="flex flex-wrap items-center gap-2">
-          {["Oui", "Non"].map((o) => (
-            <button key={o} type="button" onClick={() => set(q.cle, val === o ? "" : o)} className={`rounded-full border px-3 py-1 text-xs ${val === o ? "border-accent-pink bg-accent-pink text-white" : "border-white/25 text-white/70"}`}>{o}</button>
-          ))}
-          {q.precision && val === "Oui" && (
-            <input className="field-input field-compact flex-1 min-w-[10rem]" placeholder={q.precision.label} value={reponseLisible(b[q.precision.cle])} onChange={(e) => set(q.precision!.cle, e.target.value)} />
-          )}
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            {["Oui", "Non"].map((o) => (
+              <button key={o} type="button" onClick={() => set(q.cle, val === o ? "" : o)} className={`rounded-full border px-3 py-1 text-xs ${val === o ? "border-accent-pink bg-accent-pink text-white" : "border-white/25 text-white/70"}`}>{o}</button>
+            ))}
+            {q.precision && val === "Oui" && (
+              <input className="field-input field-compact flex-1 min-w-[10rem]" placeholder={q.precision.label} value={reponseLisible(b[q.precision.cle])} onChange={(e) => set(q.precision!.cle, e.target.value)} />
+            )}
+          </div>
+          {q.cle === "agrements" && val === "Oui" && <AgrementsEditor b={b} set={set} />}
         </div>
       );
     }

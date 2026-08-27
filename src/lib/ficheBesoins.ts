@@ -33,6 +33,10 @@ export type SectionBesoins = {
 
 export type DemandeParticuliere = { titre: string; detail?: string };
 
+/** Agrément assureur : nom + tarif particulier éventuel (taux horaire,
+ *  remise consentie, forfait…) négocié avec cet assureur. */
+export type Agrement = { nom: string; tarif?: string };
+
 export const TACHES_SECRETARIAT = [
   "Création et saisie des dossiers sinistres (import du rapport d'expertise par IA)",
   "Édition des devis et factures depuis le chiffrage de l'expert",
@@ -66,7 +70,7 @@ export const SECTIONS_BESOINS: SectionBesoins[] = [
       { cle: "dossiers_mois", label: "Nombre de dossiers sinistres / mois (moyenne)", type: "nombre" },
       { cle: "panier_moyen", label: "Panier moyen d'une réparation (€ TTC)", type: "nombre" },
       { cle: "assureurs", label: "Assureurs / plateformes les plus fréquents", type: "texte" },
-      { cle: "agrements", label: "Agréments assureurs ?", type: "ouinon", precision: { cle: "agrements_detail", label: "Lesquels" } },
+      { cle: "agrements", label: "Agréments assureurs ?", type: "ouinon", aide: "Si oui : lister chaque agrément et son éventuel tarif particulier." },
       { cle: "effectif", label: "Effectif atelier", type: "nombre" },
       { cle: "effectif_admin", label: "Effectif administratif", type: "nombre" },
       { cle: "vehicules_pret", label: "Véhicules de prêt (flotte)", type: "ouinon", precision: { cle: "vehicules_pret_nb", label: "Combien" } },
@@ -138,6 +142,18 @@ export function reponseLisible(v: unknown): string {
   return String(v);
 }
 
+export function agrementsDe(besoins: Record<string, unknown> | null | undefined): Agrement[] {
+  const a = besoins?.agrements_liste;
+  const liste = Array.isArray(a)
+    ? a.map((x) => (typeof x === "string" ? { nom: x } : (x as Agrement))).filter((x) => x && typeof x.nom === "string" && x.nom.trim())
+    : [];
+  // Héritage v10.4 : « lesquels » en texte libre → une ligne par agrément.
+  if (!liste.length && typeof besoins?.agrements_detail === "string" && besoins.agrements_detail.trim()) {
+    return besoins.agrements_detail.split(/[,;\n]/).map((n) => n.trim()).filter(Boolean).map((nom) => ({ nom }));
+  }
+  return liste;
+}
+
 export function demandesDe(besoins: Record<string, unknown> | null | undefined): DemandeParticuliere[] {
   const d = besoins?.demandes;
   if (!Array.isArray(d)) return [];
@@ -154,6 +170,14 @@ export function lignesSection(s: SectionBesoins, besoins: Record<string, unknown
     if (q.precision) {
       const p = reponseLisible(besoins[q.precision.cle]);
       if (p) r = `${r || "Oui"} — ${q.precision.label.toLowerCase()} : ${p}`;
+    }
+    if (q.cle === "agrements") {
+      const ag = agrementsDe(besoins);
+      if (ag.length) {
+        out.push([q.label, `Oui — ${ag.map((a) => a.nom).join(", ")}`]);
+        for (const a of ag) if (a.tarif) out.push([`Agrément ${a.nom}`, `Tarif particulier : ${a.tarif}`]);
+        continue;
+      }
     }
     if (r) out.push([q.label, r]);
   }

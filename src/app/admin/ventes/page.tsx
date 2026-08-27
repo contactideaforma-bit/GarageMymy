@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminShell, { ChampAdmin, dateFr, euros } from "@/components/admin/AdminShell";
 import ModalShell from "@/components/ModalShell";
 import {
-  Abonnement, Collaborateur, Mensualite, STATUTS_VENTE, Vente, lireParametres, lireTable, nomCollab, supprimerLigne, upsertLigne, validerVente,
+  Abonnement, Collaborateur, Mensualite, ResultatCompteGarage, STATUTS_VENTE, Vente, creerCompteGarage, lireParametres, lireTable, nomCollab, supprimerLigne, upsertLigne, validerVente,
 } from "@/lib/admin/client";
 import { PARAMETRES_DEFAUT, Parametres, primeVente } from "@/lib/admin/economie";
 import { MODES_PAIEMENT, VenteContrat } from "@/lib/admin/contratGarage";
@@ -171,6 +171,9 @@ function VenteModal({ vente: v, collabs, p, onClose, onChanged }: { vente: Vente
   const [notes, setNotes] = useState(v.notes_admin || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Création du compte garage + email de bienvenue (v10.5)
+  const [avecCompte, setAvecCompte] = useState(true);
+  const [resCompte, setResCompte] = useState<ResultatCompteGarage | null>(null);
   const secretaires = collabs.filter((c) => c.type === "secretaire" && c.statut === "actif");
 
   const contrat: VenteContrat = { ...v };
@@ -180,8 +183,19 @@ function VenteModal({ vente: v, collabs, p, onClose, onChanged }: { vente: Vente
     try {
       await validerVente(v.id, { date_debut: dateDebut, secretaire_id: secretaire || null, remise_acceptee: remiseOk });
       if (notes !== (v.notes_admin || "")) await upsertLigne<Vente>("ventes", { id: v.id, notes_admin: notes });
+      if (avecCompte) {
+        // La vente est validée : même si l'email échoue, on affiche le
+        // résultat (et le mot de passe provisoire à transmettre) avant de fermer.
+        const r = await creerCompteGarage(v.id);
+        setResCompte(r);
+        if (r.motDePasse || !r.emailEnvoye) { setBusy(false); return; }
+      }
       onChanged();
     } catch (e) { setErr(e instanceof Error ? e.message : "Validation impossible."); } finally { setBusy(false); }
+  }
+  async function creerCompte() {
+    setBusy(true); setErr(null);
+    try { setResCompte(await creerCompteGarage(v.id)); } catch (e) { setErr(e instanceof Error ? e.message : "Création impossible."); } finally { setBusy(false); }
   }
   async function sauverNotes() {
     await upsertLigne<Vente>("ventes", { id: v.id, notes_admin: notes });
@@ -241,14 +255,42 @@ function VenteModal({ vente: v, collabs, p, onClose, onChanged }: { vente: Vente
               J&apos;accepte la remise exceptionnelle de {v.remise_supp_pct} % (sinon le prix de grille s&apos;applique)
             </label>
           )}
+          <label className="mt-2 flex items-center gap-2 text-sm text-white/85">
+            <input type="checkbox" checked={avecCompte} onChange={(e) => setAvecCompte(e.target.checked)} />
+            Créer aussi le compte du garage ({v.contact_email}) et lui envoyer l&apos;email de bienvenue
+          </label>
           <p className="mt-2 text-xs text-white/50">
-            Ensuite : créer le compte du garage dans Supabase (Auth → Add user, email {v.contact_email}), exécuter la mise en service, puis cliquer « Compte créé ». Les mensualités se pointent dans Abonnements ; la prime du commercial part avec le relevé.
+            Le compte reçoit un mot de passe provisoire par email (à changer à la première connexion). Les mensualités se pointent dans Abonnements ; la prime du commercial part avec le relevé.
           </p>
           {err && <p className="mt-2 text-xs text-rose-300">{err}</p>}
           <div className="mt-3 flex justify-end gap-2">
             <button className="btn-ghost" onClick={onClose}>Fermer</button>
             <button className="btn-primary" onClick={valider} disabled={busy}>{busy ? "…" : "Valider et créer l'abonnement"}</button>
           </div>
+        </div>
+      )}
+
+      {v.statut === "validee" && !resCompte && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/15 p-3 text-sm">
+          <span className="text-white/70">Le compte du garage n&apos;est pas encore créé.</span>
+          <button className="btn-primary btn-compact" onClick={creerCompte} disabled={busy}>{busy ? "…" : "Créer le compte + email de bienvenue"}</button>
+        </div>
+      )}
+      {resCompte && (
+        <div className={`rounded-lg border p-3 text-sm ${resCompte.motDePasse ? "border-amber-300/60 bg-amber-300/10" : "border-emerald-300/50 bg-emerald-300/10"}`}>
+          {resCompte.dejaExistant ? (
+            <p className="text-white/85">Un compte existait déjà pour {v.contact_email} : il a été rattaché à l&apos;abonnement (mot de passe inchangé, pas d&apos;email envoyé).</p>
+          ) : resCompte.emailEnvoye ? (
+            <p className="text-white/85">✓ Compte créé — l&apos;email de bienvenue (identifiants + premiers pas) est parti à {v.contact_email}.</p>
+          ) : (
+            <div className="text-white/85">
+              <p>Compte créé, mais l&apos;email de bienvenue n&apos;est pas parti{resCompte.erreurEmail ? ` (${resCompte.erreurEmail})` : ""}.</p>
+              {resCompte.motDePasse && (
+                <p className="mt-1">Transmets ces identifiants au garage : <b>{v.contact_email}</b> / mot de passe provisoire <b className="font-mono text-amber-200">{resCompte.motDePasse}</b> — il ne sera plus affiché ensuite.</p>
+              )}
+            </div>
+          )}
+          <div className="mt-2 flex justify-end"><button className="btn-ghost btn-compact" onClick={onChanged}>Fermer</button></div>
         </div>
       )}
 
