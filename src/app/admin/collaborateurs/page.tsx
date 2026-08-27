@@ -8,7 +8,13 @@ import AdminShell, { ChampAdmin, dateFr, euros } from "@/components/admin/AdminS
 import ModalShell from "@/components/ModalShell";
 import { Abonnement, Collaborateur, Demande, Reglement, lireTable, nomCollab, supprimerLigne, upsertLigne } from "@/lib/admin/client";
 
-const VIDE: Partial<Collaborateur> = { type: "commercial", nom: "", prenom: "", email: "", tel: "", siret: "", adresse: "", statut: "actif", date_debut: "", date_fin: "", iban: "", taux_retrocession: null, taux_horaire: null, notes: "" };
+const VIDE: Partial<Collaborateur> = { type: "commercial", nom: "", prenom: "", email: "", tel: "", siret: "", adresse: "", statut: "actif", date_debut: "", date_fin: "", iban: "", taux_retrocession: null, taux_horaire: null, notes: "", code_apporteur: "" };
+
+/** Code apporteur lisible : 2 lettres du nom + 4 chiffres (ex. DU4821). */
+function genererCode(nom: string): string {
+  const lettres = (nom || "XX").normalize("NFD").replace(/[^a-zA-Z]/g, "").slice(0, 2).toUpperCase().padEnd(2, "X");
+  return `${lettres}${String(Math.floor(1000 + Math.random() * 9000))}`;
+}
 
 export default function CollaborateursPage() {
   const [collabs, setCollabs] = useState<Collaborateur[]>([]);
@@ -111,6 +117,12 @@ export default function CollaborateursPage() {
                 {c.tel && <div>{c.tel}</div>}
                 {c.siret && <div>SIRET {c.siret}</div>}
                 {c.type === "secretaire" && <div>Taux horaire : {c.taux_horaire != null ? `${Number(c.taux_horaire)} €/h` : "17 €/h (défaut)"}</div>}
+                {c.type === "commercial" && (
+                  <div>
+                    Code apporteur :{" "}
+                    {c.code_apporteur ? <b className="font-mono text-white">{c.code_apporteur}</b> : <span className="text-amber-300">à définir (page /vente)</span>}
+                  </div>
+                )}
                 {c.date_debut && <div>Depuis le {dateFr(c.date_debut)}{c.date_fin ? ` · fin le ${dateFr(c.date_fin)}` : ""}</div>}
               </div>
             </div>
@@ -128,6 +140,14 @@ export default function CollaborateursPage() {
             <ChampAdmin label="Email"><input className="field-input" type="email" value={form.email || ""} onChange={(e) => set("email", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="Téléphone"><input className="field-input" value={form.tel || ""} onChange={(e) => set("tel", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="SIRET"><input className="field-input" value={form.siret || ""} onChange={(e) => set("siret", e.target.value)} /></ChampAdmin>
+            {form.type === "commercial" && (
+              <ChampAdmin label="Code apporteur (saisi sur /vente)">
+                <div className="flex gap-2">
+                  <input className="field-input font-mono uppercase" value={form.code_apporteur || ""} onChange={(e) => set("code_apporteur", e.target.value.toUpperCase())} />
+                  <button type="button" className="btn-ghost btn-compact shrink-0" onClick={() => set("code_apporteur", genererCode(form.nom || ""))}>Générer</button>
+                </div>
+              </ChampAdmin>
+            )}
             <ChampAdmin label="IBAN (pour les virements)"><input className="field-input" value={form.iban || ""} onChange={(e) => set("iban", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="Adresse"><input className="field-input" value={form.adresse || ""} onChange={(e) => set("adresse", e.target.value)} /></ChampAdmin>
             {form.type === "secretaire" && (

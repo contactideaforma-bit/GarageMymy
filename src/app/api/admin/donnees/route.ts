@@ -3,7 +3,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 import { estAdminServeur } from "@/lib/supportServeur";
-import { fusionnerParametres, lignesDues, Parametres } from "@/lib/admin/economie";
+import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from "@/lib/admin/economie";
 
 // ============================================================
 //  ESPACE ÉDITEUR — accès aux données d'administration (v53).
@@ -24,7 +24,7 @@ import { fusionnerParametres, lignesDues, Parametres } from "@/lib/admin/economi
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes"] as const;
+const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes", "ventes"] as const;
 type Table = (typeof TABLES)[number];
 const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   collaborateurs: { col: "nom", asc: true },
@@ -32,6 +32,7 @@ const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   abonnement_mensualites: { col: "periode", asc: true },
   collaborateur_reglements: { col: "created_at", asc: false },
   collaborateur_demandes: { col: "created_at", asc: false },
+  ventes: { col: "created_at", asc: false },
 };
 
 type Garde = { erreur: NextResponse; admin: null } | { erreur: null; admin: SupabaseClient };
@@ -72,7 +73,10 @@ export async function POST(req: Request) {
   const g = await garde(req);
   if (g.erreur) return g.erreur;
   const { admin } = g;
-  let body: { action?: string; table?: string; row?: Record<string, unknown>; id?: string; valeur?: unknown; abonnement_id?: string };
+  let body: {
+    action?: string; table?: string; row?: Record<string, unknown>; id?: string; valeur?: unknown; abonnement_id?: string;
+    vente_id?: string; date_debut?: string; secretaire_id?: string | null; remise_acceptee?: boolean;
+  };
   try {
     body = await req.json();
   } catch {
@@ -115,6 +119,70 @@ export async function POST(req: Request) {
     const { error: e2 } = await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });
     if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
     return NextResponse.json({ ok: true, ajoutees: lignes.length });
+  }
+
+  // ---- VALIDATION D'UNE VENTE (v10.0) : crée l'abonnement + mensualités,
+  //      rattache le commercial, passe la vente en « validée ».
+  if (body.action === "valider_vente") {
+    const { data: v, error } = await admin.from("ventes").select("*").eq("id", body.vente_id || "").maybeSingle();
+    if (error || !v) return NextResponse.json({ error: "Vente introuvable." }, { status: 404 });
+    if (v.abonnement_id) return NextResponse.json({ error: "Cette vente est déjà rattachée à un abonnement." }, { status: 409 });
+    const p = await lireParametres(admin);
+    const formule = v.formule as Formule;
+    const engagement = Boolean(v.engagement_12) || v.periodicite === "annuel";
+    // Remise exceptionnelle : appliquée seulement si l'éditeur l'accepte.
+    const remiseSupp = body.remise_acceptee ? Number(v.remise_supp_pct) || 0 : 0;
+    const prix = prixVente(formule, { engagement12: engagement, periodicite: v.periodicite, remiseSupp }, p);
+    const dateDebut = body.date_debut || v.date_debut_souhaitee || premierDuMois(new Date());
+    const prixMensuel = prix.montantAnnuel != null ? Math.round((prix.montantAnnuel / 12) * 100) / 100 : prix.mensualite;
+    const remisePct = Math.round((100 - (prixMensuel / p.formules[formule].prix) * 100) * 100) / 100;
+    const { data: abo, error: eAbo } = await admin
+      .from("abonnements")
+      .insert({
+        garage_nom: v.garage_nom,
+        garage_email: v.contact_email,
+        formule,
+        prix_ht: prixMensuel,
+        remise_pct: remisePct,
+        periodicite: v.periodicite,
+        montant_annuel: prix.montantAnnuel,
+        heures: p.formules[formule].heures,
+        date_signature: (v.signe_le || v.created_at).slice(0, 10),
+        date_debut: dateDebut,
+        engagement_12: engagement,
+        statut: "actif",
+        commercial_id: v.collaborateur_id,
+        secretaire_id: body.secretaire_id || null,
+        notes: `Vente ${v.numero || ""} déclarée par le code ${v.code_apporteur}. Paiement : ${v.mode_paiement}${v.paiement_sur_place ? ` — reçu sur place ${v.paiement_montant ?? ""} € (réf. ${v.paiement_reference || "—"})` : ""}.`,
+      })
+      .select("id")
+      .single();
+    if (eAbo || !abo) return NextResponse.json({ error: eAbo?.message || "Création de l'abonnement impossible." }, { status: 500 });
+    // Mensualités (même logique que generer_mensualites)
+    const d = new Date(dateDebut);
+    const m0 = new Date(d.getFullYear(), d.getMonth(), 1);
+    const lignes: { abonnement_id: string; periode: string; montant_ht: number; notes?: string }[] = [];
+    if (v.periodicite === "annuel") {
+      const total = Number(prix.montantAnnuel) || prixMensuel * 12;
+      const part = Math.floor((total / 12) * 100) / 100;
+      for (let i = 0; i < 12; i++) {
+        lignes.push({ abonnement_id: abo.id, periode: premierDuMois(m0), montant_ht: i === 11 ? Math.round((total - part * 11) * 100) / 100 : part, notes: "Forfait annuel" });
+        m0.setMonth(m0.getMonth() + 1);
+      }
+    } else {
+      const fin = new Date();
+      if (m0 > fin) lignes.push({ abonnement_id: abo.id, periode: premierDuMois(m0), montant_ht: prixMensuel });
+      while (m0 <= fin) {
+        lignes.push({ abonnement_id: abo.id, periode: premierDuMois(m0), montant_ht: prixMensuel });
+        m0.setMonth(m0.getMonth() + 1);
+      }
+    }
+    if (lignes.length) await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });
+    await admin
+      .from("ventes")
+      .update({ statut: "validee", abonnement_id: abo.id, validee_le: new Date().toISOString(), remise_supp_pct: remiseSupp })
+      .eq("id", v.id);
+    return NextResponse.json({ ok: true, abonnement_id: abo.id });
   }
 
   // ---- relevé : toutes les lignes dues qui n'existent pas encore

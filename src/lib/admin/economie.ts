@@ -28,6 +28,17 @@ export type Parametres = {
   tauxConservationM6: number;    // part des garages encore actifs à M6 (simulateur)
   bonusVolume: { palier1: number; bonus1: number; palier2: number; bonus2: number };
   mensualitesReprise: number;    // reprise de la prime si arrêt avant N mensualités
+  // CONDITIONS DE VENTE (v10.0) — gérées par l'éditeur, reprises par la
+  // plaquette du commercial, le formulaire de vente et le contrat garage.
+  remiseEngagement: Record<Formule, number>;      // % de remise sur la mensualité si engagement 12 mois
+  bonusAnnuelMensualites: Record<Formule, number>; // mensualités offertes si paiement de l'année en une fois
+  bonusAnnuelEuros: Record<Formule, number>;       // € offerts si paiement de l'année en une fois
+  miseEnService: number;                           // € HT, offerte si engagement 12 mois
+  heureHorsForfait: number;                        // € HT
+  primeMensualiteAvecEngagement: number;           // prime acquise à la N-ième mensualité encaissée (1 = immédiate)
+  primeMensualiteSansEngagement: number;           // sans engagement : différée (3 = deux mois après la 1re)
+  iban: string;                                    // coordonnées de paiement affichées au garage
+  bic: string;
 };
 
 export const PARAMETRES_DEFAUT: Parametres = {
@@ -48,6 +59,15 @@ export const PARAMETRES_DEFAUT: Parametres = {
   tauxConservationM6: 0.85,
   bonusVolume: { palier1: 5, bonus1: 255, palier2: 10, bonus2: 680 },
   mensualitesReprise: 3,
+  remiseEngagement: { essentiel: 5, starter: 10, confort: 12, serenite: 15 },
+  bonusAnnuelMensualites: { essentiel: 1, starter: 0, confort: 0, serenite: 0 },
+  bonusAnnuelEuros: { essentiel: 0, starter: 100, confort: 200, serenite: 200 },
+  miseEnService: 290,
+  heureHorsForfait: 45,
+  primeMensualiteAvecEngagement: 1,
+  primeMensualiteSansEngagement: 3,
+  iban: "",
+  bic: "",
 };
 
 /** Fusionne des paramètres partiels (venant de la base) avec les défauts. */
@@ -55,7 +75,135 @@ export function fusionnerParametres(p?: Partial<Parametres> | null): Parametres 
   if (!p) return PARAMETRES_DEFAUT;
   const formules = { ...PARAMETRES_DEFAUT.formules } as Record<Formule, ParamsFormule>;
   for (const f of FORMULES) formules[f] = { ...PARAMETRES_DEFAUT.formules[f], ...(p.formules?.[f] || {}) };
-  return { ...PARAMETRES_DEFAUT, ...p, formules, bonusVolume: { ...PARAMETRES_DEFAUT.bonusVolume, ...(p.bonusVolume || {}) } };
+  return {
+    ...PARAMETRES_DEFAUT,
+    ...p,
+    formules,
+    bonusVolume: { ...PARAMETRES_DEFAUT.bonusVolume, ...(p.bonusVolume || {}) },
+    remiseEngagement: { ...PARAMETRES_DEFAUT.remiseEngagement, ...(p.remiseEngagement || {}) },
+    bonusAnnuelMensualites: { ...PARAMETRES_DEFAUT.bonusAnnuelMensualites, ...(p.bonusAnnuelMensualites || {}) },
+    bonusAnnuelEuros: { ...PARAMETRES_DEFAUT.bonusAnnuelEuros, ...(p.bonusAnnuelEuros || {}) },
+  };
+}
+
+/* ------------------------------------------------------------------
+ *  TARIFS DE VENTE (v10.0) — les trois façons d'acheter une formule
+ * ------------------------------------------------------------------ */
+
+export type Periodicite = "mensuel" | "annuel";
+
+export type TarifFormule = {
+  formule: Formule;
+  libelle: string;
+  heures: number;
+  mensuel: number;            // sans engagement, € HT / mois
+  remiseEngagementPct: number;
+  mensuelEngage: number;      // engagement 12 mois, € HT / mois
+  annuelBase: number;         // 12 × mensuel engagé
+  bonusAnnuel: number;        // € offerts en plus si l'année est payée d'un coup
+  bonusAnnuelLibelle: string; // « 1 mensualité offerte » / « 100 € offerts »
+  annuelUnique: number;       // à payer en une fois, € HT
+  economieEngagement: number; // sur 12 mois vs sans engagement
+  economieAnnuel: number;     // sur 12 mois vs sans engagement
+  miseEnService: number;      // due si pas d'engagement
+};
+
+export function tarifFormule(f: Formule, p: Parametres): TarifFormule {
+  const pf = p.formules[f];
+  const remise = p.remiseEngagement[f] || 0;
+  const mensuelEngage = r2(pf.prix * (1 - remise / 100));
+  const annuelBase = r2(mensuelEngage * 12);
+  const bonusMens = p.bonusAnnuelMensualites[f] || 0;
+  const bonusEur = p.bonusAnnuelEuros[f] || 0;
+  const bonusAnnuel = r2(bonusMens * mensuelEngage + bonusEur);
+  const libelles = [
+    bonusMens > 0 ? `${bonusMens} mensualité${bonusMens > 1 ? "s" : ""} offerte${bonusMens > 1 ? "s" : ""}` : "",
+    bonusEur > 0 ? `${bonusEur} € offerts` : "",
+  ].filter(Boolean);
+  return {
+    formule: f,
+    libelle: pf.libelle,
+    heures: pf.heures,
+    mensuel: pf.prix,
+    remiseEngagementPct: remise,
+    mensuelEngage,
+    annuelBase,
+    bonusAnnuel,
+    bonusAnnuelLibelle: libelles.join(" + ") || "—",
+    annuelUnique: r2(annuelBase - bonusAnnuel),
+    economieEngagement: r2(pf.prix * 12 - annuelBase),
+    economieAnnuel: r2(pf.prix * 12 - (annuelBase - bonusAnnuel)),
+    miseEnService: p.miseEnService,
+  };
+}
+
+export function grilleTarifs(p: Parametres): TarifFormule[] {
+  return FORMULES.map((f) => tarifFormule(f, p));
+}
+
+/**
+ * Prix d'une vente donnée : mensualité HT réellement facturée et, pour un
+ * paiement annuel, le montant total. `remiseSupp` = remise commerciale
+ * supplémentaire en % (accordée exceptionnellement, validée par l'éditeur).
+ */
+export function prixVente(
+  f: Formule,
+  opts: { engagement12: boolean; periodicite: Periodicite; remiseSupp?: number },
+  p: Parametres
+): { mensualite: number; montantAnnuel: number | null; remiseTotalePct: number; miseEnService: number } {
+  const t = tarifFormule(f, p);
+  const engage = opts.engagement12 || opts.periodicite === "annuel";
+  const base = engage ? t.mensuelEngage : t.mensuel;
+  const supp = Math.min(100, Math.max(0, opts.remiseSupp || 0));
+  const mensualite = r2(base * (1 - supp / 100));
+  const montantAnnuel = opts.periodicite === "annuel" ? r2((t.annuelBase - t.bonusAnnuel) * (1 - supp / 100)) : null;
+  const remiseTotalePct = r2(100 - ((montantAnnuel != null ? montantAnnuel / 12 : mensualite) / t.mensuel) * 100);
+  return { mensualite, montantAnnuel, remiseTotalePct, miseEnService: engage ? 0 : p.miseEnService };
+}
+
+/**
+ * Prime du commercial pour une vente : 85 % d'une mensualité de la grille
+ * (plancher Essentiel) proportionnée à la mensualité réellement facturée,
+ * + bonus engagement. `mensualiteEcheance` = mensualité encaissée à partir
+ * de laquelle la prime est ACQUISE (1 = immédiate avec engagement).
+ */
+/**
+ * RATIO DE PRIME (v10.0) : la remise « engagement 12 mois » et l'avantage
+ * « année en une fois » sont ceux de la grille IDEAFORMA — ils ne réduisent
+ * PAS la prime (sinon le commercial aurait intérêt à vendre sans engagement).
+ * Seule une remise EXCEPTIONNELLE, hors grille, réduit la prime dans la
+ * même proportion. Référence = mensualité de grille du cas vendu.
+ */
+export function ratioPrime(
+  f: Formule,
+  opts: { engagement12: boolean; periodicite?: Periodicite; mensualiteFacturee: number },
+  p: Parametres
+): number {
+  const t = tarifFormule(f, p);
+  const engage = opts.engagement12 || opts.periodicite === "annuel";
+  const reference = engage ? t.mensuelEngage : t.mensuel;
+  // Année en une fois : la mensualité facturée intègre l'avantage annuel — on le neutralise.
+  const facturee = opts.periodicite === "annuel" ? opts.mensualiteFacturee + t.bonusAnnuel / 12 : opts.mensualiteFacturee;
+  return reference > 0 ? Math.min(1, Math.max(0, facturee / reference)) : 1;
+}
+
+export function primeVente(
+  f: Formule,
+  opts: { engagement12: boolean; periodicite?: Periodicite; mensualiteFacturee: number },
+  p: Parametres
+): { prime: number; bonus: number; total: number; mensualiteEcheance: number; mensualitesReprise: number } {
+  const pf = p.formules[f];
+  const ratio = ratioPrime(f, opts, p);
+  const plancher = p.formules.essentiel.primeSignature;
+  const prime = r2(Math.max(f === "essentiel" ? plancher : 0, pf.primeSignature * ratio));
+  const bonus = opts.engagement12 ? pf.bonusEngagement : 0;
+  return {
+    prime,
+    bonus,
+    total: r2(prime + bonus),
+    mensualiteEcheance: opts.engagement12 ? p.primeMensualiteAvecEngagement : p.primeMensualiteSansEngagement,
+    mensualitesReprise: p.mensualitesReprise,
+  };
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -152,6 +300,7 @@ export type AbonnementCalc = {
   prix_ht: number; // mensualité réellement facturée (remise déduite)
   date_signature: string;
   engagement_12: boolean;
+  periodicite?: Periodicite | null;
   statut: "actif" | "suspendu" | "resilie";
   commercial_id: string | null;
   secretaire_id: string | null;
@@ -193,7 +342,11 @@ export function lignesDues(
   const collabs = new Map(collaborateurs.map((c) => [c.id, c]));
   for (const a of abonnements) {
     const f0 = p.formules[a.formule];
-    const ratio = f0.prix > 0 ? Math.min(1, Math.max(0, (Number(a.prix_ht) || f0.prix) / f0.prix)) : 1;
+    const ratio = ratioPrime(
+      a.formule,
+      { engagement12: a.engagement_12, periodicite: a.periodicite || "mensuel", mensualiteFacturee: Number(a.prix_ht) || f0.prix },
+      p
+    );
     const plancher = p.formules.essentiel.primeSignature;
     const f = {
       ...f0,
@@ -207,16 +360,25 @@ export function lignesDues(
 
     if (a.commercial_id && collabs.get(a.commercial_id)?.type === "commercial") {
       const cid = a.commercial_id;
-      if (nbPayees >= 2) {
-        lignes.push({ cle: `sig:${a.id}`, collaborateur_id: cid, abonnement_id: a.id, type: "commission", libelle: `Prime de signature — ${a.garage_nom} (${f.libelle})`, periode: payees[1].periode, montant: f.primeSignature });
+      // ÉCHÉANCE DE LA PRIME (v10.0) : immédiate (1re mensualité encaissée)
+      // avec engagement 12 mois, différée sinon (3e mensualité = deux mois
+      // après la première). Paramétrable par l'éditeur.
+      const echeance = Math.max(1, a.engagement_12 ? p.primeMensualiteAvecEngagement : p.primeMensualiteSansEngagement);
+      const primeDue = nbPayees >= echeance;
+      if (primeDue) {
+        const periode = payees[echeance - 1].periode;
+        lignes.push({ cle: `sig:${a.id}`, collaborateur_id: cid, abonnement_id: a.id, type: "commission", libelle: `Prime de signature — ${a.garage_nom} (${f.libelle})`, periode, montant: f.primeSignature });
         if (a.engagement_12) {
-          lignes.push({ cle: `eng:${a.id}`, collaborateur_id: cid, abonnement_id: a.id, type: "bonus", libelle: `Bonus engagement 12 mois — ${a.garage_nom}`, periode: payees[1].periode, montant: f.bonusEngagement });
+          lignes.push({ cle: `eng:${a.id}`, collaborateur_id: cid, abonnement_id: a.id, type: "bonus", libelle: `Bonus engagement 12 mois — ${a.garage_nom}`, periode, montant: f.bonusEngagement });
         }
       }
       if (f.primeFidelite > 0 && nbPayees >= 6 && a.statut !== "resilie") {
         lignes.push({ cle: `fid:${a.id}`, collaborateur_id: cid, abonnement_id: a.id, type: "fidelite", libelle: `Prime de fidélité — ${a.garage_nom} (${f.libelle})`, periode: payees[5].periode, montant: f.primeFidelite });
       }
-      if (a.statut === "resilie" && nbPayees >= 2 && nbPayees < p.mensualitesReprise) {
+      // REPRISE : prime déjà acquise mais garage parti (résiliation ou
+      // impayé) avant la N-ième mensualité encaissée → l'éditeur ne paie pas
+      // une vente qui n'a pas tenu (clause du contrat d'apporteur).
+      if (a.statut === "resilie" && primeDue && nbPayees < p.mensualitesReprise) {
         const reprise = f.primeSignature + (a.engagement_12 ? f.bonusEngagement : 0);
         lignes.push({ cle: `rep:${a.id}`, collaborateur_id: cid, abonnement_id: a.id, type: "reprise", libelle: `Reprise (résiliation avant la ${p.mensualitesReprise}e mensualité) — ${a.garage_nom}`, periode: null, montant: -reprise });
       }

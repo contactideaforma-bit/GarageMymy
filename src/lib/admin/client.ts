@@ -7,6 +7,18 @@ export type Collaborateur = {
   email: string | null; tel: string | null; siret: string | null; adresse: string | null;
   statut: "actif" | "pause" | "termine"; date_debut: string | null; date_fin: string | null;
   iban: string | null; taux_retrocession: number | null; taux_horaire: number | null; notes: string | null;
+  code_apporteur?: string | null; // commerciaux : identifiant saisi sur /vente (v10.0)
+};
+export type Vente = {
+  id: string; created_at: string; numero: string | null; code_apporteur: string; collaborateur_id: string | null;
+  garage_nom: string; garage_siret: string | null; garage_adresse: string | null; garage_cp: string | null; garage_ville: string | null;
+  contact_nom: string | null; contact_fonction: string | null; contact_tel: string | null; contact_email: string;
+  formule: "essentiel" | "starter" | "confort" | "serenite"; engagement_12: boolean; periodicite: "mensuel" | "annuel";
+  remise_supp_pct: number; prix_mensuel_ht: number; montant_annuel_ht: number | null; mise_en_service_ht: number; date_debut_souhaitee: string | null;
+  mode_paiement: string; paiement_sur_place: boolean; paiement_montant: number | null; paiement_reference: string | null;
+  besoins: Record<string, unknown> | null; cgv_acceptees: boolean; signataire_nom: string | null; signataire_qualite: string | null;
+  signature: string | null; signe_le: string | null;
+  statut: "declaree" | "validee" | "compte_cree" | "fidelisee" | "perdue" | "refusee"; abonnement_id: string | null; validee_le: string | null; notes_admin: string | null;
 };
 export type Abonnement = {
   id: string; created_at: string; garage_nom: string; garage_email: string | null; garage_owner_id: string | null;
@@ -22,7 +34,7 @@ export type Reglement = {
 };
 export type Demande = { id: string; created_at: string; collaborateur_id: string; objet: string; contenu: string | null; statut: "ouverte" | "en_cours" | "close"; reponse: string | null; repondu_le: string | null };
 
-export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes";
+export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "ventes";
 
 export async function lireTable<T>(table: TableAdmin): Promise<T[]> {
   const res = await fetchAuth(`/api/admin/donnees?table=${table}`);
@@ -47,6 +59,17 @@ export const supprimerLigne = (table: TableAdmin, id: string) => post({ action: 
 export const enregistrerParametres = (valeur: Parametres) => post<{ parametres: Parametres }>({ action: "parametres", valeur });
 export const genererMensualites = (abonnement_id: string) => post<{ ajoutees: number }>({ action: "generer_mensualites", abonnement_id });
 export const genererReleve = () => post<{ ajoutees: number; total: number }>({ action: "generer_releve" });
+/** Valide une vente déclarée : crée l'abonnement rattaché au commercial, ses mensualités, et passe la vente en « validée ». */
+export const validerVente = (vente_id: string, opts: { date_debut: string; secretaire_id?: string | null; remise_acceptee?: boolean }) =>
+  post<{ abonnement_id: string }>({ action: "valider_vente", vente_id, ...opts });
+export const STATUTS_VENTE: Record<Vente["statut"], { label: string; badge: string }> = {
+  declaree: { label: "À valider", badge: "badge badge-warn" },
+  validee: { label: "Validée", badge: "badge badge-info" },
+  compte_cree: { label: "Compte créé", badge: "badge badge-info" },
+  fidelisee: { label: "Fidélisée", badge: "badge badge-ok" },
+  perdue: { label: "Perdue", badge: "badge badge-danger" },
+  refusee: { label: "Refusée", badge: "badge badge-neutral" },
+};
 
 export const LIBELLE_TYPE: Record<Reglement["type"], string> = {
   commission: "Prime de signature", fidelite: "Prime de fidélité", bonus: "Bonus", retrocession: "Rétrocession", reprise: "Reprise", autre: "Autre",

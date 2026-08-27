@@ -21,6 +21,8 @@ export function estRoutePublique(pathname?: string | null): boolean {
     pathname === "/cgu" ||
     pathname === "/confidentialite" ||
     pathname === "/contact" ||
-    pathname === "/facturation-electronique"
+    pathname === "/facturation-electronique" ||
+    // Déclaration de vente par les commerciaux (v10.0) : code apporteur, pas de compte.
+    pathname === "/vente"
   );
 }

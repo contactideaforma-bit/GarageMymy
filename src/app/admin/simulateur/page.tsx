@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AdminShell, { euros } from "@/components/admin/AdminShell";
 import { enregistrerParametres, lireParametres } from "@/lib/admin/client";
-import { FORMULES, Formule, LigneSimulation, PARAMETRES_DEFAUT, Parametres, simuler } from "@/lib/admin/economie";
+import { FORMULES, Formule, LigneSimulation, PARAMETRES_DEFAUT, Parametres, grilleTarifs, simuler } from "@/lib/admin/economie";
 
 const LIGNES_DEFAUT: LigneSimulation[] = [
   { formule: "essentiel", nombre: 3, avecCommercial: true },
@@ -196,6 +196,48 @@ export default function SimulateurPage() {
             <Param label="Part engagée 12 mois" value={p.tauxEngagement * 100} suffixe="%" onChange={(v) => setP({ ...p, tauxEngagement: v / 100 })} />
             <Param label="Conservés à M6" value={p.tauxConservationM6 * 100} suffixe="%" onChange={(v) => setP({ ...p, tauxConservationM6: v / 100 })} />
             <Param label="Reprise si arrêt avant (mensualités)" value={p.mensualitesReprise} suffixe="" onChange={(v) => setP({ ...p, mensualitesReprise: v })} />
+          </div>
+          {/* CONDITIONS DE VENTE (v10.0) : remises, paiement annuel, échéance des primes */}
+          <h3 className="mt-6 text-sm font-semibold text-accent-pink">Conditions de vente (plaquette, page /vente, contrat garage)</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-white/50">
+                <tr>
+                  <th className="cellule font-medium">Formule</th>
+                  <th className="cellule font-medium">Remise engagement 12 mois (%)</th>
+                  <th className="cellule font-medium">Année en 1 fois : mensualités offertes</th>
+                  <th className="cellule font-medium">Année en 1 fois : € offerts</th>
+                  <th className="cellule font-medium">→ mensuel engagé</th>
+                  <th className="cellule font-medium">→ année en 1 fois</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grilleTarifs(p).map((t) => (
+                  <tr key={t.formule} className="border-t border-white/5">
+                    <td className="cellule text-white">{t.libelle}</td>
+                    <td className="cellule"><input type="number" className="field-input field-compact w-24 text-right tabular-nums" value={p.remiseEngagement[t.formule]} onChange={(e) => setP({ ...p, remiseEngagement: { ...p.remiseEngagement, [t.formule]: Number(e.target.value) || 0 } })} /></td>
+                    <td className="cellule"><input type="number" className="field-input field-compact w-24 text-right tabular-nums" value={p.bonusAnnuelMensualites[t.formule]} onChange={(e) => setP({ ...p, bonusAnnuelMensualites: { ...p.bonusAnnuelMensualites, [t.formule]: Number(e.target.value) || 0 } })} /></td>
+                    <td className="cellule"><input type="number" className="field-input field-compact w-24 text-right tabular-nums" value={p.bonusAnnuelEuros[t.formule]} onChange={(e) => setP({ ...p, bonusAnnuelEuros: { ...p.bonusAnnuelEuros, [t.formule]: Number(e.target.value) || 0 } })} /></td>
+                    <td className="cellule tabular-nums text-white/80">{euros(t.mensuelEngage)} / mois</td>
+                    <td className="cellule tabular-nums text-white/80">{euros(t.annuelUnique)} <span className="text-white/40">({t.bonusAnnuelLibelle})</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <Param label="Mise en service (offerte si engagement)" value={p.miseEnService} suffixe="€" onChange={(v) => setP({ ...p, miseEnService: v })} />
+            <Param label="Heure hors forfait" value={p.heureHorsForfait} suffixe="€" onChange={(v) => setP({ ...p, heureHorsForfait: v })} />
+            <Param label="Prime AVEC engagement : à la mensualité n°" value={p.primeMensualiteAvecEngagement} suffixe="" onChange={(v) => setP({ ...p, primeMensualiteAvecEngagement: Math.max(1, Math.round(v)) })} />
+            <Param label="Prime SANS engagement : à la mensualité n°" value={p.primeMensualiteSansEngagement} suffixe="" onChange={(v) => setP({ ...p, primeMensualiteSansEngagement: Math.max(1, Math.round(v)) })} />
+            <div>
+              <label className="field-label">IBAN IDEAFORMA (affiché au garage sur /vente)</label>
+              <input className="field-input field-compact font-mono" value={p.iban} onChange={(e) => setP({ ...p, iban: e.target.value })} />
+            </div>
+            <div>
+              <label className="field-label">BIC</label>
+              <input className="field-input field-compact font-mono" value={p.bic} onChange={(e) => setP({ ...p, bic: e.target.value })} />
+            </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <button className="btn-primary" onClick={sauver} disabled={saving}>{saving ? "Enregistrement…" : "Enregistrer les paramètres"}</button>

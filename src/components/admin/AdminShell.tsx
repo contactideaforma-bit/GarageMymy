@@ -12,6 +12,7 @@ import { estAdmin } from "@/lib/support";
 const ONGLETS: [string, string][] = [
   ["/admin", "Tableau de bord"],
   ["/admin/simulateur", "Simulateur"],
+  ["/admin/ventes", "Ventes"],
   ["/admin/abonnements", "Abonnements"],
   ["/admin/collaborateurs", "Collaborateurs"],
   ["/admin/reglements", "Relevés & paiements"],
