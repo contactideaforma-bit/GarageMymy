@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
-import { estAdminServeur } from "@/lib/supportServeur";
+import { estAdminServeur, tousLesComptes } from "@/lib/supportServeur";
+import { appliquerFinsDeContrat, comptesAPurger, definirEtat, purgerCompte, EtatCompteRow } from "@/lib/admin/comptesServeur";
 import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from "@/lib/admin/economie";
 
 // ============================================================
@@ -24,7 +25,7 @@ import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes", "ventes"] as const;
+const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes", "ventes", "comptes_etat", "comptes_purges"] as const;
 type Table = (typeof TABLES)[number];
 const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   collaborateurs: { col: "nom", asc: true },
@@ -33,6 +34,8 @@ const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   collaborateur_reglements: { col: "created_at", asc: false },
   collaborateur_demandes: { col: "created_at", asc: false },
   ventes: { col: "created_at", asc: false },
+  comptes_etat: { col: "maj_le", asc: false },
+  comptes_purges: { col: "purge_le", asc: false },
 };
 
 type Garde = { erreur: NextResponse; admin: null } | { erreur: null; admin: SupabaseClient };
@@ -58,6 +61,9 @@ export async function GET(req: Request) {
   const { admin } = g;
   const table = new URL(req.url).searchParams.get("table") || "";
   if (table === "parametres") return NextResponse.json({ parametres: await lireParametres(admin) });
+  // Comptes Auth (id + email) : pour rattacher un abonnement à un compte garage.
+  if (table === "comptes") return NextResponse.json({ rows: await tousLesComptes(admin) });
+  if (table === "a_purger") return NextResponse.json({ rows: await comptesAPurger(admin) });
   if (!TABLES.includes(table as Table)) return NextResponse.json({ error: "Table inconnue." }, { status: 400 });
   const o = ORDRE[table as Table];
   const { data, error } = await admin.from(table).select("*").order(o.col, { ascending: o.asc });
@@ -76,6 +82,7 @@ export async function POST(req: Request) {
   let body: {
     action?: string; table?: string; row?: Record<string, unknown>; id?: string; valeur?: unknown; abonnement_id?: string;
     vente_id?: string; date_debut?: string; secretaire_id?: string | null; remise_acceptee?: boolean;
+    owner_id?: string; etat?: EtatCompteRow["etat"]; message?: string | null; motif?: string | null; fin_le?: string | null; purge_le?: string | null; confirmation?: string;
   };
   try {
     body = await req.json();
@@ -119,6 +126,43 @@ export async function POST(req: Request) {
     const { error: e2 } = await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });
     if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
     return NextResponse.json({ ok: true, ajoutees: lignes.length });
+  }
+
+  // ---- ÉTAT D'UN COMPTE GARAGE (v10.1) : suspendre / lecture seule / réactiver
+  if (body.action === "etat_compte") {
+    if (!body.owner_id || !body.etat) return NextResponse.json({ error: "Compte ou état manquant." }, { status: 400 });
+    try {
+      await definirEtat(admin, {
+        owner_id: body.owner_id,
+        etat: body.etat,
+        motif: body.motif ?? null,
+        message: body.message ?? null,
+        fin_le: body.fin_le ?? null,
+        purge_le: body.etat === "actif" ? null : (body.purge_le ?? null),
+      });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Enregistrement impossible (migration v56 ?)." }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+  // ---- applique les fins de contrat maintenant (sans attendre le cron)
+  if (body.action === "appliquer_fins") {
+    try {
+      return NextResponse.json({ ok: true, ...(await appliquerFinsDeContrat(admin)) });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Impossible." }, { status: 500 });
+    }
+  }
+  // ---- PURGE d'un compte : irréversible, confirmation par le mot PURGER
+  if (body.action === "purger_compte") {
+    if (!body.owner_id) return NextResponse.json({ error: "Compte manquant." }, { status: 400 });
+    if (body.confirmation !== "PURGER") return NextResponse.json({ error: "Confirmation manquante." }, { status: 400 });
+    try {
+      const r = await purgerCompte(admin, body.owner_id, "Purge manuelle depuis l'espace éditeur");
+      return NextResponse.json({ ok: true, ...r });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Purge impossible." }, { status: 500 });
+    }
   }
 
   // ---- VALIDATION D'UNE VENTE (v10.0) : crée l'abonnement + mensualités,

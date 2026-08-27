@@ -37,25 +37,38 @@ function colonneLettre(n: number): string {
   return s;
 }
 
-const CONTENT_TYPES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+// MULTI-ONGLETS (v10.1) : un classeur peut contenir plusieurs feuilles
+// (export comptable : ventes, encaissements, TVA…). Les parties du paquet
+// OOXML qui dépendent du nombre de feuilles sont générées.
+function contentTypesXml(n: number): string {
+  const sheets = Array.from({ length: n }, (_, i) =>
+    `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+  ).join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
 <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
 <Default Extension="xml" ContentType="application/xml"/>
 <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+${sheets}
 <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
 </Types>`;
+}
 
 const RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
 </Relationships>`;
 
-const WORKBOOK_RELS = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+function workbookRelsXml(n: number): string {
+  const sheets = Array.from({ length: n }, (_, i) =>
+    `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`
+  ).join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+${sheets}
+<Relationship Id="rId${n + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>`;
+}
 
 // s=0 normal · s=1 en-tête (gras, blanc sur violet) · s=2 montant € FR.
 const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -79,10 +92,13 @@ const STYLES = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 </cellXfs>
 </styleSheet>`;
 
-function workbookXml(sheetName: string): string {
+function workbookXml(sheetNames: string[]): string {
+  const sheets = sheetNames
+    .map((n, i) => `<sheet name="${esc(n.slice(0, 31))}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`)
+    .join("");
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<sheets><sheet name="${esc(sheetName.slice(0, 31))}" sheetId="1" r:id="rId1"/></sheets>
+<sheets>${sheets}</sheets>
 </workbook>`;
 }
 
@@ -162,19 +178,39 @@ export async function construireXlsx<T extends Record<string, unknown>>(
   colonnes: ColonneExcel[],
   lignes: T[]
 ): Promise<Blob> {
+  return construireClasseur([{ nom: nomFeuille, colonnes, lignes }]);
+}
+
+export type FeuilleExcel = { nom: string; colonnes: ColonneExcel[]; lignes: Record<string, unknown>[] };
+
+/** Classeur à PLUSIEURS onglets (v10.1). */
+export async function construireClasseur(feuilles: FeuilleExcel[]): Promise<Blob> {
+  const n = Math.max(1, feuilles.length);
   const zip = new JSZip();
-  zip.file("[Content_Types].xml", CONTENT_TYPES);
+  zip.file("[Content_Types].xml", contentTypesXml(n));
   zip.folder("_rels")!.file(".rels", RELS);
   const xl = zip.folder("xl")!;
-  xl.file("workbook.xml", workbookXml(nomFeuille));
+  xl.file("workbook.xml", workbookXml(feuilles.map((f) => f.nom)));
   xl.file("styles.xml", STYLES);
-  xl.folder("_rels")!.file("workbook.xml.rels", WORKBOOK_RELS);
-  xl.folder("worksheets")!.file("sheet1.xml", worksheetXml(colonnes, lignes));
+  xl.folder("_rels")!.file("workbook.xml.rels", workbookRelsXml(n));
+  const ws = xl.folder("worksheets")!;
+  feuilles.forEach((f, i) => ws.file(`sheet${i + 1}.xml`, worksheetXml(f.colonnes, f.lignes)));
 
   return zip.generateAsync({
     type: "blob",
     mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   });
+}
+
+export function telechargerBlob(blob: Blob, nomFichier: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nomFichier;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /**

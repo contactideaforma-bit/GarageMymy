@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar";
 import BandeauService from "@/components/BandeauService";
 import BandeauHorsLigne from "@/components/BandeauHorsLigne";
 import MyMyChat from "@/components/MyMyChat";
+import BandeauCompte from "@/components/BandeauCompte";
 import { estRoutePublique } from "@/lib/routesPubliques";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
@@ -49,6 +50,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <BandeauService />
       {/* Mode dégradé (v47) : coupure réseau et modifications en attente. */}
       <BandeauHorsLigne />
+      {/* État du compte (v10.1) : suspension pour impayé, lecture seule à la
+          fin du contrat, fermeture — piloté depuis l'espace éditeur. */}
+      <BandeauCompte />
       <div className="lg:flex min-h-screen">
       {/* Barre du haut (mobile uniquement) — fond opaque pour que le
           contenu ne soit pas visible derrière en défilant */}

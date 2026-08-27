@@ -34,7 +34,12 @@ export type Reglement = {
 };
 export type Demande = { id: string; created_at: string; collaborateur_id: string; objet: string; contenu: string | null; statut: "ouverte" | "en_cours" | "close"; reponse: string | null; repondu_le: string | null };
 
-export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "ventes";
+export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "ventes" | "comptes_etat" | "comptes_purges";
+export type CompteAuth = { id: string; email: string };
+export type EtatCompteAdmin = {
+  owner_id: string; etat: "actif" | "suspendu" | "lecture_seule" | "ferme"; motif: string | null; message: string | null;
+  depuis: string; fin_le: string | null; purge_le: string | null; prevenu_le: string | null; maj_le: string;
+};
 
 export async function lireTable<T>(table: TableAdmin): Promise<T[]> {
   const res = await fetchAuth(`/api/admin/donnees?table=${table}`);
@@ -59,6 +64,16 @@ export const supprimerLigne = (table: TableAdmin, id: string) => post({ action: 
 export const enregistrerParametres = (valeur: Parametres) => post<{ parametres: Parametres }>({ action: "parametres", valeur });
 export const genererMensualites = (abonnement_id: string) => post<{ ajoutees: number }>({ action: "generer_mensualites", abonnement_id });
 export const genererReleve = () => post<{ ajoutees: number; total: number }>({ action: "generer_releve" });
+export async function lireComptes(): Promise<CompteAuth[]> {
+  const res = await fetchAuth("/api/admin/donnees?table=comptes");
+  const r = await lireReponse<{ rows: CompteAuth[] }>(res);
+  return r.ok ? r.data?.rows || [] : [];
+}
+/** Suspend / passe en lecture seule / réactive un compte garage (v10.1). */
+export const definirEtatCompte = (row: { owner_id: string; etat: EtatCompteAdmin["etat"]; motif?: string | null; message?: string | null; fin_le?: string | null; purge_le?: string | null }) =>
+  post({ action: "etat_compte", ...row });
+export const appliquerFinsDeContrat = () => post<{ lectureSeule: number; reactives: number }>({ action: "appliquer_fins" });
+export const purgerCompte = (owner_id: string) => post<{ objets: number }>({ action: "purger_compte", owner_id, confirmation: "PURGER" });
 /** Valide une vente déclarée : crée l'abonnement rattaché au commercial, ses mensualités, et passe la vente en « validée ». */
 export const validerVente = (vente_id: string, opts: { date_debut: string; secretaire_id?: string | null; remise_acceptee?: boolean }) =>
   post<{ abonnement_id: string }>({ action: "valider_vente", vente_id, ...opts });

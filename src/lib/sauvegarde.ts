@@ -66,7 +66,7 @@ function nomSur(s: string): string {
  */
 export async function sauvegarderGarage(
   options: OptionsSauvegarde = {}
-): Promise<{ dossiers: number; factures: number; pdf: number; octets: number; fichier: string }> {
+): Promise<{ dossiers: number; factures: number; pdf: number; rapports: number; octets: number; fichier: string }> {
   const { avecPdf = true, onProgress } = options;
   const zip = new JSZip();
   const avance = (m: string, p: number) => onProgress?.(m, p);
@@ -175,6 +175,29 @@ export async function sauvegarderGarage(
     }
   }
 
+  // ---------- 4 bis. RAPPORTS D'EXPERTISE (v10.1) ----------
+  // Les factures seules ne suffisent pas au comptable ni à un contrôle :
+  // le rapport d'expertise justifie le montant facturé. Chaque rapport
+  // conservé sur le serveur est joint tel quel (rapports/<n° sinistre>-…).
+  let rapportsOk = 0;
+  const avecRapport = dossiers.filter((d) => d.rapport_path);
+  if (avecPdf && avecRapport.length > 0) {
+    for (let i = 0; i < avecRapport.length; i += 1) {
+      const d = avecRapport[i];
+      try {
+        const { data } = await supabase.storage.from("rapports").download(d.rapport_path!);
+        if (data) {
+          const nom = `${d.numero_sinistre || d.immatriculation || d.id.slice(0, 8)}-${d.rapport_nom || "rapport-expertise.pdf"}`;
+          zip.file(`rapports/${nomSur(nom)}`, data);
+          rapportsOk += 1;
+        }
+      } catch {
+        // Un rapport illisible ne bloque pas la sauvegarde.
+      }
+      avance(`Rapports d'expertise… (${i + 1}/${avecRapport.length})`, 90 + Math.round((i / avecRapport.length) * 2));
+    }
+  }
+
   // ---------- 5. Mode d'emploi ----------
   const lisezMoi = [
     "SAUVEGARDE MY EASY AUTO",
@@ -184,6 +207,7 @@ export async function sauvegarderGarage(
     `Date          : ${formatDateTime(new Date().toISOString())}`,
     `Dossiers      : ${dossiers.length}`,
     `Factures      : ${factures.length}${avecPdf ? ` (dont ${pdfOk} PDF joints)` : " (PDF non inclus)"}`,
+    `Rapports      : ${avecRapport.length} rapport(s) d'expertise${avecPdf ? ` (${rapportsOk} joints)` : " (non inclus)"}`,
     "",
     "CONTENU",
     "-------",
@@ -191,6 +215,7 @@ export async function sauvegarderGarage(
     "factures.xlsx        Toutes vos factures avec l'encaissement et le reste dû.",
     "donnees/*.json       Copie brute de chaque table (sert à une restauration).",
     avecPdf ? "factures/*.pdf       Les factures au format PDF, telles qu'envoyées." : "",
+    avecPdf ? "rapports/*.pdf       Les rapports d'expertise, nommés par n° de sinistre (justificatif des factures)." : "",
     "",
     "À QUOI ÇA SERT",
     "--------------",
@@ -235,6 +260,7 @@ export async function sauvegarderGarage(
     dossiers: dossiers.length,
     factures: factures.length,
     pdf: pdfOk,
+    rapports: rapportsOk,
     octets: blob.size,
     fichier,
   };

@@ -359,14 +359,16 @@ export default function DossierDetailPage() {
     }
   }
 
+  // ARCHIVAGE (v10.1) : plus de simple confirm() — une vraie fenêtre
+  // d'avertissement, parce qu'archiver = SUPPRIMER de l'appli (les fichiers
+  // partent dans le ZIP puis sont effacés du serveur, le dossier quitte la
+  // liste des sinistres). L'utilisateur doit cocher qu'il a compris.
+  const [archiveModal, setArchiveModal] = useState(false);
+  const [archiveCompris, setArchiveCompris] = useState(false);
   async function archiver() {
     if (!dossier) return;
-    if (
-      !confirm(
-        "Archiver ce dossier ?\n\nUn ZIP complet (documents PDF, rapport, pièces, historique) va être téléchargé, puis les fichiers seront retirés du serveur. Le dossier restera visible dans l'onglet Archives.\n\nConserve bien le ZIP : c'est ta copie de référence."
-      )
-    )
-      return;
+    setArchiveModal(false);
+    setArchiveCompris(false);
     try {
       await archiverDossier(dossier, setArchivage);
       setArchivage(null);
@@ -678,7 +680,7 @@ export default function DossierDetailPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             {(dossier.statut === "paye" || dossier.statut === "cloture") && !dossier.archive && (
-              <button onClick={archiver} disabled={Boolean(archivage)} className="btn-ghost">
+              <button onClick={() => setArchiveModal(true)} disabled={Boolean(archivage)} className="btn-ghost">
                 {archivage || "Archiver (ZIP)"}
               </button>
             )}
@@ -1097,6 +1099,29 @@ export default function DossierDetailPage() {
           onClose={() => setPdfDoc(null)}
           onValider={(mode) => genererFacturePdf(pdfDoc, mode)}
         />
+      )}
+      {archiveModal && (
+        <ModalShell title="Archiver ce dossier ?" onClose={() => setArchiveModal(false)}>
+          <div className="rounded-lg border-2 border-rose-400/60 bg-rose-500/15 p-3">
+            <div className="text-sm font-bold text-rose-200">⚠️ Archiver, c&apos;est l&apos;équivalent d&apos;une suppression dans l&apos;appli.</div>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/85">
+              <li>Un ZIP complet est <b>téléchargé sur ton ordinateur</b> : factures, devis, ordre de réparation, cession, PV, <b>rapport d&apos;expertise</b>, pièces, photos, historique.</li>
+              <li>Ensuite, les fichiers sont <b>effacés du serveur</b> et le dossier <b>disparaît de la liste des sinistres</b>. Il ne reste qu&apos;une trace (numéro, client, montant) dans « Archives ».</li>
+              <li>Il n&apos;y a <b>pas de retour en arrière</b> : le ZIP devient ta seule copie. Range-le hors de l&apos;ordinateur du garage (clé USB, disque, cloud) — les pièces comptables se conservent 10 ans.</li>
+            </ul>
+          </div>
+          <p className="text-xs text-white/50">
+            Tu n&apos;as pas besoin d&apos;archiver pour faire de la place : un dossier payé peut rester dans la liste. Pour la comptabilité, utilise plutôt <b>Finance → Export comptable</b>, qui n&apos;efface rien.
+          </p>
+          <label className="flex items-start gap-2 text-sm text-white/85">
+            <input type="checkbox" className="mt-1 h-4 w-4 accent-rose-500" checked={archiveCompris} onChange={(e) => setArchiveCompris(e.target.checked)} />
+            J&apos;ai compris : le dossier sera retiré de l&apos;application et je conserve moi-même le ZIP.
+          </label>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setArchiveModal(false)} className="btn-ghost">Annuler</button>
+            <button onClick={archiver} disabled={!archiveCompris} className="btn-danger">Télécharger le ZIP et archiver</button>
+          </div>
+        </ModalShell>
       )}
       {editor && (
         <DocumentEditor

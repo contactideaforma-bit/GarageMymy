@@ -39,6 +39,7 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
     titre: "Finance",
     items: [
       { href: "/finance", label: "Paiements & relances" },
+      { href: "/compta", label: "Export comptable" },
       { href: "/banque", label: "Banque" },
       { href: "/emails", label: "Emails" },
     ],

@@ -6,7 +6,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminShell, { ChampAdmin, dateFr, euros, moisFr } from "@/components/admin/AdminShell";
 import ModalShell from "@/components/ModalShell";
-import { Abonnement, Collaborateur, Mensualite, genererMensualites, lireParametres, lireTable, nomCollab, supprimerLigne, upsertLigne } from "@/lib/admin/client";
+import {
+  Abonnement, Collaborateur, CompteAuth, EtatCompteAdmin, Mensualite, appliquerFinsDeContrat, definirEtatCompte, genererMensualites, lireComptes, lireParametres, lireTable, nomCollab, purgerCompte, supprimerLigne, upsertLigne,
+} from "@/lib/admin/client";
 import { FORMULES, Formule, PARAMETRES_DEFAUT, Parametres } from "@/lib/admin/economie";
 
 const aujourdhui = () => new Date().toISOString().slice(0, 10);
@@ -22,12 +24,19 @@ export default function AbonnementsPage() {
   const [form, setForm] = useState<Partial<Abonnement> | null>(null);
   const [ouvert, setOuvert] = useState<string | null>(null); // abonnement déplié (mensualités)
   const [saving, setSaving] = useState(false);
+  // ÉTAT DES COMPTES (v10.1) : comptes Auth + état (suspendu / lecture seule / fermé)
+  const [comptes, setComptes] = useState<CompteAuth[]>([]);
+  const [etats, setEtats] = useState<EtatCompteAdmin[]>([]);
+  const [etatModal, setEtatModal] = useState<{ abo: Abonnement; owner: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [a, m, c, pp] = await Promise.all([lireTable<Abonnement>("abonnements"), lireTable<Mensualite>("abonnement_mensualites"), lireTable<Collaborateur>("collaborateurs"), lireParametres()]);
-      setAbos(a); setMens(m); setCollabs(c); setP(pp); setErreur(null);
+      const [a, m, c, pp, cp, et] = await Promise.all([
+        lireTable<Abonnement>("abonnements"), lireTable<Mensualite>("abonnement_mensualites"), lireTable<Collaborateur>("collaborateurs"), lireParametres(),
+        lireComptes(), lireTable<EtatCompteAdmin>("comptes_etat").catch(() => [] as EtatCompteAdmin[]),
+      ]);
+      setAbos(a); setMens(m); setCollabs(c); setP(pp); setComptes(cp); setEtats(et); setErreur(null);
     } catch (e) { setErreur(e instanceof Error ? e.message : "Lecture impossible."); }
     finally { setLoading(false); }
   }, []);
@@ -121,11 +130,37 @@ export default function AbonnementsPage() {
     try { const r = await genererMensualites(a.id); alert(`${r.ajoutees} mensualité(s) vérifiée(s).`); load(); } catch (e) { alert(e instanceof Error ? e.message : "Impossible."); }
   }
 
+  // Compte Auth rattaché à un abonnement : garage_owner_id, sinon par email.
+  const ownerDe = (a: Abonnement): string | null =>
+    a.garage_owner_id || comptes.find((c) => c.email.toLowerCase() === (a.garage_email || "").toLowerCase())?.id || null;
+  const etatDe = (owner: string | null) => (owner ? etats.find((e) => e.owner_id === owner) : undefined);
+  const LIB: Record<string, { label: string; badge: string }> = {
+    actif: { label: "Compte actif", badge: "badge badge-ok" },
+    suspendu: { label: "Compte SUSPENDU", badge: "badge badge-danger" },
+    lecture_seule: { label: "Lecture seule", badge: "badge badge-warn" },
+    ferme: { label: "Fermé — purge programmée", badge: "badge badge-danger" },
+  };
+  async function appliquerFins() {
+    try {
+      const r = await appliquerFinsDeContrat();
+      alert(`${r.lectureSeule} compte(s) passé(s) en lecture seule, ${r.reactives} réactivé(s).`);
+      load();
+    } catch (e) { alert(e instanceof Error ? e.message : "Impossible."); }
+  }
+
   const caMensuel = visibles.filter((a) => a.statut === "actif").reduce((s, a) => s + Number(a.prix_ht), 0);
   const impayees = mens.filter((m) => !m.payee_le && new Date(m.periode) <= new Date());
 
   return (
-    <AdminShell titre="Abonnements des garages" actions={<button className="btn-primary" onClick={nouveau}>+ Abonnement</button>}>
+    <AdminShell
+      titre="Abonnements des garages"
+      actions={
+        <>
+          <button className="btn-ghost" onClick={appliquerFins} title="Passe en lecture seule les comptes dont le contrat résilié est arrivé à échéance (le cron le fait chaque nuit)">Appliquer les fins de contrat</button>
+          <button className="btn-primary" onClick={nouveau}>+ Abonnement</button>
+        </>
+      }
+    >
       {erreur && <p className="badge badge-danger">{erreur}</p>}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi titre="Garages actifs" valeur={String(abos.filter((a) => a.statut === "actif").length)} />
@@ -157,6 +192,13 @@ export default function AbonnementsPage() {
                     <span className={`badge ${a.statut === "actif" ? "badge-ok" : a.statut === "suspendu" ? "badge-warn" : "badge-neutral"}`}>{a.statut === "actif" ? "Actif" : a.statut === "suspendu" ? "Suspendu" : "Résilié"}</span>
                     {a.engagement_12 && <span className="badge badge-neutral">12 mois</span>}
                     {retard > 0 && <span className="badge badge-danger">{retard} mensualité{retard > 1 ? "s" : ""} en retard</span>}
+                    {(() => {
+                      const owner = ownerDe(a);
+                      const e = etatDe(owner);
+                      if (!owner) return <span className="badge badge-neutral" title="Aucun compte My Easy Auto rattaché (email différent ?)">Sans compte</span>;
+                      const l = LIB[e?.etat || "actif"];
+                      return <span className={l.badge}>{l.label}{e?.purge_le ? ` · purge ${dateFr(e.purge_le)}` : ""}</span>;
+                    })()}
                   </div>
                   <div className="mt-2 text-xs text-white/60">
                     Signé le {dateFr(a.date_signature)} · {payees} mensualité{payees > 1 ? "s" : ""} payée{payees > 1 ? "s" : ""}
@@ -166,6 +208,9 @@ export default function AbonnementsPage() {
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
                   <button className="text-accent-teal hover:underline" onClick={() => setOuvert(ouvert === a.id ? null : a.id)}>{ouvert === a.id ? "Masquer" : "Mensualités"}</button>
+                  {ownerDe(a) && (
+                    <button className="text-amber-200 hover:underline" onClick={() => setEtatModal({ abo: a, owner: ownerDe(a)! })}>Accès du compte</button>
+                  )}
                   <button className="text-accent-pink hover:underline" onClick={() => setForm({ ...a })}>Modifier</button>
                   <button className="text-white/40 hover:text-rose-300" onClick={() => supprimer(a)}>Suppr.</button>
                 </div>
@@ -200,6 +245,12 @@ export default function AbonnementsPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <ChampAdmin label="Garage *"><input className="field-input" value={form.garage_nom || ""} onChange={(e) => set("garage_nom", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="Email du garage"><input className="field-input" type="email" value={form.garage_email || ""} onChange={(e) => set("garage_email", e.target.value)} /></ChampAdmin>
+            <ChampAdmin label="Compte My Easy Auto rattaché">
+              <select className="field-input" value={form.garage_owner_id || ""} onChange={(e) => set("garage_owner_id", e.target.value || null)}>
+                <option value="">— par l&apos;email du garage —</option>
+                {comptes.map((c) => <option key={c.id} value={c.id}>{c.email}</option>)}
+              </select>
+            </ChampAdmin>
             <ChampAdmin label="Formule"><select className="field-input" value={form.formule} onChange={(e) => changerFormule(e.target.value as Formule)}>{FORMULES.map((f) => <option key={f} value={f}>{p.formules[f].libelle} — {euros(p.formules[f].prix)}</option>)}</select></ChampAdmin>
             <ChampAdmin label="Périodicité de paiement">
               <select className="field-input" value={form.periodicite || "mensuel"} onChange={(e) => changerPeriodicite(e.target.value as Abonnement["periodicite"])}>
@@ -244,7 +295,93 @@ export default function AbonnementsPage() {
           </div>
         </ModalShell>
       )}
+      {etatModal && (
+        <EtatCompteModal
+          abo={etatModal.abo}
+          owner={etatModal.owner}
+          etat={etatDe(etatModal.owner)}
+          email={comptes.find((c) => c.id === etatModal.owner)?.email || etatModal.abo.garage_email || ""}
+          onClose={() => setEtatModal(null)}
+          onChanged={() => { setEtatModal(null); load(); }}
+        />
+      )}
     </AdminShell>
+  );
+}
+
+/* ---------------- Accès du compte (v10.1) : suspension, lecture seule, purge ---------------- */
+function EtatCompteModal({ abo, owner, etat, email, onClose, onChanged }: { abo: Abonnement; owner: string; etat?: EtatCompteAdmin; email: string; onClose: () => void; onChanged: () => void }) {
+  const plusJours = (iso: string, n: number) => { const d = new Date(iso); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+  const [message, setMessage] = useState(etat?.message || "");
+  const [purge, setPurge] = useState(etat?.purge_le || (abo.date_fin ? plusJours(abo.date_fin, 90) : ""));
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+  const actuel = etat?.etat || "actif";
+
+  async function poser(nouvel: EtatCompteAdmin["etat"], motif: string | null) {
+    setBusy(true); setErr(null);
+    try {
+      await definirEtatCompte({ owner_id: owner, etat: nouvel, motif, message: message || null, fin_le: abo.date_fin || null, purge_le: nouvel === "actif" || nouvel === "suspendu" ? null : purge || null });
+      onChanged();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Impossible (migration v56 exécutée ?)."); } finally { setBusy(false); }
+  }
+  async function purger() {
+    if (confirm !== "PURGER") return;
+    setBusy(true); setErr(null);
+    try {
+      const r = await purgerCompte(owner);
+      alert(`Compte supprimé (${r.objets} fichier(s) effacé(s)).`);
+      onChanged();
+    } catch (e) { setErr(e instanceof Error ? e.message : "Purge impossible."); } finally { setBusy(false); }
+  }
+
+  return (
+    <ModalShell title={`Accès du compte — ${abo.garage_nom}`} onClose={onClose} maxWidth="max-w-2xl">
+      <p className="text-sm text-white/70">
+        Compte <b className="text-white">{email}</b> · état actuel : <b className="text-white">{actuel === "actif" ? "actif" : actuel === "suspendu" ? "SUSPENDU" : actuel === "lecture_seule" ? "lecture seule" : "fermé"}</b>
+        {etat?.depuis ? ` depuis le ${dateFr(etat.depuis)}` : ""}{etat?.purge_le ? ` · purge programmée le ${dateFr(etat.purge_le)}` : ""}
+      </p>
+      <ChampAdmin label="Message affiché au garage (facultatif)">
+        <textarea className="field-input" rows={3} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Ex. Facture n° … de … € échue le … : l'accès est rétabli dès règlement (virement IBAN …)." />
+      </ChampAdmin>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="glass-soft p-3">
+          <div className="text-sm font-semibold text-white">Suspension pour impayé (CGV art. 5)</div>
+          <p className="mt-1 text-xs text-white/50">Voile bloquant sur toute l&apos;appli, message ci-dessus + contact. Les mensualités continuent de courir.</p>
+          <div className="mt-2 flex gap-2">
+            {actuel !== "suspendu" ? (
+              <button className="btn-danger btn-compact" disabled={busy} onClick={() => poser("suspendu", "impaye")}>Suspendre l&apos;accès</button>
+            ) : (
+              <button className="btn-primary btn-compact" disabled={busy} onClick={() => poser("actif", null)}>Lever la suspension</button>
+            )}
+          </div>
+        </div>
+        <div className="glass-soft p-3">
+          <div className="text-sm font-semibold text-white">Fin de contrat : lecture seule, puis purge</div>
+          <p className="mt-1 text-xs text-white/50">Le garage consulte et exporte, n&apos;écrit plus. Automatique à la date de fin d&apos;un abonnement résilié (cron de 5 h) ; purge à J+90 avec email J-7. Vider la date = conserver.</p>
+          <ChampAdmin label="Date de purge"><input type="date" className="field-input field-compact" value={purge} onChange={(e) => setPurge(e.target.value)} /></ChampAdmin>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {actuel !== "lecture_seule" ? (
+              <button className="btn-ghost btn-compact" disabled={busy} onClick={() => poser("lecture_seule", "fin_de_contrat")}>Passer en lecture seule</button>
+            ) : (
+              <button className="btn-ghost btn-compact" disabled={busy} onClick={() => poser("lecture_seule", "fin_de_contrat")}>Enregistrer la date de purge</button>
+            )}
+            {actuel !== "actif" && <button className="btn-primary btn-compact" disabled={busy} onClick={() => poser("actif", null)}>Réactiver le compte</button>}
+          </div>
+        </div>
+      </div>
+      <div className="rounded-lg border-2 border-rose-400/50 bg-rose-500/10 p-3">
+        <div className="text-sm font-semibold text-rose-200">Purger maintenant — IRRÉVERSIBLE</div>
+        <p className="mt-1 text-xs text-white/60">Supprime tous les fichiers et le compte (dossiers, documents, factures… tout ce qui y est rattaché). Une trace reste dans le journal des purges. Tape PURGER pour confirmer.</p>
+        <div className="mt-2 flex gap-2">
+          <input className="field-input field-compact w-40 font-mono" value={confirm} onChange={(e) => setConfirm(e.target.value.toUpperCase())} placeholder="PURGER" />
+          <button className="btn-danger btn-compact" disabled={busy || confirm !== "PURGER"} onClick={purger}>Purger le compte</button>
+        </div>
+      </div>
+      {err && <p className="text-xs text-rose-300">{err}</p>}
+      <div className="flex justify-end"><button className="btn-ghost" onClick={onClose}>Fermer</button></div>
+    </ModalShell>
   );
 }
 

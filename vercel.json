@@ -7,6 +7,10 @@
     {
       "path": "/api/notifications-push",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron-comptes",
+      "schedule": "0 5 * * *"
     }
   ]
 }

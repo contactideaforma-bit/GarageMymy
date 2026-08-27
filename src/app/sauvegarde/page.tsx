@@ -62,7 +62,7 @@ export default function SauvegardePage() {
       setResultat(
         `${r.fichier} — ${r.dossiers} dossier${r.dossiers > 1 ? "s" : ""}, ${r.factures} facture${
           r.factures > 1 ? "s" : ""
-        }${r.pdf ? ` (${r.pdf} PDF)` : ""}, ${poidsLisible(r.octets)}.`
+        }${r.pdf ? ` (${r.pdf} PDF)` : ""}${r.rapports ? `, ${r.rapports} rapport${r.rapports > 1 ? "s" : ""} d'expertise` : ""}, ${poidsLisible(r.octets)}.`
       );
       setDerniere(new Date().toISOString());
       if (!entrepriseId) {
@@ -121,7 +121,7 @@ export default function SauvegardePage() {
           />
           <span>
             <span className="block text-sm font-semibold text-white">
-              Inclure les PDF des factures
+              Inclure les PDF des factures et les rapports d'expertise
             </span>
             <span className="block text-xs text-white/50">
               Recommandé pour la conservation légale. Compte environ une seconde par facture.

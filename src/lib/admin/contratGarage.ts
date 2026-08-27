@@ -126,13 +126,17 @@ export function articlesCGV(p: Parametres): { titre: string; texte: string }[] {
       texte: `Le contrat peut être présenté par un apporteur d'affaires indépendant mandaté par ${ed}, identifié par son code apporteur. Il n'a pas qualité pour modifier les présentes conditions ni pour consentir des remises non prévues à la grille sans validation écrite d'${ed}. Le contrat n'est définitif qu'après confirmation par ${ed} (email de bienvenue et création du compte), au plus tard sous 5 jours ouvrés.`,
     },
     {
-      titre: "Article 12 — Droit applicable et litiges",
+      titre: "Article 12 — Changement de formule",
+      texte: `MONTÉE EN GAMME : le Client peut à tout moment passer à une formule supérieure, par simple demande écrite ; le changement prend effet le 1er jour du mois suivant (ou immédiatement, la différence de mensualité étant alors facturée au prorata). Le Client engagé conserve son engagement (même terme) et bénéficie de la remise d'engagement propre à la nouvelle formule. DESCENTE EN GAMME : sans engagement, le Client peut passer à une formule inférieure avec un préavis d'un mois (effet au 1er jour du mois suivant le préavis). Avec engagement de douze mois, la descente en gamme est possible au terme de l'engagement ou, avant ce terme, après six mensualités réglées ; l'engagement se poursuit alors jusqu'à son terme sur la nouvelle formule, au tarif engagé de celle-ci, sans indemnité. Les heures de secrétariat reportées non consommées sont perdues au changement de formule. Tout changement fait l'objet d'un avenant signé par les deux parties ; les données et documents du Client sont conservés quelle que soit la formule.`,
+    },
+    {
+      titre: "Article 13 — Droit applicable et litiges",
       texte: `Le présent contrat est soumis au droit français. En cas de différend, les parties recherchent une solution amiable pendant trente jours ; à défaut, le tribunal de commerce de Nanterre est seul compétent, nonobstant pluralité de défendeurs ou appel en garantie. Version des CGV : ${VERSION_CGV}.`,
     },
   ];
 }
 
-export const VERSION_CGV = "v1.0 — août 2026";
+export const VERSION_CGV = "v1.1 — août 2026";
 
 /** Phrase d'acceptation cochée par le garage sur la page de vente. */
 export const ACCEPTATION_CGV =
