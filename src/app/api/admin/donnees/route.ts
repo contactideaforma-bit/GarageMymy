@@ -84,7 +84,7 @@ export async function POST(req: Request) {
   let body: {
     action?: string; table?: string; row?: Record<string, unknown>; id?: string; valeur?: unknown; abonnement_id?: string;
     vente_id?: string; date_debut?: string; secretaire_id?: string | null; remise_acceptee?: boolean;
-    owner_id?: string; etat?: EtatCompteRow["etat"]; message?: string | null; motif?: string | null; fin_le?: string | null; purge_le?: string | null; confirmation?: string;
+    metier?: string; owner_id?: string; etat?: EtatCompteRow["etat"]; message?: string | null; motif?: string | null; fin_le?: string | null; purge_le?: string | null; confirmation?: string;
   };
   try {
     body = await req.json();
@@ -128,6 +128,22 @@ export async function POST(req: Request) {
     const { error: e2 } = await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });
     if (e2) return NextResponse.json({ error: e2.message }, { status: 500 });
     return NextResponse.json({ ok: true, ajoutees: lignes.length });
+  }
+
+  // ---- MÉTIER D'UN COMPTE (v10.2) : carrosserie | vitrage | commercial.
+  //      Remplace l'UPDATE SQL sur auth.users (interdit depuis l'éditeur SQL
+  //      quand il tourne en rôle « authenticated ») : ici la clé service role
+  //      écrit app_metadata, que le client ne peut pas modifier.
+  if (body.action === "definir_metier") {
+    const metier = body.metier;
+    if (!body.owner_id || (metier !== "carrosserie" && metier !== "vitrage" && metier !== "commercial")) {
+      return NextResponse.json({ error: "Compte ou métier manquant." }, { status: 400 });
+    }
+    const { data: u } = await admin.auth.admin.getUserById(body.owner_id);
+    if (!u?.user) return NextResponse.json({ error: "Compte introuvable." }, { status: 404 });
+    const { error } = await admin.auth.admin.updateUserById(body.owner_id, { app_metadata: { ...(u.user.app_metadata || {}), metier } });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true, metier });
   }
 
   // ---- ÉTAT D'UN COMPTE GARAGE (v10.1) : suspendre / lecture seule / réactiver

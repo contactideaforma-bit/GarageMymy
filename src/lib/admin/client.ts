@@ -77,6 +77,8 @@ export async function lireComptes(): Promise<CompteAuth[]> {
 /** Suspend / passe en lecture seule / réactive un compte garage (v10.1). */
 export const definirEtatCompte = (row: { owner_id: string; etat: EtatCompteAdmin["etat"]; motif?: string | null; message?: string | null; fin_le?: string | null; purge_le?: string | null }) =>
   post({ action: "etat_compte", ...row });
+/** Pose le métier d'un compte (app_metadata) — remplace l'UPDATE SQL sur auth.users. */
+export const definirMetierCompte = (owner_id: string, metier: "carrosserie" | "vitrage" | "commercial") => post<{ metier: string }>({ action: "definir_metier", owner_id, metier });
 export const appliquerFinsDeContrat = () => post<{ lectureSeule: number; reactives: number }>({ action: "appliquer_fins" });
 export const purgerCompte = (owner_id: string) => post<{ objets: number }>({ action: "purger_compte", owner_id, confirmation: "PURGER" });
 /** Valide une vente déclarée : crée l'abonnement rattaché au commercial, ses mensualités, et passe la vente en « validée ». */

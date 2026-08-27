@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminShell, { ChampAdmin, dateFr, euros } from "@/components/admin/AdminShell";
 import ModalShell from "@/components/ModalShell";
-import { Abonnement, Collaborateur, CompteAuth, Demande, Reglement, lireComptes, lireTable, nomCollab, supprimerLigne, upsertLigne } from "@/lib/admin/client";
+import { Abonnement, Collaborateur, CompteAuth, Demande, Reglement, definirMetierCompte, lireComptes, lireTable, nomCollab, supprimerLigne, upsertLigne } from "@/lib/admin/client";
 
 const VIDE: Partial<Collaborateur> = { type: "commercial", nom: "", prenom: "", email: "", tel: "", siret: "", adresse: "", statut: "actif", date_debut: "", date_fin: "", iban: "", taux_retrocession: null, taux_horaire: null, notes: "", code_apporteur: "" };
 
@@ -145,11 +145,28 @@ export default function CollaborateursPage() {
             <ChampAdmin label="SIRET"><input className="field-input" value={form.siret || ""} onChange={(e) => set("siret", e.target.value)} /></ChampAdmin>
             {form.type === "commercial" && (
               <>
-                <ChampAdmin label="Compte My Easy Auto du commercial (metier = commercial)">
-                  <select className="field-input" value={form.owner_id || ""} onChange={(e) => set("owner_id", e.target.value || null)}>
-                    <option value="">— aucun compte —</option>
-                    {comptes.map((c) => <option key={c.id} value={c.id}>{c.email}</option>)}
-                  </select>
+                <ChampAdmin label="Compte My Easy Auto du commercial">
+                  <div className="flex gap-2">
+                    <select className="field-input" value={form.owner_id || ""} onChange={(e) => set("owner_id", e.target.value || null)}>
+                      <option value="">— aucun compte —</option>
+                      {comptes.map((c) => <option key={c.id} value={c.id}>{c.email}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-ghost btn-compact shrink-0"
+                      disabled={!form.owner_id}
+                      title="Pose metier = commercial sur ce compte (il doit ensuite se déconnecter / reconnecter)"
+                      onClick={async () => {
+                        try {
+                          await definirMetierCompte(form.owner_id!, "commercial");
+                          alert("Compte passé en métier « commercial ». Il doit se déconnecter puis se reconnecter.");
+                        } catch (e) { alert(e instanceof Error ? e.message : "Impossible."); }
+                      }}
+                    >
+                      Rendre commercial
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-white/40">Crée d&apos;abord le compte dans Supabase → Authentication → Add user, puis choisis-le ici et clique « Rendre commercial ».</p>
                 </ChampAdmin>
                 <ChampAdmin label="Zone attribuée (départements, villes…)"><input className="field-input" value={form.zone || ""} onChange={(e) => set("zone", e.target.value)} placeholder="ex. 92, 78 nord, Nanterre – Rueil – Suresnes" /></ChampAdmin>
                 <ChampAdmin label="Portefeuille attribué (liste ou description)"><textarea className="field-input" rows={2} value={form.portefeuille || ""} onChange={(e) => set("portefeuille", e.target.value)} placeholder="ex. carrosseries indépendantes de la zone, hors réseaux constructeurs" /></ChampAdmin>
