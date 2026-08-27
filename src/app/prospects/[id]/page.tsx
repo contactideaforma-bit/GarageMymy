@@ -1,6 +1,8 @@
 "use client";
 
-// FICHE CLIENT DU COMMERCIAL (v10.2) — identité, questionnaire, offre,
+// FICHE CLIENT DU COMMERCIAL (v10.2 → v10.4) — identité, questionnaire
+// (fiche d'identification des besoins + demandes particulières, fiche client
+// PDF interne pour la secrétaire), offre,
 // documents (simulation, devis, contrat) signés sur place, vente et
 // paiement. Tout est modifiable à tout moment, rien n'est bloquant.
 
@@ -13,13 +15,13 @@ import { formatDate, formatDateTime, formatEuros, messageErreur } from "@/lib/fo
 import { supabase } from "@/lib/supabaseClient";
 import {
   OFFRE_DEFAUT, ORIGINES_PROSPECT, ParametresOffre, Prospect, ProspectDocument, ProspectOrigine, ProspectStatut, STATUTS_PROSPECT, TYPES_DOCUMENT,
-  chargerProspect, creerDocument, enregistrerProspect, majDocument, prospectVersContrat, reponseTexte, supprimerDocument, supprimerProspect,
+  chargerProspect, creerDocument, enregistrerProspect, majDocument, prospectVersContrat, supprimerDocument, supprimerProspect,
 } from "@/lib/prospects";
 import { ContexteCommercial, chargerContexteCommercial, declarerVente, enregistrerSignatureCommercial, majPaiement, nomCommercial } from "@/lib/commercialClient";
-import { QUESTIONS_BESOINS } from "@/lib/admin/ventePublic";
+import { DemandeParticuliere, QuestionBesoin, SECTIONS_BESOINS, demandesDe, reponseLisible, tauxRemplissage } from "@/lib/ficheBesoins";
 import { Formule, Periodicite, grilleTarifs, primeVente, prixVente } from "@/lib/admin/economie";
 import { MODES_PAIEMENT, articlesCGV, conditionsParticulieres } from "@/lib/admin/contratGarage";
-import { construireContratPdf, construireDevisPdf, construireSimulationPdf } from "@/lib/admin/contratPdf";
+import { construireContratPdf, construireDevisPdf, construireFichePdf, construireSimulationPdf } from "@/lib/admin/contratPdf";
 import type { Vente } from "@/lib/admin/client";
 import type { PieceJointeOption } from "@/components/EmailComposer";
 
@@ -82,6 +84,7 @@ export default function ProspectPage() {
     if (d.type === "contrat") return construireContratPdf(v, params, { ...commun, besoins: p.besoins });
     if (d.type === "devis") return construireDevisPdf(v, params, { ...commun, validiteJours: o.validite_jours || 30, date: d.created_at });
     if (d.type === "simulation") return construireSimulationPdf(p.nom, o.formule, params, { numero: d.numero, commercialNom: commun.commercialNom });
+    if (d.type === "fiche") return construireFichePdf(p, { numero: d.numero, date: d.created_at, commercialNom: commun.commercialNom, codeApporteur: ctx?.collaborateur?.code_apporteur });
     return null;
   }
   function apercu(d: ProspectDocument) {
@@ -91,16 +94,16 @@ export default function ProspectPage() {
   }
   async function generer(type: ProspectDocument["type"]) {
     try {
-      const d = await creerDocument(id, type, offre);
+      const d = await creerDocument(id, type, type === "fiche" ? null : offre);
       await load();
-      if (p && p.statut === "prospect" && type !== "simulation") await sauver({ statut: "devis" });
+      if (p && p.statut === "prospect" && type !== "simulation" && type !== "fiche") await sauver({ statut: "devis" });
       setMsg(`${TYPES_DOCUMENT[type]} ${d.numero} généré.`);
       setTimeout(() => apercu({ ...d, parametres: offre }), 200);
     } catch (e) { setMsg(messageErreur(e, "Génération impossible.")); }
   }
   const pj = (liste: ProspectDocument[]): PieceJointeOption[] =>
-    liste.filter((d) => d.type !== "fiche").map((d) => ({
-      label: `${TYPES_DOCUMENT[d.type]} ${d.numero || ""}${d.signe_le ? " (signé)" : ""}`,
+    liste.map((d) => ({
+      label: `${TYPES_DOCUMENT[d.type]} ${d.numero || ""}${d.signe_le ? " (signé)" : ""}${d.type === "fiche" ? " — interne" : ""}`,
       filename: `${d.type}-${(d.numero || d.id.slice(0, 6)).replace(/[^a-z0-9-]+/gi, "_")}.pdf`,
       getBase64: async () => {
         const pdf = pdfDe(d);
@@ -108,7 +111,7 @@ export default function ProspectPage() {
         const uri = pdf.output("datauristring");
         return uri.substring(uri.indexOf(",") + 1);
       },
-      coche: true,
+      coche: d.type !== "fiche",
     }));
 
   if (!p) return <p className="text-sm text-white/50">{msg || "Chargement…"}</p>;
@@ -146,7 +149,7 @@ export default function ProspectPage() {
       {onglet === "fiche" && <FicheForm p={p} onSave={sauver} estAdmin={Boolean(ctx?.estAdmin)} zone={ctx?.collaborateur?.zone || null} />}
 
       {/* ---------------- QUESTIONNAIRE ---------------- */}
-      {onglet === "besoins" && <BesoinsForm p={p} onSave={sauver} />}
+      {onglet === "besoins" && <BesoinsForm p={p} onSave={sauver} docs={docs} onGenerer={() => generer("fiche")} onApercu={apercu} onEnvoyer={(d) => setEnvoyer([d])} />}
 
       {/* ---------------- OFFRE & DOCUMENTS ---------------- */}
       {onglet === "offre" && params && prix && (
@@ -202,12 +205,13 @@ export default function ProspectPage() {
                     <div className="min-w-0 text-sm">
                       <span className="font-medium text-white">{TYPES_DOCUMENT[d.type]} {d.numero}</span>
                       <span className="text-white/50"> · {formatDate(d.created_at)}{d.parametres ? ` · ${params.formules[d.parametres.formule].libelle}${d.parametres.periodicite === "annuel" ? " (année)" : d.parametres.engagement_12 ? " (engagé)" : ""}` : ""}</span>
+                      {d.type === "fiche" && <span className="badge badge-neutral ml-2">Interne</span>}
                       {d.signe_le && <span className="badge badge-ok ml-2">Signé le {formatDate(d.signe_le)}</span>}
                       {d.envoye_le && <span className="badge badge-info ml-2">Envoyé {formatDate(d.envoye_le)}</span>}
                     </div>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
                       <button className="text-accent-teal hover:underline" onClick={() => apercu(d)}>PDF</button>
-                      {d.type !== "simulation" && <button className="text-accent-pink hover:underline" onClick={() => setSigner(d)}>{d.signe_le ? "Re-signer" : "Signer sur place"}</button>}
+                      {d.type !== "simulation" && d.type !== "fiche" && <button className="text-accent-pink hover:underline" onClick={() => setSigner(d)}>{d.signe_le ? "Re-signer" : "Signer sur place"}</button>}
                       <button className="text-accent-teal hover:underline" onClick={() => setEnvoyer([d])}>Envoyer</button>
                       <button className="text-white/40 hover:text-rose-300" onClick={async () => { if (confirm("Supprimer ce document ?")) { await supprimerDocument(d.id); load(); } }}>Suppr.</button>
                     </div>
@@ -311,37 +315,155 @@ function FicheForm({ p, onSave, estAdmin, zone }: { p: Prospect; onSave: (patch:
 }
 
 /* --------------------------- Questionnaire --------------------------- */
-function BesoinsForm({ p, onSave }: { p: Prospect; onSave: (patch: Partial<Prospect>) => Promise<void> }) {
+function BesoinsForm({ p, onSave, docs, onGenerer, onApercu, onEnvoyer }: {
+  p: Prospect;
+  onSave: (patch: Partial<Prospect>) => Promise<void>;
+  docs: ProspectDocument[];
+  onGenerer: () => Promise<void>;
+  onApercu: (d: ProspectDocument) => void;
+  onEnvoyer: (d: ProspectDocument) => void;
+}) {
   const [b, setB] = useState<Record<string, unknown>>(p.besoins || {});
-  useEffect(() => setB(p.besoins || {}), [p]);
-  return (
-    <div className="glass-card p-4">
-      <p className="text-sm text-white/50">Fiche de renseignement — aucune question n&apos;est obligatoire, tout se modifie à tout moment. Elle est jointe au contrat et guide la mise en service.</p>
-      <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        {QUESTIONS_BESOINS.map((q) => (
-          <div key={q.cle} className={q.type === "multi" || q.type === "texte" ? "sm:col-span-2" : ""}>
-            <label className="field-label">{q.label}</label>
-            {q.type === "texte" && <input className="field-input" value={reponseTexte(b[q.cle])} onChange={(e) => setB((x) => ({ ...x, [q.cle]: e.target.value }))} />}
-            {q.type === "nombre" && <input className="field-input" inputMode="numeric" value={reponseTexte(b[q.cle])} onChange={(e) => setB((x) => ({ ...x, [q.cle]: e.target.value }))} />}
-            {q.type === "choix" && (
-              <select className="field-input" value={reponseTexte(b[q.cle])} onChange={(e) => setB((x) => ({ ...x, [q.cle]: e.target.value }))}>
-                <option value="">—</option>
-                {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            )}
-            {q.type === "multi" && (
-              <div className="flex flex-wrap gap-2">
-                {q.options!.map((o) => {
-                  const cur = Array.isArray(b[q.cle]) ? (b[q.cle] as string[]) : [];
-                  const sel = cur.includes(o);
-                  return <button key={o} type="button" onClick={() => setB((x) => ({ ...x, [q.cle]: sel ? cur.filter((y) => y !== o) : [...cur, o] }))} className={`rounded-full border px-3 py-1 text-xs ${sel ? "border-accent-pink bg-accent-pink text-white" : "border-white/25 text-white/70"}`}>{o}</button>;
-                })}
-              </div>
-            )}
-          </div>
-        ))}
+  const [demandes, setDemandes] = useState<DemandeParticuliere[]>(demandesDe(p.besoins));
+  const [nouvelle, setNouvelle] = useState<DemandeParticuliere>({ titre: "", detail: "" });
+  const [sauvegarde, setSauvegarde] = useState(false);
+  useEffect(() => {
+    setB(p.besoins || {});
+    setDemandes(demandesDe(p.besoins));
+  }, [p]);
+  const fiches = docs.filter((d) => d.type === "fiche");
+  const derniere = fiches[0];
+  const modifie = JSON.stringify({ ...b, demandes }) !== JSON.stringify(p.besoins || {});
+  const set = (cle: string, v: unknown) => setB((x) => ({ ...x, [cle]: v }));
+
+  async function enregistrer() {
+    setSauvegarde(true);
+    try { await onSave({ besoins: { ...b, demandes } }); } finally { setSauvegarde(false); }
+  }
+  async function genererFiche() {
+    if (modifie) await onSave({ besoins: { ...b, demandes } });
+    await onGenerer();
+  }
+  function ajouterDemande() {
+    if (!nouvelle.titre.trim()) return;
+    setDemandes((l) => [...l, { titre: nouvelle.titre.trim(), detail: nouvelle.detail?.trim() || undefined }]);
+    setNouvelle({ titre: "", detail: "" });
+  }
+
+  function champ(q: QuestionBesoin) {
+    const v = b[q.cle];
+    if (q.type === "texte") return <input className="field-input" value={reponseLisible(v)} placeholder={q.aide} onChange={(e) => set(q.cle, e.target.value)} />;
+    if (q.type === "nombre") return <input className="field-input" inputMode="decimal" value={reponseLisible(v)} onChange={(e) => set(q.cle, e.target.value)} />;
+    if (q.type === "long") return <textarea className="field-input" rows={2} value={reponseLisible(v)} onChange={(e) => set(q.cle, e.target.value)} />;
+    if (q.type === "choix")
+      return (
+        <select className="field-input" value={reponseLisible(v)} onChange={(e) => set(q.cle, e.target.value)}>
+          <option value="">—</option>
+          {q.options!.map((o) => <option key={o} value={o}>{o}</option>)}
+          {Boolean(v) && !q.options!.includes(String(v)) && <option value={String(v)}>{String(v)}</option>}
+        </select>
+      );
+    if (q.type === "ouinon") {
+      const val = v === true || v === "Oui" ? "Oui" : v === false || v === "Non" ? "Non" : "";
+      return (
+        <div className="flex flex-wrap items-center gap-2">
+          {["Oui", "Non"].map((o) => (
+            <button key={o} type="button" onClick={() => set(q.cle, val === o ? "" : o)} className={`rounded-full border px-3 py-1 text-xs ${val === o ? "border-accent-pink bg-accent-pink text-white" : "border-white/25 text-white/70"}`}>{o}</button>
+          ))}
+          {q.precision && val === "Oui" && (
+            <input className="field-input field-compact flex-1 min-w-[10rem]" placeholder={q.precision.label} value={reponseLisible(b[q.precision.cle])} onChange={(e) => set(q.precision!.cle, e.target.value)} />
+          )}
+        </div>
+      );
+    }
+    // multi
+    const cur = Array.isArray(v) ? (v as string[]) : [];
+    const vertical = q.options!.length > 8;
+    return (
+      <div className={vertical ? "grid gap-1.5 sm:grid-cols-2" : "flex flex-wrap gap-2"}>
+        {q.options!.map((o) => {
+          const sel = cur.includes(o);
+          return vertical ? (
+            <label key={o} className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-xs ${sel ? "border-accent-pink bg-accent-pink/10 text-white" : "border-white/15 text-white/70"}`}>
+              <input type="checkbox" className="mt-0.5" checked={sel} onChange={() => set(q.cle, sel ? cur.filter((y) => y !== o) : [...cur, o])} />
+              <span>{o}</span>
+            </label>
+          ) : (
+            <button key={o} type="button" onClick={() => set(q.cle, sel ? cur.filter((y) => y !== o) : [...cur, o])} className={`rounded-full border px-3 py-1 text-xs ${sel ? "border-accent-pink bg-accent-pink text-white" : "border-white/25 text-white/70"}`}>{o}</button>
+          );
+        })}
       </div>
-      <div className="mt-3 flex justify-end"><button className="btn-primary" onClick={() => onSave({ besoins: b })}>Enregistrer le questionnaire</button></div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="glass-card p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="titre-bloc">Fiche d&apos;identification des besoins</h2>
+            <p className="text-sm text-white/50">Les questions de l&apos;entretien de découverte (pack commercial). Aucune n&apos;est obligatoire, tout se modifie à tout moment ; les réponses sont jointes au contrat et servent à la fiche client remise à la secrétaire.</p>
+          </div>
+          <div className="text-right text-xs text-white/50">
+            Rempli à <b className="text-white/80">{tauxRemplissage({ ...b, demandes })} %</b>
+            {modifie && <div className="text-amber-300">Modifications non enregistrées</div>}
+          </div>
+        </div>
+      </div>
+
+      {SECTIONS_BESOINS.map((s, i) => (
+        <div key={s.cle} className={`glass-card p-4 ${s.interne ? "border border-accent-violet/40" : ""}`}>
+          <h3 className="font-semibold text-white">{i + 1}. {s.titre}{s.interne && <span className="badge badge-neutral ml-2">Interne IDEAFORMA</span>}</h3>
+          {s.intro && <p className="mt-1 text-xs text-white/50">{s.intro}</p>}
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+            {s.questions.map((q) => (
+              <div key={q.cle} className={q.type === "multi" || q.type === "long" || q.type === "ouinon" ? "sm:col-span-2" : ""}>
+                <label className="field-label">{q.label}</label>
+                {champ(q)}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div className="glass-card border border-accent-pink/40 p-4">
+        <h3 className="font-semibold text-white">{SECTIONS_BESOINS.length + 1}. Demandes particulières du client</h3>
+        <p className="mt-1 text-xs text-white/50">Tout ce que le garage demande en plus ou autrement (habitudes, documents spécifiques, horaires, interlocuteurs à éviter…). Elles apparaissent en évidence sur la fiche client.</p>
+        {demandes.length > 0 && (
+          <ul className="mt-3 divide-y divide-white/10">
+            {demandes.map((d, i) => (
+              <li key={i} className="flex items-start justify-between gap-3 py-2">
+                <div className="min-w-0 text-sm">
+                  <div className="font-medium text-white">{i + 1}. {d.titre}</div>
+                  {d.detail && <div className="text-white/60">{d.detail}</div>}
+                </div>
+                <button className="text-xs text-white/40 hover:text-rose-300" onClick={() => setDemandes((l) => l.filter((_, j) => j !== i))}>Retirer</button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
+          <input className="field-input field-compact" placeholder="Demande (ex : facture envoyée en double au comptable)" value={nouvelle.titre} onChange={(e) => setNouvelle((n) => ({ ...n, titre: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") ajouterDemande(); }} />
+          <input className="field-input field-compact" placeholder="Précision (facultatif)" value={nouvelle.detail || ""} onChange={(e) => setNouvelle((n) => ({ ...n, detail: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") ajouterDemande(); }} />
+          <button className="btn-ghost btn-compact" type="button" onClick={ajouterDemande} disabled={!nouvelle.titre.trim()}>+ Ajouter</button>
+        </div>
+      </div>
+
+      <div className="glass-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="font-semibold text-white">Fiche client (PDF interne)</h3>
+            <p className="text-xs text-white/50">À la charte IDEAFORMA avec le logo. À garder en interne et à transmettre à la secrétaire qui prendra le garage en charge — elle reflète toujours la dernière version du questionnaire.</p>
+            {derniere && <p className="mt-1 text-xs text-white/60">Dernière fiche : {derniere.numero} · {formatDateTime(derniere.created_at)}{derniere.envoye_le ? ` · transmise le ${formatDate(derniere.envoye_le)}` : ""}</p>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-ghost" onClick={enregistrer} disabled={sauvegarde}>{sauvegarde ? "Enregistrement…" : "Enregistrer le questionnaire"}</button>
+            {derniere && <button className="btn-ghost" onClick={() => onApercu(derniere)}>Voir la fiche</button>}
+            {derniere && <button className="btn-ghost" onClick={() => onEnvoyer(derniere)}>✉️ Transmettre à la secrétaire</button>}
+            <button className="btn-primary" onClick={genererFiche}>{derniere ? "Régénérer la fiche client" : "Générer la fiche client"}</button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

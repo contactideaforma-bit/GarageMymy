@@ -89,7 +89,7 @@ export const TYPES_DOCUMENT: Record<ProspectDocument["type"], string> = {
   devis: "Devis",
   contrat: "Contrat d'abonnement",
   simulation: "Simulation tarifaire",
-  fiche: "Fiche de renseignement",
+  fiche: "Fiche client (interne)",
 };
 
 export const OFFRE_DEFAUT: ParametresOffre = { formule: "confort", engagement_12: true, periodicite: "mensuel", remise_supp_pct: 0, mode_paiement: "virement", validite_jours: 30 };

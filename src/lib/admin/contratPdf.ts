@@ -11,6 +11,8 @@ import autoTable, { CellDef, RowInput, UserOptions } from "jspdf-autotable";
 import { SOCIETE, ADRESSE_COMPLETE } from "@/components/vitrine/societe";
 import { Formule, Parametres, grilleTarifs, tarifFormule } from "./economie";
 import { ACCEPTATION_CGV, VERSION_CGV, VenteContrat, articlesCGV, conditionsParticulieres } from "./contratGarage";
+import { SECTIONS_BESOINS, demandesDe, libelleQuestion, lignesSection, tauxRemplissage } from "@/lib/ficheBesoins";
+import type { Prospect } from "@/lib/prospects";
 
 /* ------------------------------------------------------------------ */
 /*  Charte                                                             */
@@ -417,9 +419,15 @@ export function construireContratPdf(
 
   if (extra.besoins && Object.keys(extra.besoins).length) {
     h2(c, "Annexe - fiche de renseignement du garage");
-    const lignes: RowInput[] = Object.entries(extra.besoins)
-      .map(([k, val]) => [k, Array.isArray(val) ? val.join(", ") : String(val ?? "")])
-      .filter((l) => l[1]);
+    const b = extra.besoins;
+    const lignes: RowInput[] = SECTIONS_BESOINS.filter((s) => !s.interne).flatMap((s) => lignesSection(s, b));
+    // Réponses hors référentiel (anciennes clés) : libellé brut.
+    for (const [k, val] of Object.entries(b)) {
+      if (k === "demandes" || libelleQuestion(k) !== k) continue;
+      const v = Array.isArray(val) ? val.join(", ") : String(val ?? "");
+      if (v) lignes.push([k, v]);
+    }
+    for (const d of demandesDe(b)) lignes.push(["Demande particulière", [d.titre, d.detail].filter(Boolean).join(" — ")]);
     if (lignes.length) tableau(c, ["Question", "Réponse"], lignes, { largeurs: [1, 1.6], taille: 8.5 });
   }
 
@@ -597,6 +605,95 @@ export function construireSimulationPdf(garageNom: string, formuleRetenue: Formu
     { largeurs: [1, 2.4], taille: 8.5 }
   );
   para(c, `Simulation indicative établie selon la grille tarifaire en vigueur, sans valeur contractuelle ; seul le devis puis le contrat d'abonnement engagent les parties.${extra.commercialNom ? ` Votre interlocuteur : ${extra.commercialNom} - ${SOCIETE.email}.` : ` Contact : ${SOCIETE.email}.`}`, { taille: 8.5, couleur: GRIS_CLAIR });
+  return finaliser(c);
+}
+
+/* ====================================================================
+   FICHE CLIENT — document interne : identité du garage, réponses de la
+   fiche d'identification des besoins, demandes particulières, synthèse.
+   Destinée à la secrétaire qui prendra le garage en charge.
+==================================================================== */
+export function construireFichePdf(
+  p: Prospect,
+  extra: { numero?: string | null; date?: string | null; commercialNom?: string | null; codeApporteur?: string | null }
+): jsPDF {
+  const b = p.besoins || {};
+  const c = creer("Fiche client", `${SOCIETE.produit} by ${SOCIETE.editeur} - document interne`);
+  entete(c, [extra.numero ? `Fiche n° ${extra.numero}` : "", `Établie le ${dateFr(extra.date)}`, extra.commercialNom ? `Par ${extra.commercialNom}` : ""].filter(Boolean));
+
+  para(c, "Document interne IDEAFORMA - ne pas transmettre au garage. Il reprend l'entretien de découverte et les demandes particulières du client afin que la secrétaire en charge dispose de tout le contexte avant la mise en service.", { taille: 8.6, couleur: GRIS_CLAIR, apres: 4 });
+
+  h2(c, "1. Identité du garage");
+  const contact = [p.contact_nom, p.contact_fonction].filter(Boolean).join(", ");
+  const identite: RowInput[] = (
+    [
+      ["Raison sociale", p.nom],
+      ["Enseigne / nom commercial", String(b.enseigne ?? "")],
+      ["Forme juridique / activité", [p.forme_juridique, p.activite].filter(Boolean).join(" - ")],
+      ["Adresse", [p.adresse, `${p.cp || ""} ${p.ville || ""}`.trim()].filter(Boolean).join(", ")],
+      [(p.siret || p.siren || "").replace(/\D/g, "").length >= 14 ? "SIRET" : "SIREN", p.siret || p.siren || ""],
+      ["TVA intracommunautaire", p.tva_intra || ""],
+      ["Gérant(e)", p.gerant || ""],
+      ["Contact (nom, fonction)", contact],
+      ["Téléphone / e-mail", [p.tel, p.email].filter(Boolean).join(" - ")],
+      ["Site internet", p.site || ""],
+      ["Effectif déclaré", p.effectif != null ? String(p.effectif) : ""],
+      ["Statut commercial", `${p.statut}${p.origine ? ` - origine : ${p.origine}${p.origine_detail ? ` (${p.origine_detail})` : ""}` : ""}`],
+      ["Date de l'entretien / interlocuteur", [String(b.date_entretien ?? ""), String(b.interlocuteur_ideaforma ?? extra.commercialNom ?? "")].filter(Boolean).join(" / ")],
+    ] as [string, string][]
+  ).filter((l) => l[1]);
+  tableau(c, ["Champ", "Valeur"], identite, { largeurs: [1, 1.8], taille: 8.8 });
+
+  let n = 2;
+  for (const s of SECTIONS_BESOINS.filter((x) => x.cle !== "entretien" && !x.interne)) {
+    const lignes = lignesSection(s, b);
+    h2(c, `${n}. ${s.titre}`);
+    n++;
+    if (s.cle === "taches") {
+      const cochees = Array.isArray(b.taches) ? (b.taches as string[]) : [];
+      const autre = String(b.taches_autre ?? "");
+      if (!cochees.length && !autre) {
+        para(c, "Aucune tâche cochée.", { taille: 8.8, couleur: GRIS_CLAIR });
+        continue;
+      }
+      for (const t of cochees) puce(c, t, 9);
+      if (autre) puce(c, `Autre : ${autre}`, 9);
+      c.y += 2;
+      continue;
+    }
+    if (!lignes.length) {
+      para(c, "Non renseigné.", { taille: 8.8, couleur: GRIS_CLAIR });
+      continue;
+    }
+    tableau(c, ["Question", "Réponse"], lignes, { largeurs: [1, 1.6], taille: 8.6 });
+  }
+
+  h2(c, `${n}. Demandes particulières du client`);
+  n++;
+  const demandes = demandesDe(b);
+  if (!demandes.length) para(c, "Aucune demande particulière enregistrée.", { taille: 8.8, couleur: GRIS_CLAIR });
+  else {
+    encadre(
+      c,
+      `${demandes.length} demande${demandes.length > 1 ? "s" : ""} à prendre en compte à la mise en service`,
+      demandes.map((d, i) => `${i + 1}. ${d.titre}${d.detail ? ` - ${d.detail}` : ""}`),
+      FUCHSIA_PALE,
+      FUCHSIA
+    );
+  }
+
+  const synth = SECTIONS_BESOINS.find((x) => x.cle === "synthese")!;
+  h2(c, `${n}. ${synth.titre}`);
+  const ls = lignesSection(synth, b);
+  if (ls.length) tableau(c, ["Point", "Décision"], ls, { largeurs: [1, 1.6], taille: 8.6 });
+  else para(c, "Synthèse à compléter après l'entretien.", { taille: 8.8, couleur: GRIS_CLAIR });
+
+  if (p.notes) {
+    h2(c, `${n + 1}. Notes du commercial`);
+    para(c, p.notes, { taille: 8.8, couleur: 55 });
+  }
+
+  para(c, `Questionnaire rempli à ${tauxRemplissage(b)} %.${extra.commercialNom ? ` Commercial : ${extra.commercialNom}${extra.codeApporteur ? ` (code ${extra.codeApporteur})` : ""}.` : ""} Fiche régénérable à tout moment depuis l'espace Clients : elle reflète toujours la dernière version du questionnaire.`, { taille: 8.2, couleur: GRIS_CLAIR });
   return finaliser(c);
 }
 
