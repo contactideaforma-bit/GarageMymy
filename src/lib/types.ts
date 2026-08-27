@@ -171,6 +171,9 @@ export type Document = {
   // Durée d'immobilisation en jours (surcharge le calcul fait depuis le
   // planning de réparation du dossier) — v34
   jours_reparation?: number | null;
+  // ORIGINE (v54) : null = facture de réparation ; 'gardiennage' = frais de
+  // parc — le contrôle « conforme au rapport d'expertise » ne s'applique pas.
+  origine?: string | null;
   // FACTURATION ÉLECTRONIQUE (v52) — cycle de vie renvoyé par la plateforme
   // agréée (étape 2) : deposee | rejetee | recue | acceptee | refusee | payee
   fe_statut?: string | null;
@@ -234,6 +237,17 @@ export type Entreprise = {
   fe_choisie_le?: string | null;
   fe_reception_ok?: boolean | null;
   tva_debits?: boolean | null;
+  // VÉHICULE DE PRÊT & GARDIENNAGE (v54) : tarifs par défaut, repris sur
+  // chaque contrat / facture et modifiables document par document.
+  pret_tarif_jour?: number | null;
+  pret_tarif_horaire?: number | null;
+  pret_franchise?: number | null;
+  pret_km_jour?: number | null;
+  pret_prix_km?: number | null;
+  gard_tarif_jour?: number | null;
+  gard_frais_entree?: number | null;
+  gard_frais_sortie?: number | null;
+  gard_frais_enlevement?: number | null;
 };
 
 // Appareil autorisé à recevoir les notifications push (v42).
@@ -329,6 +343,24 @@ export type TransfertGarantie = {
   date_accord: string | null;
   statut: string; // a_demander | demande | accorde | refuse
   notes: string | null;
+  // CONTRAT DE PRÊT (v54)
+  tarif_jour?: number | null;
+  tarif_horaire?: number | null;
+  franchise?: number | null;
+  km_jour?: number | null;
+  prix_km?: number | null;
+  km_depart?: number | null;
+  carburant?: string | null;
+  conducteur_nom?: string | null;
+  conducteur_naissance?: string | null;
+  permis_numero?: string | null;
+  permis_date?: string | null;
+  prise_en_charge?: string | null; // assurance | client
+  clauses?: string | null;
+  observations?: string | null;
+  signataire_nom?: string | null;
+  signature?: string | null;
+  signe_le?: string | null;
 };
 
 export type CommandePiece = {

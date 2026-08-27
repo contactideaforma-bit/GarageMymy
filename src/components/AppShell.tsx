@@ -8,6 +8,7 @@ import BandeauService from "@/components/BandeauService";
 import BandeauHorsLigne from "@/components/BandeauHorsLigne";
 import MyMyChat from "@/components/MyMyChat";
 import { estRoutePublique } from "@/lib/routesPubliques";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
@@ -18,7 +19,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // que le jour où l'utilisateur ferme tous ses onglets. L'appel est silencieux
   // (aucune autorisation demandée ici) et sans effet si le navigateur ne gère
   // pas les service workers. Exclu des pages publiques.
-  const publique = estRoutePublique(pathname);
+  // ÉTAT DU SERVICE (v9.9) : page publique (consultable sans compte), mais
+  // quand on est CONNECTÉ elle garde la barre latérale — on y vient depuis
+  // le menu, on doit pouvoir en repartir de la même façon.
+  const [connecte, setConnecte] = useState(false);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    supabase.auth.getSession().then(({ data }) => setConnecte(Boolean(data.session)));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => setConnecte(Boolean(session)));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+  const publique = estRoutePublique(pathname) && !(pathname === "/etat" && connecte);
   useEffect(() => {
     if (publique || typeof window === "undefined" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js").catch(() => undefined);

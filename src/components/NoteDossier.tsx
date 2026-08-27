@@ -87,7 +87,10 @@ export default function NoteDossier({
   const [rappels, setRappels] = useState<LigneArdoise[]>([]);
   const [rappelsDispo, setRappelsDispo] = useState(true);
   const [nouveau, setNouveau] = useState("");
-  const [echeance, setEcheance] = useState("");
+  // Échéance saisie en deux champs (date, heure) — combinés pour l'agenda.
+  const [echDate, setEchDate] = useState("");
+  const [echHeure, setEchHeure] = useState("09:00");
+  const echeance = echDate ? `${echDate}T${echHeure || "09:00"}` : "";
   const [busy, setBusy] = useState(false);
 
   const chargerListe = useCallback(async () => {
@@ -208,7 +211,8 @@ export default function NoteDossier({
       });
       setRappels((prev) => [ligne, ...prev]);
       setNouveau("");
-      setEcheance("");
+      setEchDate("");
+      setEchHeure("09:00");
     } catch (err) {
       setErreur(messageErreur(err, "Rappel non ajouté (migrations v38 et v41 exécutées ?)."));
     }
@@ -365,8 +369,7 @@ export default function NoteDossier({
             onChange={(e) => saisir(e.target.value)}
             rows={6}
             placeholder="Rappels, échanges téléphoniques, points de vigilance… Tout ce qui compte sur ce dossier."
-            className="field-input min-h-[7rem] resize-y rounded-none border-0 bg-transparent text-sm focus:shadow-none"
-            style={{ borderColor: "transparent" }}
+            className="field-input mx-3 my-2 block w-[calc(100%-1.5rem)] min-h-[7rem] resize-none text-sm"
           />
 
           {/* 2. Rappels remontés au tableau de bord */}
@@ -459,16 +462,35 @@ export default function NoteDossier({
                     Ajouter
                   </button>
                 </div>
-                <label className="block text-[11px] text-white/45">
-                  <span className="mb-1 block">📅 Agenda (optionnel)</span>
-                  <input
-                    type="datetime-local"
-                    className="field-input field-compact w-full"
-                    value={echeance}
-                    onChange={(e) => setEcheance(e.target.value)}
-                  />
-                  {echeance && <span className="text-accent-teal">→ RDV créé dans l&apos;agenda</span>}
-                </label>
+                {/* Date et heure SÉPARÉES (v9.9) : le champ « date + heure » du
+                    navigateur était illisible ; on affiche en clair ce qui
+                    sera créé dans l'agenda. */}
+                <div className="text-[11px] text-white/45">
+                  <span className="mb-1 block">📅 Mettre dans l&apos;agenda (optionnel)</span>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      className="field-input field-compact flex-1"
+                      value={echDate}
+                      onChange={(e) => setEchDate(e.target.value)}
+                      aria-label="Date"
+                    />
+                    <input
+                      type="time"
+                      step={900}
+                      className="field-input field-compact w-28"
+                      value={echHeure}
+                      onChange={(e) => setEchHeure(e.target.value)}
+                      aria-label="Heure"
+                      disabled={!echDate}
+                    />
+                  </div>
+                  {echeance && (
+                    <span className="mt-1 block text-accent-teal">
+                      → Rappel dans l&apos;agenda {libelleEcheance(localVersIso(echeance) || "", true)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           )}

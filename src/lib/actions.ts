@@ -89,7 +89,8 @@ export function calculeProchaineAction(args: {
   }
 
   const fiche = `/sinistres/${dossier.id}`;
-  const factures = documents.filter((d) => d.type === "facture");
+  // Les factures de gardiennage (v54) ne font pas avancer le dossier de réparation.
+  const factures = documents.filter((d) => d.type === "facture" && d.origine !== "gardiennage");
   const orSigne = ordres.some((o) => o.statut === "signe");
   const cessionSignee = cessions.some((c) => c.statut === "signe");
   const restitutionSignee = restitutions.some((r) => r.statut === "signe");
@@ -346,7 +347,8 @@ function actionVitrage(args: {
     }
   }
 
-  const factures = documents.filter((d) => d.type === "facture");
+  // Les factures de gardiennage (v54) ne font pas avancer le dossier de réparation.
+  const factures = documents.filter((d) => d.type === "facture" && d.origine !== "gardiennage");
   const devisList = documents.filter((d) => d.type === "devis");
   const cessionSignee = cessions.some((c) => c.statut === "signe");
   const restitutionSignee = restitutions.some((r) => r.statut === "signe");

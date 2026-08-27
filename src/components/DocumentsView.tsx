@@ -222,7 +222,7 @@ export default function DocumentsView({ type }: { type: DocumentType }) {
         <ModePaiementModal
           defaut={modeParDefaut(pdfDoc, pdfDoc.dossier)}
           titre={`Générer la facture ${pdfDoc.numero || ""}`.trim()}
-          alerte={controlerRapport(Number(pdfDoc.total_ht) || 0, pdfDoc.dossier?.montant).message}
+          alerte={pdfDoc.origine === "gardiennage" ? null : controlerRapport(Number(pdfDoc.total_ht) || 0, pdfDoc.dossier?.montant).message}
           onClose={() => setPdfDoc(null)}
           onValider={(mode) => genererFacturePdf(pdfDoc, mode)}
         />

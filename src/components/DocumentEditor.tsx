@@ -17,6 +17,7 @@ import {
   joursFacture,
   ligneVide,
   lignesToDb,
+  ControleRapport,
   controlerRapport,
   marquerTempsLibre,
   montantRemiseLigne,
@@ -56,6 +57,8 @@ export default function DocumentEditor({
   document,
   lignes,
   origineLignes,
+  notesInitiales,
+  origineDocument,
   onClose,
   onSaved,
 }: {
@@ -65,18 +68,24 @@ export default function DocumentEditor({
   lignes?: LigneSource[];
   /** D'où viennent les lignes pré-remplies (affiché à l'utilisateur). */
   origineLignes?: "rapport" | "document" | null;
+  /** Mentions pré-remplies (facture de gardiennage) — modifiables. */
+  notesInitiales?: string | null;
+  /** Nature du document (v54) : 'gardiennage' = hors contrôle du rapport. */
+  origineDocument?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const isEdit = Boolean(document);
-  const titre = type === "devis" ? "Devis" : "Facture";
+  const titre = type === "devis" ? "Devis" : origineDocument === "gardiennage" || document?.origine === "gardiennage" ? "Facture de gardiennage" : "Facture";
 
   const [numero, setNumero] = useState(document?.numero || genNumero(type));
   const [dateDoc, setDateDoc] = useState(document?.date_document || ymd());
   const [dateEcheance, setDateEcheance] = useState(document?.date_echeance || "");
   const [statut, setStatut] = useState(document?.statut || "brouillon");
   const [tva, setTva] = useState(String(document?.tva ?? 20));
-  const [notes, setNotes] = useState(document?.notes || "");
+  const [notes, setNotes] = useState(document?.notes || notesInitiales || "");
+  const origine = document?.origine ?? origineDocument ?? null;
+  const horsRapport = origine === "gardiennage";
   const [acquitte, setAcquitte] = useState(Boolean(document?.acquitte));
   // Durée d'immobilisation imprimée en en-tête de facture : pré-remplie
   // depuis le planning du dossier, modifiable au cas par cas.
@@ -147,7 +156,10 @@ export default function DocumentEditor({
   const totaux = computeTotaux(items, tva);
   // Le net à payer doit correspondre au rapport d'expertise (montant HT retenu
   // sur le dossier). Sinon : alerte — correction MANUELLE, jamais automatique.
-  const controle = controlerRapport(totaux.ht, dossier.montant);
+  // Une facture de gardiennage ne se compare pas au chiffrage du rapport.
+  const controle: ControleRapport = horsRapport
+    ? { montantRapport: null, totalHt: totaux.ht, ecart: 0, coherent: true, message: null }
+    : controlerRapport(totaux.ht, dossier.montant);
   const remises = items.reduce((s, l) => s + montantRemiseLigne(l), 0);
   const groupes = groupeLignes(items);
 
@@ -214,6 +226,7 @@ export default function DocumentEditor({
         total_ttc: totaux.ttc,
         acquitte: type === "facture" ? acquitte : false,
         jours_reparation: Number(jours) > 0 ? Number(jours) : null,
+        ...(origine ? { origine } : {}),
       };
 
       let docId = document?.id;

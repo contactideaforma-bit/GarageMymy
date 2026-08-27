@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Incident, chargerEtat, depuis, infoNiveau } from "@/lib/etatService";
 import { formatDateTime } from "@/lib/format";
+import { Ticket } from "@/lib/types";
+import { chargerMesTickets, estOuvert, iconeCategorie, infoGravite, infoStatut } from "@/lib/support";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 /**
  * ÉTAT DU SERVICE — page PUBLIQUE (v45).
@@ -17,6 +21,12 @@ export default function EtatPage() {
   const [actifs, setActifs] = useState<Incident[]>([]);
   const [historique, setHistorique] = useState<Incident[]>([]);
   const [charge, setCharge] = useState(false);
+  const router = useRouter();
+  // MES SIGNALEMENTS (v9.9) : les tickets d'incident du garage connecté.
+  // L'« état du service » restait muet sur ce que le garage venait de
+  // signaler lui-même : il croyait son ticket perdu.
+  const [connecte, setConnecte] = useState(false);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -25,13 +35,29 @@ export default function EtatPage() {
       setHistorique(e.historique);
       setCharge(true);
     })();
+    if (!isSupabaseConfigured) return;
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) return;
+      setConnecte(true);
+      const t = await chargerMesTickets();
+      setTickets(t.tickets);
+    });
   }, []);
+  const ouverts = tickets.filter(estOuvert);
+  const fermes = tickets.filter((t) => !estOuvert(t)).slice(0, 5);
 
   const toutVaBien = charge && actifs.length === 0;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <div className="mb-8 flex items-center gap-3">
+      <div className="mb-8 flex flex-wrap items-center gap-3">
+        <button
+          onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))}
+          className="btn-ghost py-1.5 px-3 text-sm"
+          title="Revenir à la page précédente"
+        >
+          ← Retour
+        </button>
         <Image src="/logo.png" alt="" width={40} height={40} className="rounded-md border-2 border-white/20" />
         <div>
           <h1 className="titre-page">État du service</h1>
@@ -94,6 +120,50 @@ export default function EtatPage() {
               </article>
             );
           })}
+        </section>
+      )}
+
+      {/* Mes signalements (garage connecté) */}
+      {connecte && (
+        <section className="glass-card mb-6 p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="titre-section">Mes signalements</h2>
+            <Link href="/support" className="text-xs text-accent-teal hover:underline">
+              Aide &amp; incidents → suivre / signaler
+            </Link>
+          </div>
+          {tickets.length === 0 ? (
+            <p className="text-sm text-white/45">
+              Aucun ticket. Un problème ? Signale-le depuis « Aide &amp; incidents » : il apparaîtra ici avec son suivi.
+            </p>
+          ) : (
+            <ul className="divide-y divide-white/10">
+              {[...ouverts, ...fermes].map((t) => {
+                const st = infoStatut(t.statut);
+                const gr = infoGravite(t.gravite);
+                return (
+                  <li key={t.id}>
+                    <Link href="/support" className="flex flex-wrap items-center justify-between gap-2 py-2.5 hover:bg-white/5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-white/85">
+                          {iconeCategorie(t.categorie)} {t.sujet}
+                          {t.numero ? <span className="text-white/40"> · {t.numero}</span> : null}
+                        </p>
+                        <p className="text-[11px] text-white/40">
+                          Signalé le {formatDateTime(t.created_at)}
+                          {t.maj_le && t.maj_le !== t.created_at ? ` · mis à jour le ${formatDateTime(t.maj_le)}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className={gr.badge}>{gr.label}</span>
+                        <span className={st.badge}>{st.label}</span>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
       )}
 

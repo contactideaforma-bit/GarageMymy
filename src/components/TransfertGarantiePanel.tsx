@@ -4,10 +4,12 @@ import { usePliage } from "@/lib/pliage";
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Dossier, FlotteVehicule, TransfertGarantie } from "@/lib/types";
-import { formatDate, messageErreur, ymd } from "@/lib/format";
+import { Dossier, Entreprise, FlotteVehicule, TransfertGarantie } from "@/lib/types";
+import { formatDate, formatEuros, messageErreur, ymd } from "@/lib/format";
 import ModalShell from "@/components/ModalShell";
 import EmailComposer from "@/components/EmailComposer";
+import { PRISES_EN_CHARGE, clausesParDefaut, coutPretHt, defautsContrat, joursPret } from "@/lib/pret";
+import { apercuContratPretPdf, contratPretPdfBase64, generateContratPretPdf } from "@/lib/pdf";
 
 const STATUTS_TRANSFERT: Record<string, { label: string; badge: string }> = {
   a_demander: { label: "À demander", badge: "bg-rose-100 text-rose-700" },
@@ -32,6 +34,22 @@ export default function TransfertGarantiePanel({
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [emailTransfert, setEmailTransfert] = useState<TransfertGarantie | null>(null);
+  // CONTRAT DE PRÊT (v54) : modale d'édition + envoi du PDF au client
+  const [contrat, setContrat] = useState<TransfertGarantie | null>(null);
+  const [emailContrat, setEmailContrat] = useState<{ t: TransfertGarantie; pdf: string } | null>(null);
+  const [entreprise, setEntreprise] = useState<Partial<Entreprise> | null>(null);
+  useEffect(() => {
+    supabase.from("entreprise").select("*").limit(1).maybeSingle().then(({ data }) => setEntreprise((data as Entreprise) || null));
+  }, []);
+
+  async function envoyerContrat(t: TransfertGarantie) {
+    try {
+      const pdf = await contratPretPdfBase64(t, dossier);
+      setEmailContrat({ t, pdf });
+    } catch (err) {
+      alert(messageErreur(err, "Impossible de générer le contrat."));
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,12 +147,29 @@ export default function TransfertGarantiePanel({
                   </div>
                   <div className="mt-0.5 text-xs text-white/50">
                     Prêt du {formatDate(t.date_debut)} au {formatDate(t.date_fin)}
+                    {Number(t.tarif_jour) > 0
+                      ? ` · ${formatEuros(Number(t.tarif_jour))} HT/j (${formatEuros(coutPretHt(t))} HT estimés, ${
+                          t.prise_en_charge === "client" ? "à la charge du client" : "pris en charge par l'assurance"
+                        })`
+                      : t.clauses
+                        ? " · prêt gratuit"
+                        : ""}
+                    {t.signe_le ? ` · contrat signé le ${formatDate(t.signe_le)}` : t.clauses ? " · contrat prêt" : ""}
                     {t.date_demande ? ` · demandé le ${formatDate(t.date_demande)}` : ""}
                     {t.date_accord ? ` · accordé le ${formatDate(t.date_accord)}` : ""}
                     {t.notes ? ` — ${t.notes}` : ""}
                   </div>
                 </div>
                 <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
+                  <button onClick={() => setContrat(t)} className="text-accent-pink hover:underline" title="Contrat de mise à disposition (tarifs et clauses modifiables)">
+                    {t.clauses ? "Contrat de prêt" : "Établir le contrat"}
+                  </button>
+                  {t.clauses && (
+                    <>
+                      <button onClick={() => apercuContratPretPdf(t, dossier)} className="text-accent-teal hover:underline">PDF</button>
+                      <button onClick={() => envoyerContrat(t)} className="text-accent-teal hover:underline">Envoyer</button>
+                    </>
+                  )}
                   {t.statut !== "accorde" && (
                     <button onClick={() => setEmailTransfert(t)} className="text-accent-teal hover:underline">
                       Demander à l&apos;assurance
@@ -158,6 +193,36 @@ export default function TransfertGarantiePanel({
           dossier={dossier}
           onClose={() => setModalOpen(false)}
           onSaved={() => { setModalOpen(false); refresh(); }}
+        />
+      )}
+      {contrat && (
+        <ContratPretModal
+          transfert={contrat}
+          dossier={dossier}
+          entreprise={entreprise}
+          onClose={() => setContrat(null)}
+          onSaved={() => { setContrat(null); refresh(); }}
+        />
+      )}
+      {emailContrat && (
+        <EmailComposer
+          dossier={dossier}
+          defaultTo={dossier.client_email || ""}
+          defaultSubject={`Contrat de véhicule de prêt — ${emailContrat.t.vehicule_modele || ""} ${emailContrat.t.vehicule_immat || ""}`}
+          defaultBody={`Bonjour,\n\nVeuillez trouver ci-joint le contrat de mise à disposition du véhicule de prêt ${
+            emailContrat.t.vehicule_modele || ""
+          }${emailContrat.t.vehicule_immat ? ` (${emailContrat.t.vehicule_immat})` : ""} pour la période du ${formatDate(
+            emailContrat.t.date_debut
+          )} au ${formatDate(emailContrat.t.date_fin)}, pendant la réparation de votre véhicule.\n\nMerci de nous le retourner signé, précédé de la mention « lu et approuvé ».\n\nCordialement.`}
+          piecesJointes={[
+            {
+              label: "Contrat de prêt (PDF)",
+              filename: `contrat-pret-${emailContrat.t.vehicule_immat || "vehicule"}.pdf`,
+              getBase64: async () => emailContrat.pdf,
+              coche: true,
+            },
+          ]}
+          onClose={() => setEmailContrat(null)}
         />
       )}
       {emailTransfert && (
@@ -233,14 +298,33 @@ function TransfertModal({
     setSaving(true);
     setError(null);
     try {
-      const { error: e1 } = await supabase.from("transferts_garantie").insert({
+      // Tarifs par défaut du profil (v54) : posés à la création, modifiables
+      // ensuite dans le contrat. Colonnes absentes (migration v54 non
+      // passée) → on retente sans elles.
+      const { data: entData } = await supabase.from("entreprise").select("*").limit(1).maybeSingle();
+      const ent = (entData as Entreprise | null) || null;
+      const base = {
         dossier_id: dossier.id,
         vehicule_immat: immat.trim().toUpperCase(),
         vehicule_modele: modele || null,
         date_debut: debut || null,
         date_fin: fin || null,
         notes: notes || null,
+      };
+      const d = defautsContrat(ent, dossier);
+      let { error: e1 } = await supabase.from("transferts_garantie").insert({
+        ...base,
+        tarif_jour: d.tarif_jour,
+        tarif_horaire: d.tarif_horaire,
+        franchise: d.franchise,
+        km_jour: d.km_jour,
+        prix_km: d.prix_km,
+        conducteur_nom: d.conducteur_nom || null,
+        prise_en_charge: d.prise_en_charge,
       });
+      if (e1 && /column|colonne/i.test(e1.message || "")) {
+        ({ error: e1 } = await supabase.from("transferts_garantie").insert(base));
+      }
       if (e1) throw e1;
       // Marque le véhicule de flotte comme loué au client du dossier
       if (vehiculeId) {
@@ -306,6 +390,160 @@ function TransfertModal({
         <button onClick={save} disabled={saving} className="btn-primary">
           {saving ? "Enregistrement…" : "Enregistrer"}
         </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+/* ------------------------------ Contrat de prêt (v54) ------------------------------ */
+
+function ContratPretModal({
+  transfert,
+  dossier,
+  entreprise,
+  onClose,
+  onSaved,
+}: {
+  transfert: TransfertGarantie;
+  dossier: Dossier;
+  entreprise: Partial<Entreprise> | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const d = defautsContrat(entreprise, dossier);
+  const [f, setF] = useState({
+    date_debut: transfert.date_debut || ymd(),
+    date_fin: transfert.date_fin || "",
+    tarif_jour: String(transfert.tarif_jour ?? d.tarif_jour ?? ""),
+    tarif_horaire: String(transfert.tarif_horaire ?? d.tarif_horaire ?? ""),
+    franchise: String(transfert.franchise ?? d.franchise ?? ""),
+    km_jour: String(transfert.km_jour ?? d.km_jour ?? ""),
+    prix_km: String(transfert.prix_km ?? d.prix_km ?? ""),
+    km_depart: String(transfert.km_depart ?? ""),
+    carburant: transfert.carburant || "",
+    conducteur_nom: transfert.conducteur_nom || d.conducteur_nom || "",
+    conducteur_naissance: transfert.conducteur_naissance || "",
+    permis_numero: transfert.permis_numero || "",
+    permis_date: transfert.permis_date || "",
+    prise_en_charge: transfert.prise_en_charge || "assurance",
+    observations: transfert.observations || "",
+    signataire_nom: transfert.signataire_nom || "",
+  });
+  const [clauses, setClauses] = useState(transfert.clauses || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const set = (k: keyof typeof f, v: string) => setF((x) => ({ ...x, [k]: v }));
+
+  const num = (v: string): number | null => (v.trim() === "" ? null : Number(String(v).replace(",", ".")) || 0);
+
+  function valeurs(): TransfertGarantie {
+    return {
+      ...transfert,
+      date_debut: f.date_debut || null,
+      date_fin: f.date_fin || null,
+      tarif_jour: num(f.tarif_jour),
+      tarif_horaire: num(f.tarif_horaire),
+      franchise: num(f.franchise),
+      km_jour: num(f.km_jour),
+      prix_km: num(f.prix_km),
+      km_depart: num(f.km_depart),
+      carburant: f.carburant || null,
+      conducteur_nom: f.conducteur_nom || null,
+      conducteur_naissance: f.conducteur_naissance || null,
+      permis_numero: f.permis_numero || null,
+      permis_date: f.permis_date || null,
+      prise_en_charge: f.prise_en_charge,
+      observations: f.observations || null,
+      signataire_nom: f.signataire_nom || null,
+      clauses: clauses.trim() || null,
+    };
+  }
+
+  // Le texte des clauses dépend des tarifs : on le (re)génère à la demande,
+  // jamais par-dessus une modification du garage sans le lui dire.
+  function regenererClauses() {
+    if (clauses.trim() && !confirm("Remplacer le texte du contrat par le texte par défaut (calculé avec les tarifs ci-dessus) ?")) return;
+    setClauses(clausesParDefaut({ ...valeurs(), clauses: null }, dossier, entreprise));
+  }
+  useEffect(() => {
+    if (!clauses.trim()) setClauses(clausesParDefaut(valeurs(), dossier, entreprise));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function enregistrer(puis?: "pdf" | "telecharger") {
+    setSaving(true);
+    setError(null);
+    const v = valeurs();
+    const { id, created_at, dossier_id, ...patch } = v;
+    void id; void created_at; void dossier_id;
+    const { error: e } = await supabase.from("transferts_garantie").update(patch).eq("id", transfert.id);
+    setSaving(false);
+    if (e) {
+      setError(messageErreur(e, "Enregistrement impossible (migration v54 exécutée ?)."));
+      return;
+    }
+    if (puis === "pdf") await apercuContratPretPdf(v, dossier);
+    if (puis === "telecharger") await generateContratPretPdf(v, dossier);
+    onSaved();
+  }
+
+  const jours = joursPret(f.date_debut, f.date_fin);
+  const estimation = coutPretHt(valeurs());
+
+  return (
+    <ModalShell title="Contrat de véhicule de prêt" onClose={onClose} maxWidth="max-w-3xl">
+      <p className="text-xs text-white/50">
+        {transfert.vehicule_modele || "Véhicule"} {transfert.vehicule_immat ? `(${transfert.vehicule_immat})` : ""} prêté à{" "}
+        {dossier.client_nom || "—"}. Les tarifs par défaut viennent de <b>Profil du garage</b> et sont modifiables ici,
+        contrat par contrat.
+      </p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div><label className="field-label">Début</label><input type="date" className="field-input" value={f.date_debut} onChange={(e) => set("date_debut", e.target.value)} /></div>
+        <div><label className="field-label">Fin prévue</label><input type="date" className="field-input" value={f.date_fin} onChange={(e) => set("date_fin", e.target.value)} /></div>
+        <div><label className="field-label">Tarif € HT / jour</label><input inputMode="decimal" className="field-input" value={f.tarif_jour} onChange={(e) => set("tarif_jour", e.target.value)} placeholder="0 = gratuit" /></div>
+        <div><label className="field-label">Tarif € HT / heure</label><input inputMode="decimal" className="field-input" value={f.tarif_horaire} onChange={(e) => set("tarif_horaire", e.target.value)} placeholder="optionnel" /></div>
+        <div><label className="field-label">Franchise €</label><input inputMode="decimal" className="field-input" value={f.franchise} onChange={(e) => set("franchise", e.target.value)} /></div>
+        <div><label className="field-label">Km inclus / jour</label><input inputMode="numeric" className="field-input" value={f.km_jour} onChange={(e) => set("km_jour", e.target.value)} placeholder="vide = libre" /></div>
+        <div><label className="field-label">€ HT / km au-delà</label><input inputMode="decimal" className="field-input" value={f.prix_km} onChange={(e) => set("prix_km", e.target.value)} /></div>
+        <div>
+          <label className="field-label">Frais pris en charge par</label>
+          <select className="field-input" value={f.prise_en_charge} onChange={(e) => set("prise_en_charge", e.target.value)}>
+            {Object.entries(PRISES_EN_CHARGE).map(([k, l]) => <option key={k} value={k}>{k === "assurance" ? "L'assurance du client" : "Le client"}</option>)}
+          </select>
+          <span className="sr-only">{Object.values(PRISES_EN_CHARGE).join(" ")}</span>
+        </div>
+      </div>
+      <div className="glass-soft px-3 py-2 text-xs text-white/70">
+        {jours ? `${jours} jour(s)` : "Durée non renseignée"}
+        {Number(f.tarif_jour) > 0 ? ` · estimation ${formatEuros(estimation)} HT` : " · mise à disposition gratuite"}
+        {f.prise_en_charge === "assurance" && Number(f.tarif_jour) > 0 ? ` · facturée à ${dossier.assureur || "l'assureur"}` : ""}
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="col-span-2"><label className="field-label">Conducteur</label><input className="field-input" value={f.conducteur_nom} onChange={(e) => set("conducteur_nom", e.target.value)} /></div>
+        <div><label className="field-label">Né(e) le</label><input type="date" className="field-input" value={f.conducteur_naissance} onChange={(e) => set("conducteur_naissance", e.target.value)} /></div>
+        <div><label className="field-label">Permis délivré le</label><input type="date" className="field-input" value={f.permis_date} onChange={(e) => set("permis_date", e.target.value)} /></div>
+        <div className="col-span-2"><label className="field-label">N° de permis</label><input className="field-input" value={f.permis_numero} onChange={(e) => set("permis_numero", e.target.value)} /></div>
+        <div><label className="field-label">Km au départ</label><input inputMode="numeric" className="field-input" value={f.km_depart} onChange={(e) => set("km_depart", e.target.value)} /></div>
+        <div><label className="field-label">Carburant au départ</label><input className="field-input" value={f.carburant} onChange={(e) => set("carburant", e.target.value)} placeholder="ex. 3/4" /></div>
+      </div>
+      <div>
+        <label className="field-label">État du véhicule au départ (rayures, équipements…)</label>
+        <textarea className="field-input" rows={2} value={f.observations} onChange={(e) => set("observations", e.target.value)} />
+      </div>
+      <div>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+          <label className="field-label mb-0">Texte du contrat (modifiable — un article par paragraphe)</label>
+          <button onClick={regenererClauses} className="text-xs text-accent-teal hover:underline">↺ Texte par défaut avec ces tarifs</button>
+        </div>
+        <textarea className="field-input font-mono text-xs" rows={14} value={clauses} onChange={(e) => setClauses(e.target.value)} />
+      </div>
+      <div><label className="field-label">Nom du signataire (emprunteur)</label><input className="field-input" value={f.signataire_nom} onChange={(e) => set("signataire_nom", e.target.value)} placeholder={dossier.client_nom || ""} /></div>
+      {error && <div className="rounded-lg border border-rose-400/30 bg-rose-500/15 px-3 py-2 text-sm text-rose-200">{error}</div>}
+      <div className="flex flex-wrap justify-end gap-2">
+        <button onClick={onClose} className="btn-ghost">Annuler</button>
+        <button onClick={() => enregistrer("pdf")} disabled={saving} className="btn-ghost">Enregistrer + aperçu PDF</button>
+        <button onClick={() => enregistrer("telecharger")} disabled={saving} className="btn-ghost">Enregistrer + télécharger</button>
+        <button onClick={() => enregistrer()} disabled={saving} className="btn-primary">{saving ? "…" : "Enregistrer"}</button>
       </div>
     </ModalShell>
   );

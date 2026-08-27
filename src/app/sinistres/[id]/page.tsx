@@ -45,6 +45,7 @@ import StatutPipeline from "@/components/StatutPipeline";
 import ProgressionDossier from "@/components/ProgressionDossier";
 import DossierForm from "@/components/DossierForm";
 import DocumentEditor, { type LigneSource } from "@/components/DocumentEditor";
+import GardiennageModal from "@/components/GardiennageModal";
 import PaiementsPanel from "@/components/PaiementsPanel";
 import AtelierPanel, { TypeDocAtelier, labelOrdre } from "@/components/AtelierPanel";
 import EmailComposer from "@/components/EmailComposer";
@@ -141,8 +142,12 @@ export default function DossierDetailPage() {
       document?: Document | null;
       lignes?: LigneSource[];
       origine?: "rapport" | "document" | null;
+      notes?: string;
+      origineDocument?: string | null;
     } | null
   >(null);
+  // Facture de gardiennage (v54) : étape 1, les éléments du parc
+  const [gardiennage, setGardiennage] = useState(false);
 
   // composer email (devis/facture)
   const [emailDoc, setEmailDoc] = useState<Document | null>(null);
@@ -900,6 +905,9 @@ export default function DossierDetailPage() {
           <button onClick={() => ouvrirNouveauDocument("facture")} className="btn-primary py-1.5 px-3 text-xs">
             + Facture
           </button>
+          <button onClick={() => setGardiennage(true)} className="btn-ghost py-1.5 px-3 text-xs" title="Entrée / sortie de parc, enlèvement, frais de gardiennage">
+            + Gardiennage
+          </button>
           <button onClick={() => setAtelierModal("or")} className="btn-ghost py-1.5 px-3 text-xs">
             + {libelleOR}
           </button>
@@ -959,7 +967,7 @@ export default function DossierDetailPage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-white">
-                        {fem ? "Facture" : "Devis"} {doc.numero || ""}
+                        {fem ? (doc.origine === "gardiennage" ? "Facture de gardiennage" : "Facture") : "Devis"} {doc.numero || ""}
                       </span>
                       <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutDoc(doc.statut)}`}>
                         {labelStatutDoc(doc.statut)}
@@ -1085,7 +1093,7 @@ export default function DossierDetailPage() {
         <ModePaiementModal
           defaut={modeParDefaut(pdfDoc, dossier)}
           titre={`Générer la facture ${pdfDoc.numero || ""}`.trim()}
-          alerte={controlerRapport(Number(pdfDoc.total_ht) || 0, dossier.montant).message}
+          alerte={pdfDoc.origine === "gardiennage" ? null : controlerRapport(Number(pdfDoc.total_ht) || 0, dossier.montant).message}
           onClose={() => setPdfDoc(null)}
           onValider={(mode) => genererFacturePdf(pdfDoc, mode)}
         />
@@ -1097,8 +1105,20 @@ export default function DossierDetailPage() {
           document={editor.document}
           lignes={editor.lignes}
           origineLignes={editor.origine}
+          notesInitiales={editor.notes}
+          origineDocument={editor.origineDocument}
           onClose={() => setEditor(null)}
           onSaved={load}
+        />
+      )}
+      {gardiennage && (
+        <GardiennageModal
+          dossier={dossier}
+          onClose={() => setGardiennage(false)}
+          onValider={(lignes, notes) => {
+            setGardiennage(false);
+            setEditor({ type: "facture", lignes, origine: null, notes, origineDocument: "gardiennage" });
+          }}
         />
       )}
       {emailDoc && (

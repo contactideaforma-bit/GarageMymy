@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { heureLisible } from "@/lib/ardoise";
 import { messageErreur } from "@/lib/format";
 import { Evenement, Dossier } from "@/lib/types";
 import ConfigBanner from "@/components/ConfigBanner";
@@ -103,8 +104,9 @@ export default function AgendaPage() {
     load();
   }
 
+  // « 9h00 » plutôt que « 09:00 » (v9.9) : lisible d'un coup d'œil.
   function heure(ev: Evenement) {
-    return new Date(ev.date_evenement).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+    return heureLisible(ev.date_evenement);
   }
   function clicEvent(ev: Evenement) {
     if (ev.dossier_id) router.push(`/sinistres/${ev.dossier_id}`);

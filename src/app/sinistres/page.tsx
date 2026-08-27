@@ -707,29 +707,22 @@ export default function SinistresPage() {
 
       {/* ---------- DESKTOP : tableau harmonisé, une ligne = une hauteur ---------- */}
       <div className="glass-card hidden overflow-x-auto sm:block">
-        <table className="w-full table-fixed text-sm">
-          <colgroup>
-            <col className="w-[15%]" />
-            <col className="w-[16%]" />
-            <col className="hidden md:table-column md:w-[18%]" />
-            <col className="w-[11%]" />
-            <col className="hidden xl:table-column xl:w-[13%]" />
-            <col className="hidden lg:table-column lg:w-[10%]" />
-            <col className="w-[17%]" />
-            <col className="w-[12%]" />
-            <col className="hidden lg:table-column lg:w-[7%]" />
-          </colgroup>
+        {/* LARGEURS (v9.9) : plus de colonnes en pourcentages (leur somme
+            dépassait 100 % et le statut chevauchait le montant). Chaque
+            colonne a une largeur MINIMALE adaptée à son contenu ; le tableau
+            s'élargit et défile horizontalement si l'écran est trop étroit. */}
+        <table className="w-full min-w-[56rem] text-sm">
           <thead className="text-left text-white/50">
             <tr>
-              <ThTri label={t.numeroDossier} cle="numero_sinistre" tri={tri} onSort={trierPar} fleche={fleche} />
-              <ThTri label="Client" cle="client_nom" tri={tri} onSort={trierPar} fleche={fleche} />
-              <ThTri label="Véhicule" cle="marque_modele" tri={tri} onSort={trierPar} fleche={fleche} className="hidden md:table-cell" />
-              <ThTri label="Immat." cle="immatriculation" tri={tri} onSort={trierPar} fleche={fleche} />
-              <ThTri label="Assureur" cle="assureur" tri={tri} onSort={trierPar} fleche={fleche} className="hidden xl:table-cell" />
-              <ThTri label={t.dateDossier} cle="date_sinistre" tri={tri} onSort={trierPar} fleche={fleche} className="hidden lg:table-cell" />
-              <ThTri label="Statut" cle="statut" tri={tri} onSort={trierPar} fleche={fleche} />
-              <ThTri label="Montant HT / TTC" cle="montant" tri={tri} onSort={trierPar} fleche={fleche} align="right" />
-              <th className="cellule hidden font-medium lg:table-cell">Rapport</th>
+              <ThTri label={t.numeroDossier} cle="numero_sinistre" tri={tri} onSort={trierPar} fleche={fleche} className="w-[9rem] max-w-[9rem]" />
+              <ThTri label="Client" cle="client_nom" tri={tri} onSort={trierPar} fleche={fleche} className="min-w-[10rem]" />
+              <ThTri label="Véhicule" cle="marque_modele" tri={tri} onSort={trierPar} fleche={fleche} className="hidden min-w-[9rem] md:table-cell" />
+              <ThTri label="Immat." cle="immatriculation" tri={tri} onSort={trierPar} fleche={fleche} className="w-[7.5rem]" />
+              <ThTri label="Assureur" cle="assureur" tri={tri} onSort={trierPar} fleche={fleche} className="hidden min-w-[8rem] xl:table-cell" />
+              <ThTri label={t.dateDossier} cle="date_sinistre" tri={tri} onSort={trierPar} fleche={fleche} className="hidden w-[7rem] lg:table-cell" />
+              <ThTri label="Statut" cle="statut" tri={tri} onSort={trierPar} fleche={fleche} className="w-[13rem] min-w-[13rem]" />
+              <ThTri label="Montant HT / TTC" cle="montant" tri={tri} onSort={trierPar} fleche={fleche} align="right" className="w-[8.5rem] min-w-[8.5rem]" />
+              <th className="cellule hidden w-[5rem] font-medium lg:table-cell">Rapport</th>
             </tr>
           </thead>
           <tbody>
@@ -749,12 +742,12 @@ export default function SinistresPage() {
                 onClick={() => ouvrirDossier(d.id)}
                 className="cursor-pointer border-t border-white/5 hover:bg-white/5"
               >
-                <td className="cellule">
+                <td className="cellule max-w-[9rem]">
                   <div className="truncate font-medium text-white" title={d.numero_sinistre || ""}>
                     {d.numero_sinistre || "—"}
                   </div>
                 </td>
-                <td className="cellule">
+                <td className="cellule max-w-[14rem]">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate text-white/80" title={d.client_nom || ""}>
                       {d.client_nom || "—"}
@@ -780,19 +773,19 @@ export default function SinistresPage() {
                     </div>
                   )}
                 </td>
-                <td className="cellule hidden md:table-cell">
+                <td className="cellule hidden max-w-[12rem] md:table-cell">
                   <div className="truncate text-white/80" title={d.marque_modele || ""}>
                     {d.marque_modele || "—"}
                   </div>
                 </td>
                 <td className="cellule whitespace-nowrap text-white/80">{d.immatriculation || "—"}</td>
-                <td className="cellule hidden xl:table-cell">
+                <td className="cellule hidden max-w-[10rem] xl:table-cell">
                   <div className="truncate text-white/80" title={d.assureur || ""}>{d.assureur || "—"}</div>
                 </td>
                 <td className="cellule hidden whitespace-nowrap text-white/80 lg:table-cell">
                   {formatDate(d.date_sinistre)}
                 </td>
-                <td className="cellule">
+                <td className="cellule whitespace-nowrap">
                   <div className="flex flex-wrap items-center gap-1">
                     <StatutBadge statut={d.statut} />
                     {d.mode_cession && (

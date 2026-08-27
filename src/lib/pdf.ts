@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable, { UserOptions } from "jspdf-autotable";
-import { CessionCreance, Document, DocumentLigne, Dossier, Entreprise, OrdreReparation, Restitution } from "./types";
+import { CessionCreance, Document, DocumentLigne, Dossier, Entreprise, OrdreReparation, Restitution, TransfertGarantie } from "./types";
+import { PRISES_EN_CHARGE, clausesParDefaut, coutPretHt, joursPret } from "./pret";
 import {
   computeTotaux,
   groupeLignes,
@@ -1528,6 +1529,164 @@ async function buildRestitutionPdf(rest: Restitution, dossier: Dossier): Promise
   }
 
   return ctx.pdf;
+}
+
+/* ====================================================================
+   CONTRAT DE VÉHICULE DE PRÊT (v54 / v9.9)
+
+   Mise à disposition d'un véhicule de la flotte pendant les réparations.
+   Le texte des clauses est celui enregistré sur le contrat (modifiable
+   par le garage) ; à défaut, le texte par défaut de lib/pret.ts.
+==================================================================== */
+
+// Pied de page répété sur chaque page ajoutée (le 1er est posé par
+// startAttestationPdf).
+function piedDePage(ctx: AttestationCtx) {
+  const { pdf, pageW, pageH, ent } = ctx;
+  const pied = [
+    [ent.nom, ent.siret ? `SIRET ${ent.siret}` : "", ent.tva_intra ? `TVA ${ent.tva_intra}` : ""].filter(Boolean).join("  -  "),
+    ent.mentions || "",
+  ].filter(Boolean);
+  pdf.setFontSize(7.5);
+  pdf.setTextColor(150);
+  pied.forEach((line, i) => pdf.text(line, pageW / 2, pageH - 14 + i * 4, { align: "center" }));
+}
+
+// Paragraphe avec saut de page automatique (les contrats sont longs).
+function drawParagrapheMultiPage(ctx: AttestationCtx, titre: string | null, texte: string) {
+  const { pdf, pageW, pageH, M } = ctx;
+  const limite = pageH - 24;
+  const nouvellePage = () => {
+    pdf.addPage();
+    piedDePage(ctx);
+    ctx.y = 20;
+  };
+  if (titre) {
+    if (ctx.y + 12 > limite) nouvellePage();
+    pdf.setFontSize(10);
+    pdf.setTextColor(30);
+    pdf.text(titre, M, ctx.y);
+    ctx.y += 5.5;
+  }
+  pdf.setFontSize(9);
+  pdf.setTextColor(70);
+  const lines = pdf.splitTextToSize(texte, pageW - M * 2) as string[];
+  for (const l of lines) {
+    if (ctx.y + 4.2 > limite) nouvellePage();
+    pdf.text(l, M, ctx.y);
+    ctx.y += 4.2;
+  }
+  ctx.y += 5;
+}
+
+async function buildContratPretPdf(t: TransfertGarantie, dossier: Dossier): Promise<jsPDF> {
+  const ctx = await startAttestationPdf("CONTRAT DE MISE À DISPOSITION D'UN VÉHICULE DE PRÊT", null, t.date_debut);
+  const { pdf, pageW, M, ent } = ctx;
+
+  // Parties
+  const preteur = [
+    ent.nom || "—",
+    [ent.adresse, `${ent.code_postal || ""} ${ent.ville || ""}`.trim()].filter(Boolean).join(", "),
+    [ent.siret ? `SIRET ${ent.siret}` : "", ent.tel ? `Tél. ${ent.tel}` : ""].filter(Boolean).join(" · "),
+  ].filter(Boolean);
+  const emprunteur = [
+    dossier.client_nom || "—",
+    [dossier.client_adresse, `${dossier.client_code_postal || ""} ${dossier.client_ville || ""}`.trim()].filter(Boolean).join(", "),
+    [dossier.client_tel ? `Tél. ${dossier.client_tel}` : "", dossier.client_email || ""].filter(Boolean).join(" · "),
+  ].filter(Boolean);
+  pdf.setFontSize(10);
+  pdf.setTextColor(30);
+  pdf.text("Prêteur (garage)", M, ctx.y);
+  pdf.text("Emprunteur (client)", pageW / 2 + 6, ctx.y);
+  pdf.setFontSize(9);
+  pdf.setTextColor(70);
+  pdf.text(preteur, M, ctx.y + 6);
+  pdf.text(emprunteur, pageW / 2 + 6, ctx.y + 6);
+  ctx.y += 24;
+
+  // Véhicule prêté / conducteur
+  const jours = joursPret(t.date_debut, t.date_fin);
+  autoTable(pdf, {
+    startY: ctx.y,
+    margin: { left: M, right: M },
+    theme: "grid",
+    styles: { fontSize: 8.5, cellPadding: 2, textColor: 50 },
+    headStyles: { fillColor: [235, 235, 240], textColor: 30, fontStyle: "bold" },
+    head: [["Véhicule prêté", "Période", "Conducteur", "Conditions"]],
+    body: [[
+      [
+        t.vehicule_modele || "—",
+        `Immat. ${t.vehicule_immat || "—"}`,
+        t.km_depart != null ? `${Number(t.km_depart).toLocaleString("fr-FR")} km au départ` : "",
+        t.carburant ? `Carburant : ${t.carburant}` : "",
+      ].filter(Boolean).join("\n"),
+      [
+        `Du ${dateFr(t.date_debut)}`,
+        `au ${dateFr(t.date_fin)}`,
+        jours ? `${jours} jour(s)` : "",
+        `Véhicule réparé : ${dossier.marque_modele || "—"} ${dossier.immatriculation || ""}`,
+      ].filter(Boolean).join("\n"),
+      [
+        t.conducteur_nom || dossier.client_nom || "—",
+        t.conducteur_naissance ? `Né(e) le ${dateFr(t.conducteur_naissance)}` : "",
+        t.permis_numero ? `Permis n° ${t.permis_numero}` : "",
+        t.permis_date ? `délivré le ${dateFr(t.permis_date)}` : "",
+      ].filter(Boolean).join("\n"),
+      [
+        Number(t.tarif_jour) > 0 ? `${euros(Number(t.tarif_jour))} HT / jour` : "Mise à disposition gratuite",
+        Number(t.tarif_horaire) > 0 ? `${euros(Number(t.tarif_horaire))} HT / heure` : "",
+        Number(t.tarif_jour) > 0 ? `Estimation : ${euros(coutPretHt(t))} HT` : "",
+        `Franchise : ${euros(Number(t.franchise) || 0)}`,
+        Number(t.km_jour) > 0 ? `${t.km_jour} km/jour inclus, ${euros(Number(t.prix_km) || 0)}/km au-delà` : "Kilométrage libre",
+        `Frais : ${PRISES_EN_CHARGE[t.prise_en_charge || "assurance"] || "—"}`,
+      ].filter(Boolean).join("\n"),
+    ]],
+  });
+  ctx.y = ((pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable?.finalY || ctx.y) + 8;
+
+  if (t.observations) drawParagrapheMultiPage(ctx, "État du véhicule au départ", t.observations);
+
+  // Clauses (une par article)
+  const clauses = (t.clauses && t.clauses.trim()) || clausesParDefaut(t, dossier, ent);
+  const blocs = clauses.split(/\n\s*\n/);
+  for (const bloc of blocs) {
+    const [premiere, ...reste] = bloc.split("\n");
+    if (/^article\s+\d+/i.test(premiere.trim()) && reste.length) {
+      drawParagrapheMultiPage(ctx, premiere.trim(), reste.join("\n"));
+    } else {
+      drawParagrapheMultiPage(ctx, null, bloc);
+    }
+  }
+
+  // Signatures : les deux parties
+  if (ctx.y + 60 > ctx.pageH - 24) {
+    pdf.addPage();
+    piedDePage(ctx);
+    ctx.y = 20;
+  }
+  pdf.setFontSize(9);
+  pdf.setTextColor(30);
+  pdf.text(`Fait en deux exemplaires, le ${dateFr(t.signe_le || t.date_debut)}.`, M, ctx.y);
+  ctx.y += 6;
+  pdf.text("Signature de l'emprunteur (précédée de « lu et approuvé ») :", ctx.right - 70, ctx.y);
+  pdf.text("Le prêteur :", M, ctx.y);
+  drawSignatureBloc(ctx, t.signataire_nom || t.conducteur_nom || dossier.client_nom, t.signature || null, t.signe_le || null);
+  return pdf;
+}
+
+export async function generateContratPretPdf(t: TransfertGarantie, dossier: Dossier) {
+  const pdf = await buildContratPretPdf(t, dossier);
+  pdf.save(`contrat-pret-${t.vehicule_immat || dossier.numero_sinistre || "vehicule"}.pdf`);
+}
+
+export async function apercuContratPretPdf(t: TransfertGarantie, dossier: Dossier) {
+  ouvrirPdf(await buildContratPretPdf(t, dossier));
+}
+
+export async function contratPretPdfBase64(t: TransfertGarantie, dossier: Dossier): Promise<string> {
+  const pdf = await buildContratPretPdf(t, dossier);
+  const uri = pdf.output("datauristring");
+  return uri.substring(uri.indexOf(",") + 1);
 }
 
 /* ====================================================================

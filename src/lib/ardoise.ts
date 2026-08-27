@@ -229,13 +229,30 @@ export function estAujourdhui(echeance?: string | null): boolean {
 }
 
 /** « auj. 14:30 », « 18/08 09:00 » — court, pour tenir sur une ligne. */
-export function libelleEcheance(echeance?: string | null): string {
+/** Heure lisible « 9h00 », « 14h30 » (v9.9 : plus de « 09:00 » ambigu). */
+export function heureLisible(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (isNaN(d.getTime())) return "";
+  return `${d.getHours()}h${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/**
+ * Échéance en clair : « aujourd'hui à 9h00 », « demain à 14h30 »,
+ * « mar. 02/09 à 9h00 ». `long` ajoute le jour en toutes lettres.
+ */
+export function libelleEcheance(echeance?: string | null, long = false): string {
   if (!echeance) return "";
   const d = new Date(echeance);
   if (isNaN(d.getTime())) return "";
-  const heure = d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-  if (estAujourdhui(echeance)) return `auj. ${heure}`;
-  return `${d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" })} ${heure}`;
+  const heure = heureLisible(d);
+  if (estAujourdhui(echeance)) return `aujourd'hui à ${heure}`;
+  const demain = new Date();
+  demain.setDate(demain.getDate() + 1);
+  if (d.toDateString() === demain.toDateString()) return `demain à ${heure}`;
+  const jour = long
+    ? d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })
+    : d.toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" });
+  return `${jour} à ${heure}`;
 }
 
 /* ------------- Conversion <input type="datetime-local"> -------------- */

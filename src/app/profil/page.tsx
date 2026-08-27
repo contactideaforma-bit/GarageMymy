@@ -25,7 +25,33 @@ const EMPTY: FormE = {
   signature_mail: "", rib_path: null, signature_path: null, lien_avis: "",
   modele_pdf: MODELE_PDF_DEFAUT, couleur_pdf: COULEUR_PDF_DEFAUT,
   fe_plateforme: "", fe_plateforme_ref: "", fe_choisie_le: null, fe_reception_ok: false, tva_debits: false,
+  pret_tarif_jour: null, pret_tarif_horaire: null, pret_franchise: null, pret_km_jour: null, pret_prix_km: null,
+  gard_tarif_jour: null, gard_frais_entree: null, gard_frais_sortie: null, gard_frais_enlevement: null,
 };
+
+// Champ numérique (tarif) : vide = non renseigné (null en base).
+function Tarif({
+  label, value, onChange, suffixe = "€ HT", placeholder,
+}: { label: string; value: number | null | undefined; onChange: (v: number | null) => void; suffixe?: string; placeholder?: string }) {
+  return (
+    <div>
+      <label className="field-label">{label}</label>
+      <div className="flex items-center gap-2">
+        <input
+          inputMode="decimal"
+          className="field-input"
+          value={value ?? ""}
+          placeholder={placeholder}
+          onChange={(e) => {
+            const v = e.target.value.replace(",", ".").trim();
+            onChange(v === "" ? null : Number(v) || 0);
+          }}
+        />
+        <span className="shrink-0 text-xs text-white/50">{suffixe}</span>
+      </div>
+    </div>
+  );
+}
 
 function Field({
   label, value, onChange, placeholder,
@@ -75,6 +101,10 @@ export default function ProfilPage() {
           fe_plateforme: e.fe_plateforme ?? "", fe_plateforme_ref: e.fe_plateforme_ref ?? "",
           fe_choisie_le: e.fe_choisie_le ?? null, fe_reception_ok: Boolean(e.fe_reception_ok),
           tva_debits: Boolean(e.tva_debits),
+          pret_tarif_jour: e.pret_tarif_jour ?? null, pret_tarif_horaire: e.pret_tarif_horaire ?? null,
+          pret_franchise: e.pret_franchise ?? null, pret_km_jour: e.pret_km_jour ?? null, pret_prix_km: e.pret_prix_km ?? null,
+          gard_tarif_jour: e.gard_tarif_jour ?? null, gard_frais_entree: e.gard_frais_entree ?? null,
+          gard_frais_sortie: e.gard_frais_sortie ?? null, gard_frais_enlevement: e.gard_frais_enlevement ?? null,
         });
         // Aperçu de la signature enregistrée (lien signé, bucket privé).
         if (e.signature_path) chargerApercuSignature(e.signature_path);
@@ -371,6 +401,41 @@ export default function ProfilPage() {
                 className="h-9 w-12 cursor-pointer rounded border border-white/20 bg-transparent p-0.5"
               />
               <span className="text-xs text-white/40">ou une couleur personnalisée</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Véhicule de prêt & gardiennage (v54) : tarifs par défaut, repris sur
+            chaque contrat / facture et modifiables document par document. */}
+        <section>
+          <h2 className="text-sm font-semibold text-accent-pink mb-3">Véhicule de prêt &amp; gardiennage — tarifs par défaut</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="glass-soft p-4 space-y-3">
+              <div className="text-xs uppercase tracking-wider text-white/40">Véhicule de prêt</div>
+              <div className="grid grid-cols-2 gap-3">
+                <Tarif label="Tarif par jour" value={form.pret_tarif_jour} onChange={(v) => set("pret_tarif_jour", v)} placeholder="vide = gratuit" />
+                <Tarif label="Tarif par heure" value={form.pret_tarif_horaire} onChange={(v) => set("pret_tarif_horaire", v)} placeholder="optionnel" />
+                <Tarif label="Franchise (sinistre responsable)" value={form.pret_franchise} onChange={(v) => set("pret_franchise", v)} suffixe="€" />
+                <Tarif label="Km inclus par jour" value={form.pret_km_jour} onChange={(v) => set("pret_km_jour", v)} suffixe="km" placeholder="vide = libre" />
+                <Tarif label="Prix du km au-delà" value={form.pret_prix_km} onChange={(v) => set("pret_prix_km", v)} suffixe="€ HT / km" />
+              </div>
+              <p className="text-xs text-white/40">
+                Repris sur le contrat de prêt (fiche dossier → Véhicule de prêt → « Établir le contrat »), où ils restent modifiables.
+                Par défaut, les frais sont facturés à l&apos;assurance du client.
+              </p>
+            </div>
+            <div className="glass-soft p-4 space-y-3">
+              <div className="text-xs uppercase tracking-wider text-white/40">Gardiennage</div>
+              <div className="grid grid-cols-2 gap-3">
+                <Tarif label="Gardiennage par jour" value={form.gard_tarif_jour} onChange={(v) => set("gard_tarif_jour", v)} />
+                <Tarif label="Entrée de parc" value={form.gard_frais_entree} onChange={(v) => set("gard_frais_entree", v)} />
+                <Tarif label="Sortie de parc" value={form.gard_frais_sortie} onChange={(v) => set("gard_frais_sortie", v)} />
+                <Tarif label="Enlèvement / remorquage" value={form.gard_frais_enlevement} onChange={(v) => set("gard_frais_enlevement", v)} />
+              </div>
+              <p className="text-xs text-white/40">
+                Ces tarifs doivent être affichés dans vos locaux (arrêté du 3 décembre 1987). Ils pré-remplissent la facture de
+                gardiennage (fiche dossier → Documents → « + Gardiennage »), modifiable ligne par ligne.
+              </p>
             </div>
           </div>
         </section>

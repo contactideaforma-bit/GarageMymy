@@ -16,6 +16,8 @@ import {
   DemandeAssurance,
   Document,
   Dossier,
+  Evenement,
+  LigneArdoise,
   OrdreReparation,
   Paiement,
   PieceDossier,
@@ -58,6 +60,10 @@ export type ContexteMyMy = {
   clients: Client[];
   assureurs: Assureur[];
   experts: Expert[];
+  /** Agenda : RDV et rappels datés (evenements) — 60 jours passés → 120 jours à venir. */
+  evenements: Evenement[];
+  /** Rappels écrits (bloc « À faire »), non cochés. */
+  rappels: LigneArdoise[];
   aFaire: { dossier: Dossier; action: ProchaineAction }[];
   impayes: { doc: Document; dossier: Dossier | undefined; reste: number; retard: boolean }[];
   chargeLe: string;
@@ -91,11 +97,17 @@ export async function chargerContexteMyMy(metier: string | null): Promise<Contex
   if (d.error) throw d.error;
   // Annuaire (clients / assurances / experts) : pour répondre « c'est quoi le
   // téléphone de … ». Chargé à part : une table absente ne bloque rien.
-  const [cl, ass, ex] = await Promise.all([
+  const depuis = new Date(Date.now() - 60 * 86400000).toISOString();
+  const jusqua = new Date(Date.now() + 120 * 86400000).toISOString();
+  const [cl, ass, ex, ev, ard] = await Promise.all([
     supabase.from("clients").select("*"),
     supabase.from("assureurs").select("*"),
     supabase.from("experts").select("*"),
+    supabase.from("evenements").select("*").gte("date_evenement", depuis).lte("date_evenement", jusqua).order("date_evenement", { ascending: true }),
+    supabase.from("ardoise").select("*").eq("fait", false),
   ]);
+  const evenements = (ev.data as Evenement[]) || [];
+  const rappels = (ard.data as LigneArdoise[]) || [];
   const clients = (cl.data as Client[]) || [];
   const assureurs = (ass.data as Assureur[]) || [];
   const experts = (ex.data as Expert[]) || [];
@@ -145,7 +157,7 @@ export async function chargerContexteMyMy(metier: string | null): Promise<Contex
     .filter((x) => x.reste > 0.01)
     .sort((a, b) => Number(b.retard) - Number(a.retard));
 
-  return { dossiers, documents, paiements, relances, clients, assureurs, experts, aFaire, impayes, chargeLe: new Date().toISOString() };
+  return { dossiers, documents, paiements, relances, clients, assureurs, experts, evenements, rappels, aFaire, impayes, chargeLe: new Date().toISOString() };
 }
 
 // ---------------------------------------------------------------------------
@@ -265,6 +277,114 @@ function contactsAnnuaire(ctx: ContexteMyMy, q: string): string[] {
 }
 
 // ---------------------------------------------------------------------------
+//  Agenda : période demandée dans la question → bornes [debut, fin[
+// ---------------------------------------------------------------------------
+type Periode = { libelle: string; debut: Date; fin: Date };
+
+const JOURS_SEMAINE = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+
+function debutJour(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+function plusJours(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+export function periodeDemandee(q: string): Periode | null {
+  // On ne répond « agenda » que si la phrase parle bien de faire / prévoir / rdv,
+  // pas pour « la voiture arrive demain » (qui est une action).
+  const contexteOk = /faire|prevu|prevue|programme|agenda|rdv|rendez|planning|planifie|attend|quoi|qu.est|y a|as tu|ai je|j.ai|rappel/.test(q);
+  if (!contexteOk) return null;
+  const auj = debutJour(new Date());
+  if (/aujourd.?hui|ce jour|ce matin|cet apres.?midi|ce soir/.test(q)) return { libelle: "aujourd'hui", debut: auj, fin: plusJours(auj, 1) };
+  if (/apres.?demain/.test(q)) return { libelle: "après-demain", debut: plusJours(auj, 2), fin: plusJours(auj, 3) };
+  if (/\bdemain\b/.test(q)) return { libelle: "demain", debut: plusJours(auj, 1), fin: plusJours(auj, 2) };
+  if (/semaine prochaine|la semaine pro/.test(q)) {
+    const lundi = plusJours(auj, ((8 - auj.getDay()) % 7) || 7);
+    return { libelle: "la semaine prochaine", debut: lundi, fin: plusJours(lundi, 7) };
+  }
+  if (/cette semaine|la semaine|dans la semaine/.test(q)) {
+    const lundi = plusJours(auj, -((auj.getDay() + 6) % 7));
+    return { libelle: "cette semaine", debut: lundi, fin: plusJours(lundi, 7) };
+  }
+  if (/ce mois|dans le mois|mois prochain/.test(q)) {
+    const debut = /prochain/.test(q) ? new Date(auj.getFullYear(), auj.getMonth() + 1, 1) : new Date(auj.getFullYear(), auj.getMonth(), 1);
+    return { libelle: /prochain/.test(q) ? "le mois prochain" : "ce mois-ci", debut, fin: new Date(debut.getFullYear(), debut.getMonth() + 1, 1) };
+  }
+  for (let i = 1; i <= 7; i++) {
+    const nom = JOURS_SEMAINE[i % 7];
+    if (new RegExp(`\\b${nom}\\b`).test(q)) {
+      const delta = ((i % 7) - auj.getDay() + 7) % 7 || 7;
+      const jour = plusJours(auj, delta);
+      return { libelle: nom, debut: jour, fin: plusJours(jour, 1) };
+    }
+  }
+  return null;
+}
+
+function reponseAgenda(ctx: ContexteMyMy, p: Periode): MessageMyMy {
+  const dans = (iso: string | null | undefined) => {
+    if (!iso) return false;
+    const d = new Date(iso);
+    return d >= p.debut && d < p.fin;
+  };
+  const evs = ctx.evenements.filter((e) => dans(e.date_evenement));
+  // Rappels datés déjà représentés par leur évènement d'agenda → on évite le doublon.
+  const rappelsDates = ctx.rappels.filter((r) => r.echeance && dans(r.echeance) && !evs.some((e) => e.id === r.evenement_id));
+  const parId = new Map(ctx.dossiers.map((d) => [d.id, d]));
+  const plusieursJours = p.fin.getTime() - p.debut.getTime() > 86400000;
+  const quand = (iso: string) => {
+    const d = new Date(iso);
+    const h = `${d.getHours()}h${String(d.getMinutes()).padStart(2, "0")}`;
+    return plusieursJours ? `${d.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })} ${h}` : h;
+  };
+  const lignes = [
+    ...evs.map((e) => {
+      const d = e.dossier_id ? parId.get(e.dossier_id) : undefined;
+      return `📅 ${quand(e.date_evenement)} — ${e.titre}${e.avec_qui ? ` avec ${e.avec_qui}` : ""}${d ? ` (${libelleDossier(d)})` : ""}`;
+    }),
+    ...rappelsDates.map((r) => {
+      const d = r.dossier_id ? parId.get(r.dossier_id) : undefined;
+      return `🔔 ${quand(r.echeance!)} — ${r.texte}${d ? ` (${libelleDossier(d)})` : ""}`;
+    }),
+  ];
+  const liens: LienMyMy[] = [];
+  for (const e of evs) {
+    const d = e.dossier_id ? parId.get(e.dossier_id) : undefined;
+    if (d && !liens.some((l) => l.href === `/sinistres/${d.id}`)) liens.push(lienDossier(d));
+  }
+  for (const r of rappelsDates) {
+    const d = r.dossier_id ? parId.get(r.dossier_id) : undefined;
+    if (d && !liens.some((l) => l.href === `/sinistres/${d.id}`)) liens.push(lienDossier(d));
+  }
+  liens.push({ label: "Agenda", href: "/agenda" });
+
+  const sansDate = ctx.rappels.filter((r) => !r.echeance);
+  const rappelsTexte = sansDate.length
+    ? `\n\nEt ${sansDate.length} rappel(s) sans date dans « À faire » : ${sansDate.slice(0, 3).map((r) => r.texte).join(" · ")}${sansDate.length > 3 ? "…" : ""}`
+    : "";
+  const urgentes = ctx.aFaire.filter((x) => x.action.urgence === "haute");
+  const urgentTexte = urgentes.length ? `\n\n🔴 Par ailleurs, ${urgentes.length} action(s) urgente(s) sur tes dossiers — demande-moi « qu'est-ce que j'ai à faire ».` : "";
+
+  if (lignes.length === 0) {
+    return {
+      role: "assistant",
+      texte: `Rien de prévu dans l'agenda ${p.libelle}.${rappelsTexte}${urgentTexte}`,
+      liens: liens.slice(0, 4),
+    };
+  }
+  return {
+    role: "assistant",
+    texte: `Voilà ce qui est prévu ${p.libelle} :\n${lignes.join("\n")}${rappelsTexte}${urgentTexte}`,
+    liens: liens.slice(0, 5),
+  };
+}
+
+// ---------------------------------------------------------------------------
 //  Réponses LOCALES (sans IA) — renvoie null si la question ne s'y prête pas
 // ---------------------------------------------------------------------------
 export function repondreLocalement(ctx: ContexteMyMy, question: string): MessageMyMy | null {
@@ -279,6 +399,13 @@ export function repondreLocalement(ctx: ContexteMyMy, question: string): Message
   // interprète et propose, la bulle demande confirmation.
   if (/^(mymy|my-my)?[\s,]*(rappel|rappelle|note|ajoute|cree|creer|planifie|programme|passe|marque|mets|met)\b/.test(q) || /(est arrivee?|est repartie?|est sortie?|au garage aujourd)/.test(q)) {
     return null;
+  }
+
+  // AGENDA : « je dois faire quoi demain ? », « qu'est-ce qu'il y a lundi ? »,
+  // « cette semaine », « aujourd'hui »… → RDV + rappels datés + rappels sans date.
+  const periode = periodeDemandee(q);
+  if (periode) {
+    return reponseAgenda(ctx, periode);
   }
 
   // À faire
@@ -461,8 +588,22 @@ export function resumePourIA(ctx: ContexteMyMy, question = ""): string {
     ...ctx.experts.slice(0, 40).map((e) => `- cabinet ${e.cabinet || "?"} | tel ${e.tel || "?"} | mail ${e.email || "?"} | expert ${e.expert_nom || "?"} tel ${e.expert_tel || "?"}`),
   ];
   const now = new Date();
+  const parId = new Map(ctx.dossiers.map((d) => [d.id, d]));
+  const agenda = ctx.evenements
+    .filter((e) => new Date(e.date_evenement) >= new Date(now.getTime() - 7 * 86400000))
+    .slice(0, 60)
+    .map((e) => {
+      const d = e.dossier_id ? parId.get(e.dossier_id) : undefined;
+      return `- ${new Date(e.date_evenement).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} | ${e.titre}${e.avec_qui ? ` avec ${e.avec_qui}` : ""}${d ? ` | dossier ${libelleDossier(d)} (id=${d.id})` : ""}`;
+    });
+  const rappels = ctx.rappels.slice(0, 40).map((r) => {
+    const d = r.dossier_id ? parId.get(r.dossier_id) : undefined;
+    return `- ${r.echeance ? new Date(r.echeance).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "sans date"} | ${r.texte}${d ? ` | dossier ${libelleDossier(d)}` : ""}`;
+  });
   return (
     `Date du jour : ${now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} (${now.toISOString().slice(0, 10)})\n` +
+    `AGENDA (7 derniers jours → 120 jours) :\n${agenda.join("\n") || "(vide)"}\n` +
+    `RAPPELS ÉCRITS non faits :\n${rappels.join("\n") || "(aucun)"}\n` +
     `Codes de statut possibles : ${STATUTS_ORDRE.join(", ")}\n` +
     `ANNUAIRE :\n${annuaire.join("\n") || "(vide)"}\n` +
     `Dossiers en cours : ${actifs.length} (+ ${termines} terminés non listés)\n` +
