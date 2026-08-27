@@ -2,12 +2,14 @@
 // Le métier est porté par le profil entreprise (colonne `metier`, v27) et
 // pilote le branding / vocabulaire de l'appli. Chaque compte est d'un seul métier.
 
-export type Metier = "carrosserie" | "vitrage";
+// v10.2 : « commercial » = compte d'un apporteur d'affaires. Il dispose de
+// l'appli carrosserie (démonstrations) PLUS l'espace Clients (/prospects).
+export type Metier = "carrosserie" | "vitrage" | "commercial";
 
 export const METIER_DEFAUT: Metier = "carrosserie";
 
 export function normaliseMetier(v: string | null | undefined): Metier {
-  return v === "vitrage" ? "vitrage" : "carrosserie";
+  return v === "vitrage" ? "vitrage" : v === "commercial" ? "commercial" : "carrosserie";
 }
 
 export type MetierInfo = {
@@ -48,7 +50,23 @@ export const METIER_INFOS: Record<Metier, MetierInfo> = {
       "Devis, facture et encaissement adaptés au vitrage",
     ],
   },
+  commercial: {
+    label: "Commercial",
+    espace: "Espace Commercial",
+    sousTitre: "Espace commercial · apporteur d'affaires",
+    accroche: "Vos clients garages, vos devis, vos contrats et vos ventes — depuis une tablette.",
+    accent: "teal",
+    points: [
+      "Fiche client pré-remplie depuis le SIREN",
+      "Questionnaire des besoins, devis et contrat générés",
+      "Signature sur place, envoi au garage, suivi du paiement",
+      "L'appli carrosserie complète pour vos démonstrations",
+    ],
+  },
 };
+
+/** Métiers proposés sur la page d'accueil (le commercial se connecte par l'espace Carrosserie). */
+export const METIERS_PUBLICS: Metier[] = ["carrosserie", "vitrage"];
 
 export function metierInfo(m: string | null | undefined): MetierInfo {
   return METIER_INFOS[normaliseMetier(m)];
@@ -89,6 +107,17 @@ const TERMES: Record<Metier, Termes> = {
     importer: "Importer une prise en charge",
     ajouter: "Nouveau bris de glace",
     rapport: "Document de prise en charge",
+  },
+  commercial: {
+    dossiers: "Sinistres",
+    dossier: "dossier",
+    numeroDossier: "N° sinistre",
+    dateDossier: "Date sinistre",
+    reparation: "Réparation",
+    reparateur: "Réparateur",
+    importer: "Importer un rapport",
+    ajouter: "Ajouter un dossier",
+    rapport: "Rapport d'expertise",
   },
 };
 

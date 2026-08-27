@@ -25,7 +25,7 @@ import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes", "ventes", "comptes_etat", "comptes_purges"] as const;
+const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes", "ventes", "comptes_etat", "comptes_purges", "prospects", "prospect_documents"] as const;
 type Table = (typeof TABLES)[number];
 const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   collaborateurs: { col: "nom", asc: true },
@@ -36,6 +36,8 @@ const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   ventes: { col: "created_at", asc: false },
   comptes_etat: { col: "maj_le", asc: false },
   comptes_purges: { col: "purge_le", asc: false },
+  prospects: { col: "maj_le", asc: false },
+  prospect_documents: { col: "created_at", asc: false },
 };
 
 type Garde = { erreur: NextResponse; admin: null } | { erreur: null; admin: SupabaseClient };

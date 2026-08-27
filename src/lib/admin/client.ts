@@ -8,6 +8,10 @@ export type Collaborateur = {
   statut: "actif" | "pause" | "termine"; date_debut: string | null; date_fin: string | null;
   iban: string | null; taux_retrocession: number | null; taux_horaire: number | null; notes: string | null;
   code_apporteur?: string | null; // commerciaux : identifiant saisi sur /vente (v10.0)
+  owner_id?: string | null;       // compte My Easy Auto du commercial (v10.2)
+  zone?: string | null;           // zone géographique attribuée
+  portefeuille?: string | null;   // portefeuille attribué
+  signature?: string | null;
 };
 export type Vente = {
   id: string; created_at: string; numero: string | null; code_apporteur: string; collaborateur_id: string | null;
@@ -19,6 +23,7 @@ export type Vente = {
   besoins: Record<string, unknown> | null; cgv_acceptees: boolean; signataire_nom: string | null; signataire_qualite: string | null;
   signature: string | null; signe_le: string | null;
   statut: "declaree" | "validee" | "compte_cree" | "fidelisee" | "perdue" | "refusee"; abonnement_id: string | null; validee_le: string | null; notes_admin: string | null;
+  prospect_id?: string | null; owner_id?: string | null; paiement_demande?: string | null; paiement_demande_le?: string | null; paiement_confirme_le?: string | null; paiement_valide_le?: string | null;
 };
 export type Abonnement = {
   id: string; created_at: string; garage_nom: string; garage_email: string | null; garage_owner_id: string | null;
@@ -34,7 +39,7 @@ export type Reglement = {
 };
 export type Demande = { id: string; created_at: string; collaborateur_id: string; objet: string; contenu: string | null; statut: "ouverte" | "en_cours" | "close"; reponse: string | null; repondu_le: string | null };
 
-export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "ventes" | "comptes_etat" | "comptes_purges";
+export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "ventes" | "comptes_etat" | "comptes_purges" | "prospects" | "prospect_documents";
 export type CompteAuth = { id: string; email: string };
 export type EtatCompteAdmin = {
   owner_id: string; etat: "actif" | "suspendu" | "lecture_seule" | "ferme"; motif: string | null; message: string | null;

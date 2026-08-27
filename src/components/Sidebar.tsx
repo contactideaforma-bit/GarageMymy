@@ -135,6 +135,19 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </Link>
 
       <nav className="flex-1 space-y-5 overflow-y-auto">
+        {/* ESPACE CLIENTS (v10.2) : comptes commerciaux et éditeur, en tête de menu. */}
+        {(metier === "commercial" || admin) && (
+          <div>
+            <div className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent-teal">Commercial</div>
+            <Link
+              href="/prospects"
+              onClick={onNavigate}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${isActive("/prospects") ? "bg-white/15 text-white font-medium shadow-inner" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
+            >
+              👥 Mes clients
+            </Link>
+          </div>
+        )}
         {SECTIONS.map((sec) => (
           <div key={sec.titre}>
             <div className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35">

@@ -9,7 +9,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { METIER_INFOS, Metier } from "@/lib/metier";
+import { METIER_INFOS, METIERS_PUBLICS, Metier } from "@/lib/metier";
 
 /* ------------------------------ Contenus ------------------------------ */
 
@@ -323,7 +323,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
             Le vocabulaire, les statuts et les documents s&apos;adaptent à votre activité.
           </p>
           <div className="mt-8 grid gap-5 sm:grid-cols-2">
-            {(Object.keys(METIER_INFOS) as Metier[]).map((m) => (
+            {METIERS_PUBLICS.map((m) => (
               <EspaceCard key={m} metier={m} onChoisir={onChoisir} />
             ))}
           </div>

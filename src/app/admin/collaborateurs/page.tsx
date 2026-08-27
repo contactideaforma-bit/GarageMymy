@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminShell, { ChampAdmin, dateFr, euros } from "@/components/admin/AdminShell";
 import ModalShell from "@/components/ModalShell";
-import { Abonnement, Collaborateur, Demande, Reglement, lireTable, nomCollab, supprimerLigne, upsertLigne } from "@/lib/admin/client";
+import { Abonnement, Collaborateur, CompteAuth, Demande, Reglement, lireComptes, lireTable, nomCollab, supprimerLigne, upsertLigne } from "@/lib/admin/client";
 
 const VIDE: Partial<Collaborateur> = { type: "commercial", nom: "", prenom: "", email: "", tel: "", siret: "", adresse: "", statut: "actif", date_debut: "", date_fin: "", iban: "", taux_retrocession: null, taux_horaire: null, notes: "", code_apporteur: "" };
 
@@ -26,15 +26,16 @@ export default function CollaborateursPage() {
   const [filtre, setFiltre] = useState<"tous" | "commercial" | "secretaire">("tous");
   const [form, setForm] = useState<Partial<Collaborateur> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [comptes, setComptes] = useState<CompteAuth[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [c, a, r, d] = await Promise.all([
+      const [c, a, r, d, cp] = await Promise.all([
         lireTable<Collaborateur>("collaborateurs"), lireTable<Abonnement>("abonnements"),
-        lireTable<Reglement>("collaborateur_reglements"), lireTable<Demande>("collaborateur_demandes"),
+        lireTable<Reglement>("collaborateur_reglements"), lireTable<Demande>("collaborateur_demandes"), lireComptes(),
       ]);
-      setCollabs(c); setAbos(a); setRegs(r); setDemandes(d); setErreur(null);
+      setCollabs(c); setAbos(a); setRegs(r); setDemandes(d); setComptes(cp); setErreur(null);
     } catch (e) {
       setErreur(e instanceof Error ? e.message : "Lecture impossible.");
     } finally {
@@ -117,6 +118,8 @@ export default function CollaborateursPage() {
                 {c.tel && <div>{c.tel}</div>}
                 {c.siret && <div>SIRET {c.siret}</div>}
                 {c.type === "secretaire" && <div>Taux horaire : {c.taux_horaire != null ? `${Number(c.taux_horaire)} €/h` : "17 €/h (défaut)"}</div>}
+                {c.type === "commercial" && (c.zone || c.portefeuille) && <div>Zone : {c.zone || "—"}{c.portefeuille ? ` · portefeuille : ${c.portefeuille}` : ""}</div>}
+                {c.type === "commercial" && <div>Compte : {c.owner_id ? comptes.find((x) => x.id === c.owner_id)?.email || c.owner_id : <span className="text-amber-300">non rattaché</span>}</div>}
                 {c.type === "commercial" && (
                   <div>
                     Code apporteur :{" "}
@@ -140,6 +143,18 @@ export default function CollaborateursPage() {
             <ChampAdmin label="Email"><input className="field-input" type="email" value={form.email || ""} onChange={(e) => set("email", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="Téléphone"><input className="field-input" value={form.tel || ""} onChange={(e) => set("tel", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="SIRET"><input className="field-input" value={form.siret || ""} onChange={(e) => set("siret", e.target.value)} /></ChampAdmin>
+            {form.type === "commercial" && (
+              <>
+                <ChampAdmin label="Compte My Easy Auto du commercial (metier = commercial)">
+                  <select className="field-input" value={form.owner_id || ""} onChange={(e) => set("owner_id", e.target.value || null)}>
+                    <option value="">— aucun compte —</option>
+                    {comptes.map((c) => <option key={c.id} value={c.id}>{c.email}</option>)}
+                  </select>
+                </ChampAdmin>
+                <ChampAdmin label="Zone attribuée (départements, villes…)"><input className="field-input" value={form.zone || ""} onChange={(e) => set("zone", e.target.value)} placeholder="ex. 92, 78 nord, Nanterre – Rueil – Suresnes" /></ChampAdmin>
+                <ChampAdmin label="Portefeuille attribué (liste ou description)"><textarea className="field-input" rows={2} value={form.portefeuille || ""} onChange={(e) => set("portefeuille", e.target.value)} placeholder="ex. carrosseries indépendantes de la zone, hors réseaux constructeurs" /></ChampAdmin>
+              </>
+            )}
             {form.type === "commercial" && (
               <ChampAdmin label="Code apporteur (saisi sur /vente)">
                 <div className="flex gap-2">

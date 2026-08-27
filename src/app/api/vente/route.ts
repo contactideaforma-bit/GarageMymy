@@ -48,6 +48,7 @@ function parametresPublics(p: Parametres): ParametresPublics {
     heureHorsForfait: p.heureHorsForfait,
     iban: p.iban,
     bic: p.bic,
+    lienPaiementCb: p.lienPaiementCb,
     primeMensualiteAvecEngagement: p.primeMensualiteAvecEngagement,
     primeMensualiteSansEngagement: p.primeMensualiteSansEngagement,
     mensualitesReprise: p.mensualitesReprise,

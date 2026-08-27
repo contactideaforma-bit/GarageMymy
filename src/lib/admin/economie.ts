@@ -39,6 +39,7 @@ export type Parametres = {
   primeMensualiteSansEngagement: number;           // sans engagement : différée (3 = deux mois après la 1re)
   iban: string;                                    // coordonnées de paiement affichées au garage
   bic: string;
+  lienPaiementCb: string;                          // lien de paiement par carte (Stripe, SumUp…) proposé par le commercial (v10.2)
 };
 
 export const PARAMETRES_DEFAUT: Parametres = {
@@ -68,6 +69,7 @@ export const PARAMETRES_DEFAUT: Parametres = {
   primeMensualiteSansEngagement: 3,
   iban: "",
   bic: "",
+  lienPaiementCb: "",
 };
 
 /** Fusionne des paramètres partiels (venant de la base) avec les défauts. */

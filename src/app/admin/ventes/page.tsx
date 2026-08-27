@@ -125,6 +125,8 @@ export default function VentesPage() {
                       {Number(v.remise_supp_pct) > 0 && <span className="text-amber-300"> · remise supp. {v.remise_supp_pct} % à valider</span>}
                       {" · "}{MODES_PAIEMENT[v.mode_paiement] || v.mode_paiement}
                       {v.paiement_sur_place && <span className="text-emerald-300"> · reçu sur place {euros(v.paiement_montant)} (réf. {v.paiement_reference || "—"})</span>}
+                      {v.paiement_demande && !v.paiement_confirme_le && <span className="text-amber-300"> · {v.paiement_demande} demandé au garage</span>}
+                      {v.paiement_confirme_le && <span className={v.paiement_valide_le ? "text-emerald-300" : "text-amber-300"}> · paiement confirmé par le commercial{v.paiement_valide_le ? " ✓ vérifié" : " — À VÉRIFIER"}</span>}
                     </div>
                     <div className="mt-1 text-xs text-white/50">
                       Commercial : {nomCollab(commercial)} (code {v.code_apporteur}) · prime {euros(prime.total)} à la {prime.mensualiteEcheance}<sup>e</sup> mensualité
@@ -133,6 +135,9 @@ export default function VentesPage() {
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
                     <button className="text-accent-teal hover:underline" onClick={() => setOuverte(v)}>Ouvrir</button>
+                    {v.paiement_confirme_le && !v.paiement_valide_le && (
+                      <button className="text-emerald-300 hover:underline" onClick={async () => { await upsertLigne<Vente>("ventes", { id: v.id, paiement_valide_le: new Date().toISOString() }); charger(); }}>Paiement vérifié ✓</button>
+                    )}
                     {v.statut === "declaree" && <button className="text-white/40 hover:text-rose-300" onClick={() => changerStatut(v, "refusee")}>Refuser</button>}
                     {v.statut === "validee" && <button className="text-accent-pink hover:underline" onClick={() => changerStatut(v, "compte_cree")}>Compte créé ✓</button>}
                     {(v.statut === "compte_cree" || v.statut === "validee") && s?.etat === "fidelisee" && <button className="text-emerald-300 hover:underline" onClick={() => changerStatut(v, "fidelisee")}>Marquer fidélisée</button>}

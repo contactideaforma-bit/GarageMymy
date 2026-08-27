@@ -12,6 +12,7 @@ export type ParametresPublics = Pick<
   | "heureHorsForfait"
   | "iban"
   | "bic"
+  | "lienPaiementCb"
   | "primeMensualiteAvecEngagement"
   | "primeMensualiteSansEngagement"
   | "mensualitesReprise"

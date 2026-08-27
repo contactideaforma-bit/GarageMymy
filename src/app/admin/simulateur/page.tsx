@@ -235,6 +235,10 @@ export default function SimulateurPage() {
               <input className="field-input field-compact font-mono" value={p.iban} onChange={(e) => setP({ ...p, iban: e.target.value })} />
             </div>
             <div>
+              <label className="field-label">Lien de paiement CB (Stripe, SumUp…)</label>
+              <input className="field-input field-compact" value={p.lienPaiementCb} onChange={(e) => setP({ ...p, lienPaiementCb: e.target.value })} placeholder="https://…" />
+            </div>
+            <div>
               <label className="field-label">BIC</label>
               <input className="field-input field-compact font-mono" value={p.bic} onChange={(e) => setP({ ...p, bic: e.target.value })} />
             </div>
