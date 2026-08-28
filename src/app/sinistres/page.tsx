@@ -100,6 +100,30 @@ type Tri = { cle: CleTri; sens: "asc" | "desc" };
  * ================================================================== */
 const CLE_ETAT_LISTE = "sinistres.selection";
 
+/* ==================================================================
+ *  LARGEURS DE COLONNES AJUSTABLES (v10.9)
+ *  Une poignée à droite de chaque en-tête : glisser = redimensionner,
+ *  double-clic = revenir à la largeur automatique. Mémorisé sur
+ *  l'appareil (localStorage) — chacun règle son tableau.
+ * ================================================================== */
+const CLE_LARGEURS = "mea.sinistres.colonnes";
+
+function lireLargeurs(): Record<string, number> {
+  try {
+    const brut = JSON.parse(localStorage.getItem(CLE_LARGEURS) || "{}");
+    return brut && typeof brut === "object" ? brut : {};
+  } catch {
+    return {};
+  }
+}
+function ecrireLargeurs(l: Record<string, number>) {
+  try {
+    localStorage.setItem(CLE_LARGEURS, JSON.stringify(l));
+  } catch {
+    /* stockage indisponible : le réglage vaut pour la session */
+  }
+}
+
 type EtatListe = {
   q: string;
   filtreStatut: string;
@@ -201,6 +225,18 @@ export default function SinistresPage() {
   // toujours visible : la recherche, le tri, et des pastilles rappelant les
   // filtres actifs.
   const [filtresOuverts, setFiltresOuverts] = useState(false);
+  // Largeurs de colonnes réglées à la souris (v10.9), mémorisées par appareil.
+  const [largeurs, setLargeurs] = useState<Record<string, number>>({});
+  useEffect(() => setLargeurs(lireLargeurs()), []);
+  const changerLargeur = useCallback((cle: string, px: number | null) => {
+    setLargeurs((prev) => {
+      const suiv = { ...prev };
+      if (px == null) delete suiv[cle];
+      else suiv[cle] = Math.round(px);
+      ecrireLargeurs(suiv);
+      return suiv;
+    });
+  }, []);
 
   // Date de la copie locale affichée quand le réseau est absent (v47).
   const [copieLocale, setCopieLocale] = useState<string | null>(null);
@@ -742,17 +778,18 @@ export default function SinistresPage() {
             dépassait 100 % et le statut chevauchait le montant). Chaque
             colonne a une largeur MINIMALE adaptée à son contenu ; le tableau
             s'élargit et défile horizontalement si l'écran est trop étroit. */}
-        <table className="w-full min-w-[56rem] text-sm">
+        <table className={`w-full min-w-[56rem] text-sm ${Object.keys(largeurs).length ? "table-fixed" : ""}`}>
           <thead className="text-left text-white/50">
             <tr>
-              <ThTri label={t.numeroDossier} cle="numero_sinistre" tri={tri} onSort={trierPar} fleche={fleche} className="w-[9rem] max-w-[9rem]" />
-              <ThTri label="Client" cle="client_nom" tri={tri} onSort={trierPar} fleche={fleche} className="min-w-[10rem]" />
-              <ThTri label="Véhicule" cle="marque_modele" tri={tri} onSort={trierPar} fleche={fleche} className="hidden min-w-[9rem] md:table-cell" />
-              <ThTri label="Immat." cle="immatriculation" tri={tri} onSort={trierPar} fleche={fleche} className="w-[7.5rem]" />
-              <ThTri label="Assureur" cle="assureur" tri={tri} onSort={trierPar} fleche={fleche} className="hidden min-w-[8rem] xl:table-cell" />
-              <ThTri label={t.dateDossier} cle="date_sinistre" tri={tri} onSort={trierPar} fleche={fleche} className="hidden w-[7rem] lg:table-cell" />
-              <ThTri label="Statut" cle="statut" tri={tri} onSort={trierPar} fleche={fleche} className="w-[13rem] min-w-[13rem]" />
-              <ThTri label="Montant HT / TTC" cle="montant" tri={tri} onSort={trierPar} fleche={fleche} align="right" className="w-[8.5rem] min-w-[8.5rem]" />
+              <ThTri label={t.numeroDossier} cle="numero_sinistre" tri={tri} onSort={trierPar} fleche={fleche} className="w-[9rem] max-w-[9rem]" largeur={largeurs.numero_sinistre} onLargeur={changerLargeur} />
+              {/* Client : réduite par défaut (v10.9) — ajustable à la souris. */}
+              <ThTri label="Client" cle="client_nom" tri={tri} onSort={trierPar} fleche={fleche} className="w-[10rem]" largeur={largeurs.client_nom} onLargeur={changerLargeur} />
+              <ThTri label="Véhicule" cle="marque_modele" tri={tri} onSort={trierPar} fleche={fleche} className="hidden min-w-[9rem] md:table-cell" largeur={largeurs.marque_modele} onLargeur={changerLargeur} />
+              <ThTri label="Immat." cle="immatriculation" tri={tri} onSort={trierPar} fleche={fleche} className="w-[7.5rem]" largeur={largeurs.immatriculation} onLargeur={changerLargeur} />
+              <ThTri label="Assureur" cle="assureur" tri={tri} onSort={trierPar} fleche={fleche} className="hidden min-w-[8rem] xl:table-cell" largeur={largeurs.assureur} onLargeur={changerLargeur} />
+              <ThTri label={t.dateDossier} cle="date_sinistre" tri={tri} onSort={trierPar} fleche={fleche} className="hidden w-[7rem] lg:table-cell" largeur={largeurs.date_sinistre} onLargeur={changerLargeur} />
+              <ThTri label="Statut" cle="statut" tri={tri} onSort={trierPar} fleche={fleche} className="w-[13rem] min-w-[13rem]" largeur={largeurs.statut} onLargeur={changerLargeur} />
+              <ThTri label="Montant HT / TTC" cle="montant" tri={tri} onSort={trierPar} fleche={fleche} align="right" className="w-[8.5rem] min-w-[8.5rem]" largeur={largeurs.montant} onLargeur={changerLargeur} />
               <th className="cellule hidden w-[5rem] font-medium lg:table-cell">Rapport</th>
             </tr>
           </thead>
@@ -880,6 +917,8 @@ function ThTri({
   fleche,
   className = "",
   align = "left",
+  largeur,
+  onLargeur,
 }: {
   label: string;
   cle: CleTri;
@@ -888,10 +927,15 @@ function ThTri({
   fleche: (cle: CleTri) => ReactNode;
   className?: string;
   align?: "left" | "right";
+  largeur?: number;
+  onLargeur?: (cle: string, px: number | null) => void;
 }) {
   const actif = tri.cle === cle;
   return (
-    <th className={`px-4 py-3 font-medium ${align === "right" ? "text-right" : ""} ${className}`}>
+    <th
+      className={`relative px-4 py-3 font-medium ${align === "right" ? "text-right" : ""} ${className}`}
+      style={largeur ? { width: largeur, minWidth: largeur, maxWidth: largeur } : undefined}
+    >
       <button
         onClick={() => onSort(cle)}
         className={`inline-flex items-center gap-0.5 hover:text-white transition-colors ${
@@ -902,6 +946,29 @@ function ThTri({
         {label}
         {fleche(cle)}
       </button>
+      {/* Poignée : glisser = largeur manuelle (mémorisée), double-clic = auto. */}
+      {onLargeur && (
+        <span
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const th = (e.currentTarget as HTMLElement).closest("th");
+            const base = th?.offsetWidth || 120;
+            const depart = e.clientX;
+            const bouger = (ev: MouseEvent) => onLargeur(cle, Math.max(64, base + ev.clientX - depart));
+            const lacher = () => {
+              window.removeEventListener("mousemove", bouger);
+              window.removeEventListener("mouseup", lacher);
+            };
+            window.addEventListener("mousemove", bouger);
+            window.addEventListener("mouseup", lacher);
+          }}
+          onDoubleClick={() => onLargeur(cle, null)}
+          className="absolute -right-0.5 top-0 z-10 h-full w-2 cursor-col-resize rounded hover:bg-accent-teal/40"
+          title="Glisser pour ajuster la largeur · double-clic : automatique"
+          aria-hidden
+        />
+      )}
     </th>
   );
 }

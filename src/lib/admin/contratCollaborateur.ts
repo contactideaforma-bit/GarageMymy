@@ -32,8 +32,8 @@ export type ContenuContrat = {
   avertissement: string;
 };
 
-export const VERSION_CONTRAT_APPORTEUR = "v1.3";
-export const VERSION_CONTRAT_PRESTATION = "v1.0";
+export const VERSION_CONTRAT_APPORTEUR = "v1.4";
+export const VERSION_CONTRAT_PRESTATION = "v1.1";
 
 const eur = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString("fr-FR")} € HT`;
 const ou = (v: string | null | undefined, defaut: string) => (v && v.trim() ? v.trim() : defaut);
@@ -105,6 +105,7 @@ export function contratApporteurDefaut(c: Collaborateur, p: Parametres): Contenu
         texte: [
           "L'Apporteur perçoit, pour chaque contrat signé par un prospect qu'il a apporté, la prime suivante, fixée forfaitairement par formule souscrite (85 % de la mensualité hors taxes de la grille en vigueur) :",
           `Prime : versée UNE seule fois par contrat. Elle est ACQUISE, lorsque le garage a souscrit un engagement de douze mois (ou payé l'année en une fois), dès l'encaissement par IDEAFORMA de la ${echeanceAvec === 1 ? "première mensualité (ou du forfait annuel)" : `${echeanceAvec}e mensualité`} ; en l'absence d'engagement, elle est acquise à l'encaissement de la ${echeanceSans}e mensualité, soit un différé de ${Math.max(0, echeanceSans - 1)} mois. Les remises prévues à la grille (engagement de douze mois, paiement annuel) ne réduisent pas la prime. Une remise exceptionnelle hors grille, qui ne peut être consentie qu'avec l'accord écrit d'IDEAFORMA, réduit la prime dans la même proportion, sans pouvoir être inférieure à ${eur(p.formules.essentiel.primeSignature)} pour ESSENTIEL ; le bonus engagement reste inchangé.`,
+          "Rétractation : lorsque le contrat du garage est conclu hors établissement avec un professionnel de cinq salariés au plus, la prime n'est en tout état de cause acquise qu'après l'expiration du délai légal de rétractation de quatorze jours — y compris lorsque l'année est payée en une fois et encaissée immédiatement. Une vente rétractée n'ouvre droit à aucune commission ; une prime déjà réglée sur une vente rétractée est reprise dans les conditions de l'article 5.",
           "Bonus engagement : acquis avec la prime de signature lorsque le devis signé comporte un engagement de douze mois.",
           "Montée en formule : lorsqu'un garage apporté souscrit une formule supérieure dans les douze mois suivant sa signature, l'Apporteur perçoit 85 % de la différence entre les deux mensualités hors taxes, aux conditions de la prime.",
           "Bonus de volume : 255 € lorsque cinq contrats hors ESSENTIEL apportés par l'Apporteur ont été signés et ont donné lieu à un premier règlement au cours d'un même trimestre civil ; 680 € pour dix contrats. Ces deux bonus ne se cumulent pas.",
@@ -195,9 +196,11 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
         ].join("\n"),
       },
       {
-        titre: "Article 3 — Affectation des garages",
-        texte:
+        titre: "Article 3 — Affectation des garages et fin d'affectation",
+        texte: [
           "Le Donneur d'ordre affecte au Prestataire un ou plusieurs garages clients, d'un commun accord et par écrit (annexe 1 mise à jour). Le Prestataire peut refuser une affectation. Le volume horaire indicatif correspond au forfait de secrétariat souscrit par chaque garage (heures PAR MOIS de la formule).",
+          "Fin d'affectation : lorsqu'un garage résilie son abonnement, change de formule, ferme ou cesse son activité, le Donneur d'ordre en informe le Prestataire dès qu'il en a connaissance et respecte un PRÉAVIS d'au moins quinze jours avant la fin effective de l'affectation, sauf cessation immédiate imposée par le garage, impayé ou rétractation. La rémunération reste due pour chaque mensualité effectivement encaissée jusqu'à la fin de l'affectation, préavis compris. La perte d'une ou plusieurs affectations ne constitue pas une rupture du présent contrat, qui se poursuit pour les autres garages ou dans l'attente de nouvelles affectations.",
+        ].join("\n"),
       },
       {
         titre: "Article 4 — Rémunération",

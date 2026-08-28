@@ -29,6 +29,7 @@ import {
   supprimerRappel,
 } from "@/lib/ardoise";
 import { lireRole } from "@/lib/conversation";
+import ChampEcheance from "./ChampEcheance";
 
 const ORIGINE_LITIGE = "litige";
 
@@ -215,7 +216,7 @@ export default function LitigePanel({
             Ajouter
           </button>
         </div>
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+        <div className="mt-1.5 flex flex-wrap items-end gap-2 text-xs">
           <select
             className="field-input field-compact w-auto"
             value={pour}
@@ -226,16 +227,7 @@ export default function LitigePanel({
             <option value="garage">Pour le garage</option>
             <option value="">Pour tout le monde</option>
           </select>
-          <label className="inline-flex items-center gap-1 text-white/45">
-            📅
-            <input
-              type="datetime-local"
-              className="field-input field-compact w-auto"
-              value={echeance}
-              onChange={(e) => setEcheance(e.target.value)}
-              title="Échéance (facultative) — crée un rendez-vous dans l'agenda"
-            />
-          </label>
+          <ChampEcheance valeur={echeance} onChange={setEcheance} />
         </div>
 
         {aFaire.length > 0 && (

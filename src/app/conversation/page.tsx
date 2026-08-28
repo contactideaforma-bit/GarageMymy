@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier, LigneArdoise, MessageConversation } from "@/lib/types";
 import { estActif, messageErreur } from "@/lib/format";
@@ -42,6 +43,7 @@ import {
 } from "@/lib/conversation";
 import DossierPicker, { libelleDossier } from "@/components/DossierPicker";
 import ConfigBanner from "@/components/ConfigBanner";
+import ChampEcheance from "@/components/ChampEcheance";
 
 const CLE_ASTUCE = "mea.conversation.astuce";
 
@@ -312,7 +314,7 @@ export default function ConversationPage() {
           {/* Bulle d'astuces MY-MY, posée sur le fil comme un bandeau */}
           {astuce != null && ASTUCES_MYMY[astuce] && (
             <div className="flex items-start gap-2.5 border-b border-white/10 bg-white/5 px-3 py-2.5 anim-apparition sm:px-4">
-              <span className="mt-0.5 shrink-0 text-lg" aria-hidden>🎮</span>
+              <Image src="/mymy-avatar.png" alt="MY-MY" width={34} height={34} className="shrink-0" />
               <div className="min-w-0 flex-1">
                 <span className="font-pixel text-[0.5rem] text-accent-pink">MY-MY</span>
                 <p className="text-xs leading-relaxed text-white/70">
@@ -489,14 +491,9 @@ export default function ConversationPage() {
               </button>
             </div>
             {tacheOptions && (
-              <div className="mt-1.5 flex items-center gap-2">
-                <input
-                  type="datetime-local"
-                  className="field-input field-compact w-auto"
-                  value={tacheEcheance}
-                  onChange={(e) => setTacheEcheance(e.target.value)}
-                />
-                {tacheEcheance && <span className="text-[11px] text-accent-teal">→ ajouté à l&apos;agenda</span>}
+              <div className="mt-1.5 flex flex-wrap items-end gap-2">
+                <ChampEcheance valeur={tacheEcheance} onChange={setTacheEcheance} />
+                {tacheEcheance && <span className="pb-1.5 text-[11px] text-accent-teal">→ agenda</span>}
               </div>
             )}
           </div>
@@ -510,40 +507,38 @@ export default function ConversationPage() {
               const retard = estEnRetard(ligne.echeance);
               const auj = estAujourdhui(ligne.echeance);
               return (
-                <li key={ligne.id} className="py-2 text-sm">
+                <li key={ligne.id} className="py-1.5 text-sm">
                   <div className="flex min-w-0 items-start gap-2.5">
                     <input
                       type="checkbox"
                       checked={false}
                       onChange={() => cocherTache(ligne, true)}
-                      className="mt-1 h-4 w-4 shrink-0 accent-emerald-500"
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-500"
                     />
-                    <div className="min-w-0 flex-1">
-                      <span className="block break-words text-white/85">{ligne.texte}</span>
-                      <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                        {ligne.pour && (
-                          <span
-                            className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                              ligne.pour === "secretaire" ? "bg-teal-100 text-teal-700" : "bg-violet-100 text-violet-700"
-                            }`}
-                          >
-                            {ligne.pour === "secretaire" ? "Secrétaire" : "Garage"}
-                          </span>
-                        )}
-                        {ligne.echeance && (
-                          <span
-                            className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                              retard ? "bg-rose-100 text-rose-700" : auj ? "bg-amber-100 text-amber-700" : "bg-white/10 text-white/70"
-                            }`}
-                          >
-                            {retard ? "En retard · " : ""}
-                            {libelleEcheance(ligne.echeance)}
-                          </span>
-                        )}
-                        {chipDossier(ligne.dossier_id)}
-                      </span>
-                    </div>
-                    <button onClick={() => supprimerTache(ligne)} className="shrink-0 text-white/30 hover:text-rose-300" title="Supprimer">
+                    <span className="min-w-0 flex-1 break-words text-white/85">
+                      {ligne.texte}{" "}
+                      {ligne.pour && (
+                        <span
+                          className={`inline-block rounded-full px-1.5 py-px align-middle text-[9px] font-semibold uppercase tracking-wide ${
+                            ligne.pour === "secretaire" ? "bg-teal-100 text-teal-700" : "bg-violet-100 text-violet-700"
+                          }`}
+                        >
+                          {ligne.pour === "secretaire" ? "Secrétaire" : "Garage"}
+                        </span>
+                      )}{" "}
+                      {ligne.echeance && (
+                        <span
+                          className={`inline-block rounded-full px-1.5 py-px align-middle text-[10px] font-medium ${
+                            retard ? "bg-rose-100 text-rose-700" : auj ? "bg-amber-100 text-amber-700" : "bg-white/10 text-white/70"
+                          }`}
+                        >
+                          {retard ? "⏰ " : ""}
+                          {libelleEcheance(ligne.echeance)}
+                        </span>
+                      )}{" "}
+                      {chipDossier(ligne.dossier_id)}
+                    </span>
+                    <button onClick={() => supprimerTache(ligne)} className="shrink-0 px-1 text-white/25 hover:text-rose-300" title="Supprimer">
                       ×
                     </button>
                   </div>

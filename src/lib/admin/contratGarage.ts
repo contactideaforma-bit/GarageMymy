@@ -87,11 +87,11 @@ export function articlesCGV(p: Parametres): { titre: string; texte: string }[] {
     },
     {
       titre: "Article 2 — Durée, engagement et renouvellement",
-      texte: `Le contrat prend effet à la date de mise en service. SANS ENGAGEMENT, il est conclu pour un mois renouvelable tacitement, résiliable par chaque partie à tout moment par email, avec un préavis d'un mois prenant effet à la fin du mois suivant. AVEC ENGAGEMENT DE 12 MOIS (remise consentie en contrepartie), le Client s'engage fermement pour douze mensualités consécutives : en cas de résiliation anticipée de son fait ou de résiliation par ${ed} pour manquement du Client, les mensualités restant à courir jusqu'au terme deviennent immédiatement exigibles à titre d'indemnité de résiliation, la remise ayant été accordée en considération de cet engagement. Au terme des 12 mois, le contrat se poursuit par tacite reconduction par périodes d'un mois, sans engagement, au tarif engagé, sauf dénonciation avec un mois de préavis.`,
+      texte: `Le contrat prend effet à la date de mise en service. SANS ENGAGEMENT, il est conclu pour un mois renouvelable tacitement, résiliable par chaque partie à tout moment par email, avec un préavis d'un mois prenant effet à la fin du mois suivant. AVEC ENGAGEMENT DE 12 MOIS (remise consentie en contrepartie), le Client s'engage fermement pour douze mensualités consécutives : en cas de résiliation anticipée de son fait ou de résiliation par ${ed} pour manquement du Client, il est redevable de FRAIS DE RÉSILIATION ANTICIPÉE égaux à la totalité des mensualités hors taxes restant à courir jusqu'au terme de l'engagement, immédiatement exigibles à titre d'indemnité de résiliation (clause pénale), la remise ayant été accordée en considération de cet engagement ; la mise en service offerte au titre de l'engagement redevient en outre due au tarif en vigueur au jour de la souscription. Ces frais sont arrêtés à la date d'effet de la résiliation et font l'objet d'une facture de solde. Il en va de même en cas de FERMETURE, cession, ou cessation d'activité du Client avant le terme : la somme due est arrêtée à la date de cessation et immédiatement exigible, sous réserve des dispositions d'ordre public applicables aux procédures collectives (sauvegarde, redressement, liquidation), qui prévalent. Au terme des 12 mois, le contrat se poursuit par tacite reconduction par périodes d'un mois, sans engagement, au tarif engagé, sauf dénonciation avec un mois de préavis.`,
     },
     {
       titre: "Article 3 — Droit de rétractation",
-      texte: `Conformément à l'article L221-3 du Code de la consommation, le Client professionnel qui emploie cinq salariés au plus et dont l'objet du contrat n'entre pas dans le champ de son activité principale bénéficie, lorsque le contrat est conclu hors établissement, d'un délai de rétractation de quatorze jours à compter de la signature, exercé par email à ${SOCIETE.email}. Le Client peut demander expressément la mise en service avant la fin de ce délai ; en cas de rétractation, il reste redevable du prix correspondant au service fourni jusqu'à la notification de sa décision.`,
+      texte: `Conformément à l'article L221-3 du Code de la consommation, le Client professionnel qui emploie cinq salariés au plus et dont l'objet du contrat n'entre pas dans le champ de son activité principale bénéficie, lorsque le contrat est conclu hors établissement, d'un délai de rétractation de quatorze jours à compter de la signature, exercé par email à ${SOCIETE.email}. Le Client peut demander expressément la mise en service avant la fin de ce délai ; en cas de rétractation, il reste redevable du prix correspondant au service fourni jusqu'à la notification de sa décision. Les sommes déjà versées (mensualité, forfait annuel payé en une fois, mise en service) lui sont remboursées dans les quatorze jours de la notification, déduction faite de ce service déjà fourni. La vente rétractée est réputée n'avoir produit aucun effet à l'égard des tiers : elle n'ouvre droit à aucune commission d'apporteur d'affaires (article 11) et aucun frais de résiliation n'est dû.`,
     },
     {
       titre: "Article 4 — Prix et paiement",
@@ -136,7 +136,7 @@ export function articlesCGV(p: Parametres): { titre: string; texte: string }[] {
   ];
 }
 
-export const VERSION_CGV = "v1.1 — août 2026";
+export const VERSION_CGV = "v1.2 — août 2026";
 
 /** Phrase d'acceptation cochée par le garage sur la page de vente. */
 export const ACCEPTATION_CGV =

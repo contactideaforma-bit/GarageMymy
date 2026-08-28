@@ -366,7 +366,15 @@ export function lignesDues(
       // avec engagement 12 mois, différée sinon (3e mensualité = deux mois
       // après la première). Paramétrable par l'éditeur.
       const echeance = Math.max(1, a.engagement_12 ? p.primeMensualiteAvecEngagement : p.primeMensualiteSansEngagement);
-      const primeDue = nbPayees >= echeance;
+      // GARDE RÉTRACTATION (v11.0, contrat apporteur v1.4) : même quand la
+      // 1re mensualité (ou l'année en une fois) est encaissée immédiatement,
+      // la prime n'apparaît sur le relevé qu'une fois le délai légal de
+      // rétractation de 14 jours passé (15 j de marge depuis la signature).
+      // Les lignes étant idempotentes par clé, elle apparaît simplement au
+      // relevé suivant — jamais de prime versée sur une vente rétractable.
+      const retractationPassee =
+        !a.date_signature || Date.now() - new Date(a.date_signature).getTime() >= 15 * 86_400_000;
+      const primeDue = nbPayees >= echeance && retractationPassee;
       if (primeDue) {
         const periode = payees[echeance - 1].periode;
         lignes.push({ cle: `sig:${a.id}`, collaborateur_id: cid, abonnement_id: a.id, type: "commission", libelle: `Prime de signature — ${a.garage_nom} (${f.libelle})`, periode, montant: f.primeSignature });

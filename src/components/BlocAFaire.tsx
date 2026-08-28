@@ -20,6 +20,7 @@ import {
 } from "@/lib/ardoise";
 import { RoleConversation, lireRole } from "@/lib/conversation";
 import DossierPicker, { libelleDossier } from "./DossierPicker";
+import ChampEcheance from "./ChampEcheance";
 
 /**
  * BLOC « À FAIRE » (v41 → refondu v10.7).
@@ -313,91 +314,80 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
     const { ligne, dossier: d, fait } = it;
     const retard = !fait && estEnRetard(ligne.echeance);
     const aujourdhui = !fait && estAujourdhui(ligne.echeance);
-    const badgeEcheance = ligne.echeance
-      ? retard
-        ? "bg-rose-100 text-rose-700"
-        : aujourdhui
-          ? "bg-amber-100 text-amber-700"
-          : "bg-white/10 text-white/70"
-      : "";
+    const badgeEcheance = retard
+      ? "bg-rose-100 text-rose-700"
+      : aujourdhui
+        ? "bg-amber-100 text-amber-700"
+        : "bg-white/10 text-white/70";
     return (
-      <li key={it.cle} className={`py-2.5 text-sm ${fait ? "opacity-50" : ""}`}>
-        <div className="flex min-w-0 items-start gap-3">
+      <li key={it.cle} className={`py-1.5 text-sm ${fait ? "opacity-50" : ""}`}>
+        {/* UNE seule ligne : case · texte + badges en ligne · chip dossier · ×
+            (v10.9 — l'ancien rendu sur 3 lignes laissait trop de vide). */}
+        <div className="flex min-w-0 items-start gap-2.5">
           {/* SEULE la case à cocher coche la tâche (v8.6). */}
           <input
             type="checkbox"
             checked={fait}
             onChange={(e) => cocher(ligne, e.target.checked)}
-            className="mt-1 h-4 w-4 shrink-0 accent-emerald-500"
+            className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-500"
           />
-          {/* Cliquer sur le texte ouvre la modification. */}
-          <button
-            type="button"
+          {/* Cliquer sur le texte ouvre la modification (v8.6 : clic ≠ coche). */}
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => ouvrirEdition(ligne)}
-            className="min-w-0 flex-1 text-left"
-            title="Modifier cette tâche"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                ouvrirEdition(ligne);
+              }
+            }}
+            className="min-w-0 flex-1 cursor-pointer text-left"
+            title="Modifier cette tâche (texte, échéance, destinataire)"
           >
-            <span className={`block break-words text-white/85 ${fait ? "line-through" : ""}`}>
-              {ligne.texte}
-            </span>
-            <span className="mt-1 flex flex-wrap items-center gap-1.5">
-              {ligne.pour ? (
+            <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <span className={`break-words text-white/85 ${fait ? "line-through" : ""}`}>{ligne.texte}</span>
+              {ligne.pour && (
                 <span
-                  className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                  className={`inline-block shrink-0 rounded-full px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide ${
                     ligne.pour === "secretaire" ? "bg-teal-100 text-teal-700" : "bg-violet-100 text-violet-700"
                   }`}
                 >
-                  {LIBELLE_POUR[ligne.pour]}
-                </span>
-              ) : (
-                <span className="inline-block rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/60">
-                  Tâche
-                </span>
-              )}
-              {ligne.origine?.startsWith("suggestion:") && (
-                <span className="inline-block rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/50" title="Programmée depuis la fiche du dossier">
-                  programmée
+                  {ligne.pour === "secretaire" ? "Secrétaire" : "Garage"}
                 </span>
               )}
               {ligne.echeance && (
-                <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeEcheance}`}>
-                  {retard ? "En retard · " : ""}
+                <span className={`inline-block shrink-0 rounded-full px-1.5 py-px text-[10px] font-medium ${badgeEcheance}`}>
+                  {retard ? "⏰ " : ""}
                   {libelleEcheance(ligne.echeance)}
                 </span>
               )}
+              {ligne.origine?.startsWith("suggestion:") && (
+                <span className="shrink-0 text-[10px] text-white/35" title="Programmée depuis la fiche du dossier">📌</span>
+              )}
+              {d && (
+                <Link
+                  href={`/sinistres/${d.id}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex max-w-[11rem] shrink-0 items-center gap-0.5 truncate rounded-full bg-white/10 px-1.5 py-px text-[10px] text-white/60 hover:bg-white/20 hover:text-white"
+                  title={`Ouvrir le dossier — ${libelleDossier(d)}`}
+                >
+                  📁 {d.immatriculation || d.numero_sinistre || d.client_nom || "dossier"}
+                </Link>
+              )}
             </span>
-          </button>
+          </div>
           <button
             onClick={() => supprimer(ligne)}
-            className="shrink-0 text-white/30 hover:text-rose-300"
+            className="shrink-0 px-1 text-white/25 hover:text-rose-300"
             title="Supprimer cette tâche"
           >
             ×
           </button>
         </div>
 
-        {/* Actions sous le texte, pleine largeur sur téléphone. */}
-        <div className="mt-2 flex flex-wrap items-center gap-2 pl-7 text-xs">
-          {d && (
-            <Link
-              href={`/sinistres/${d.id}`}
-              className="max-w-[14rem] truncate text-white/50 hover:text-white hover:underline"
-              title={libelleDossier(d)}
-            >
-              Ouvrir le dossier {d.immatriculation || d.numero_sinistre || ""}
-            </Link>
-          )}
-          <button
-            onClick={() => ouvrirEdition(ligne)}
-            className="text-white/40 hover:text-accent-teal"
-            title={ligne.echeance ? "Modifier la tâche et son échéance" : "Modifier la tâche"}
-          >
-            ✎ Modifier
-          </button>
-        </div>
-
         {editionId === ligne.id && (
-          <div className="mt-2 space-y-2 rounded-lg border-2 border-white/10 bg-white/5 p-2 pl-3">
+          <div className="ml-6 mt-1.5 space-y-2 rounded-lg border-2 border-white/10 bg-white/5 p-2">
             <input
               className="field-input field-compact w-full"
               value={editionTexte}
@@ -412,13 +402,8 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
                 }
               }}
             />
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="datetime-local"
-                className="field-input field-compact w-auto"
-                value={editionValeur}
-                onChange={(e) => setEditionValeur(e.target.value)}
-              />
+            <div className="flex flex-wrap items-end gap-2">
+              <ChampEcheance valeur={editionValeur} onChange={setEditionValeur} />
               <select
                 className="field-input field-compact w-auto"
                 value={editionPour}
@@ -435,22 +420,12 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
                   await enregistrerPour(ligne, editionPour);
                   await enregistrerEcheance(ligne, editionValeur);
                 }}
-                className="btn-ghost btn-compact"
+                className="btn-primary btn-compact"
               >
                 Enregistrer
               </button>
-              {ligne.echeance && (
-                <button
-                  onClick={() => enregistrerEcheance(ligne, "")}
-                  className="text-xs text-white/40 hover:text-rose-300 hover:underline"
-                >
-                  Retirer de l&apos;agenda
-                </button>
-              )}
             </div>
-            <p className="text-[11px] text-white/40">
-              Une date crée un rendez-vous dans l&apos;agenda.
-            </p>
+            <p className="text-[11px] text-white/40">Une date crée un rendez-vous dans l&apos;agenda.</p>
           </div>
         )}
       </li>
@@ -509,66 +484,42 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
         </div>
       )}
 
-      {/* Saisie d'une tâche libre */}
+      {/* Saisie d'une tâche : une seule ligne compacte (v10.9). */}
       {dispo && (
-        <div className="mb-3">
-          <div className="flex gap-2">
-            <input
-              className="field-input flex-1"
-              placeholder="Noter une tâche… (rappeler l'expert, commander la peinture…)"
-              value={texte}
-              onChange={(e) => setTexte(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  ajouter();
-                }
-              }}
-            />
-            <button onClick={ajouter} disabled={busy || !texte.trim()} className="btn-ghost shrink-0">
-              Ajouter
-            </button>
-          </div>
-
-          {/* Options : destinataire + dossier lié + date (agenda) */}
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <select
-              className="field-input field-compact w-auto"
-              value={pour}
-              onChange={(e) => setPour(e.target.value as "" | "garage" | "secretaire")}
-              title="Qui doit s'en occuper ?"
-            >
-              <option value="">Pour tout le monde</option>
-              <option value="secretaire">Pour la secrétaire</option>
-              <option value="garage">Pour le garage</option>
-            </select>
-            <button
-              onClick={() => setPickerOuvert(true)}
-              className="btn-ghost btn-compact inline-flex items-center gap-1.5"
-              title="Rechercher un dossier en cours"
-            >
-              🔍 {dossierLie ? dossierLie.immatriculation || dossierLie.numero_sinistre || "Dossier" : "Lier un dossier"}
-            </button>
-            {dossierLie && (
-              <button
-                onClick={() => setDossierLie(null)}
-                className="text-xs text-white/40 hover:text-rose-300 hover:underline"
-              >
-                retirer
-              </button>
-            )}
-            <label className="inline-flex items-center gap-1.5 text-xs text-white/45">
-              📅
-              <input
-                type="datetime-local"
-                className="field-input field-compact w-auto"
-                value={echeance}
-                onChange={(e) => setEcheance(e.target.value)}
-                title="Programmer cette tâche dans l'agenda"
-              />
-            </label>
-            {echeance && <span className="text-[11px] text-accent-teal">→ ajouté à l&apos;agenda</span>}
-          </div>
+        <div className="mb-3 flex flex-wrap items-end gap-2">
+          <input
+            className="field-input field-compact min-w-[13rem] flex-1"
+            placeholder="Ajouter une tâche… (Entrée pour valider)"
+            value={texte}
+            onChange={(e) => setTexte(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                ajouter();
+              }
+            }}
+          />
+          <select
+            className="field-input field-compact w-auto"
+            value={pour}
+            onChange={(e) => setPour(e.target.value as "" | "garage" | "secretaire")}
+            title="Qui doit s'en occuper ?"
+          >
+            <option value="">Pour tous</option>
+            <option value="secretaire">Secrétaire</option>
+            <option value="garage">Garage</option>
+          </select>
+          <button
+            onClick={() => (dossierLie ? setDossierLie(null) : setPickerOuvert(true))}
+            className={`btn-ghost btn-compact ${dossierLie ? "text-accent-teal" : ""}`}
+            title={dossierLie ? `${libelleDossier(dossierLie)} — cliquer pour retirer` : "Lier la tâche à un dossier"}
+          >
+            📁{dossierLie ? ` ${dossierLie.immatriculation || dossierLie.numero_sinistre || "dossier"} ×` : ""}
+          </button>
+          <ChampEcheance valeur={echeance} onChange={setEcheance} />
+          <button onClick={ajouter} disabled={busy || !texte.trim()} className="btn-primary btn-compact">
+            Ajouter
+          </button>
         </div>
       )}
 

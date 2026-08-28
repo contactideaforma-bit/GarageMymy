@@ -9,6 +9,7 @@ import { ProchaineAction, URGENCE_STYLE } from "@/lib/actions";
 import { ajouterRappel, chargerRappels, localVersIso, supprimerRappel } from "@/lib/ardoise";
 import { annulerActionFaite, marquerActionFaite } from "@/lib/aFaire";
 import { lireRole } from "@/lib/conversation";
+import ChampEcheance from "./ChampEcheance";
 
 /**
  * SUGGESTION DE TÂCHE (v10.7) — remplace la bannière « Prochaine action ».
@@ -180,7 +181,7 @@ export default function SuggestionAction({
       </div>
 
       {ouvert && !tacheProgrammee && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border-2 border-white/10 bg-white/5 p-2.5">
+        <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border-2 border-white/10 bg-white/5 p-2.5">
           <select
             className="field-input field-compact w-auto"
             value={pour}
@@ -191,16 +192,7 @@ export default function SuggestionAction({
             <option value="garage">Pour le garage</option>
             <option value="">Pour tout le monde</option>
           </select>
-          <label className="inline-flex items-center gap-1.5 text-xs text-white/45">
-            📅
-            <input
-              type="datetime-local"
-              className="field-input field-compact w-auto"
-              value={echeance}
-              onChange={(e) => setEcheance(e.target.value)}
-              title="Échéance (facultative) — crée un rendez-vous dans l'agenda"
-            />
-          </label>
+          <ChampEcheance valeur={echeance} onChange={setEcheance} />
           <button onClick={programmer} disabled={busy} className="btn-ghost btn-compact">
             {busy ? "…" : "Ajouter à « À faire »"}
           </button>
