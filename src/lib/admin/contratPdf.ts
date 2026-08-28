@@ -12,6 +12,8 @@ import { SOCIETE, ADRESSE_COMPLETE } from "@/components/vitrine/societe";
 import { Formule, Parametres, grilleTarifs, tarifFormule } from "./economie";
 import { ACCEPTATION_CGV, VERSION_CGV, VenteContrat, articlesCGV, conditionsParticulieres } from "./contratGarage";
 import { SECTIONS_BESOINS, demandesDe, libelleQuestion, lignesSection, tauxRemplissage } from "@/lib/ficheBesoins";
+import type { ContenuContrat } from "./contratCollaborateur";
+import { titreContrat } from "./contratCollaborateur";
 import type { Prospect } from "@/lib/prospects";
 
 /* ------------------------------------------------------------------ */
@@ -700,4 +702,69 @@ export function construireFichePdf(
 export function telechargerContratPdf(v: VenteContrat, p: Parametres, extra: Parameters<typeof construireContratPdf>[2]) {
   const pdf = construireContratPdf(v, p, extra);
   pdf.save(`contrat-${(extra.numero || v.garage_nom).replace(/[^a-z0-9-]+/gi, "_")}.pdf`);
+}
+
+/* ====================================================================
+   CONTRAT DE COLLABORATION (v10.6) — apporteur d'affaires (commercial)
+   ou prestation de services (secrétaire). Le contenu vient de
+   collaborateur_documents.contenu : tout est régénérable à l'identique.
+==================================================================== */
+export function construireContratCollaborateurPdf(
+  contenu: ContenuContrat,
+  extra: { nomCollaborateur?: string | null; signatureEditeur?: string | null; signatureCollaborateur?: string | null; signeLe?: string | null } = {}
+): jsPDF {
+  const apporteur = contenu.modele === "apporteur";
+  const partieEditeur = apporteur ? "Le Mandant" : "Le Donneur d'ordre";
+  const partieCollab = apporteur ? "L'Apporteur" : "Le Prestataire";
+  const c = creer(titreContrat(contenu.modele), contenu.sousTitre || `${SOCIETE.produit} by ${SOCIETE.editeur}`);
+  entete(c, [contenu.version ? `Modèle ${contenu.version}` : "", `Établi le ${dateFr(contenu.date)}`].filter(Boolean));
+
+  h2(c, "Entre les soussignés");
+  tableau(c, [`${partieEditeur} — ${SOCIETE.editeur}`, partieCollab], [[contenu.blocEditeur, contenu.blocCollaborateur]], { largeurs: [1, 1], taille: 9 });
+  if (contenu.intro) para(c, contenu.intro, { taille: 9, couleur: 55, apres: 4 });
+
+  contenu.articles.forEach((a, i) => {
+    assurer(c, 16);
+    h3(c, a.titre);
+    for (const ligne of a.texte.split("\n").filter((l) => l.trim())) para(c, ligne, { taille: 8.8, couleur: 60, apres: 2 });
+    if (contenu.table && contenu.table.apresArticle === i) {
+      tableau(c, contenu.table.tete, contenu.table.lignes as RowInput[], { largeurs: [2, 1, 1], taille: 8.6, droite: [1, 2] });
+    }
+    c.y += 1.5;
+  });
+
+  if (contenu.annexeTexte) {
+    h2(c, contenu.annexeTitre || "Annexe 1");
+    for (const ligne of contenu.annexeTexte.split("\n").filter((l) => l.trim())) {
+      if (ligne.startsWith("·")) puce(c, ligne.slice(1).trim(), 8.8);
+      else para(c, ligne, { taille: 8.8, couleur: 60, apres: 2 });
+    }
+  }
+
+  assurer(c, 85);
+  h2(c, "Signatures");
+  para(c, `Fait à ${contenu.lieu || "________"}, le ${dateFr(contenu.date)}, en deux exemplaires originaux.`, { taille: 9, couleur: 45 });
+  blocsSignature(
+    c,
+    {
+      titre: `Pour ${SOCIETE.editeur}`,
+      image: extra.signatureEditeur,
+      lignes: ["Nom, qualité : représentant légal", extra.signeLe ? `Signé le ${dateHeureFr(extra.signeLe)}` : "Date :"],
+    },
+    {
+      titre: `${partieCollab} — « lu et approuvé »`,
+      image: extra.signatureCollaborateur,
+      lignes: [
+        extra.nomCollaborateur ? `Nom : ${extra.nomCollaborateur}` : "Nom :",
+        extra.signeLe ? `Signé le ${dateHeureFr(extra.signeLe)}` : "Date :",
+      ],
+    }
+  );
+  if (contenu.avertissement) para(c, contenu.avertissement, { taille: 7.8, couleur: GRIS_CLAIR });
+  return finaliser(c);
+}
+
+export function telechargerContratCollaborateurPdf(contenu: ContenuContrat, extra: Parameters<typeof construireContratCollaborateurPdf>[1], nom: string) {
+  const pdf = construireContratCollaborateurPdf(contenu, extra);
+  pdf.save(`${titreContrat(contenu.modele).toLowerCase().replace(/[^a-z0-9]+/gi, "-")}-${nom.replace(/[^a-z0-9-]+/gi, "_") || "collaborateur"}.pdf`);
 }

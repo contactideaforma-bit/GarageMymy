@@ -38,8 +38,16 @@ export type Reglement = {
   montant: number; statut: "a_payer" | "paye" | "annule"; paye_le: string | null; facture_ref: string | null; notes: string | null;
 };
 export type Demande = { id: string; created_at: string; collaborateur_id: string; objet: string; contenu: string | null; statut: "ouverte" | "en_cours" | "close"; reponse: string | null; repondu_le: string | null };
+/** Contrat de collaboration généré depuis la fiche (v10.6). */
+export type CollaborateurDocument = {
+  id: string; created_at: string; collaborateur_id: string; type: "contrat";
+  modele: "apporteur" | "prestation"; titre: string; version: string | null;
+  contenu: unknown; statut: "brouillon" | "signe";
+  signature_collaborateur: string | null; signature_editeur: string | null;
+  signe_le: string | null; envoye_le: string | null; envoye_a: string | null; notes: string | null;
+};
 
-export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "ventes" | "comptes_etat" | "comptes_purges" | "prospects" | "prospect_documents";
+export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "collaborateur_documents" | "ventes" | "comptes_etat" | "comptes_purges" | "prospects" | "prospect_documents";
 export type CompteAuth = { id: string; email: string };
 export type EtatCompteAdmin = {
   owner_id: string; etat: "actif" | "suspendu" | "lecture_seule" | "ferme"; motif: string | null; message: string | null;
@@ -84,6 +92,13 @@ export const purgerCompte = (owner_id: string) => post<{ objets: number }>({ act
 /** Valide une vente déclarée : crée l'abonnement rattaché au commercial, ses mensualités, et passe la vente en « validée ». */
 export type ResultatCompteGarage = { ok: boolean; dejaExistant: boolean; emailEnvoye: boolean; erreurEmail: string | null; motDePasse?: string };
 export const creerCompteGarage = (vente_id: string) => post<ResultatCompteGarage>({ action: "creer_compte_garage", vente_id });
+/** Crée le compte My Easy Auto d'un COMMERCIAL depuis sa fiche (v10.6) : compte Auth + métier commercial + email de bienvenue. */
+export type ResultatCompteCollaborateur = ResultatCompteGarage & { owner_id?: string | null };
+export const creerCompteCollaborateur = (collaborateur_id: string, email?: string) =>
+  post<ResultatCompteCollaborateur>({ action: "creer_compte_collaborateur", collaborateur_id, email });
+/** Envoie par email la documentation (pack + contrat PDF en base64) au collaborateur — pensé pour la secrétaire. */
+export const envoyerDocsCollaborateur = (args: { collaborateur_id: string; cles: string[]; contrat_pdf?: string | null; contrat_nom?: string | null; email?: string }) =>
+  post<{ envoyes: number; a: string }>({ action: "envoyer_docs_collaborateur", ...args });
 export const validerVente = (vente_id: string, opts: { date_debut: string; secretaire_id?: string | null; remise_acceptee?: boolean }) =>
   post<{ abonnement_id: string }>({ action: "valider_vente", vente_id, ...opts });
 export const STATUTS_VENTE: Record<Vente["statut"], { label: string; badge: string }> = {

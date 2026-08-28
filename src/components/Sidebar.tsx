@@ -142,9 +142,16 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             <Link
               href="/prospects"
               onClick={onNavigate}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${isActive("/prospects") ? "bg-white/15 text-white font-medium shadow-inner" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${isActive("/prospects") && !isActive("/prospects/documents") ? "bg-white/15 text-white font-medium shadow-inner" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
             >
               👥 Mes clients
+            </Link>
+            <Link
+              href="/prospects/documents"
+              onClick={onNavigate}
+              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${isActive("/prospects/documents") ? "bg-white/15 text-white font-medium shadow-inner" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
+            >
+              📄 Mes documents
             </Link>
           </div>
         )}

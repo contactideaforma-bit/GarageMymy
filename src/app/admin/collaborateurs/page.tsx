@@ -1,20 +1,17 @@
 "use client";
 
-// COLLABORATEURS (v53) : commerciaux et secrétaires — fiches, garages
-// rattachés, solde dû / payé, demandes ouvertes.
+// COLLABORATEURS (v53 → v10.6) : commerciaux et secrétaires — fiches,
+// garages rattachés, solde dû / payé, demandes ouvertes. Chaque carte
+// OUVRE LA FICHE (/admin/collaborateurs/[id]) : compte commercial,
+// contrat de collaboration à signer, documents d'information.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import AdminShell, { ChampAdmin, dateFr, euros } from "@/components/admin/AdminShell";
-import ModalShell from "@/components/ModalShell";
-import { Abonnement, Collaborateur, CompteAuth, Demande, Reglement, definirMetierCompte, lireComptes, lireTable, nomCollab, supprimerLigne, upsertLigne } from "@/lib/admin/client";
+import Link from "next/link";
+import AdminShell, { dateFr, euros } from "@/components/admin/AdminShell";
+import CollaborateurFormModal from "@/components/admin/CollaborateurFormModal";
+import { Abonnement, Collaborateur, CompteAuth, Demande, Reglement, lireComptes, lireTable, nomCollab, supprimerLigne } from "@/lib/admin/client";
 
 const VIDE: Partial<Collaborateur> = { type: "commercial", nom: "", prenom: "", email: "", tel: "", siret: "", adresse: "", statut: "actif", date_debut: "", date_fin: "", iban: "", taux_retrocession: null, taux_horaire: null, notes: "", code_apporteur: "" };
-
-/** Code apporteur lisible : 2 lettres du nom + 4 chiffres (ex. DU4821). */
-function genererCode(nom: string): string {
-  const lettres = (nom || "XX").normalize("NFD").replace(/[^a-zA-Z]/g, "").slice(0, 2).toUpperCase().padEnd(2, "X");
-  return `${lettres}${String(Math.floor(1000 + Math.random() * 9000))}`;
-}
 
 export default function CollaborateursPage() {
   const [collabs, setCollabs] = useState<Collaborateur[]>([]);
@@ -25,7 +22,6 @@ export default function CollaborateursPage() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [filtre, setFiltre] = useState<"tous" | "commercial" | "secretaire">("tous");
   const [form, setForm] = useState<Partial<Collaborateur> | null>(null);
-  const [saving, setSaving] = useState(false);
   const [comptes, setComptes] = useState<CompteAuth[]>([]);
 
   const load = useCallback(async () => {
@@ -63,23 +59,10 @@ export default function CollaborateursPage() {
 
   const visibles = collabs.filter((c) => filtre === "tous" || c.type === filtre);
 
-  async function enregistrer() {
-    if (!form?.nom?.trim()) return alert("Le nom est obligatoire.");
-    setSaving(true);
-    try {
-      const res = await upsertLigne<Collaborateur>("collaborateurs", { ...form, taux_horaire: form.taux_horaire == null || form.taux_horaire === ("" as unknown) ? null : Number(form.taux_horaire) });
-      if ((res as { metierPose?: string | null }).metierPose === "commercial") {
-        alert("Le compte rattaché est maintenant en métier « commercial ». Sur ce compte : se déconnecter puis se reconnecter (ou recharger la page).");
-      }
-      setForm(null); load();
-    } catch (e) { alert(e instanceof Error ? e.message : "Enregistrement impossible."); }
-    finally { setSaving(false); }
-  }
   async function supprimer(c: Collaborateur) {
-    if (!confirm(`Supprimer ${nomCollab(c)} ? Ses relevés et demandes seront effacés.`)) return;
+    if (!confirm(`Supprimer ${nomCollab(c)} ? Ses relevés, contrats et demandes seront effacés.`)) return;
     try { await supprimerLigne("collaborateurs", c.id); load(); } catch (e) { alert(e instanceof Error ? e.message : "Suppression impossible."); }
   }
-  const set = <K extends keyof Collaborateur>(k: K, v: Collaborateur[K]) => setForm((f) => ({ ...(f || {}), [k]: v }));
 
   return (
     <AdminShell titre="Collaborateurs" actions={<button className="btn-primary" onClick={() => setForm({ ...VIDE })}>+ Collaborateur</button>}>
@@ -96,10 +79,12 @@ export default function CollaborateursPage() {
         {visibles.map((c) => {
           const s = stats.get(c.id)!;
           return (
-            <div key={c.id} className="glass-card p-4">
+            <div key={c.id} className="glass-card p-4 transition-colors hover:border-white/25">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <div className="truncate font-semibold text-white">{nomCollab(c)}</div>
+                  <Link href={`/admin/collaborateurs/${c.id}`} className="block truncate font-semibold text-white hover:text-accent-pink hover:underline">
+                    {nomCollab(c)}
+                  </Link>
                   <div className="mt-1 flex flex-wrap gap-1.5">
                     <span className={`badge ${c.type === "commercial" ? "badge-info" : "badge-ok"}`}>{c.type === "commercial" ? "Commercial" : "Secrétaire"}</span>
                     <span className={`badge ${c.statut === "actif" ? "badge-ok" : c.statut === "pause" ? "badge-warn" : "badge-neutral"}`}>{c.statut === "actif" ? "Actif" : c.statut === "pause" ? "En pause" : "Terminé"}</span>
@@ -107,7 +92,7 @@ export default function CollaborateursPage() {
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-2 text-sm">
-                  <button className="text-accent-pink hover:underline" onClick={() => setForm({ ...c })}>Modifier</button>
+                  <Link href={`/admin/collaborateurs/${c.id}`} className="text-accent-pink hover:underline">Fiche</Link>
                   <button className="text-white/40 hover:text-rose-300" onClick={() => supprimer(c)}>Suppr.</button>
                 </div>
               </div>
@@ -122,7 +107,7 @@ export default function CollaborateursPage() {
                 {c.siret && <div>SIRET {c.siret}</div>}
                 {c.type === "secretaire" && <div>Taux horaire : {c.taux_horaire != null ? `${Number(c.taux_horaire)} €/h` : "17 €/h (défaut)"}</div>}
                 {c.type === "commercial" && (c.zone || c.portefeuille) && <div>Zone : {c.zone || "—"}{c.portefeuille ? ` · portefeuille : ${c.portefeuille}` : ""}</div>}
-                {c.type === "commercial" && <div>Compte : {c.owner_id ? comptes.find((x) => x.id === c.owner_id)?.email || c.owner_id : <span className="text-amber-300">non rattaché</span>}</div>}
+                {c.type === "commercial" && <div>Compte : {c.owner_id ? comptes.find((x) => x.id === c.owner_id)?.email || c.owner_id : <span className="text-amber-300">non rattaché — ouvre la fiche pour le créer</span>}</div>}
                 {c.type === "commercial" && (
                   <div>
                     Code apporteur :{" "}
@@ -136,68 +121,7 @@ export default function CollaborateursPage() {
         })}
       </div>
 
-      {form && (
-        <ModalShell title={form.id ? "Modifier le collaborateur" : "Nouveau collaborateur"} onClose={() => setForm(null)} maxWidth="max-w-2xl">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <ChampAdmin label="Type"><select className="field-input" value={form.type} onChange={(e) => set("type", e.target.value as Collaborateur["type"])}><option value="commercial">Commercial (apporteur d&apos;affaires)</option><option value="secretaire">Secrétaire</option></select></ChampAdmin>
-            <ChampAdmin label="Statut"><select className="field-input" value={form.statut} onChange={(e) => set("statut", e.target.value as Collaborateur["statut"])}><option value="actif">Actif</option><option value="pause">En pause</option><option value="termine">Terminé</option></select></ChampAdmin>
-            <ChampAdmin label="Nom *"><input className="field-input" value={form.nom || ""} onChange={(e) => set("nom", e.target.value)} /></ChampAdmin>
-            <ChampAdmin label="Prénom"><input className="field-input" value={form.prenom || ""} onChange={(e) => set("prenom", e.target.value)} /></ChampAdmin>
-            <ChampAdmin label="Email"><input className="field-input" type="email" value={form.email || ""} onChange={(e) => set("email", e.target.value)} /></ChampAdmin>
-            <ChampAdmin label="Téléphone"><input className="field-input" value={form.tel || ""} onChange={(e) => set("tel", e.target.value)} /></ChampAdmin>
-            <ChampAdmin label="SIRET"><input className="field-input" value={form.siret || ""} onChange={(e) => set("siret", e.target.value)} /></ChampAdmin>
-            {form.type === "commercial" && (
-              <>
-                <ChampAdmin label="Compte My Easy Auto du commercial">
-                  <div className="flex gap-2">
-                    <select className="field-input" value={form.owner_id || ""} onChange={(e) => set("owner_id", e.target.value || null)}>
-                      <option value="">— aucun compte —</option>
-                      {comptes.map((c) => <option key={c.id} value={c.id}>{c.email}</option>)}
-                    </select>
-                    <button
-                      type="button"
-                      className="btn-ghost btn-compact shrink-0"
-                      disabled={!form.owner_id}
-                      title="Pose metier = commercial sur ce compte (il doit ensuite se déconnecter / reconnecter)"
-                      onClick={async () => {
-                        try {
-                          await definirMetierCompte(form.owner_id!, "commercial");
-                          alert("Compte passé en métier « commercial ». Il doit se déconnecter puis se reconnecter.");
-                        } catch (e) { alert(e instanceof Error ? e.message : "Impossible."); }
-                      }}
-                    >
-                      Rendre commercial
-                    </button>
-                  </div>
-                  <p className="mt-1 text-xs text-white/40">Crée d&apos;abord le compte dans Supabase → Authentication → Add user, puis choisis-le ici et clique « Rendre commercial ».</p>
-                </ChampAdmin>
-                <ChampAdmin label="Zone attribuée (départements, villes…)"><input className="field-input" value={form.zone || ""} onChange={(e) => set("zone", e.target.value)} placeholder="ex. 92, 78 nord, Nanterre – Rueil – Suresnes" /></ChampAdmin>
-                <ChampAdmin label="Portefeuille attribué (liste ou description)"><textarea className="field-input" rows={2} value={form.portefeuille || ""} onChange={(e) => set("portefeuille", e.target.value)} placeholder="ex. carrosseries indépendantes de la zone, hors réseaux constructeurs" /></ChampAdmin>
-              </>
-            )}
-            {form.type === "commercial" && (
-              <ChampAdmin label="Code apporteur (saisi sur /vente)">
-                <div className="flex gap-2">
-                  <input className="field-input font-mono uppercase" value={form.code_apporteur || ""} onChange={(e) => set("code_apporteur", e.target.value.toUpperCase())} />
-                  <button type="button" className="btn-ghost btn-compact shrink-0" onClick={() => set("code_apporteur", genererCode(form.nom || ""))}>Générer</button>
-                </div>
-              </ChampAdmin>
-            )}
-            <ChampAdmin label="IBAN (pour les virements)"><input className="field-input" value={form.iban || ""} onChange={(e) => set("iban", e.target.value)} /></ChampAdmin>
-            <ChampAdmin label="Adresse"><input className="field-input" value={form.adresse || ""} onChange={(e) => set("adresse", e.target.value)} /></ChampAdmin>
-            {form.type === "secretaire" && (
-              <ChampAdmin label="Taux horaire négocié, € HT / heure (vide = 17 € par défaut)"><input className="field-input" type="number" step="0.5" min="0" placeholder="17" value={form.taux_horaire ?? ""} onChange={(e) => set("taux_horaire", e.target.value === "" ? null : Number(e.target.value))} /></ChampAdmin>
-            )}
-            <ChampAdmin label="Début de collaboration"><input className="field-input" type="date" value={form.date_debut || ""} onChange={(e) => set("date_debut", e.target.value)} /></ChampAdmin>
-            <ChampAdmin label="Fin (le cas échéant)"><input className="field-input" type="date" value={form.date_fin || ""} onChange={(e) => set("date_fin", e.target.value)} /></ChampAdmin>
-          </div>
-          <ChampAdmin label="Notes"><textarea className="field-input mt-3" rows={2} value={form.notes || ""} onChange={(e) => set("notes", e.target.value)} /></ChampAdmin>
-          <div className="mt-4 flex justify-end gap-2">
-            <button className="btn-ghost" onClick={() => setForm(null)}>Annuler</button>
-            <button className="btn-primary" disabled={saving} onClick={enregistrer}>{saving ? "Enregistrement…" : "Enregistrer"}</button>
-          </div>
-        </ModalShell>
-      )}
+      {form && <CollaborateurFormModal initial={form} comptes={comptes} onClose={() => setForm(null)} onSaved={load} />}
     </AdminShell>
   );
 }

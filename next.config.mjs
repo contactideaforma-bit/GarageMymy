@@ -8,6 +8,14 @@ const nextConfig = {
     NEXT_PUBLIC_ADMIN_EMAILS:
       process.env.NEXT_PUBLIC_ADMIN_EMAILS || process.env.ADMIN_EMAILS || "",
   },
+  // Documents du pack commercial (v10.6) : PDF servis aux collaborateurs
+  // par /api/admin/pack-doc et /api/commercial/pack — embarqués dans le
+  // déploiement Vercel de ces fonctions (sinon absents du bundle serveur).
+  outputFileTracingIncludes: {
+    "/api/admin/pack-doc": ["./docs/pack-commercial/**"],
+    "/api/admin/donnees": ["./docs/pack-commercial/**"],
+    "/api/commercial/pack": ["./docs/pack-commercial/**"],
+  },
   // Images libres de droits (banque Unsplash) affichées sur la page d'accueil
   images: {
     remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],

@@ -5,6 +5,10 @@ import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 import { estAdminServeur, tousLesComptes, comptesAdmin } from "@/lib/supportServeur";
 import { envoyerEmailServeur } from "@/lib/mailer";
 import { emailBienvenueHtml, emailBienvenueTexte, sujetBienvenue } from "@/lib/admin/emailBienvenue";
+import { emailBienvenueCommercialHtml, emailBienvenueCommercialTexte, sujetBienvenueCommercial, emailDocsCollaborateurHtml, emailDocsCollaborateurTexte, sujetDocsCollaborateur } from "@/lib/admin/emailCollaborateur";
+import { lireDocPack } from "@/lib/admin/packDocsServeur";
+import { docsPour, nomFichierDoc } from "@/lib/admin/packDocs";
+import type { MailAttachment } from "@/lib/mailer";
 import { randomBytes } from "crypto";
 import { appliquerFinsDeContrat, comptesAPurger, definirEtat, purgerCompte, EtatCompteRow } from "@/lib/admin/comptesServeur";
 import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from "@/lib/admin/economie";
@@ -29,7 +33,7 @@ import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes", "ventes", "comptes_etat", "comptes_purges", "prospects", "prospect_documents"] as const;
+const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes", "collaborateur_documents", "ventes", "comptes_etat", "comptes_purges", "prospects", "prospect_documents"] as const;
 type Table = (typeof TABLES)[number];
 const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   collaborateurs: { col: "nom", asc: true },
@@ -37,6 +41,7 @@ const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   abonnement_mensualites: { col: "periode", asc: true },
   collaborateur_reglements: { col: "created_at", asc: false },
   collaborateur_demandes: { col: "created_at", asc: false },
+  collaborateur_documents: { col: "created_at", asc: false },
   ventes: { col: "created_at", asc: false },
   comptes_etat: { col: "maj_le", asc: false },
   comptes_purges: { col: "purge_le", asc: false },
@@ -89,6 +94,7 @@ export async function POST(req: Request) {
     action?: string; table?: string; row?: Record<string, unknown>; id?: string; valeur?: unknown; abonnement_id?: string;
     vente_id?: string; date_debut?: string; secretaire_id?: string | null; remise_acceptee?: boolean;
     metier?: string; owner_id?: string; etat?: EtatCompteRow["etat"]; message?: string | null; motif?: string | null; fin_le?: string | null; purge_le?: string | null; confirmation?: string;
+    collaborateur_id?: string; email?: string; cles?: string[]; contrat_pdf?: string | null; contrat_nom?: string | null;
   };
   try {
     body = await req.json();
@@ -282,6 +288,127 @@ export async function POST(req: Request) {
       // mot de passe provisoire lui-même : on ne le renvoie QUE dans ce cas.
       motDePasse: motDePasse && !emailEnvoye ? motDePasse : undefined,
     });
+  }
+
+  // ---- CRÉATION DU COMPTE DU COMMERCIAL (v10.6) ----
+  // Depuis la fiche collaborateur : email perso → compte Auth (mot de passe
+  // provisoire, métier « commercial » posé en app_metadata), rattachement
+  // collaborateurs.owner_id, email de bienvenue à la charte. Plus besoin de
+  // passer par Supabase → Authentication.
+  if (body.action === "creer_compte_collaborateur") {
+    const { data: collab } = await admin.from("collaborateurs").select("*").eq("id", body.collaborateur_id || "").maybeSingle();
+    if (!collab) return NextResponse.json({ error: "Collaborateur introuvable." }, { status: 404 });
+    if (collab.type !== "commercial") {
+      return NextResponse.json({ error: "Seuls les commerciaux ont un compte dédié : la secrétaire utilise le compte du garage de son portefeuille." }, { status: 400 });
+    }
+    if (collab.owner_id) return NextResponse.json({ error: "Un compte est déjà rattaché à cette fiche." }, { status: 409 });
+    const email = String(body.email || collab.email || "").trim().toLowerCase();
+    if (!/^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(email)) {
+      return NextResponse.json({ error: "Email du commercial manquant ou invalide." }, { status: 400 });
+    }
+
+    const nom = [collab.prenom, collab.nom].filter(Boolean).join(" ");
+    const comptes = await tousLesComptes(admin);
+    const existant = comptes.find((c) => c.email.toLowerCase() === email);
+    let ownerId = existant?.id || null;
+    let motDePasse: string | null = null;
+
+    if (!existant) {
+      const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
+      const brut = randomBytes(12);
+      motDePasse = Array.from(brut, (b) => alphabet[b % alphabet.length]).join("");
+      const { data: cree, error: eUser } = await admin.auth.admin.createUser({
+        email,
+        password: motDePasse,
+        email_confirm: true,
+        user_metadata: { nom },
+        app_metadata: { metier: "commercial" },
+      });
+      if (eUser || !cree?.user) {
+        return NextResponse.json({ error: `Création du compte impossible : ${eUser?.message || "erreur Auth"}` }, { status: 500 });
+      }
+      ownerId = cree.user.id;
+    } else {
+      // Compte existant : on le rattache et on pose le métier commercial.
+      const { data: u } = await admin.auth.admin.getUserById(existant.id);
+      await admin.auth.admin.updateUserById(existant.id, { app_metadata: { ...(u?.user?.app_metadata || {}), metier: "commercial" } });
+    }
+
+    await admin.from("collaborateurs").update({ owner_id: ownerId, email }).eq("id", collab.id);
+
+    // Email de bienvenue (uniquement si le compte vient d'être créé).
+    let emailEnvoye = false;
+    let erreurEmail: string | null = null;
+    if (motDePasse) {
+      const b = {
+        nom: nom || email,
+        email,
+        motDePasse,
+        codeApporteur: collab.code_apporteur || null,
+        zone: collab.zone || null,
+        url: process.env.NEXT_PUBLIC_SITE_URL || "https://myeasyauto.fr",
+      };
+      const expediteur = (await comptesAdmin(admin))[0];
+      const res = await envoyerEmailServeur(
+        { to: email, subject: sujetBienvenueCommercial(), html: emailBienvenueCommercialHtml(b), text: emailBienvenueCommercialTexte(b) },
+        expediteur?.id || ownerId || ""
+      );
+      emailEnvoye = res.ok;
+      if (!res.ok) erreurEmail = res.error || "Envoi impossible.";
+    }
+
+    return NextResponse.json({
+      ok: true,
+      owner_id: ownerId,
+      dejaExistant: Boolean(existant),
+      emailEnvoye,
+      erreurEmail,
+      // Si l'email n'est pas parti, l'éditeur transmet lui-même le mot de passe.
+      motDePasse: motDePasse && !emailEnvoye ? motDePasse : undefined,
+    });
+  }
+
+  // ---- ENVOI DE LA DOCUMENTATION PAR EMAIL (v10.6) ----
+  // Depuis la fiche collaborateur : documents d'information du pack
+  // (liste blanche packDocs) + éventuel contrat de collaboration PDF
+  // généré côté navigateur (base64). Pensé pour la secrétaire (pas de
+  // compte dédié), utilisable aussi pour un commercial.
+  if (body.action === "envoyer_docs_collaborateur") {
+    const { data: collab } = await admin.from("collaborateurs").select("*").eq("id", body.collaborateur_id || "").maybeSingle();
+    if (!collab) return NextResponse.json({ error: "Collaborateur introuvable." }, { status: 404 });
+    const email = String(body.email || collab.email || "").trim().toLowerCase();
+    if (!/^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(email)) {
+      return NextResponse.json({ error: "Email du collaborateur manquant ou invalide (complète la fiche)." }, { status: 400 });
+    }
+    const type = collab.type === "commercial" ? ("commercial" as const) : ("secretaire" as const);
+    const autorises = docsPour(type);
+    const cles = Array.isArray(body.cles) ? body.cles.filter((c): c is string => typeof c === "string") : [];
+    const attachments: MailAttachment[] = [];
+    const titres: string[] = [];
+    for (const cle of cles.slice(0, 12)) {
+      if (!autorises.some((d) => d.cle === cle)) continue;
+      const r = await lireDocPack(cle);
+      if (!r) continue;
+      attachments.push({ filename: nomFichierDoc(r.doc), content: r.contenu.toString("base64") });
+      titres.push(r.doc.titre);
+    }
+    // Contrat généré dans le navigateur (dataURL ou base64 brut), ≤ 4 Mo.
+    const contratJoint = typeof body.contrat_pdf === "string" && body.contrat_pdf.length > 0;
+    if (contratJoint) {
+      const base64 = String(body.contrat_pdf).replace(/^data:application\/pdf;(?:filename=[^;]*;)?base64,/, "");
+      if (base64.length > 4 * 1024 * 1024 * 1.4) return NextResponse.json({ error: "Contrat trop volumineux pour un email." }, { status: 413 });
+      attachments.unshift({ filename: String(body.contrat_nom || "contrat-collaboration.pdf"), content: base64 });
+    }
+    if (!attachments.length) return NextResponse.json({ error: "Aucun document à envoyer." }, { status: 400 });
+
+    const i = { nom: [collab.prenom, collab.nom].filter(Boolean).join(" ") || email, type, titres, contratJoint };
+    const expediteur = (await comptesAdmin(admin))[0];
+    const res = await envoyerEmailServeur(
+      { to: email, subject: sujetDocsCollaborateur(i), html: emailDocsCollaborateurHtml(i), text: emailDocsCollaborateurTexte(i), attachments },
+      expediteur?.id || ""
+    );
+    if (!res.ok) return NextResponse.json({ error: res.error || "Envoi impossible." }, { status: 500 });
+    return NextResponse.json({ ok: true, envoyes: attachments.length, a: email });
   }
 
   if (body.action === "valider_vente") {
