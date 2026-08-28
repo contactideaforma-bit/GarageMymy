@@ -21,6 +21,7 @@ import {
 } from "@/lib/types";
 import { calculeProchaineAction } from "@/lib/actions";
 import SuggestionAction from "@/components/SuggestionAction";
+import LitigePanel from "@/components/LitigePanel";
 import PiecesPanel from "@/components/PiecesPanel";
 import PhotosEtatPanel from "@/components/PhotosEtatPanel";
 import PartageSuiviPanel from "@/components/PartageSuiviPanel";
@@ -379,6 +380,22 @@ export default function DossierDetailPage() {
     }
   }
 
+  /** MODE LITIGE (v10.8) : activation/levée depuis l'en-tête (et le bloc). */
+  async function basculerLitige() {
+    if (!dossier) return;
+    const activer = !dossier.litige;
+    if (!activer && !confirm("Lever le litige ? Le problème et le plan de déblocage restent enregistrés.")) return;
+    const patch = activer
+      ? { litige: true, litige_depuis: new Date().toISOString() }
+      : { litige: false };
+    const { error } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
+    if (error) {
+      alert(messageErreur(error, "Impossible (migration v60 exécutée ?)."));
+      return;
+    }
+    setDossier({ ...dossier, ...patch });
+  }
+
   async function supprimer() {
     if (!dossier) return;
     if (!confirm("Supprimer définitivement ce dossier ? Les fichiers associés (rapport, pièces) seront aussi effacés.")) return;
@@ -652,6 +669,11 @@ export default function DossierDetailPage() {
                   PRISE EN CHARGE
                 </span>
               )}
+              {dossier.litige && (
+                <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-rose-100 text-rose-700">
+                  ⚠ LITIGE
+                </span>
+              )}
             </div>
 
             {/* Carte d'identité du dossier (v7.8) : un numéro seul ne dit rien —
@@ -684,6 +706,13 @@ export default function DossierDetailPage() {
                 {archivage || "Archiver (ZIP)"}
               </button>
             )}
+            <button
+              onClick={basculerLitige}
+              className={dossier.litige ? "btn-danger" : "btn-ghost"}
+              title={dossier.litige ? "Litige en cours — cliquer pour le lever (notes conservées)" : "Dossier bloqué ? Active le mode litige : problème, plan de déblocage et tâches dédiées"}
+            >
+              ⚠️ {dossier.litige ? "Litige en cours" : "Litige"}
+            </button>
             <button onClick={() => setShowEdit(true)} className="btn-ghost">Modifier</button>
             <button onClick={supprimer} className="btn-danger">Supprimer</button>
           </div>
@@ -695,6 +724,12 @@ export default function DossierDetailPage() {
           « Programmer » (feu vert du chef d'atelier, procédures propres à
           chaque garage). */}
       <SuggestionAction dossier={dossier} action={action} avecCta={action?.href !== `/sinistres/${dossier.id}`} />
+
+      {/* MODE LITIGE (v10.8) : le dossier est bloqué — problème, plan de
+          déblocage et tâches dédiées (partagées avec À faire / Conversation). */}
+      {dossier.litige && (
+        <LitigePanel dossier={dossier} onPatch={(patch) => setDossier({ ...dossier, ...patch })} onLever={basculerLitige} />
+      )}
 
       {/* Pipeline */}
       {/* Avancement : TOUJOURS déplié — c'est le repère du dossier. */}

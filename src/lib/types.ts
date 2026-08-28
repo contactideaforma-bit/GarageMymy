@@ -80,6 +80,11 @@ export type Dossier = {
   // rempli et joint à la facture, il permet le paiement direct du garage.
   // Distinct de la cession de créance (pas de créance cédée par le client).
   mode_pec?: boolean | null;
+  // v60 (v10.8) — mode LITIGE : dossier bloqué (expert, assurance, client…)
+  litige?: boolean | null;
+  litige_probleme?: string | null;
+  litige_deblocage?: string | null;
+  litige_depuis?: string | null;
   pec_reference?: string | null; // référence / n° de l'accord (optionnel)
   // Note libre du dossier (bouton rond en bas à droite de la fiche) — v7.2
   note?: string | null;

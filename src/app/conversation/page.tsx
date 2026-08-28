@@ -1,14 +1,14 @@
 "use client";
 
 // ============================================================
-//  CONVERSATION GARAGE ↔ SECRÉTAIRE (v10.7, migration v59)
+//  CONVERSATION GARAGE ↔ SECRÉTAIRE (v10.7, mise en page v10.8)
 //
-//  Le garagiste et sa secrétaire partagent le MÊME compte : la bascule en
-//  haut (« Qui écrit ? ») est mémorisée PAR APPAREIL — le poste de la
-//  secrétaire reste sur Secrétaire, celui de l'atelier sur Garage.
+//  Façon MESSAGERIE INSTANTANÉE : avatars, bulles alignées gauche/droite,
+//  séparateurs de jour, composer d'une ligne avec bouton d'envoi rond.
+//  Le garagiste et sa secrétaire partagent le MÊME compte : la bascule
+//  « Qui écrit ? » est mémorisée PAR APPAREIL.
 //
-//  Deux colonnes : le fil de messages (rattachables à un dossier) et la
-//  liste de tâches — la MÊME liste que le bloc « À faire » du tableau de
+//  Colonne Tâches = LA MÊME liste que le bloc « À faire » du tableau de
 //  bord (table ardoise). MY-MY souffle des astuces dans sa bulle.
 // ============================================================
 
@@ -16,13 +16,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier, LigneArdoise, MessageConversation } from "@/lib/types";
-import { estActif, formatDateTime, messageErreur } from "@/lib/format";
+import { estActif, messageErreur } from "@/lib/format";
 import {
   ajouterRappel,
   basculerRappel,
   chargerRappels,
   estAujourdhui,
   estEnRetard,
+  heureLisible,
   libelleEcheance,
   localVersIso,
   supprimerRappel,
@@ -43,6 +44,34 @@ import DossierPicker, { libelleDossier } from "@/components/DossierPicker";
 import ConfigBanner from "@/components/ConfigBanner";
 
 const CLE_ASTUCE = "mea.conversation.astuce";
+
+/** « Aujourd'hui », « Hier », sinon « mardi 26 août ». */
+function libelleJour(iso: string): string {
+  const d = new Date(iso);
+  const auj = new Date();
+  const hier = new Date();
+  hier.setDate(hier.getDate() - 1);
+  if (d.toDateString() === auj.toDateString()) return "Aujourd'hui";
+  if (d.toDateString() === hier.toDateString()) return "Hier";
+  return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+}
+
+/** Avatar rond d'un auteur (🔧 garage / 🗂️ secrétaire). */
+function Avatar({ auteur }: { auteur: "garage" | "secretaire" }) {
+  return (
+    <span
+      className={`flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-full border-2 text-sm ${
+        auteur === "secretaire"
+          ? "border-accent-teal/40 bg-accent-teal/15"
+          : "border-accent-violet/40 bg-accent-violet/20"
+      }`}
+      title={auteur === "secretaire" ? "Secrétaire" : "Garage"}
+      aria-hidden
+    >
+      {auteur === "secretaire" ? "🗂️" : "🔧"}
+    </span>
+  );
+}
 
 export default function ConversationPage() {
   const [role, setRole] = useState<RoleConversation>("garage");
@@ -65,6 +94,7 @@ export default function ConversationPage() {
   const [tacheEcheance, setTacheEcheance] = useState("");
   const [tacheDossier, setTacheDossier] = useState<Dossier | null>(null);
   const [tacheBusy, setTacheBusy] = useState(false);
+  const [tacheOptions, setTacheOptions] = useState(false);
   const [voirFaites, setVoirFaites] = useState(false);
 
   // Bulle d'astuces MY-MY
@@ -228,13 +258,15 @@ export default function ConversationPage() {
   const tachesAFaire = taches.filter((t) => !t.fait);
   const tachesFaites = taches.filter((t) => t.fait);
 
-  const chipDossier = (id: string | null | undefined) => {
+  const chipDossier = (id: string | null | undefined, clair = false) => {
     if (!id) return null;
     const d = dossierParId.get(id);
     return (
       <Link
         href={`/sinistres/${id}`}
-        className="inline-flex max-w-[13rem] items-center gap-1 truncate rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/70 hover:bg-white/20 hover:text-white"
+        className={`inline-flex max-w-[13rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-[11px] ${
+          clair ? "bg-white/15 text-white/80 hover:bg-white/25" : "bg-white/10 text-white/70 hover:bg-white/20"
+        } hover:text-white`}
         title={d ? libelleDossier(d) : "Ouvrir le dossier"}
       >
         📁 {d ? d.immatriculation || d.numero_sinistre || d.client_nom || "dossier" : "dossier"}
@@ -269,23 +301,6 @@ export default function ConversationPage() {
         </div>
       </div>
 
-      {/* Bulle d'astuces MY-MY */}
-      {astuce != null && ASTUCES_MYMY[astuce] && (
-        <div className="glass-soft mb-4 flex items-start gap-3 rounded-xl border-2 border-accent-pink/30 p-3 anim-apparition">
-          <span className="mt-0.5 shrink-0 text-xl" aria-hidden>🎮</span>
-          <div className="min-w-0 flex-1">
-            <div className="font-pixel text-[0.55rem] text-accent-pink">MY-MY · ASTUCE</div>
-            <p className="mt-1 text-sm text-white/75">{ASTUCES_MYMY[astuce]}</p>
-            <button onClick={astuceSuivante} className="mt-1 text-xs text-accent-teal hover:underline">
-              Astuce suivante →
-            </button>
-          </div>
-          <button onClick={fermerAstuce} className="shrink-0 text-white/40 hover:text-white" title="Masquer les astuces">
-            ×
-          </button>
-        </div>
-      )}
-
       {!dispo && !loading && (
         <p className="badge badge-warn mb-4">La conversation n&apos;est pas encore activée : exécute la migration v59 dans Supabase.</p>
       )}
@@ -293,31 +308,72 @@ export default function ConversationPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* ------------------------------ Fil ------------------------------ */}
-        <section className="glass-card flex min-w-0 flex-col p-3 sm:p-4 lg:col-span-2">
-          <h2 className="titre-bloc mb-2">Messages</h2>
-          <div className="max-h-[52vh] min-h-[16rem] flex-1 space-y-3 overflow-y-auto pr-1">
+        <section className="glass-card flex min-w-0 flex-col overflow-hidden p-0 lg:col-span-2">
+          {/* Bulle d'astuces MY-MY, posée sur le fil comme un bandeau */}
+          {astuce != null && ASTUCES_MYMY[astuce] && (
+            <div className="flex items-start gap-2.5 border-b border-white/10 bg-white/5 px-3 py-2.5 anim-apparition sm:px-4">
+              <span className="mt-0.5 shrink-0 text-lg" aria-hidden>🎮</span>
+              <div className="min-w-0 flex-1">
+                <span className="font-pixel text-[0.5rem] text-accent-pink">MY-MY</span>
+                <p className="text-xs leading-relaxed text-white/70">
+                  {ASTUCES_MYMY[astuce]}{" "}
+                  <button onClick={astuceSuivante} className="text-accent-teal hover:underline">
+                    astuce suivante →
+                  </button>
+                </p>
+              </div>
+              <button onClick={fermerAstuce} className="shrink-0 text-white/40 hover:text-white" title="Masquer les astuces">
+                ×
+              </button>
+            </div>
+          )}
+
+          {/* Fil des messages */}
+          <div className="h-[56vh] min-h-[18rem] space-y-1 overflow-y-auto px-3 py-3 sm:px-4">
             {loading && <p className="text-sm text-white/40">Chargement…</p>}
             {!loading && messages.length === 0 && (
-              <p className="py-6 text-center text-sm text-white/40">
-                Aucun message pour l&apos;instant. Écris le premier — par exemple le feu vert du chef d&apos;atelier
-                pour envoyer un devis.
-              </p>
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+                <span className="text-4xl" aria-hidden>💬</span>
+                <span className="font-pixel text-[0.55rem] leading-[2] text-white/50">
+                  EN ATTENTE DU JOUEUR 2…
+                </span>
+                <p className="max-w-xs text-xs text-white/40">
+                  Écris le premier message — par exemple le feu vert du chef d&apos;atelier pour envoyer un devis.
+                </p>
+              </div>
             )}
-            {messages.map((m) => {
+            {messages.map((m, i) => {
               const moi = m.auteur === role;
+              const prev = messages[i - 1];
+              const nouveauJour = !prev || new Date(prev.created_at).toDateString() !== new Date(m.created_at).toDateString();
+              // Messages groupés : même auteur à la suite → avatar une seule fois.
+              const enchaine = !nouveauJour && prev?.auteur === m.auteur;
               return (
-                <div key={m.id} className={`flex ${moi ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[85%] rounded-2xl px-3 py-2 sm:max-w-[75%] ${
-                      moi ? "rounded-br-md bg-accent-violet/30" : "rounded-bl-md bg-white/10"
-                    }`}
-                  >
-                    <div className="mb-0.5 flex items-center gap-2 text-[11px] text-white/45">
-                      <span className="font-semibold text-white/60">{m.auteur === "secretaire" ? "🗂️ Secrétaire" : "🔧 Garage"}</span>
-                      <span>{formatDateTime(m.created_at)}</span>
+                <div key={m.id}>
+                  {nouveauJour && (
+                    <div className="my-3 flex items-center gap-3">
+                      <span className="h-px flex-1 bg-white/10" />
+                      <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/45">
+                        {libelleJour(m.created_at)}
+                      </span>
+                      <span className="h-px flex-1 bg-white/10" />
                     </div>
-                    <p className="whitespace-pre-wrap break-words text-sm text-white/90">{m.texte}</p>
-                    {m.dossier_id && <div className="mt-1.5">{chipDossier(m.dossier_id)}</div>}
+                  )}
+                  <div className={`flex items-end gap-2 ${moi ? "flex-row-reverse" : ""} ${enchaine ? "mt-0.5" : "mt-2"}`}>
+                    {enchaine ? <span className="w-8 shrink-0" /> : <Avatar auteur={m.auteur} />}
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-3 py-1.5 anim-apparition sm:max-w-[70%] ${
+                        moi
+                          ? "rounded-br-md bg-gradient-to-br from-accent-violet/45 to-accent-pink/30"
+                          : "rounded-bl-md bg-white/10"
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap break-words text-sm text-white/90">{m.texte}</p>
+                      <div className={`mt-0.5 flex items-center gap-1.5 ${moi ? "justify-end" : ""}`}>
+                        {m.dossier_id && chipDossier(m.dossier_id, moi)}
+                        <span className="text-[10px] text-white/40">{heureLisible(m.created_at)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -325,15 +381,35 @@ export default function ConversationPage() {
             <div ref={finFil} />
           </div>
 
-          {/* Composer */}
-          <div className="mt-3 border-t border-white/10 pt-3">
-            <div className="flex gap-2">
+          {/* Composer, façon messagerie */}
+          <div className="border-t border-white/10 px-3 py-2.5 sm:px-4">
+            {dossierLie && (
+              <div className="mb-1.5 flex items-center gap-2 text-xs">
+                {chipDossier(dossierLie.id)}
+                <button onClick={() => setDossierLie(null)} className="text-white/40 hover:text-rose-300" title="Retirer le dossier lié">
+                  ×
+                </button>
+              </div>
+            )}
+            <div className="flex items-end gap-2">
+              <button
+                onClick={() => setPickerPour("message")}
+                className="btn-ghost btn-compact h-10 w-10 shrink-0 rounded-full p-0 text-base"
+                title="Lier le message à un dossier"
+              >
+                📁
+              </button>
               <textarea
-                className="field-input flex-1"
-                rows={2}
-                placeholder={`Écrire en tant que ${libelleRole(role)}… (Entrée = envoyer, Maj+Entrée = à la ligne)`}
+                className="field-input max-h-32 flex-1 resize-none rounded-2xl"
+                rows={1}
+                placeholder={`Message (${libelleRole(role)})…`}
                 value={texte}
-                onChange={(e) => setTexte(e.target.value)}
+                onChange={(e) => {
+                  setTexte(e.target.value);
+                  // La zone grandit avec le texte, comme une vraie messagerie.
+                  e.target.style.height = "auto";
+                  e.target.style.height = `${Math.min(e.target.scrollHeight, 128)}px`;
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -341,20 +417,16 @@ export default function ConversationPage() {
                   }
                 }}
               />
-              <button onClick={envoyer} disabled={busy || !texte.trim()} className="btn-primary shrink-0 self-end">
-                Envoyer
+              <button
+                onClick={envoyer}
+                disabled={busy || !texte.trim()}
+                className="btn-primary h-10 w-10 shrink-0 rounded-full p-0 text-base disabled:opacity-40"
+                title="Envoyer (Entrée)"
+              >
+                ➤
               </button>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-              <button onClick={() => setPickerPour("message")} className="btn-ghost btn-compact inline-flex items-center gap-1.5">
-                🔍 {dossierLie ? dossierLie.immatriculation || dossierLie.numero_sinistre || "Dossier" : "Lier un dossier"}
-              </button>
-              {dossierLie && (
-                <button onClick={() => setDossierLie(null)} className="text-white/40 hover:text-rose-300 hover:underline">
-                  retirer
-                </button>
-              )}
-            </div>
+            <p className="mt-1 pl-12 text-[10px] text-white/30">Entrée = envoyer · Maj+Entrée = à la ligne</p>
           </div>
         </section>
 
@@ -365,54 +437,73 @@ export default function ConversationPage() {
               Tâches
               {tachesAFaire.length > 0 && <span className="badge badge-warn ml-2">{tachesAFaire.length}</span>}
             </h2>
-            <Link href="/" className="text-xs text-white/45 hover:text-white hover:underline" title="La même liste que le bloc « À faire »">
+            <Link href="/" className="text-xs text-white/45 hover:text-white hover:underline" title="La même liste que le bloc « À faire » du tableau de bord">
               = « À faire »
             </Link>
           </div>
 
-          {/* Nouvelle tâche */}
-          <div className="mb-3 space-y-2">
-            <input
-              className="field-input field-compact w-full"
-              placeholder="Nouvelle tâche…"
-              value={tacheTexte}
-              onChange={(e) => setTacheTexte(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  ajouterTache();
-                }
-              }}
-            />
-            <div className="flex flex-wrap items-center gap-2">
+          {/* Nouvelle tâche : une ligne, options repliées */}
+          <div className="mb-3">
+            <div className="flex gap-2">
+              <input
+                className="field-input field-compact flex-1"
+                placeholder="Nouvelle tâche…"
+                value={tacheTexte}
+                onChange={(e) => setTacheTexte(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    ajouterTache();
+                  }
+                }}
+              />
+              <button onClick={ajouterTache} disabled={tacheBusy || !tacheTexte.trim()} className="btn-primary btn-compact shrink-0">
+                +
+              </button>
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
               <select
                 className="field-input field-compact w-auto"
                 value={tachePour}
                 onChange={(e) => setTachePour(e.target.value as "" | "garage" | "secretaire")}
+                title="Qui doit s'en occuper ?"
               >
-                <option value="secretaire">Pour la secrétaire</option>
-                <option value="garage">Pour le garage</option>
-                <option value="">Pour tout le monde</option>
+                <option value="secretaire">→ Secrétaire</option>
+                <option value="garage">→ Garage</option>
+                <option value="">→ Tous</option>
               </select>
               <button onClick={() => setPickerPour("tache")} className="btn-ghost btn-compact" title="Lier à un dossier">
-                🔍 {tacheDossier ? tacheDossier.immatriculation || tacheDossier.numero_sinistre || "Dossier" : "Dossier"}
+                📁{tacheDossier ? ` ${tacheDossier.immatriculation || tacheDossier.numero_sinistre || "dossier"}` : ""}
               </button>
-              <input
-                type="datetime-local"
-                className="field-input field-compact w-auto"
-                value={tacheEcheance}
-                onChange={(e) => setTacheEcheance(e.target.value)}
-                title="Échéance (facultative) — crée un rendez-vous dans l'agenda"
-              />
-              <button onClick={ajouterTache} disabled={tacheBusy || !tacheTexte.trim()} className="btn-ghost btn-compact">
-                Ajouter
+              {tacheDossier && (
+                <button onClick={() => setTacheDossier(null)} className="text-white/40 hover:text-rose-300" title="Retirer">
+                  ×
+                </button>
+              )}
+              <button
+                onClick={() => setTacheOptions((v) => !v)}
+                className={`btn-ghost btn-compact ${tacheEcheance ? "text-accent-teal" : ""}`}
+                title="Donner une échéance (crée un rendez-vous dans l'agenda)"
+              >
+                📅{tacheEcheance ? " ✓" : ""}
               </button>
             </div>
+            {tacheOptions && (
+              <div className="mt-1.5 flex items-center gap-2">
+                <input
+                  type="datetime-local"
+                  className="field-input field-compact w-auto"
+                  value={tacheEcheance}
+                  onChange={(e) => setTacheEcheance(e.target.value)}
+                />
+                {tacheEcheance && <span className="text-[11px] text-accent-teal">→ ajouté à l&apos;agenda</span>}
+              </div>
+            )}
           </div>
 
-          {/* Liste (SEULE la case coche — clic texte = dossier) */}
+          {/* Liste (SEULE la case coche) */}
           {tachesAFaire.length === 0 && !loading && (
-            <p className="py-2 text-sm text-emerald-300/80">Rien en attente.</p>
+            <p className="py-2 text-sm text-emerald-300/80">Rien en attente. 🎉</p>
           )}
           <ul className="max-h-[44vh] divide-y divide-white/10 overflow-y-auto pr-1">
             {tachesAFaire.map((ligne) => {

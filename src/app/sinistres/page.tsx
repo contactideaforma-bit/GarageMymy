@@ -105,6 +105,7 @@ type EtatListe = {
   filtreStatut: string;
   filtreExpert: string;
   filtrePart: string;
+  filtreLitige: string; // "" tous · "oui" en litige · "non" sans litige (v10.8)
   champDate: "date_sinistre" | "created_at";
   du: string;
   au: string;
@@ -118,6 +119,7 @@ const ETAT_VIDE: EtatListe = {
   filtreStatut: "",
   filtreExpert: "",
   filtrePart: "",
+  filtreLitige: "",
   champDate: "date_sinistre",
   du: "",
   au: "",
@@ -191,6 +193,8 @@ export default function SinistresPage() {
   const [catalogue, setCatalogue] = useState<Particularite[]>([]);
   const [liens, setLiens] = useState<{ dossier_id: string; particularite_id: string }[]>([]);
   const [filtrePart, setFiltrePart] = useState<string>("");
+  // Litige (v10.8) : filtre plutôt qu'un onglet — trop d'onglets sinon.
+  const [filtreLitige, setFiltreLitige] = useState<string>("");
   const [tri, setTri] = useState<Tri>({ cle: "created_at", sens: "desc" });
   // Panneau de filtres REPLIÉ par défaut (v7.8) : au-dessus de la liste, cinq
   // grands champs côte à côte mangeaient la moitié de l'écran. Ce qui reste
@@ -249,6 +253,7 @@ export default function SinistresPage() {
     setFiltreStatut(e.filtreStatut);
     setFiltreExpert(e.filtreExpert);
     setFiltrePart(e.filtrePart);
+    setFiltreLitige(e.filtreLitige || "");
     setChampDate(e.champDate);
     setDu(e.du);
     setAu(e.au);
@@ -263,6 +268,7 @@ export default function SinistresPage() {
       filtreStatut,
       filtreExpert,
       filtrePart,
+      filtreLitige,
       champDate,
       du,
       au,
@@ -270,7 +276,7 @@ export default function SinistresPage() {
       triSens: tri.sens,
       scroll,
     }),
-    [q, filtreStatut, filtreExpert, filtrePart, champDate, du, au, tri]
+    [q, filtreStatut, filtreExpert, filtrePart, filtreLitige, champDate, du, au, tri]
   );
 
   // Enregistrement à chaque changement — mais JAMAIS avant la restauration,
@@ -328,6 +334,8 @@ export default function SinistresPage() {
       if (filtreStatut && d.statut !== filtreStatut) return false;
       if (filtreExpert && cabinetExpert(d) !== filtreExpert) return false;
       if (filtrePart && !(partsParDossier[d.id] || []).some((p) => p.id === filtrePart)) return false;
+      if (filtreLitige === "oui" && !d.litige) return false;
+      if (filtreLitige === "non" && d.litige) return false;
       // Période : comparaison sur les 10 premiers caractères (AAAA-MM-JJ),
       // ce qui marche aussi bien pour une date que pour un timestamp.
       if (du || au) {
@@ -342,7 +350,7 @@ export default function SinistresPage() {
         .filter(Boolean)
         .some((v) => (v as string).toLowerCase().includes(term));
     });
-  }, [actifs, filtreStatut, filtreExpert, filtrePart, partsParDossier, champDate, du, au, term]);
+  }, [actifs, filtreStatut, filtreExpert, filtrePart, filtreLitige, partsParDossier, champDate, du, au, term]);
 
   // Tri.
   const visibles = useMemo(() => {
@@ -365,16 +373,17 @@ export default function SinistresPage() {
   const totalTTC = totalTtc(visibles);
   const enCours = visibles.filter((d) => estActif(d.statut)).length;
 
-  const filtresActifs = !!(term || filtreStatut || filtreExpert || filtrePart || du || au);
+  const filtresActifs = !!(term || filtreStatut || filtreExpert || filtrePart || filtreLitige || du || au);
   // Nombre de filtres repliés actifs (la recherche, elle, reste visible).
   const nbFiltres =
-    (filtreStatut ? 1 : 0) + (filtreExpert ? 1 : 0) + (filtrePart ? 1 : 0) + (du || au ? 1 : 0);
+    (filtreStatut ? 1 : 0) + (filtreExpert ? 1 : 0) + (filtrePart ? 1 : 0) + (filtreLitige ? 1 : 0) + (du || au ? 1 : 0);
   const nomParticularite = catalogue.find((p) => p.id === filtrePart)?.nom || "";
   function reinitialiser() {
     setQ("");
     setFiltreStatut("");
     setFiltreExpert("");
     setFiltrePart("");
+    setFiltreLitige("");
     setDu("");
     setAu("");
   }
@@ -554,6 +563,9 @@ export default function SinistresPage() {
           )}
           {filtreExpert && <PastilleFiltre label={filtreExpert} onRetirer={() => setFiltreExpert("")} />}
           {filtrePart && <PastilleFiltre label={nomParticularite} onRetirer={() => setFiltrePart("")} />}
+          {filtreLitige && (
+            <PastilleFiltre label={filtreLitige === "oui" ? "⚠ En litige" : "Sans litige"} onRetirer={() => setFiltreLitige("")} />
+          )}
           {(du || au) && (
             <PastilleFiltre
               label={`${champDate === "created_at" ? "Ajout" : "Sinistre"} ${du ? `du ${du}` : ""}${au ? ` au ${au}` : ""}`}
@@ -605,6 +617,20 @@ export default function SinistresPage() {
               {catalogue.map((p) => (
                 <option key={p.id} value={p.id}>{p.nom}</option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="field-label text-[11px]">Litige</label>
+            <select
+              className="field-input field-compact"
+              value={filtreLitige}
+              onChange={(e) => setFiltreLitige(e.target.value)}
+              title="Dossiers en litige (mode litige activé sur la fiche)"
+            >
+              <option value="">Tous les dossiers</option>
+              <option value="oui">⚠ En litige</option>
+              <option value="non">Sans litige</option>
             </select>
           </div>
 
@@ -676,6 +702,11 @@ export default function SinistresPage() {
 
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <StatutBadge statut={d.statut} />
+                    {d.litige && (
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700" title="Mode litige activé sur la fiche">
+                        ⚠ Litige
+                      </span>
+                    )}
               {aUneNote(d) && <PastilleNote note={d.note} />}
               {d.mode_cession && (
                 <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
@@ -788,6 +819,11 @@ export default function SinistresPage() {
                 <td className="cellule whitespace-nowrap">
                   <div className="flex flex-wrap items-center gap-1">
                     <StatutBadge statut={d.statut} />
+                    {d.litige && (
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700" title="Mode litige activé sur la fiche">
+                        ⚠ Litige
+                      </span>
+                    )}
                     {d.mode_cession && (
                       <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
                         Cession
