@@ -35,6 +35,11 @@ function texte(v: unknown, max: number): string {
   return typeof v === "string" ? v.trim().slice(0, max) : "";
 }
 
+/** Champ destiné au SUJET d'un email : sans retour à la ligne (audit v10.6). */
+function texteLigne(v: unknown, max: number): string {
+  return texte(v, max).replace(/[\u0000-\u001f\u007f]+/g, " ");
+}
+
 function echapper(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] || c);
 }
@@ -50,10 +55,10 @@ export async function POST(req: Request) {
   // Piège à robots : un humain ne voit pas ce champ.
   if (texte(body.site, 10)) return NextResponse.json({ ok: true });
 
-  const nom = texte(body.nom, 120);
-  const email = texte(body.email, 160).toLowerCase();
-  const telephone = texte(body.telephone, 40);
-  const garage = texte(body.garage, 160);
+  const nom = texteLigne(body.nom, 120);
+  const email = texteLigne(body.email, 160).toLowerCase();
+  const telephone = texteLigne(body.telephone, 40);
+  const garage = texteLigne(body.garage, 160);
   const message = texte(body.message, 4000);
 
   if (!nom || !email || !message) {

@@ -38,8 +38,8 @@ create index if not exists relances_document_idx on public.relances(document_id)
 alter table public.paiements enable row level security;
 alter table public.relances enable row level security;
 
+-- [AUDIT v10.6] Policy ouverte SUPPRIMÉE de ce fichier : un re-collage
+-- manuel aurait annulé le cloisonnement par garage (v8). Les policies
+-- owner sont créées par la migration v8 — ne rien recréer ici.
 drop policy if exists "paiements_all_anon" on public.paiements;
-create policy "paiements_all_anon" on public.paiements for all using (true) with check (true);
-
 drop policy if exists "relances_all_anon" on public.relances;
-create policy "relances_all_anon" on public.relances for all using (true) with check (true);

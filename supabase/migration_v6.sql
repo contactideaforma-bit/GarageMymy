@@ -21,12 +21,11 @@ begin
   foreach t in array tables loop
     -- on retire l'ancienne policy "tout le monde"
     execute format('drop policy if exists %I on public.%I', t || '_all_anon', t);
-    -- on autorise uniquement les utilisateurs connectés
+    -- [AUDIT v10.6] La recréation de policies « authenticated using(true) »
+    -- est SUPPRIMÉE : re-coller ce fichier aurait donné à chaque compte
+    -- l'accès aux données de TOUS les garages jusqu'au re-passage de la v8.
+    -- On se contente de retirer les anciennes policies ouvertes.
     execute format('drop policy if exists %I on public.%I', t || '_all_auth', t);
-    execute format(
-      'create policy %I on public.%I for all to authenticated using (true) with check (true)',
-      t || '_all_auth', t
-    );
   end loop;
 end $$;
 

@@ -19,5 +19,7 @@ create table if not exists public.vehicules (
 );
 
 alter table public.vehicules enable row level security;
+-- [AUDIT v10.6] Policy ouverte SUPPRIMÉE de ce fichier : un re-collage
+-- manuel aurait annulé le cloisonnement par garage (v8). Les policies
+-- owner sont créées par la migration v8 — ne rien recréer ici.
 drop policy if exists "vehicules_all_anon" on public.vehicules;
-create policy "vehicules_all_anon" on public.vehicules for all using (true) with check (true);

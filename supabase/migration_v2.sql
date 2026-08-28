@@ -53,7 +53,8 @@ create table if not exists public.assureurs (
 alter table public.experts enable row level security;
 alter table public.assureurs enable row level security;
 
+-- [AUDIT v10.6] Policy ouverte SUPPRIMÉE de ce fichier : un re-collage
+-- manuel aurait annulé le cloisonnement par garage (v8). Les policies
+-- owner sont créées par la migration v8 — ne rien recréer ici.
 drop policy if exists "experts_all_anon" on public.experts;
-create policy "experts_all_anon" on public.experts for all using (true) with check (true);
 drop policy if exists "assureurs_all_anon" on public.assureurs;
-create policy "assureurs_all_anon" on public.assureurs for all using (true) with check (true);

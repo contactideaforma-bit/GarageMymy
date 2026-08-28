@@ -33,7 +33,10 @@ function tropDeDemandes(ip: string): boolean {
   c.n += 1;
   return c.n > MAX_PAR_HEURE;
 }
-const texte = (v: unknown, max: number): string => (typeof v === "string" ? v.trim().slice(0, max) : "");
+// Audit v10.6 : les caractères de contrôle (\r, \n, \t…) sont neutralisés —
+// certains champs finissent dans un SUJET d'email (anti header-injection).
+const texte = (v: unknown, max: number): string =>
+  typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max) : "";
 const echapper = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] || c);
 
 function parametresPublics(p: Parametres): ParametresPublics {
@@ -58,11 +61,16 @@ function parametresPublics(p: Parametres): ParametresPublics {
 type Commercial = { id: string; nom: string; prenom: string | null; email: string | null; statut: string; type: string };
 
 async function commercialParCode(admin: NonNullable<ReturnType<typeof getAdminClient>>, code: string): Promise<Commercial | null> {
-  if (!code) return null;
+  // Audit v10.6 : `ilike` traite % et _ comme des JOKERS SQL — un code "%"
+  // aurait fait correspondre n'importe quel commercial (énumération +
+  // déclaration de ventes sans connaître de code). On ne garde que les
+  // caractères d'un vrai code apporteur avant la requête.
+  const propre = code.replace(/[^A-Z0-9-]/g, "");
+  if (!propre || propre.length < 3) return null;
   const { data } = await admin
     .from("collaborateurs")
     .select("id,nom,prenom,email,statut,type,code_apporteur")
-    .ilike("code_apporteur", code)
+    .ilike("code_apporteur", propre)
     .limit(1)
     .maybeSingle();
   if (!data || data.type !== "commercial" || data.statut !== "actif") return null;
@@ -129,7 +137,12 @@ export async function POST(req: Request) {
   const d = new Date();
   const numero = `V-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}-${String(Date.now()).slice(-5)}`;
 
+  // Audit v10.6 : la fiche de besoins est bornée — route publique, on ne
+  // stocke pas des blobs arbitraires dans le jsonb.
   const besoins = body.besoins && typeof body.besoins === "object" ? body.besoins : null;
+  if (besoins && JSON.stringify(besoins).length > 100_000) {
+    return NextResponse.json({ error: "Fiche de besoins trop volumineuse." }, { status: 413 });
+  }
 
   const ligne = {
     numero,
