@@ -195,6 +195,9 @@ export default function MyMyChat() {
   // FICHE DOSSIER : la bulle « note de dossier » occupe déjà le coin bas-droit
   // (NoteDossier). Les deux se chevauchaient → MY-MY s'efface sur cette page.
   if (/^\/sinistres\/[^/]+/.test(pathname || "")) return null;
+  // /conversation a sa propre bulle MY-MY (astuces) et un composer en bas :
+  // la mascotte flottante ferait doublon et gênerait la saisie.
+  if (pathname === "/conversation") return null;
 
   return (
     <>

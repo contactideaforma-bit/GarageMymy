@@ -11,12 +11,14 @@ import { useMetier } from "@/components/MetierProvider";
 import { METIER_INFOS, termes } from "@/lib/metier";
 import { estAdmin } from "@/lib/support";
 import { VERSION_LABEL } from "@/lib/version";
+import { compterNonLus, lireRole } from "@/lib/conversation";
 
 const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
   {
     titre: "Pilotage",
     items: [
       { href: "/", label: "Tableau de bord" },
+      { href: "/conversation", label: "💬 Conversation" },
       { href: "/rentabilite", label: "Rentabilité" },
     ],
   },
@@ -73,6 +75,12 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         : pathname.startsWith(href);
 
   const [email, setEmail] = useState<string | null>(null);
+  // Messages de la conversation garage ↔ secrétaire pas encore lus par le
+  // rôle de CET appareil (v10.7). Best-effort : table absente → 0.
+  const [nonLus, setNonLus] = useState(0);
+  useEffect(() => {
+    compterNonLus(lireRole()).then(setNonLus).catch(() => setNonLus(0));
+  }, [pathname]);
   // Onglet console d'assistance : visible pour l'éditeur uniquement.
   // (Affichage seulement — le contrôle réel est fait côté serveur.)
   const admin = estAdmin(email);
@@ -175,6 +183,9 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     }`}
                   >
                     {labelNav(item.href, item.label)}
+                    {item.href === "/conversation" && nonLus > 0 && (
+                      <span className="badge badge-warn ml-auto">{nonLus}</span>
+                    )}
                   </Link>
                 );
               })}

@@ -19,14 +19,6 @@ import {
 import { formatEuros, formatDate, formatDateTime, estActif, messageErreur } from "@/lib/format";
 import { montantTtc, tauxTva, totalTtc } from "@/lib/tva";
 import { totalPaye, resteAPayer } from "@/lib/paiements";
-import { ProchaineAction, calculeProchaineAction } from "@/lib/actions";
-import {
-  annulerActionFaite,
-  cleAction,
-  marquerActionFaite,
-  marquesObsoletes,
-  purgerMarques,
-} from "@/lib/aFaire";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
 import StatCard from "@/components/StatCard";
@@ -250,81 +242,6 @@ export default function DashboardPage() {
   const aVenir = evenements.filter((e) => new Date(e.date_evenement) >= now);
   const passes = evenements.filter((e) => new Date(e.date_evenement) < now).reverse();
 
-  // À FAIRE AUJOURD'HUI : le moteur « prochaine action » analyse chaque
-  // dossier en cours et remonte ce qui demande une intervention.
-  // useMemo : la liste sert aussi de référence à l'effet de purge ci-dessous.
-  const aFaireTous = useMemo(
-    () =>
-      dossiers
-        .filter((d) => estActif(d.statut))
-        .map((d) => ({
-          dossier: d,
-          action: calculeProchaineAction({
-            dossier: d,
-            documents: documents.filter((x) => x.dossier_id === d.id),
-            paiements: paiements.filter((x) => x.dossier_id === d.id),
-            relances: relances.filter((x) => x.dossier_id === d.id),
-            ordres: ordres.filter((x) => x.dossier_id === d.id),
-            restitutions: restitutions.filter((x) => x.dossier_id === d.id),
-            cessions: cessions.filter((x) => x.dossier_id === d.id),
-            pieces: pieces.filter((x) => x.dossier_id === d.id),
-            demandes: demandes.filter((x) => x.dossier_id === d.id),
-            metier,
-          }),
-        }))
-        .filter((x): x is { dossier: Dossier; action: ProchaineAction } =>
-          Boolean(x.action && x.action.urgence !== "attente")
-        )
-        .sort((a, b) => (a.action.urgence === "haute" ? -1 : 0) - (b.action.urgence === "haute" ? -1 : 0)),
-    [dossiers, documents, paiements, relances, ordres, restitutions, cessions, pieces, demandes, metier]
-  );
-
-  // NETTOYAGE : une coche ne survit pas à l'avancement du dossier. Dès que le
-  // code d'action change (le travail a réellement été fait), la marque devient
-  // obsolète et disparaît — sinon la même action, revenue plus tard, resterait
-  // masquée à tort.
-  useEffect(() => {
-    if (loading || faites.length === 0) return;
-    const valides = new Set(aFaireTous.map((x) => cleAction(x.dossier.id, x.action.code)));
-    const obsoletes = marquesObsoletes(faites, valides);
-    if (obsoletes.length === 0) return;
-    setFaites((prev) => prev.filter((f) => valides.has(cleAction(f.dossier_id, f.code))));
-    purgerMarques(obsoletes.map((f) => f.id).filter((id) => !id.startsWith("temp-")));
-  }, [loading, aFaireTous, faites]);
-
-  // Coche / décoche une action. Mise à jour optimiste + rollback si erreur.
-  const basculerFait = useCallback(
-    async (dossierId: string, action: ProchaineAction, fait: boolean) => {
-      const avant = faites;
-      if (fait) {
-        const provisoire: ActionFaite = {
-          id: `temp-${dossierId}-${action.code}`,
-          created_at: new Date().toISOString(),
-          dossier_id: dossierId,
-          code: action.code,
-          fait_le: new Date().toISOString(),
-        };
-        setFaites((prev) => [...prev, provisoire]);
-        try {
-          const ligne = await marquerActionFaite(dossierId, action.code);
-          setFaites((prev) => prev.map((f) => (f.id === provisoire.id ? ligne : f)));
-        } catch (err) {
-          setFaites(avant);
-          alert(messageErreur(err, "Impossible de marquer cette action comme faite (migration v35 exécutée ?)."));
-        }
-      } else {
-        setFaites((prev) => prev.filter((f) => !(f.dossier_id === dossierId && f.code === action.code)));
-        try {
-          await annulerActionFaite(dossierId, action.code);
-        } catch (err) {
-          setFaites(avant);
-          alert(messageErreur(err, "Impossible de décocher cette action."));
-        }
-      }
-    },
-    [faites]
-  );
-
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
@@ -402,16 +319,12 @@ export default function DashboardPage() {
           qu'une sauvegarde repoussée indéfiniment ne sert à rien. */}
       <RappelSauvegarde />
 
-      {/* BLOC « À FAIRE » (v41) — une seule liste : les rappels AUTOMATIQUES
-          calculés depuis les dossiers + les rappels ÉCRITS par le garage
-          (ex-« ardoise »). Remplace les deux blocs redondants d'avant. */}
-      <BlocAFaire
-        auto={aFaireTous}
-        dossiers={dossiers}
-        faites={faites}
-        onBasculerAuto={(dossierId, action, fait) => basculerFait(dossierId, action, fait)}
-        loading={loading}
-      />
+      {/* BLOC « À FAIRE » (v10.7) — PLUS de tâches automatiques (parasites
+          sur le terrain : rien ne part sans le feu vert du chef d'atelier).
+          Une seule liste : les tâches écrites ou programmées depuis les
+          suggestions de la fiche dossier, filtrables garage / secrétaire,
+          synchronisées avec l'onglet Conversation. */}
+      <BlocAFaire dossiers={dossiers} loading={loading} />
 
       <div className="space-y-6">
         <section className="glass-card anim-apparition">

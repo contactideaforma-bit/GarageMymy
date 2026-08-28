@@ -11,6 +11,8 @@ export type DocPack = { cle: string; titre: string; fichier: string };
 
 /** Documentation remise au COMMERCIAL (apporteur d'affaires). */
 export const DOCS_COMMERCIAL: DocPack[] = [
+  { cle: "entretien-commercial", titre: "Entretien de collaboration (support)", fichier: "commerciaux/ENTRETIEN-COLLABORATION_commercial.pdf" },
+  { cle: "formation-commercial", titre: "Formation — Commercial (support)", fichier: "commerciaux/FORMATION_commercial.pdf" },
   { cle: "guide-commercial", titre: "Guide du commercial", fichier: "commerciaux/GUIDE-COMMERCIAL_MyEasyAuto.pdf" },
   { cle: "kit-vente", titre: "Kit du commercial — procédure de vente", fichier: "commerciaux/KIT-DU-COMMERCIAL_procedure-de-vente.pdf" },
   { cle: "grille-commissions", titre: "Grille de commissions (1 page)", fichier: "commerciaux/GRILLE-COMMISSIONS_1page.pdf" },
@@ -25,6 +27,8 @@ export const DOCS_COMMERCIAL: DocPack[] = [
 
 /** Documentation remise à la SECRÉTAIRE (envoyée par email : pas de compte dédié). */
 export const DOCS_SECRETAIRE: DocPack[] = [
+  { cle: "entretien-secretaire", titre: "Entretien de collaboration (support)", fichier: "ENTRETIEN-COLLABORATION_secretaire.pdf" },
+  { cle: "formation-secretaire", titre: "Formation — Secrétaire (support)", fichier: "FORMATION_secretaire.pdf" },
   { cle: "guide-collaborateur", titre: "Guide du collaborateur", fichier: "GUIDE-COLLABORATEUR.pdf" },
   { cle: "procedure-changement", titre: "Procédure interne — changement de formule", fichier: "PROCEDURE-CHANGEMENT-DE-FORMULE_interne.pdf" },
   { cle: "procedure-resiliation", titre: "Procédure interne — résiliation", fichier: "PROCEDURE-RESILIATION_interne.pdf" },

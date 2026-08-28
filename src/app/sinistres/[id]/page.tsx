@@ -20,7 +20,7 @@ import {
   DemandeAssurance,
 } from "@/lib/types";
 import { calculeProchaineAction } from "@/lib/actions";
-import ProchaineActionCard from "@/components/ProchaineActionCard";
+import SuggestionAction from "@/components/SuggestionAction";
 import PiecesPanel from "@/components/PiecesPanel";
 import PhotosEtatPanel from "@/components/PhotosEtatPanel";
 import PartageSuiviPanel from "@/components/PartageSuiviPanel";
@@ -690,8 +690,11 @@ export default function DossierDetailPage() {
         </div>
       </div>
 
-      {/* Prochaine action : le guide dit quoi faire maintenant */}
-      <ProchaineActionCard action={action} avecCta={action?.href !== `/sinistres/${dossier.id}`} />
+      {/* SUGGESTION (v10.7) : le moteur ne crée plus de tâche automatique —
+          il propose, et rien n'apparaît dans « À faire » sans un clic sur
+          « Programmer » (feu vert du chef d'atelier, procédures propres à
+          chaque garage). */}
+      <SuggestionAction dossier={dossier} action={action} avecCta={action?.href !== `/sinistres/${dossier.id}`} />
 
       {/* Pipeline */}
       {/* Avancement : TOUJOURS déplié — c'est le repère du dossier. */}

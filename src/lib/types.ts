@@ -466,6 +466,21 @@ export type LigneArdoise = {
   dossier_id?: string | null;
   echeance?: string | null;
   evenement_id?: string | null;
+  // v59 (v10.7) — conversation garage ↔ secrétaire
+  auteur?: "garage" | "secretaire" | null;   // qui a créé la tâche
+  pour?: "garage" | "secretaire" | null;     // destinataire (null = tous)
+  origine?: string | null;                   // 'suggestion:<code>' si programmée depuis la fiche
+};
+
+/** Message du fil interne garage ↔ secrétaire (v59, v10.7). */
+export type MessageConversation = {
+  id: string;
+  created_at: string;
+  auteur: "garage" | "secretaire";
+  texte: string;
+  dossier_id?: string | null;
+  lu_garage: boolean;
+  lu_secretaire: boolean;
 };
 
 export type ListeDiffusion = {

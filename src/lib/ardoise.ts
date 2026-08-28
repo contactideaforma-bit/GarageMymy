@@ -88,6 +88,9 @@ export async function ajouterRappel(args: {
   dossierId?: string | null;
   echeance?: string | null;
   ordre?: number;
+  auteur?: "garage" | "secretaire" | null;
+  pour?: "garage" | "secretaire" | null;
+  origine?: string | null;
 }): Promise<LigneArdoise> {
   const texte = args.texte.trim();
   const dossierId = args.dossierId || null;
@@ -99,12 +102,29 @@ export async function ajouterRappel(args: {
   if (dossierId) ligne.dossier_id = dossierId;
   if (echeance) ligne.echeance = echeance;
   if (evenementId) ligne.evenement_id = evenementId;
+  // v59 — colonnes conversation. TOLÉRANCE MIGRATION : si l'insertion échoue
+  // parce que la migration v59 n'est pas passée (colonnes inconnues), on
+  // réessaie sans elles plutôt que de perdre la tâche.
+  const extras: Record<string, unknown> = {};
+  if (args.auteur) extras.auteur = args.auteur;
+  if (args.pour) extras.pour = args.pour;
+  if (args.origine) extras.origine = args.origine;
 
-  const { data, error } = await supabase.from("ardoise").insert(ligne).select("*").single();
-  if (error) {
-    await supprimerEvenement(evenementId);
-    throw error;
+  let res = await supabase.from("ardoise").insert({ ...ligne, ...extras }).select("*").single();
+  if (res.error && Object.keys(extras).length && /column|colonne|schema/i.test(res.error.message || "")) {
+    res = await supabase.from("ardoise").insert(ligne).select("*").single();
   }
+  if (res.error || !res.data) {
+    await supprimerEvenement(evenementId);
+    throw res.error || new Error("Insertion impossible.");
+  }
+  return res.data as LigneArdoise;
+}
+
+/** Change le destinataire d'une tâche (« pour la secrétaire » / « pour le garage » / tous). */
+export async function definirPour(ligne: LigneArdoise, pour: "garage" | "secretaire" | null): Promise<LigneArdoise> {
+  const { data, error } = await supabase.from("ardoise").update({ pour }).eq("id", ligne.id).select("*").single();
+  if (error) throw error;
   return data as LigneArdoise;
 }
 
