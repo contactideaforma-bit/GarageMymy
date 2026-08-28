@@ -111,7 +111,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   return (
-    <div className="glass-card h-full flex flex-col p-4">
+    <div className="glass-card min-h-full flex flex-col p-4">
       <div className="px-2 py-3 flex items-center gap-3">
         <button onClick={clicLogo} className="shrink-0" aria-label="Tableau de bord" title="Retour au tableau de bord">
           <Image
@@ -134,7 +134,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         {t.importer}
       </Link>
 
-      <nav className="flex-1 space-y-5 overflow-y-auto">
+      <nav className="space-y-5">
         {/* ESPACE CLIENTS (v10.2) : comptes commerciaux et éditeur, en tête de menu. */}
         {(metier === "commercial" || admin) && (
           <div>

@@ -80,16 +80,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* Tiroir / barre latérale. Sur grand écran : COLLÉE en haut et haute
-          comme l'écran (lg:sticky + lg:h-screen) — elle ne s'étire plus sur
-          toute la longueur d'une page longue, et ses propres liens défilent
-          à l'intérieur (nav overflow-y-auto) si l'écran est petit. */}
+      {/* Tiroir / barre latérale. Sur grand écran (v10.6) : dans le FLUX de
+          la page — sa hauteur est celle de SON contenu (self-start, h-auto),
+          plus de bas épinglé ni de défilement interne : elle défile AVEC la
+          page. Sur mobile, le tiroir reste plein écran et défile lui-même. */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-64 p-3 transition-transform duration-200
-          lg:sticky lg:top-0 lg:h-screen lg:z-auto lg:translate-x-0 lg:shrink-0
+          lg:static lg:h-auto lg:self-start lg:z-auto lg:translate-x-0 lg:shrink-0
           ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="relative h-full">
+        <div className="relative h-full overflow-y-auto lg:h-auto lg:overflow-visible">
           {/* Bouton fermer (mobile) */}
           <button
             onClick={() => setOpen(false)}
