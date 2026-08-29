@@ -20,6 +20,7 @@ import {
 } from "@/lib/ardoise";
 import { RoleConversation, lireRole } from "@/lib/conversation";
 import DossierPicker, { libelleDossier } from "./DossierPicker";
+import ModalShell from "./ModalShell";
 import ChampEcheance from "./ChampEcheance";
 
 /**
@@ -72,7 +73,9 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
   const [erreur, setErreur] = useState<string | null>(null);
   const [role, setRole] = useState<RoleConversation>("garage");
 
-  // Saisie d'une nouvelle tâche
+  // Saisie d'une nouvelle tâche — dans une MODALE (v11.1) : sur mobile,
+  // la barre de saisie permanente rendait le bloc brouillon.
+  const [ajoutOuvert, setAjoutOuvert] = useState(false);
   const [texte, setTexte] = useState("");
   const [dossierLie, setDossierLie] = useState<Dossier | null>(null);
   const [echeance, setEcheance] = useState("");
@@ -137,6 +140,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
       setDossierLie(null);
       setEcheance("");
       setPour("");
+      setAjoutOuvert(false);
       empiler({
         libelle: `l'ajout de « ${extrait(ligne.texte)} »`,
         restaurer: async () => {
@@ -451,27 +455,32 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
           <span className="badge badge-warn ml-2">{aFaire.length}</span>
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={annulerDernier}
-            disabled={historique.length === 0}
-            className="btn-ghost btn-compact inline-flex items-center gap-1.5 disabled:opacity-40"
-            title={
-              historique.length === 0
-                ? "Rien à annuler pour l'instant"
-                : `Annuler ${historique[0].libelle} (Ctrl+Z)`
-            }
-          >
-            ↩ Annuler
-            {historique.length > 1 && <span className="opacity-60">{historique.length}</span>}
-          </button>
+          {/* ↩ visible SEULEMENT quand il y a quelque chose à annuler (v11.1
+              — moins de boutons en vrac, surtout sur mobile). Ctrl+Z marche
+              toujours. Le lien Conversation vit dans la barre latérale. */}
+          {historique.length > 0 && (
+            <button
+              onClick={annulerDernier}
+              className="btn-ghost btn-compact inline-flex items-center gap-1.5"
+              title={`Annuler ${historique[0].libelle} (Ctrl+Z)`}
+            >
+              ↩{historique.length > 1 && <span className="opacity-60">{historique.length}</span>}
+            </button>
+          )}
           <div className="segment">
             {onglet("tout", "Tout", compte("tout"))}
             {onglet("secretaire", "Secrétaire", compte("secretaire"))}
             {onglet("garage", "Garage", compte("garage"))}
           </div>
-          <Link href="/conversation" className="btn-ghost btn-compact" title="Échanger avec la secrétaire / le garage">
-            💬 Conversation
-          </Link>
+          {dispo && (
+            <button
+              onClick={() => setAjoutOuvert(true)}
+              className="btn-primary btn-compact px-3 text-base leading-none"
+              title="Ajouter une tâche"
+            >
+              +
+            </button>
+          )}
         </div>
       </div>
 
@@ -484,45 +493,6 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
         </div>
       )}
 
-      {/* Saisie d'une tâche : une seule ligne compacte (v10.9). */}
-      {dispo && (
-        <div className="mb-3 flex flex-wrap items-end gap-2">
-          <input
-            className="field-input field-compact min-w-[13rem] flex-1"
-            placeholder="Ajouter une tâche… (Entrée pour valider)"
-            value={texte}
-            onChange={(e) => setTexte(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                ajouter();
-              }
-            }}
-          />
-          <select
-            className="field-input field-compact w-auto"
-            value={pour}
-            onChange={(e) => setPour(e.target.value as "" | "garage" | "secretaire")}
-            title="Qui doit s'en occuper ?"
-          >
-            <option value="">Pour tous</option>
-            <option value="secretaire">Secrétaire</option>
-            <option value="garage">Garage</option>
-          </select>
-          <button
-            onClick={() => (dossierLie ? setDossierLie(null) : setPickerOuvert(true))}
-            className={`btn-ghost btn-compact ${dossierLie ? "text-accent-teal" : ""}`}
-            title={dossierLie ? `${libelleDossier(dossierLie)} — cliquer pour retirer` : "Lier la tâche à un dossier"}
-          >
-            📁{dossierLie ? ` ${dossierLie.immatriculation || dossierLie.numero_sinistre || "dossier"} ×` : ""}
-          </button>
-          <ChampEcheance valeur={echeance} onChange={setEcheance} />
-          <button onClick={ajouter} disabled={busy || !texte.trim()} className="btn-primary btn-compact">
-            Ajouter
-          </button>
-        </div>
-      )}
-
       {/* Liste */}
       {loading ? (
         <p className="py-3 text-sm text-white/40">Chargement…</p>
@@ -530,7 +500,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
         <p className="py-3 text-sm text-emerald-300/80">
           {dejaFaites.length > 0
             ? "Tout est coché — plus rien à faire dans cette vue."
-            : "Rien à faire dans cette vue. Note une tâche ci-dessus, ou programme les suggestions depuis une fiche dossier."}
+            : "Rien à faire dans cette vue. Ajoute une tâche avec le bouton +, ou programme les suggestions depuis une fiche dossier."}
         </p>
       ) : (
         <>
@@ -570,6 +540,67 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
         <div className="mt-2 rounded-lg border border-rose-400/30 bg-rose-500/15 px-3 py-2 text-xs text-rose-200">
           {erreur}
         </div>
+      )}
+
+      {/* MODALE « Nouvelle tâche » (v11.1) : ouverte par le bouton (+). */}
+      {ajoutOuvert && (
+        <ModalShell title="Nouvelle tâche" onClose={() => setAjoutOuvert(false)} maxWidth="max-w-md">
+          <input
+            className="field-input w-full"
+            placeholder="Quoi faire ? (rappeler l'expert, commander la peinture…)"
+            value={texte}
+            autoFocus
+            onChange={(e) => setTexte(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                ajouter();
+              }
+            }}
+          />
+
+          {/* Pour qui — le même switch que la Conversation. */}
+          <div className="mt-3">
+            <span className="field-label text-[11px]">Pour qui ?</span>
+            <div className="segment mt-1">
+              {([["", "Tous"], ["secretaire", "🗂️ Secrétaire"], ["garage", "🔧 Garage"]] as const).map(([v, l]) => (
+                <button key={v} type="button" className={`segment-btn ${pour === v ? "actif" : ""}`} onClick={() => setPour(v)}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Dossier lié */}
+          <div className="mt-3">
+            <span className="field-label text-[11px]">Dossier (facultatif)</span>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <button type="button" onClick={() => setPickerOuvert(true)} className="btn-ghost btn-compact">
+                📁 {dossierLie ? libelleDossier(dossierLie) : "Lier un dossier"}
+              </button>
+              {dossierLie && (
+                <button type="button" onClick={() => setDossierLie(null)} className="text-xs text-white/40 hover:text-rose-300">
+                  retirer
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Alerte datée */}
+          <div className="mt-3">
+            <span className="field-label text-[11px]">Alerte (facultative — crée un rendez-vous dans l&apos;agenda)</span>
+            <div className="mt-1">
+              <ChampEcheance valeur={echeance} onChange={setEcheance} />
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end gap-2">
+            <button className="btn-ghost" onClick={() => setAjoutOuvert(false)}>Annuler</button>
+            <button className="btn-primary" disabled={busy || !texte.trim()} onClick={ajouter}>
+              {busy ? "Ajout…" : "Ajouter la tâche"}
+            </button>
+          </div>
+        </ModalShell>
       )}
 
       {pickerOuvert && (
