@@ -1115,23 +1115,29 @@ export default function DossierDetailPage() {
       <HistoriqueEmails dossierId={dossier.id} />
 
       <Card title="Événements liés à ce dossier">
-        <form onSubmit={ajouterEvenement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 py-3">
-          <input className="field-input" placeholder="Titre (ex. RDV expertise)" value={evTitre} onChange={(e) => setEvTitre(e.target.value)} />
-          <input type="datetime-local" className="field-input" value={evDate} onChange={(e) => setEvDate(e.target.value)} />
-          <input className="field-input" placeholder="Description (optionnel)" value={evDesc} onChange={(e) => setEvDesc(e.target.value)} />
+        {/* v11.7 — 4 colonnes égales serraient le champ date (largeur naturelle
+            d'un datetime-local) : on passe par 2 colonnes avant le grand écran. */}
+        <form onSubmit={ajouterEvenement} className="grid grid-cols-1 gap-3 py-3 sm:grid-cols-2 lg:grid-cols-4">
+          <input className="field-input min-w-0" placeholder="Titre (ex. RDV expertise)" value={evTitre} onChange={(e) => setEvTitre(e.target.value)} />
+          <input type="datetime-local" className="field-input min-w-0" value={evDate} onChange={(e) => setEvDate(e.target.value)} />
+          <input className="field-input min-w-0" placeholder="Description (optionnel)" value={evDesc} onChange={(e) => setEvDesc(e.target.value)} />
           <button type="submit" disabled={evSaving} className="btn-primary">
             {evSaving ? "Ajout…" : "+ Ajouter"}
           </button>
         </form>
         <ul className="divide-y divide-white/10">
           {evenements.length === 0 && <li className="py-3 text-sm text-white/40">Aucun événement.</li>}
+          {/* v11.7 — la date était en `whitespace-nowrap` SANS `shrink-0` : le
+              flex tentait de la rétrécir, elle ne pouvait pas, et elle
+              débordait la marge de la carte (constaté sur capture). Le texte
+              prend la place restante, la date garde la sienne. */}
           {evenements.map((ev) => (
-            <li key={ev.id} className="py-3 flex justify-between gap-4">
-              <div>
-                <div className="text-sm font-medium text-white">{ev.titre}</div>
-                {ev.description && <div className="text-sm text-white/60">{ev.description}</div>}
+            <li key={ev.id} className="flex items-start justify-between gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="break-words text-sm font-medium text-white">{ev.titre}</div>
+                {ev.description && <div className="break-words text-sm text-white/60">{ev.description}</div>}
               </div>
-              <div className="text-xs text-white/40 whitespace-nowrap">{formatDateTime(ev.date_evenement)}</div>
+              <div className="shrink-0 whitespace-nowrap text-xs text-white/40">{formatDateTime(ev.date_evenement)}</div>
             </li>
           ))}
         </ul>

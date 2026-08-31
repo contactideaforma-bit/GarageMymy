@@ -19,6 +19,7 @@ import { lireReponse } from "@/lib/apiClient";
 import { FORMULES, Formule, Parametres, Periodicite, fusionnerParametres, grilleTarifs, prixVente, primeVente } from "@/lib/admin/economie";
 import { QUESTIONS_BESOINS, ReponseCode } from "@/lib/admin/ventePublic";
 import { ACCEPTATION_CGV, MODES_PAIEMENT, VenteContrat, articlesCGV, conditionsParticulieres } from "@/lib/admin/contratGarage";
+import { ACCEPTATION_CGU, VERSION_CGU, articlesCGU } from "@/lib/admin/cgu";
 import { telechargerContratPdf } from "@/lib/admin/contratPdf";
 
 const eur = (n: number | null | undefined) => (Number(n) || 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
@@ -58,7 +59,7 @@ export default function VentePage() {
     formule: "starter", engagement_12: true, periodicite: "mensuel", remise_supp_pct: 0, date_debut_souhaitee: "",
   });
   const [paiement, setPaiement] = useState({ mode_paiement: "virement", paiement_sur_place: false, paiement_montant: "", paiement_reference: "" });
-  const [contrat, setContrat] = useState({ signataire_nom: "", signataire_qualite: "Gérant(e)", cgv_acceptees: false, signature: null as string | null });
+  const [contrat, setContrat] = useState({ signataire_nom: "", signataire_qualite: "Gérant(e)", cgv_acceptees: false, cgu_acceptees: false, signature: null as string | null });
 
   const prix = useMemo(() => (params ? prixVente(offre.formule, { engagement12: offre.engagement_12, periodicite: offre.periodicite, remiseSupp: offre.remise_supp_pct }, params) : null), [params, offre]);
   const prime = useMemo(
@@ -122,7 +123,8 @@ export default function VentePage() {
     if (!vente) return;
     setErreur(null);
     if (!contrat.signataire_nom.trim()) return setErreur("Indique le nom du signataire.");
-    if (!contrat.cgv_acceptees) return setErreur("Le garage doit cocher l'acceptation des conditions.");
+    if (!contrat.cgv_acceptees) return setErreur("Le garage doit cocher l'acceptation des conditions générales de VENTE.");
+    if (!contrat.cgu_acceptees) return setErreur("Le garage doit cocher l'acceptation des conditions générales d'UTILISATION.");
     if (!contrat.signature) return setErreur("La signature du garage est obligatoire.");
     setEnvoi(true);
     try {
@@ -137,6 +139,8 @@ export default function VentePage() {
           paiement_montant: paiement.paiement_montant ? Number(String(paiement.paiement_montant).replace(",", ".")) : null,
           besoins,
           cgv_acceptees: true,
+          cgu_acceptees: true,
+          version_cgu: VERSION_CGU,
           signataire_nom: contrat.signataire_nom,
           signataire_qualite: contrat.signataire_qualite,
           signature: contrat.signature,
@@ -380,14 +384,32 @@ export default function VentePage() {
                   <p className="text-xs leading-relaxed text-slate-600">{a.texte}</p>
                 </div>
               ))}
+              {/* CGU (v11.7) — elles n'étaient pas contractualisées : seules les
+                  CGV l'étaient. Or ce sont les CGU qui encadrent l'usage de
+                  l'appli (identifiants, signature électronique, IA, propriété).
+                  Audit juridique du 31/08/2026, §6.5. */}
+              <div className="mt-5 font-semibold text-slate-800">Conditions générales d&apos;utilisation</div>
+              {articlesCGU().map((a) => (
+                <div key={a.titre} className="mt-2">
+                  <div className="text-xs font-semibold text-slate-700">{a.titre}</div>
+                  <p className="text-xs leading-relaxed text-slate-600">{a.texte}</p>
+                </div>
+              ))}
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Champ label="Nom du signataire *"><input className="lp-input" value={contrat.signataire_nom} onChange={(e) => setContrat((c) => ({ ...c, signataire_nom: e.target.value }))} placeholder={g.contact_nom} /></Champ>
               <Champ label="Qualité"><input className="lp-input" value={contrat.signataire_qualite} onChange={(e) => setContrat((c) => ({ ...c, signataire_qualite: e.target.value }))} /></Champ>
             </div>
+            {/* Deux acceptations DISTINCTES : ce sont deux contrats
+                différents (vente / utilisation). Une case unique serait plus
+                fragile si l'une des deux était contestée. */}
             <label className="mt-4 flex items-start gap-2 text-sm text-slate-700">
-              <input type="checkbox" className="mt-1" checked={contrat.cgv_acceptees} onChange={(e) => setContrat((c) => ({ ...c, cgv_acceptees: e.target.checked }))} />
-              {ACCEPTATION_CGV}
+              <input type="checkbox" className="mt-1 shrink-0" checked={contrat.cgv_acceptees} onChange={(e) => setContrat((c) => ({ ...c, cgv_acceptees: e.target.checked }))} />
+              <span className="min-w-0">{ACCEPTATION_CGV}</span>
+            </label>
+            <label className="mt-2 flex items-start gap-2 text-sm text-slate-700">
+              <input type="checkbox" className="mt-1 shrink-0" checked={contrat.cgu_acceptees} onChange={(e) => setContrat((c) => ({ ...c, cgu_acceptees: e.target.checked }))} />
+              <span className="min-w-0">{ACCEPTATION_CGU}</span>
             </label>
             <div className="mt-4">
               <div className="text-sm font-semibold text-slate-700">Signature du garage</div>

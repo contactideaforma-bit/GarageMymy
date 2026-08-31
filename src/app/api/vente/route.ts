@@ -122,6 +122,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "L'adresse email semble incorrecte." }, { status: 400 });
   }
   if (!body.cgv_acceptees) return NextResponse.json({ error: "Le garage doit accepter les conditions de vente." }, { status: 400 });
+  // v11.7 — les CGU sont désormais un contrat à part entière, accepté à la
+  // vente au même titre que les CGV (audit juridique du 31/08/2026, §6.5).
+  if (!body.cgu_acceptees) return NextResponse.json({ error: "Le garage doit accepter les conditions d'utilisation." }, { status: 400 });
   const signature = typeof body.signature === "string" && body.signature.startsWith("data:image/png;base64,") ? body.signature.slice(0, 400_000) : null;
   if (!signature) return NextResponse.json({ error: "La signature du garage est obligatoire." }, { status: 400 });
 
@@ -171,6 +174,8 @@ export async function POST(req: Request) {
     paiement_reference: texte(body.paiement_reference, 120) || null,
     besoins,
     cgv_acceptees: true,
+    cgu_acceptees: true,
+    version_cgu: texte(body.version_cgu, 40) || null,
     signataire_nom: texte(body.signataire_nom, 120) || null,
     signataire_qualite: texte(body.signataire_qualite, 80) || null,
     signature,

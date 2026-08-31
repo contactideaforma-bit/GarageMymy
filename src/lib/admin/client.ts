@@ -22,7 +22,7 @@ export type Vente = {
   formule: "essentiel" | "starter" | "confort" | "serenite"; engagement_12: boolean; periodicite: "mensuel" | "annuel";
   remise_supp_pct: number; prix_mensuel_ht: number; montant_annuel_ht: number | null; mise_en_service_ht: number; date_debut_souhaitee: string | null;
   mode_paiement: string; paiement_sur_place: boolean; paiement_montant: number | null; paiement_reference: string | null;
-  besoins: Record<string, unknown> | null; cgv_acceptees: boolean; signataire_nom: string | null; signataire_qualite: string | null;
+  besoins: Record<string, unknown> | null; cgv_acceptees: boolean; cgu_acceptees?: boolean; version_cgu?: string | null; signataire_nom: string | null; signataire_qualite: string | null;
   signature: string | null; signe_le: string | null;
   statut: "declaree" | "validee" | "compte_cree" | "fidelisee" | "perdue" | "refusee"; abonnement_id: string | null; validee_le: string | null; notes_admin: string | null;
   prospect_id?: string | null; owner_id?: string | null; paiement_demande?: string | null; paiement_demande_le?: string | null; paiement_confirme_le?: string | null; paiement_valide_le?: string | null;

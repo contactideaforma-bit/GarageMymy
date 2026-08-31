@@ -18,6 +18,7 @@ const ONGLETS: [string, string][] = [
   ["/admin/collaborateurs", "Collaborateurs"],
   ["/admin/reglements", "Relevés & paiements"],
   ["/admin/demandes", "Demandes"],
+  ["/admin/documents", "Documents"],
 ];
 
 export default function AdminShell({ titre, actions, children }: { titre: string; actions?: React.ReactNode; children: React.ReactNode }) {
