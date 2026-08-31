@@ -715,6 +715,33 @@ input, select, textarea { max-width: 100%; }
   .modal-panel > div { padding-left: 0.9rem; padding-right: 0.9rem; }
 }
 
+/* ====================================================================
+   CADRAGE MOBILE — 2e passe (v11.3)
+   La v11.2 a traité les causes de fond (min-width:0, coupure des mots,
+   champs à 16 px, modales calées sur la zone visible). Restent quelques
+   familles d'éléments qui peuvent encore élargir la page sur iPhone :
+   on les borne ici, sans casser les tableaux qui doivent défiler.
+==================================================================== */
+@media (max-width: 640px) {
+  /* Une carte ne dépasse jamais l'écran, quel que soit son contenu. */
+  .glass-card, .glass-soft, .modal-panel { max-width: 100%; }
+
+  /* Un conteneur qui défile horizontalement doit être borné, sinon il
+     pousse la page au lieu de défiler dans son cadre. */
+  .overflow-x-auto { max-width: 100%; overscroll-behavior-x: contain; }
+
+  /* « nowrap » dans une rangée souple : la rangée défile, elle n'élargit pas. */
+  .flex.flex-nowrap { overflow-x: auto; max-width: 100%; }
+
+  /* Les éléments flottants (assistant MY-MY, boutons ronds) restent dans
+     l'écran même quand la barre d'adresse de Safari change de hauteur. */
+  .fixed { max-width: 100vw; }
+
+  /* Un mot très long (email, VIN, référence constructeur, URL) ne doit
+     jamais imposer sa largeur à sa colonne. */
+  td, th, dd, dt, li, p, span, div { overflow-wrap: anywhere; }
+}
+
 /* Champs du formulaire de contact public (v9.4) */
 .lp-input {
   width: 100%;

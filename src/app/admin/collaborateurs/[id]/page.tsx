@@ -25,7 +25,10 @@ import {
   creerCompteCollaborateur, envoyerDocsCollaborateur, lireComptes, lireParametres, lireTable, nomCollab, supprimerLigne, upsertLigne,
 } from "@/lib/admin/client";
 import { Parametres } from "@/lib/admin/economie";
-import { ContenuContrat, contratDefaut, titreContrat } from "@/lib/admin/contratCollaborateur";
+import { ContenuContrat, avenantAffectationDefaut, contratDefaut, titreContrat } from "@/lib/admin/contratCollaborateur";
+import ProfilPrestationModal from "@/components/admin/ProfilPrestationModal";
+import { ProfilPrestation, lireProfil, perimetreConvenu, toutesLesTaches } from "@/lib/admin/tachesSecretaire";
+import { DATE_TAUX, netAvantImpot, regimeDe, tauxPrelevements } from "@/lib/admin/remuneration";
 import { construireContratCollaborateurPdf, prechargerLogoPdf } from "@/lib/admin/contratPdf";
 import { docsPour, DocPack } from "@/lib/admin/packDocs";
 import { fetchAuth } from "@/lib/apiClient";
@@ -57,6 +60,9 @@ export default function FicheCollaborateurPage() {
   const [erreur, setErreur] = useState<string | null>(null);
 
   const [form, setForm] = useState<Partial<Collaborateur> | null>(null);
+  // Questionnaire de prestation + avenants d'affectation (v11.3).
+  const [profilOuvert, setProfilOuvert] = useState(false);
+  const [avenant, setAvenant] = useState<{ garage: string; sens: "affectation" | "fin"; dateEffet: string; motif: string } | null>(null);
   const [emailCompte, setEmailCompte] = useState("");
   const [creationCompte, setCreationCompte] = useState(false);
 
@@ -141,7 +147,7 @@ export default function FicheCollaborateurPage() {
       const res = await upsertLigne<CollaborateurDocument>("collaborateur_documents", {
         ...(contrat.docId ? { id: contrat.docId } : {}),
         collaborateur_id: c.id,
-        type: "contrat",
+        type: contrat.contenu.modele === "avenant" ? "avenant" : "contrat",
         modele: contrat.contenu.modele,
         titre: titreContrat(contrat.contenu.modele),
         version: contrat.contenu.version,
@@ -195,6 +201,27 @@ export default function FicheCollaborateurPage() {
   async function supprimerContrat(d: CollaborateurDocument) {
     if (!confirm(d.statut === "signe" ? "Supprimer ce contrat SIGNÉ ? Cette action est définitive." : "Supprimer ce brouillon ?")) return;
     try { await supprimerLigne("collaborateur_documents", d.id); load(); } catch (e) { alert(e instanceof Error ? e.message : "Suppression impossible."); }
+  }
+
+  /* ---------- questionnaire de prestation (v11.3) ---------- */
+  async function enregistrerProfil(profil: ProfilPrestation) {
+    if (!c) return;
+    await upsertLigne<Collaborateur>("collaborateurs", { id: c.id, profil_prestation: profil } as Partial<Collaborateur>);
+    await load();
+  }
+
+  /* ---------- avenant d'affectation (v11.3) ---------- */
+  function creerAvenant() {
+    if (!c || !parametres || !avenant) return;
+    const abo = mesAbos.find((a) => a.garage_nom === avenant.garage);
+    const contenu = avenantAffectationDefaut(c, parametres, avenant.garage, avenant.sens, {
+      formule: abo ? parametres.formules[abo.formule].libelle : null,
+      heures: abo ? abo.heures : null,
+      dateEffet: avenant.dateEffet || null,
+      motif: avenant.motif || null,
+    });
+    setAvenant(null);
+    setContrat({ docId: null, contenu });
   }
 
   /* ---------- envoi des documents ---------- */
@@ -297,11 +324,69 @@ export default function FicheCollaborateurPage() {
             )}
           </div>
 
+          {/* ------- profil de prestation (secrétaire, v11.3) ------- */}
+          {c.type === "secretaire" && (() => {
+            const profil = lireProfil(c.profil_prestation);
+            const nb = (profil.taches || []).length;
+            const total = toutesLesTaches().length;
+            const regime = regimeDe(profil.regime);
+            const taux = c.taux_horaire != null ? Number(c.taux_horaire) : 17;
+            const perim = perimetreConvenu(profil);
+            return (
+              <div className="glass-card p-4">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="font-semibold text-white">Profil de prestation</h2>
+                  <button className="btn-primary" onClick={() => setProfilOuvert(true)}>
+                    {nb ? "Modifier le questionnaire" : "+ Remplir le questionnaire"}
+                  </button>
+                </div>
+                <p className="mb-3 text-xs text-white/45">
+                  À remplir <b>avec elle</b>, avant d&apos;éditer le contrat : périmètre des tâches, moyens dont elle dispose,
+                  limites qu&apos;elle pose, régime social. Ces réponses deviennent les <b>annexes 2, 3 et 4</b> du contrat.
+                </p>
+                {nb === 0 ? (
+                  <p className="alerte alerte-warn text-xs">
+                    Questionnaire non rempli : le contrat sera généré avec des annexes à compléter à la main.
+                  </p>
+                ) : (
+                  <div className="space-y-2 text-xs text-white/70">
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="badge badge-ok">{nb} / {total} tâches convenues</span>
+                      <span className="badge badge-neutral">{regime.libelle}</span>
+                      {profil.heures_max_mois ? <span className="badge badge-neutral">max {profil.heures_max_mois} h / mois</span> : null}
+                      {profil.rc_pro ? <span className="badge badge-ok">RC pro</span> : <span className="badge badge-warn">RC pro manquante</span>}
+                      {profil.vigilance_le ? <span className="badge badge-ok">Vigilance URSSAF {dateFr(profil.vigilance_le)}</span> : <span className="badge badge-warn">Attestation de vigilance à réclamer</span>}
+                    </div>
+                    <div>{perim.map((f) => `${f.titre} (${f.lignes.length})`).join(" · ")}</div>
+                    {profil.limites ? <div><b>Limites :</b> {profil.limites}</div> : null}
+                    {profil.contraintes ? <div><b>Contraintes :</b> {profil.contraintes}</div> : null}
+                    <div className="alerte alerte-info text-[11px]">
+                      Rémunération : <b>{taux.toLocaleString("fr-FR")} € HT/h</b> = revenu <b>BRUT</b> (chiffre d&apos;affaires).
+                      Net avant impôt ≈ <b>{netAvantImpot(taux, regime).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €/h</b>
+                      {" "}({tauxPrelevements(regime).toLocaleString("fr-FR")} % de prélèvements, taux au {DATE_TAUX}).
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* ------- contrat de collaboration ------- */}
           <div className="glass-card p-4">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <h2 className="font-semibold text-white">Contrat de collaboration</h2>
-              <button className="btn-primary" onClick={nouveauContrat} disabled={!parametres}>+ Générer le contrat prérempli</button>
+              <div className="flex flex-wrap gap-2">
+                <button className="btn-primary" onClick={nouveauContrat} disabled={!parametres}>+ Générer le contrat prérempli</button>
+                {c.type === "secretaire" && (
+                  <button
+                    className="btn-ghost"
+                    disabled={!parametres}
+                    onClick={() => setAvenant({ garage: mesAbos[0]?.garage_nom || "", sens: "affectation", dateEffet: new Date().toISOString().slice(0, 10), motif: "" })}
+                  >
+                    + Avenant d&apos;affectation
+                  </button>
+                )}
+              </div>
             </div>
             <p className="mb-3 text-xs text-white/45">
               Modèle du pack ({c.type === "commercial" ? "contrat d'apporteur d'affaires" : "contrat de prestation de services"}), prérempli avec la fiche,
@@ -372,6 +457,56 @@ export default function FicheCollaborateurPage() {
 
       {/* ------- modales ------- */}
       {form && <CollaborateurFormModal initial={form} comptes={comptes} onClose={() => setForm(null)} onSaved={load} />}
+
+      {/* Questionnaire de prestation (v11.3) */}
+      {profilOuvert && c && (
+        <ProfilPrestationModal
+          valeur={c.profil_prestation}
+          tauxHoraire={c.taux_horaire != null ? Number(c.taux_horaire) : 17}
+          onFermer={() => setProfilOuvert(false)}
+          onEnregistrer={enregistrerProfil}
+        />
+      )}
+
+      {/* Avenant d'affectation (v11.3) — un par garage confié ou retiré */}
+      {avenant && c && (
+        <ModalShell title="Nouvel avenant d'affectation" onClose={() => setAvenant(null)} maxWidth="max-w-lg">
+          <div className="space-y-3 px-6 py-5">
+            <p className="text-xs text-white/45">
+              Chaque garage confié ou retiré donne lieu à un avenant <b>signé des deux parties</b>. C&apos;est ce qui matérialise
+              son accord : sans lui, l&apos;affectation ressemble à une affectation de personnel.
+            </p>
+            <label className="block text-xs text-white/60">
+              Sens de l&apos;avenant
+              <select className="field-input mt-0.5" value={avenant.sens} onChange={(e) => setAvenant({ ...avenant, sens: e.target.value as "affectation" | "fin" })}>
+                <option value="affectation">Affectation d&apos;un garage</option>
+                <option value="fin">Fin d&apos;affectation</option>
+              </select>
+            </label>
+            <label className="block text-xs text-white/60">
+              Garage
+              <input className="field-input mt-0.5" list="garages-abos" value={avenant.garage} onChange={(e) => setAvenant({ ...avenant, garage: e.target.value })} placeholder="Nom du garage" />
+              <datalist id="garages-abos">
+                {mesAbos.map((a) => <option key={a.id} value={a.garage_nom} />)}
+              </datalist>
+            </label>
+            <label className="block text-xs text-white/60">
+              Date d&apos;effet
+              <input type="date" className="field-input mt-0.5" value={avenant.dateEffet} onChange={(e) => setAvenant({ ...avenant, dateEffet: e.target.value })} />
+            </label>
+            {avenant.sens === "fin" && (
+              <label className="block text-xs text-white/60">
+                Motif (facultatif)
+                <input className="field-input mt-0.5" value={avenant.motif} onChange={(e) => setAvenant({ ...avenant, motif: e.target.value })} placeholder="ex. résiliation de l'abonnement du garage" />
+              </label>
+            )}
+            <div className="flex flex-wrap gap-2 border-t border-white/10 pt-3">
+              <button className="btn-primary" onClick={creerAvenant} disabled={!avenant.garage.trim()}>Générer l&apos;avenant</button>
+              <button className="btn-ghost" onClick={() => setAvenant(null)}>Annuler</button>
+            </div>
+          </div>
+        </ModalShell>
+      )}
 
       {contrat && (
         <ModalShell title={`${titreContrat(contrat.contenu.modele)} — prérempli, modifiable`} onClose={() => setContrat(null)} maxWidth="max-w-3xl">

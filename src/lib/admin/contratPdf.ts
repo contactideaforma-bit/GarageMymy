@@ -733,12 +733,23 @@ export function construireContratCollaborateurPdf(
     c.y += 1.5;
   });
 
-  if (contenu.annexeTexte) {
-    h2(c, contenu.annexeTitre || "Annexe 1");
-    for (const ligne of contenu.annexeTexte.split("\n").filter((l) => l.trim())) {
-      if (ligne.startsWith("·")) puce(c, ligne.slice(1).trim(), 8.8);
-      else para(c, ligne, { taille: 8.8, couleur: 60, apres: 2 });
+  // Rendu d'une annexe : « ▸ » = sous-titre, « · » (même indenté) = puce.
+  const rendreAnnexe = (titre: string, texte: string) => {
+    assurer(c, 20);
+    h2(c, titre);
+    for (const brut of texte.split("\n")) {
+      const ligne = brut.trim();
+      if (!ligne) { c.y += 1.5; continue; }
+      if (ligne.startsWith("▸")) { h3(c, ligne.slice(1).trim()); continue; }
+      if (ligne.startsWith("·")) { puce(c, ligne.slice(1).trim(), 8.8); continue; }
+      para(c, ligne, { taille: 8.8, couleur: 60, apres: 2 });
     }
+  };
+
+  if (contenu.annexeTexte) rendreAnnexe(contenu.annexeTitre || "Annexe 1", contenu.annexeTexte);
+  // Annexes 2, 3, 4… (v11.3) : périmètre des tâches, moyens, rappel brut/net.
+  for (const a of contenu.annexes || []) {
+    if (a && a.texte) rendreAnnexe(a.titre, a.texte);
   }
 
   assurer(c, 85);

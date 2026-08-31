@@ -12,6 +12,8 @@ export type Collaborateur = {
   zone?: string | null;           // zone géographique attribuée
   portefeuille?: string | null;   // portefeuille attribué
   signature?: string | null;
+  /** v11.3 — questionnaire de prestation (tâches, moyens, limites, régime). */
+  profil_prestation?: unknown;
 };
 export type Vente = {
   id: string; created_at: string; numero: string | null; code_apporteur: string; collaborateur_id: string | null;
@@ -40,8 +42,9 @@ export type Reglement = {
 export type Demande = { id: string; created_at: string; collaborateur_id: string; objet: string; contenu: string | null; statut: "ouverte" | "en_cours" | "close"; reponse: string | null; repondu_le: string | null };
 /** Contrat de collaboration généré depuis la fiche (v10.6). */
 export type CollaborateurDocument = {
-  id: string; created_at: string; collaborateur_id: string; type: "contrat";
-  modele: "apporteur" | "prestation"; titre: string; version: string | null;
+  id: string; created_at: string; collaborateur_id: string; type: "contrat" | "avenant";
+  modele: "apporteur" | "prestation" | "avenant"; titre: string; version: string | null;
+  garage_libelle?: string | null;
   contenu: unknown; statut: "brouillon" | "signe";
   signature_collaborateur: string | null; signature_editeur: string | null;
   signe_le: string | null; envoye_le: string | null; envoye_a: string | null; notes: string | null;

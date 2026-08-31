@@ -21,6 +21,7 @@ export const DOCS_COMMERCIAL: DocPack[] = [
   { cle: "argumentaire", titre: "Argumentaire de démarchage", fichier: "ARGUMENTAIRE-DEMARCHAGE.pdf" },
   { cle: "fiche-besoins", titre: "Fiche de besoins garage (papier)", fichier: "FICHE-BESOINS_garage.pdf" },
   { cle: "tuto-email", titre: "Tuto — régler l'envoi d'emails du garage", fichier: "TUTO-EMAIL_profil-garage.pdf" },
+  { cle: "guide-revenus", titre: "Déclarer mes revenus — guide du collaborateur indépendant", fichier: "secretaires/GUIDE-DECLARATION-REVENUS_collaborateur.pdf" },
   { cle: "contrat-abonnement-cgv", titre: "Contrat d'abonnement garage + CGV (modèle papier)", fichier: "commerciaux/CONTRAT-ABONNEMENT_garage-CGV.pdf" },
   { cle: "avenant-formule", titre: "Avenant de changement de formule", fichier: "commerciaux/AVENANT-CHANGEMENT-DE-FORMULE.pdf" },
   { cle: "formulaire-resiliation", titre: "Formulaire de résiliation garage", fichier: "commerciaux/FORMULAIRE-RESILIATION_garage.pdf" },
@@ -29,6 +30,9 @@ export const DOCS_COMMERCIAL: DocPack[] = [
 /** Documentation remise à la SECRÉTAIRE (envoyée par email : pas de compte dédié). */
 export const DOCS_SECRETAIRE: DocPack[] = [
   { cle: "entretien-secretaire", titre: "Entretien de collaboration (support)", fichier: "ENTRETIEN-COLLABORATION_secretaire.pdf" },
+  // v11.3 — documents propres à la secrétaire (dossier secretaires/).
+  { cle: "charte-perimetre", titre: "Périmètre des missions — ce qui est confié, ce qui ne l'est pas", fichier: "secretaires/CHARTE-PERIMETRE-MISSIONS_secretaire.pdf" },
+  { cle: "guide-revenus", titre: "Déclarer mes revenus — guide du collaborateur indépendant", fichier: "secretaires/GUIDE-DECLARATION-REVENUS_collaborateur.pdf" },
   { cle: "formation-secretaire", titre: "Formation — Secrétaire (support)", fichier: "FORMATION_secretaire.pdf" },
   { cle: "guide-collaborateur", titre: "Guide du collaborateur", fichier: "GUIDE-COLLABORATEUR.pdf" },
   { cle: "tuto-email", titre: "Tuto — régler l'envoi d'emails du garage", fichier: "TUTO-EMAIL_profil-garage.pdf" },
