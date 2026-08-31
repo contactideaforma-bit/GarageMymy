@@ -349,37 +349,45 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
             className="min-w-0 flex-1 cursor-pointer text-left"
             title="Modifier cette tâche (texte, échéance, destinataire)"
           >
-            <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-              <span className={`break-words text-white/85 ${fait ? "line-through" : ""}`}>{ligne.texte}</span>
-              {ligne.pour && (
-                <span
-                  className={`inline-block shrink-0 rounded-full px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide ${
-                    ligne.pour === "secretaire" ? "bg-teal-100 text-teal-700" : "bg-violet-100 text-violet-700"
-                  }`}
-                >
-                  {ligne.pour === "secretaire" ? "Secrétaire" : "Garage"}
-                </span>
-              )}
-              {ligne.echeance && (
-                <span className={`inline-block shrink-0 rounded-full px-1.5 py-px text-[10px] font-medium ${badgeEcheance}`}>
-                  {retard ? "⏰ " : ""}
-                  {libelleEcheance(ligne.echeance)}
-                </span>
-              )}
-              {ligne.origine?.startsWith("suggestion:") && (
-                <span className="shrink-0 text-[10px] text-white/35" title="Programmée depuis la fiche du dossier">📌</span>
-              )}
-              {d && (
-                <Link
-                  href={`/sinistres/${d.id}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex max-w-[11rem] shrink-0 items-center gap-0.5 truncate rounded-full bg-white/10 px-1.5 py-px text-[10px] text-white/60 hover:bg-white/20 hover:text-white"
-                  title={`Ouvrir le dossier — ${libelleDossier(d)}`}
-                >
-                  📁 {d.immatriculation || d.numero_sinistre || d.client_nom || "dossier"}
-                </Link>
-              )}
-            </span>
+            {/* v11.5 — le texte et les badges étaient dans UN MÊME flux inline :
+                sur une tâche longue, les badges atterrissaient au hasard en fin
+                de dernière ligne (« …demander le rapport définitif 📁EZ-427-MK »),
+                d'où un effet brouillon. Désormais : le texte occupe sa ligne, les
+                métadonnées forment une rangée alignée dessous. Toujours dense
+                (pas de marge ajoutée), mais ordonné. */}
+            <div className={`break-words text-white/85 ${fait ? "line-through" : ""}`}>{ligne.texte}</div>
+            {(ligne.echeance || ligne.pour || d || ligne.origine?.startsWith("suggestion:")) && (
+              <div className="mt-1 flex flex-wrap items-center gap-1">
+                {ligne.echeance && (
+                  <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${badgeEcheance}`}>
+                    {retard ? "⏰ " : ""}
+                    {libelleEcheance(ligne.echeance)}
+                  </span>
+                )}
+                {ligne.pour && (
+                  <span
+                    className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                      ligne.pour === "secretaire" ? "bg-teal-100 text-teal-700" : "bg-violet-100 text-violet-700"
+                    }`}
+                  >
+                    {ligne.pour === "secretaire" ? "Secrétaire" : "Garage"}
+                  </span>
+                )}
+                {ligne.origine?.startsWith("suggestion:") && (
+                  <span className="shrink-0 text-[10px] text-white/35" title="Programmée depuis la fiche du dossier">📌</span>
+                )}
+                {d && (
+                  <Link
+                    href={`/sinistres/${d.id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold max-w-[11rem] truncate bg-white/10 font-medium text-white/60 hover:bg-white/20 hover:text-white"
+                    title={`Ouvrir le dossier — ${libelleDossier(d)}`}
+                  >
+                    📁 {d.immatriculation || d.numero_sinistre || d.client_nom || "dossier"}
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
           <button
             onClick={() => supprimer(ligne)}

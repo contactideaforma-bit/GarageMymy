@@ -515,29 +515,35 @@ export default function ConversationPage() {
                       onChange={() => cocherTache(ligne, true)}
                       className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-500"
                     />
-                    <span className="min-w-0 flex-1 break-words text-white/85">
-                      {ligne.texte}{" "}
-                      {ligne.pour && (
-                        <span
-                          className={`inline-block rounded-full px-1.5 py-px align-middle text-[9px] font-semibold uppercase tracking-wide ${
-                            ligne.pour === "secretaire" ? "bg-teal-100 text-teal-700" : "bg-violet-100 text-violet-700"
-                          }`}
-                        >
-                          {ligne.pour === "secretaire" ? "Secrétaire" : "Garage"}
-                        </span>
-                      )}{" "}
-                      {ligne.echeance && (
-                        <span
-                          className={`inline-block rounded-full px-1.5 py-px align-middle text-[10px] font-medium ${
-                            retard ? "bg-rose-100 text-rose-700" : auj ? "bg-amber-100 text-amber-700" : "bg-white/10 text-white/70"
-                          }`}
-                        >
-                          {retard ? "⏰ " : ""}
-                          {libelleEcheance(ligne.echeance)}
-                        </span>
-                      )}{" "}
-                      {chipDossier(ligne.dossier_id)}
-                    </span>
+                    {/* v11.5 — même correction que le bloc « À faire » : texte
+                        sur sa ligne, métadonnées alignées dessous. */}
+                    <div className="min-w-0 flex-1">
+                      <div className="break-words text-white/85">{ligne.texte}</div>
+                      {(ligne.echeance || ligne.pour || ligne.dossier_id) && (
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                          {ligne.echeance && (
+                            <span
+                              className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                retard ? "bg-rose-100 text-rose-700" : auj ? "bg-amber-100 text-amber-700" : "bg-white/10 text-white/70"
+                              }`}
+                            >
+                              {retard ? "⏰ " : ""}
+                              {libelleEcheance(ligne.echeance)}
+                            </span>
+                          )}
+                          {ligne.pour && (
+                            <span
+                              className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                ligne.pour === "secretaire" ? "bg-teal-100 text-teal-700" : "bg-violet-100 text-violet-700"
+                              }`}
+                            >
+                              {ligne.pour === "secretaire" ? "Secrétaire" : "Garage"}
+                            </span>
+                          )}
+                          {chipDossier(ligne.dossier_id)}
+                        </div>
+                      )}
+                    </div>
                     <button onClick={() => supprimerTache(ligne)} className="shrink-0 px-1 text-white/25 hover:text-rose-300" title="Supprimer">
                       ×
                     </button>

@@ -26,9 +26,16 @@ import {
  *      attendre le lendemain pour savoir si ça marche.
  */
 
-type Prefs = { push_rdv: boolean; push_rappels: boolean; push_urgents: boolean };
+type Prefs = {
+  push_rdv: boolean; push_rappels: boolean; push_urgents: boolean;
+  // v11.5 — rappel AU MOMENT du rendez-vous (le reste = résumé du matin).
+  push_heure: boolean; push_avance_min: number;
+};
 
-const LIGNES_PREFS: { cle: keyof Prefs; label: string; aide: string }[] = [
+/** Clés booléennes uniquement (push_avance_min est un nombre). */
+type ClePrefBool = "push_rdv" | "push_rappels" | "push_urgents" | "push_heure";
+
+const LIGNES_PREFS: { cle: ClePrefBool; label: string; aide: string }[] = [
   { cle: "push_rdv", label: "Rendez-vous du jour", aide: "Expertise, restitution, RDV client ou expert." },
   { cle: "push_rappels", label: "Rappels datés", aide: "Ceux que tu programmes dans le bloc « À faire »." },
   {
@@ -67,7 +74,7 @@ export default function NotificationsPanel() {
   const chargerPrefs = useCallback(async () => {
     const { data, error } = await supabase
       .from("entreprise")
-      .select("id,push_rdv,push_rappels,push_urgents")
+      .select("id,push_rdv,push_rappels,push_urgents,push_heure,push_avance_min")
       .maybeSingle();
     if (error || !data) return; // colonnes absentes ou profil pas encore créé
     const e = data as Record<string, unknown>;
@@ -76,6 +83,8 @@ export default function NotificationsPanel() {
       push_rdv: e.push_rdv !== false,
       push_rappels: e.push_rappels !== false,
       push_urgents: e.push_urgents !== false,
+      push_heure: e.push_heure !== false,
+      push_avance_min: typeof e.push_avance_min === "number" ? e.push_avance_min : 15,
     });
   }, []);
 
@@ -136,7 +145,7 @@ export default function NotificationsPanel() {
     }
   }
 
-  async function basculerPref(cle: keyof Prefs, valeur: boolean) {
+  async function basculerPref(cle: keyof Prefs, valeur: boolean | number) {
     if (!prefs || !entrepriseId) return;
     const avant = prefs;
     setPrefs({ ...prefs, [cle]: valeur });
@@ -239,6 +248,48 @@ export default function NotificationsPanel() {
               </label>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* RAPPEL À L'HEURE (v11.5) — le résumé du matin ne suffisait pas :
+          un rappel posé à 14 h n'envoyait rien à 14 h. */}
+      {prefs && (
+        <div className="rounded-lg border border-white/10 bg-white/5 p-3">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
+            Rappel à l&apos;heure du rendez-vous
+          </div>
+          <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              checked={prefs.push_heure}
+              onChange={(e) => basculerPref("push_heure", e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-500"
+            />
+            <span className="min-w-0">
+              <span className="block text-white/85">Me prévenir au moment du rendez-vous</span>
+              <span className="block text-xs text-white/45">
+                Une notification par rendez-vous de l&apos;agenda et par rappel daté du bloc « À faire »,
+                en plus du résumé du matin.
+              </span>
+            </span>
+          </label>
+          {prefs.push_heure && (
+            <label className="mt-2 flex flex-wrap items-center gap-2 text-sm text-white/70">
+              Me prévenir
+              <select
+                className="field-input field-compact w-auto"
+                value={prefs.push_avance_min}
+                onChange={(e) => basculerPref("push_avance_min", Number(e.target.value))}
+              >
+                <option value={0}>à l&apos;heure pile</option>
+                <option value={5}>5 minutes avant</option>
+                <option value={10}>10 minutes avant</option>
+                <option value={15}>15 minutes avant</option>
+                <option value={30}>30 minutes avant</option>
+                <option value={60}>1 heure avant</option>
+              </select>
+            </label>
+          )}
         </div>
       )}
 

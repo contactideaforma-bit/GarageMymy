@@ -40,20 +40,23 @@ export default function ChampEcheance({
   const etiquette = "block text-center text-[9px] font-semibold uppercase tracking-wider text-white/40";
 
   return (
-    <div className={`inline-flex items-end gap-1 ${className}`}>
-      <label className="block">
+    // v11.5 — l'ancien `inline-flex` sans repli débordait des colonnes étroites
+    // (colonne Tâches de /conversation) : les minutes et la croix sortaient du
+    // cadre. Les trois champs se replient maintenant et se partagent la largeur.
+    <div className={`flex w-full min-w-0 flex-wrap items-end gap-1 ${className}`}>
+      <label className="min-w-0 flex-1 basis-[8.5rem]">
         <span className={etiquette}>Date</span>
         <input
           type="date"
-          className="field-input field-compact w-auto"
+          className="field-input field-compact w-full min-w-0"
           value={date}
           onChange={(e) => emettre(e.target.value, heure, minute)}
         />
       </label>
-      <label className="block">
+      <label className="min-w-0 basis-[4.5rem]">
         <span className={etiquette}>Heure</span>
         <select
-          className="field-input field-compact w-auto disabled:opacity-40"
+          className="field-input field-compact w-full min-w-0 disabled:opacity-40"
           value={heure || "09"}
           disabled={!date}
           onChange={(e) => emettre(date, e.target.value, minute)}
@@ -64,10 +67,10 @@ export default function ChampEcheance({
           ))}
         </select>
       </label>
-      <label className="block">
+      <label className="min-w-0 basis-[4.5rem]">
         <span className={etiquette}>Minutes</span>
         <select
-          className="field-input field-compact w-auto disabled:opacity-40"
+          className="field-input field-compact w-full min-w-0 disabled:opacity-40"
           value={minute || "00"}
           disabled={!date}
           onChange={(e) => emettre(date, heure, e.target.value)}
