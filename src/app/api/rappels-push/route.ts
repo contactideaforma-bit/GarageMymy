@@ -120,27 +120,10 @@ async function executer(req: Request) {
     const plafond = new Date(maintenant + prefs.avance * 60000).toISOString();
     const aRappeler: ARappeler[] = [];
 
-    /* --- 1. Rendez-vous de l'agenda --- */
-    const { data: rdvData } = await admin
-      .from("evenements")
-      .select("*")
-      .eq("owner_id", ownerId)
-      .gte("date_evenement", planchier)
-      .lte("date_evenement", plafond)
-      .order("date_evenement", { ascending: true });
-    for (const e of (rdvData as Evenement[]) || []) {
-      const t = new Date(e.date_evenement).getTime();
-      aRappeler.push({
-        cle: `rdv:${e.id}`,
-        titre: `📅 Rendez-vous ${quand(t, maintenant)}`,
-        corps: [heureParis(e.date_evenement), e.titre, e.avec_qui ? `avec ${e.avec_qui}` : ""]
-          .filter(Boolean)
-          .join(" · "),
-        url: e.dossier_id ? `/sinistres/${e.dossier_id}` : "/agenda",
-      });
-    }
-
-    /* --- 2. Rappels datés du bloc « À faire », non cochés --- */
+    /* --- 1. Rappels datés du bloc « À faire », non cochés ---
+       Lus EN PREMIER : une tâche avec échéance crée aussi un rendez-vous dans
+       l'agenda (ardoise.evenement_id). Sans ce dédoublonnage, le même rappel
+       partait deux fois — une pour la tâche, une pour le RDV. */
     const { data: tacheData } = await admin
       .from("ardoise")
       .select("*")
@@ -150,14 +133,38 @@ async function executer(req: Request) {
       .gte("echeance", planchier)
       .lte("echeance", plafond)
       .order("echeance", { ascending: true });
+    const evenementsCouverts = new Set<string>();
     for (const r of (tacheData as LigneArdoise[]) || []) {
       if (!r.echeance) continue;
+      const lie = (r as { evenement_id?: string | null }).evenement_id;
+      if (lie) evenementsCouverts.add(lie);
       const t = new Date(r.echeance).getTime();
       aRappeler.push({
         cle: `tache:${r.id}`,
         titre: `⏰ Rappel ${quand(t, maintenant)}`,
         corps: [heureParis(r.echeance), r.texte.slice(0, 90)].filter(Boolean).join(" · "),
         url: r.dossier_id ? `/sinistres/${r.dossier_id}` : "/",
+      });
+    }
+
+    /* --- 2. Rendez-vous de l'agenda (hors ceux déjà couverts par une tâche) --- */
+    const { data: rdvData } = await admin
+      .from("evenements")
+      .select("*")
+      .eq("owner_id", ownerId)
+      .gte("date_evenement", planchier)
+      .lte("date_evenement", plafond)
+      .order("date_evenement", { ascending: true });
+    for (const e of (rdvData as Evenement[]) || []) {
+      if (evenementsCouverts.has(e.id)) continue; // déjà notifié via sa tâche
+      const t = new Date(e.date_evenement).getTime();
+      aRappeler.push({
+        cle: `rdv:${e.id}`,
+        titre: `📅 Rendez-vous ${quand(t, maintenant)}`,
+        corps: [heureParis(e.date_evenement), e.titre, e.avec_qui ? `avec ${e.avec_qui}` : ""]
+          .filter(Boolean)
+          .join(" · "),
+        url: e.dossier_id ? `/sinistres/${e.dossier_id}` : "/agenda",
       });
     }
 

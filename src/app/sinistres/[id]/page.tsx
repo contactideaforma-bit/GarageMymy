@@ -23,6 +23,7 @@ import { calculeProchaineAction } from "@/lib/actions";
 import SuggestionAction from "@/components/SuggestionAction";
 import LitigePanel from "@/components/LitigePanel";
 import MentionsRapport from "@/components/MentionsRapport";
+import HistoriqueEmails from "@/components/HistoriqueEmails";
 import { mentionsDepuisJson } from "@/lib/mentionsRapport";
 import PiecesPanel from "@/components/PiecesPanel";
 import PhotosEtatPanel from "@/components/PhotosEtatPanel";
@@ -1110,6 +1111,9 @@ export default function DossierDetailPage() {
       <PiecesPanel dossier={dossier} pieces={pieces} onChanged={load} />
 
       {/* Événements liés */}
+      {/* Historique des emails partis depuis l'appli (v11.6) */}
+      <HistoriqueEmails dossierId={dossier.id} />
+
       <Card title="Événements liés à ce dossier">
         <form onSubmit={ajouterEvenement} className="grid grid-cols-1 sm:grid-cols-4 gap-3 py-3">
           <input className="field-input" placeholder="Titre (ex. RDV expertise)" value={evTitre} onChange={(e) => setEvTitre(e.target.value)} />

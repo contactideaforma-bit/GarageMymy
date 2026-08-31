@@ -567,10 +567,13 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
             }}
           />
 
-          {/* Pour qui — le même switch que la Conversation. */}
-          <div className="mt-3">
-            <span className="field-label text-[11px]">Pour qui ?</span>
-            <div className="segment mt-1">
+          {/* Pour qui — le même switch que la Conversation.
+              v11.6 : le corps de ModalShell applique déjà `space-y-4` ; les
+              `mt-3` de chaque bloc s'ajoutaient aux marges des étiquettes et
+              la modale paraissait vide. On laisse l'espacement au parent. */}
+          <div>
+            <span className="field-label !mb-0.5 text-[11px]">Pour qui ?</span>
+            <div className="segment">
               {([["", "Tous"], ["secretaire", "🗂️ Secrétaire"], ["garage", "🔧 Garage"]] as const).map(([v, l]) => (
                 <button key={v} type="button" className={`segment-btn ${pour === v ? "actif" : ""}`} onClick={() => setPour(v)}>
                   {l}
@@ -580,9 +583,9 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
           </div>
 
           {/* Dossier lié */}
-          <div className="mt-3">
-            <span className="field-label text-[11px]">Dossier (facultatif)</span>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
+          <div>
+            <span className="field-label !mb-0.5 text-[11px]">Dossier (facultatif)</span>
+            <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => setPickerOuvert(true)} className="btn-ghost btn-compact">
                 📁 {dossierLie ? libelleDossier(dossierLie) : "Lier un dossier"}
               </button>
@@ -595,16 +598,16 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
           </div>
 
           {/* Alerte datée */}
-          <div className="mt-3">
-            <span className="field-label text-[11px]">Alerte (facultative — crée un rendez-vous dans l&apos;agenda)</span>
-            <div className="mt-1">
-              <ChampEcheance valeur={echeance} onChange={setEcheance} />
-            </div>
+          <div>
+            <span className="field-label !mb-0.5 text-[11px]">Alerte (facultative — crée un rendez-vous dans l&apos;agenda)</span>
+            <ChampEcheance valeur={echeance} onChange={setEcheance} />
           </div>
 
-          <div className="mt-4 flex justify-end gap-2">
-            <button className="btn-ghost" onClick={() => setAjoutOuvert(false)}>Annuler</button>
-            <button className="btn-primary" disabled={busy || !texte.trim()} onClick={ajouter}>
+          {/* v11.6 — sur téléphone les deux boutons prennent la largeur :
+              serrés à droite, ils laissaient une grande zone vide à gauche. */}
+          <div className="flex flex-col-reverse gap-2 border-t border-white/10 pt-3 sm:flex-row sm:justify-end">
+            <button className="btn-ghost w-full sm:w-auto" onClick={() => setAjoutOuvert(false)}>Annuler</button>
+            <button className="btn-primary w-full sm:w-auto" disabled={busy || !texte.trim()} onClick={ajouter}>
               {busy ? "Ajout…" : "Ajouter la tâche"}
             </button>
           </div>

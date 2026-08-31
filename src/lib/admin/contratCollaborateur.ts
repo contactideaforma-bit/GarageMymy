@@ -36,8 +36,8 @@ export type ContenuContrat = {
   avertissement: string;
 };
 
-export const VERSION_CONTRAT_APPORTEUR = "v1.4";
-export const VERSION_CONTRAT_PRESTATION = "v2.0";
+export const VERSION_CONTRAT_APPORTEUR = "v1.5";
+export const VERSION_CONTRAT_PRESTATION = "v2.1";
 export const VERSION_AVENANT_AFFECTATION = "v1.0";
 
 const eur = (n: number) => `${(Math.round(n * 100) / 100).toLocaleString("fr-FR")} € HT`;
@@ -98,7 +98,10 @@ export function contratApporteurDefaut(c: Collaborateur, p: Parametres): Contenu
       {
         titre: "Article 3 — Zone, portefeuille et déclaration des prospects",
         texte: [
-          `3.1 Zone et portefeuille attribués. IDEAFORMA attribue à l'Apporteur une zone géographique et, le cas échéant, une liste de prospects (le « Portefeuille »), décrits en Annexe 1 et reproduits sur sa fiche dans l'espace éditeur. L'Apporteur prospecte exclusivement dans cette zone et ce Portefeuille ; un même garage ne peut être attribué qu'à un seul Apporteur. IDEAFORMA peut modifier la zone ou le Portefeuille avec un préavis d'un mois, sans effet sur les prospects déjà déclarés.`,
+          `3.1 Zone et portefeuille attribués. IDEAFORMA attribue à l'Apporteur une zone géographique et une LISTE PRÉDÉFINIE DE GARAGES à démarcher (le « Portefeuille »), décrits en Annexe 1 et reproduits sur sa fiche dans l'espace éditeur. L'Apporteur prospecte exclusivement dans cette zone et ce Portefeuille ; un même garage ne peut être attribué qu'à un seul Apporteur. IDEAFORMA peut modifier la zone ou le Portefeuille avec un préavis d'un mois, sans effet sur les prospects déjà déclarés.`,
+          `3.1 bis Contrepartie de l'exclusivité — activité effective de démarchage. Le Portefeuille est confié à titre EXCLUSIF : pendant qu'il lui est attribué, aucun autre Apporteur ne peut démarcher ces garages. Cette exclusivité a pour contrepartie une activité réelle de démarchage. L'Apporteur reste entièrement libre d'organiser son temps et de cumuler cette activité avec toute autre occupation ; en revanche, un Portefeuille laissé inexploité prive IDEAFORMA de toute chance commerciale sur les garages concernés.
+En conséquence, l'Apporteur DÉCLARE dans l'application, au fil de l'eau, les garages contactés et les rendez-vous obtenus. À défaut d'activité déclarée sur son Portefeuille pendant DEUX (2) MOIS consécutifs — aucun garage contacté, aucun rendez-vous, aucun prospect créé — IDEAFORMA lui adresse un point d'étape écrit. Si la situation perdure UN (1) MOIS après ce point, IDEAFORMA peut retirer tout ou partie du Portefeuille et le RÉATTRIBUER à un autre Apporteur, par notification écrite et sans indemnité.
+Ce retrait ne met pas fin au contrat, qui se poursuit ; il n'emporte aucune sanction et ne prive l'Apporteur d'AUCUNE commission déjà acquise ni d'aucun prospect régulièrement déclaré et encore réservé au sens du 3.2. L'Apporteur peut se voir attribuer un nouveau Portefeuille ultérieurement, sans garantie de contenu ni de délai. Il ne peut être fixé à l'Apporteur ni horaire, ni quota de rendez-vous, ni obligation de résultat : seule l'absence TOTALE d'activité déclarée est visée par le présent article.`,
           "3.2 Déclaration. Un prospect est réputé apporté par l'Apporteur lorsqu'il a été déclaré dans son espace clients (fiche créée sur l'application, avec le SIREN du garage) ou sur la page myeasyauto.fr/vente avec son code apporteur, ou à défaut par email à contact@myeasyauto.fr. La date de création de la fiche fait foi. Le prospect déclaré est réservé à l'Apporteur pendant soixante (60) jours, renouvelables une fois sur justification d'un rendez-vous ; passé ce délai sans signature, il redevient libre.",
           "3.3 Exceptions au Portefeuille. Par exception à l'exclusivité de zone, l'Apporteur peut apporter un garage situé hors de sa zone ou dans le Portefeuille d'un autre Apporteur dans deux cas seulement : (a) il s'agit d'une CONNAISSANCE PERSONNELLE, c'est-à-dire un garage avec lequel il entretenait une relation antérieure à la signature du présent contrat ; (b) il a été RECOMMANDÉ DIRECTEMENT à ce garage par un client qu'il a lui-même apporté. Dans les deux cas, l'Apporteur mentionne l'exception et sa justification (nature du lien, nom du client recommandant) dans la fiche du prospect au moment de sa création ; à défaut de justification à la création, l'exception ne peut être invoquée. Tout autre apport hors zone requiert l'accord écrit préalable d'IDEAFORMA.",
           "3.4 Conflits. En cas de déclaration du même garage par deux Apporteurs, le prospect revient à celui qui l'a déclaré en premier ; si le second invoque une exception dûment justifiée à la création de sa fiche, IDEAFORMA tranche dans les dix jours, au vu des justifications, et sa décision s'impose aux deux Apporteurs. Un Apporteur qui démarche sciemment un garage attribué à un autre, ou qui invoque une exception inexacte, perd toute commission sur ce garage et s'expose à la résiliation du présent contrat pour faute.",
@@ -197,7 +200,7 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
     version: VERSION_CONTRAT_PRESTATION,
     lieu: "Neuilly-sur-Seine",
     date: dateJourIso(),
-    sousTitre: "Contrat de prestation de services — secrétariat externalisé de dossiers de sinistres automobiles",
+    sousTitre: "Contrat de prestation de services — secrétariat externalisé À DISTANCE, gestion de dossiers de sinistres automobiles",
     blocEditeur: blocEditeurDefaut(),
     blocCollaborateur: blocCollaborateurDefaut(c, "entrepreneur individuel indépendant, ci-après « le Prestataire »"),
     intro:
@@ -206,7 +209,8 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
       {
         titre: "Article 1 — Objet du contrat",
         texte: [
-          "Le Donneur d'ordre confie au Prestataire, qui l'accepte, des prestations de secrétariat et de gestion administrative de dossiers de sinistres automobiles, réalisées au moyen de la plateforme My Easy Auto éditée par le Donneur d'ordre, au bénéfice des garages de carrosserie clients de ce dernier.",
+          "Le Donneur d'ordre confie au Prestataire, qui l'accepte, des prestations de SECRÉTARIAT EXTERNALISÉ RÉALISÉES INTÉGRALEMENT À DISTANCE, portant sur la gestion administrative de dossiers de sinistres automobiles, au moyen de la plateforme My Easy Auto éditée par le Donneur d'ordre, au bénéfice des garages de carrosserie clients de ce dernier.",
+          "Les prestations sont exécutées depuis le lieu de travail du Prestataire, qu'il choisit librement. AUCUNE présence dans les locaux d'un garage ou du Donneur d'ordre n'est requise, attendue ni organisée. Aucun déplacement n'entre dans le champ du contrat.",
           "Les prestations effectivement confiées sont limitativement énumérées à l'ANNEXE 2 (périmètre convenu). Toute prestation qui n'y figure pas est hors du présent contrat.",
         ].join("\n"),
       },
@@ -215,16 +219,16 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
         texte: [
           "Le Prestataire exerce une activité indépendante. Il organise librement son temps, ses méthodes et son lieu de travail. AUCUN horaire, AUCUNE plage de présence et AUCUN lieu d'exécution ne lui sont imposés : seuls comptent les délais de traitement convenus à l'annexe 2 et la qualité du résultat.",
           "Le Prestataire n'est soumis à aucun pouvoir de direction, de contrôle ni de sanction disciplinaire du Donneur d'ordre. Les échanges relatifs aux dossiers sont des demandes de prestation, non des instructions hiérarchiques.",
-          "Le Prestataire n'est tenu à AUCUNE exclusivité : il conserve et développe librement sa propre clientèle et peut travailler pour tout autre donneur d'ordre, y compris concurrent, sous réserve de l'article 14.",
+          "Le Prestataire n'est tenu à AUCUNE exclusivité : il conserve et développe librement sa propre clientèle et peut travailler pour tout autre donneur d'ordre, y compris concurrent, sous réserve de l'article 17.",
           "Le Prestataire peut se faire remplacer, à ses frais et sous sa responsabilité, par une personne de compétence équivalente, à charge pour lui d'en informer préalablement le Donneur d'ordre et de faire souscrire au remplaçant les mêmes engagements de confidentialité et de protection des données.",
-          "Le Prestataire déclare être régulièrement immatriculé, assumer seul l'intégralité de ses obligations sociales et fiscales, et ne bénéficier d'aucun élément du statut salarié (congés payés, heures supplémentaires, préavis salarial, assurance chômage).",
+          "Le Prestataire déclare être régulièrement immatriculé, assumer seul l'intégralité de ses obligations sociales et fiscales, et ne bénéficier d'aucun élément du statut salarié (congés payés, heures supplémentaires au sens du code du travail, préavis salarial, assurance chômage).",
         ].join("\n"),
       },
       {
         titre: "Article 3 — Périmètre convenu et droit de refus",
         texte: [
           "Le périmètre des prestations est arrêté d'un commun accord à l'ANNEXE 2, à partir d'un entretien préalable au cours duquel le Prestataire a indiqué les tâches qu'il accepte de prendre en charge. Ce périmètre ne peut être élargi que par accord écrit des deux parties.",
-          "Le Prestataire est FONDÉ À REFUSER, sans que ce refus constitue un manquement contractuel ni un motif de résiliation à ses torts, toute demande qui : (i) ne figure pas à l'annexe 2 ; (ii) figure sur la liste des exclusions de l'annexe 2 ; (iii) est sans lien avec la plateforme My Easy Auto ou avec l'activité de carrosserie ; (iv) excède les limites de volume ou de disponibilité qu'il a déclarées à l'annexe 3 ; (v) le placerait en infraction avec la loi, une réglementation professionnelle ou ses propres obligations de confidentialité.",
+          "Le Prestataire est FONDÉ À REFUSER, sans que ce refus constitue un manquement contractuel ni un motif de résiliation à ses torts, toute demande qui : (i) ne figure pas à l'annexe 2 ; (ii) figure sur la liste des exclusions de l'annexe 2 ; (iii) est sans lien avec la plateforme My Easy Auto ou avec l'activité de carrosserie ; (iv) excède les limites de volume ou de disponibilité qu'il a déclarées à l'annexe 3 ; (v) suppose une présence physique ou un déplacement ; (vi) le placerait en infraction avec la loi, une réglementation professionnelle ou ses propres obligations de confidentialité.",
           "Le Prestataire informe le Donneur d'ordre de tout refus dans les meilleurs délais et en indique le motif. Le Donneur d'ordre fait son affaire de la réponse à apporter au garage concerné et garantit le Prestataire contre toute réclamation de ce dernier fondée sur un refus légitime.",
           "Le Prestataire s'interdit réciproquement d'accepter directement d'un garage une mission hors périmètre : toute demande de cette nature est renvoyée au Donneur d'ordre.",
         ].join("\n"),
@@ -234,7 +238,7 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
         texte: [
           "Le Donneur d'ordre propose au Prestataire l'affectation d'un ou plusieurs garages clients. Chaque affectation, comme chaque fin d'affectation, fait l'objet d'un AVENANT écrit signé des deux parties (annexe 1 mise à jour). Le Prestataire est libre d'accepter ou de refuser une affectation.",
           "LE PRÉSENT CONTRAT NE GARANTIT AUCUN VOLUME D'HEURES NI AUCUN REVENU MINIMUM. Le volume dépend exclusivement du nombre de garages clients du Donneur d'ordre et des forfaits qu'ils souscrivent ; il est par nature variable et peut être nul. Le Prestataire, professionnel indépendant, déclare en avoir pleinement connaissance, ne pas placer le Donneur d'ordre en situation de dépendance économique et organiser son activité en conséquence.",
-          "En conséquence, le Donneur d'ordre peut, s'il ne dispose pas d'un nombre de clients suffisant, cesser de proposer des affectations, réduire le volume proposé ou mettre fin au contrat dans les conditions de l'article 18, sans que cela ouvre droit à indemnité autre que le paiement des prestations exécutées et le respect du préavis.",
+          "En conséquence, le Donneur d'ordre peut, s'il ne dispose pas d'un nombre de clients suffisant, cesser de proposer des affectations, réduire le volume proposé ou mettre fin au contrat dans les conditions de l'article 21, sans que cela ouvre droit à indemnité autre que le paiement des prestations exécutées et le respect du préavis.",
           "Fin d'affectation : lorsqu'un garage résilie, change de formule, suspend son abonnement ou cesse son activité, le Donneur d'ordre en informe le Prestataire dès qu'il en a connaissance et respecte un préavis de quinze (15) jours, sauf cessation immédiate imposée par le garage, impayé ou rétractation. La perte d'une affectation n'emporte pas résiliation du contrat, qui se poursuit pour les autres garages.",
         ].join("\n"),
       },
@@ -251,114 +255,151 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
         titre: "Article 6 — Rémunération",
         texte: [
           `La rémunération du Prestataire résulte d'une NÉGOCIATION entre les parties, actée à l'ANNEXE 1. À la signature, le taux horaire convenu est de ${taux.toLocaleString("fr-FR")} euros hors taxes par heure. Il ne peut être modifié que par avenant signé des deux parties.`,
-          `Le Prestataire est rémunéré, pour chaque garage affecté, sur la base du nombre d'heures du forfait de secrétariat souscrit par ce garage, multiplié par le taux horaire convenu. Les heures hors forfait validées par le garage sont rémunérées au même taux. Le prix de vente pratiqué par le Donneur d'ordre auprès du garage, et les remises qu'il consent, sont sans incidence sur la rémunération du Prestataire.`,
+          `Le Prestataire est rémunéré, pour chaque garage affecté, sur la base du nombre d'heures du forfait de secrétariat souscrit par ce garage, multiplié par le taux horaire convenu. Le prix de vente pratiqué par le Donneur d'ordre auprès du garage, et les remises qu'il consent, sont sans incidence sur la rémunération du Prestataire.`,
           `À titre indicatif à la date de signature, et sous réserve des affectations effectives : ${exemples}.`,
           "⚠️ NATURE DE CETTE SOMME — " + phraseBrutNet(taux, regime),
           `Le Prestataire fait son affaire de sa situation au regard de la TVA. ${SEUILS.tvaFranchise.toLocaleString("fr-FR")} euros de chiffre d'affaires annuel constituent le seuil de la franchise en base : en deçà, la facture est établie sans TVA avec la mention « TVA non applicable, article 293 B du CGI » ; au-delà, la TVA s'ajoute au taux hors taxes convenu.`,
         ].join("\n"),
       },
       {
-        titre: "Article 7 — Facturation et paiement",
+        titre: "Article 7 — Heures supplémentaires demandées par un garage",
+        texte: [
+          "Un garage peut souhaiter faire réaliser des prestations AU-DELÀ du forfait mensuel qu'il a souscrit. La procédure est la suivante, et elle est impérative :",
+          "1° Le garage adresse sa demande AU DONNEUR D'ORDRE (et non directement au Prestataire), en précisant la nature des prestations et le volume souhaité.",
+          "2° Le Donneur d'ordre consulte le Prestataire, qui est LIBRE D'ACCEPTER OU DE REFUSER, notamment au regard du volume maximum qu'il a déclaré à l'annexe 3. Un refus n'est pas un manquement.",
+          "3° En cas d'accord, celui-ci est confirmé PAR ÉCRIT (email suffit) entre les trois parties AVANT l'exécution : volume autorisé, période, et rappel du taux applicable.",
+          "4° Les heures supplémentaires sont rémunérées au Prestataire au MÊME taux horaire que le forfait, sauf accord différent formalisé par avenant.",
+          "Aucune heure au-delà du forfait n'est due au Prestataire si elle a été exécutée SANS cet accord écrit préalable. Réciproquement, le Prestataire n'est jamais tenu d'exécuter des heures hors forfait qu'il n'a pas acceptées.",
+          "Le relevé d'heures tenu dans la plateforme, qui mentionne pour chaque intervention sa durée et son objet, fait foi entre les parties pour le décompte du forfait et des heures supplémentaires.",
+        ].join("\n"),
+      },
+      {
+        titre: "Article 8 — Facturation et paiement",
         texte: [
           "Le Prestataire adresse au Donneur d'ordre, au plus tard le 5 de chaque mois, une facture conforme aux mentions légales, accompagnée du relevé d'heures par garage tenu dans la plateforme. Le Donneur d'ordre dispose de cinq (5) jours ouvrés pour contester une facture de façon motivée ; à défaut elle est réputée acceptée.",
           "Règlement par virement dans un délai de dix (10) jours à compter de la réception de la facture. Conformément aux articles L441-10 et D441-5 du code de commerce, tout retard de paiement entraîne de plein droit des pénalités au taux d'intérêt de la Banque centrale européenne majoré de dix points, ainsi qu'une indemnité forfaitaire de quarante (40) euros pour frais de recouvrement.",
-          "Le Prestataire supporte seul ses frais d'exploitation (matériel, connexion, logiciels, déplacements) ; aucun remboursement de frais n'est dû, sauf accord écrit préalable et sur justificatifs.",
+          "Le Prestataire supporte seul ses frais d'exploitation (matériel, connexion, logiciels) ; aucun remboursement de frais n'est dû, sauf accord écrit préalable et sur justificatifs.",
         ].join("\n"),
       },
       {
-        titre: "Article 8 — Obligations de qualité du Prestataire",
+        titre: "Article 9 — Obligations de qualité du Prestataire",
         texte: [
-          "Le Prestataire s'engage à une obligation de moyens renforcée : traiter les demandes des garages affectés dans un délai d'un (1) jour ouvré, tenir les dossiers à jour au fil de l'eau, respecter les règles de gestion décrites dans le guide du collaborateur, et signaler sans délai toute difficulté (surcharge, absence, litige, anomalie sur un dossier).",
+          "Le Prestataire est tenu d'une OBLIGATION DE MOYENS : il s'engage à mettre en œuvre, avec diligence et compétence, tous les moyens raisonnables pour la bonne exécution des prestations. Il traite les demandes des garages affectés dans un délai d'un (1) jour ouvré, tient les dossiers à jour au fil de l'eau, respecte les règles de gestion du guide du collaborateur, et signale sans délai toute difficulté (surcharge, absence, litige, anomalie sur un dossier).",
           "Le Prestataire n'engage jamais le garage ni le Donneur d'ordre au-delà des actes de gestion courante prévus à l'annexe 2. Il ne se présente en aucun cas comme salarié du garage ou du Donneur d'ordre.",
           "Le Prestataire signale immédiatement toute mention du rapport d'expertise de nature à interdire ou différer les travaux ou la facturation (expertise à titre conservatoire, sursis à travaux, procédure VGE, absence de règlement direct). Il ne procède de sa propre initiative à aucune correction de chiffrage.",
+          "Le Prestataire renseigne dans la plateforme, au fil de l'eau, le temps passé et l'objet de chaque intervention.",
         ].join("\n"),
       },
       {
-        titre: "Article 9 — Confidentialité et secret des affaires",
+        titre: "Article 10 — Manquements répétés et réclamations d'un garage",
+        texte: [
+          "Le Donneur d'ordre est responsable, devant ses clients, de la qualité du service rendu. Lorsqu'un garage formule une réclamation écrite et circonstanciée mettant en cause l'exécution des prestations (erreurs répétées, retards, dossiers non tenus à jour, absence de réponse), la procédure suivante s'applique :",
+          "1° Le Donneur d'ordre transmet la réclamation au Prestataire, par écrit et de façon documentée.",
+          "2° Le Prestataire dispose de HUIT (8) JOURS pour présenter ses observations. Les parties recherchent ensemble la cause du manquement (périmètre mal défini, volume excessif, information manquante du garage) et les mesures correctives.",
+          "3° En cas de NOUVEAU manquement de même nature dans les TROIS (3) MOIS suivants, ou de réclamations écrites émanant de DEUX garages différents dans la même période, le Donneur d'ordre peut mettre fin à l'affectation concernée (article 11) ou résilier le contrat dans les conditions de l'article 21.",
+          "4° Si les manquements sont graves et répétés au point de compromettre la relation du Donneur d'ordre avec ses clients, la résiliation peut intervenir sans préavis après mise en demeure restée sans effet huit (8) jours.",
+          "⚠️ Ces échanges constituent des CONSTATS D'EXÉCUTION du contrat d'entreprise, dans le respect du contradictoire. Ils ne sont ni des sanctions, ni des avertissements disciplinaires : le pouvoir disciplinaire est étranger au présent contrat et exclu par l'article 2.",
+        ].join("\n"),
+      },
+      {
+        titre: "Article 11 — Changement de prestataire à la demande d'un garage",
+        texte: [
+          "Un garage peut demander au Donneur d'ordre que ses dossiers soient confiés à un autre prestataire, pour quelque motif que ce soit, y compris de simple convenance. Le Donneur d'ordre reste seul juge de la suite à donner.",
+          "S'il accepte, il en informe le Prestataire par écrit et met fin à l'affectation par AVENANT, moyennant un préavis de quinze (15) jours, sauf urgence tenant à la continuité du service ou manquement grave.",
+          "Une telle fin d'affectation N'IMPLIQUE AUCUNE FAUTE du Prestataire et n'est pas mentionnée comme telle. Elle n'emporte pas résiliation du contrat, qui se poursuit pour les autres garages et pour les affectations à venir, sans garantie de volume (article 4).",
+          "Le Prestataire assure la transmission ordonnée des dossiers en cours à son successeur, dans les conditions de l'article 23. Les prestations exécutées jusqu'à la date d'effet demeurent dues.",
+        ].join("\n"),
+      },
+      {
+        titre: "Article 12 — Confidentialité et secret des affaires",
         texte: [
           "Le Prestataire s'engage à une stricte confidentialité sur toute information dont il a connaissance à l'occasion du contrat : données des garages, de leurs clients, informations financières, documents d'assurance, savoir-faire, tarifs et fonctionnement de la plateforme.",
           "Cet engagement vaut pendant toute la durée du contrat et cinq (5) ans après son terme. Il s'étend aux informations protégées au titre du secret des affaires (articles L151-1 et suivants du code de commerce). Le Prestataire répond de ses éventuels remplaçants et préposés.",
         ].join("\n"),
       },
       {
-        titre: "Article 10 — Protection des données personnelles (RGPD)",
+        titre: "Article 13 — Protection des données personnelles (RGPD)",
         texte: [
           "Les garages clients sont responsables des traitements de données personnelles réalisés dans la plateforme. Le Donneur d'ordre agit en qualité de sous-traitant. Le Prestataire intervient en qualité de SOUS-TRAITANT ULTÉRIEUR au sens de l'article 28.4 du RGPD, avec l'autorisation écrite des garages concernés.",
-          "À ce titre, le Prestataire : ne traite les données que sur instruction documentée et pour la seule exécution des prestations de l'annexe 2 ; n'en réalise aucune copie, export ou traitement hors de la plateforme, sauf demande expresse et tracée ; utilise exclusivement l'accès qui lui est ouvert et ne le partage avec personne ; met en œuvre des mesures de sécurité appropriées (poste verrouillé, mots de passe robustes, session fermée, matériel non partagé) ; ne transfère aucune donnée hors de l'Union européenne.",
+          "À ce titre, le Prestataire : ne traite les données que sur instruction documentée et pour la seule exécution des prestations de l'annexe 2 ; n'en réalise aucune copie, export ou traitement hors de la plateforme, sauf demande expresse et tracée ; utilise exclusivement l'accès qui lui est ouvert et ne le partage avec personne ; met en œuvre des mesures de sécurité appropriées (poste verrouillé, mots de passe robustes, session fermée, matériel non partagé, connexion sécurisée — le travail à distance impliquant une vigilance particulière) ; ne transfère aucune donnée hors de l'Union européenne.",
           "Le Prestataire notifie au Donneur d'ordre toute violation de données dans les VINGT-QUATRE (24) HEURES de sa connaissance, et l'assiste dans les demandes d'exercice de droits, les analyses d'impact et les notifications à la CNIL. À la fin du contrat, il supprime toute donnée éventuellement détenue hors plateforme et en atteste par écrit.",
           "Le Donneur d'ordre peut vérifier le respect de ces obligations, après préavis raisonnable et sans perturbation excessive de l'activité du Prestataire.",
         ].join("\n"),
       },
       {
-        titre: "Article 11 — Moyens du Prestataire",
+        titre: "Article 14 — Moyens du Prestataire",
         texte: [
-          "Le Prestataire exécute les prestations avec SES PROPRES MOYENS, dont il est seul propriétaire ou détenteur, et qu'il déclare à l'ANNEXE 3. Il en assure l'entretien, la sécurité, la mise à jour et le remplacement à ses frais.",
+          "Le Prestataire exécute les prestations avec SES PROPRES MOYENS, dont il est seul propriétaire ou détenteur, et qu'il déclare à l'ANNEXE 3. Il en assure l'entretien, la sécurité, la mise à jour et le remplacement à ses frais, et demeure SEUL RESPONSABLE de leur bon fonctionnement.",
+          "Le travail étant réalisé à distance, le Prestataire garantit disposer d'une connexion et d'un poste de travail permettant l'exécution normale des prestations. Une panne, une perte de données ou une indisponibilité de son matériel ou de sa connexion ne suspend pas ses obligations : il lui appartient de prévoir une solution de repli et d'en informer sans délai le Donneur d'ordre.",
           "Le Donneur d'ordre ne met à disposition ni matériel, ni local, ni ligne téléphonique : il fournit uniquement l'accès à la plateforme My Easy Auto, la documentation et une formation initiale à l'outil, nécessaires à l'interopérabilité des prestations.",
         ].join("\n"),
       },
       {
-        titre: "Article 12 — Assurance",
+        titre: "Article 15 — Assurance",
         texte:
-          "Le Prestataire souscrit et maintient, pendant toute la durée du contrat, une assurance de responsabilité civile professionnelle couvrant les conséquences pécuniaires de sa responsabilité du fait de ses prestations. Il en justifie à la signature puis à chaque échéance annuelle, et informe le Donneur d'ordre de toute résiliation ou modification substantielle de garantie.",
+          "Le Prestataire souscrit et maintient, pendant toute la durée du contrat, une assurance de responsabilité civile professionnelle couvrant les conséquences pécuniaires de sa responsabilité du fait de ses prestations. Il en justifie à la signature puis à chaque échéance annuelle, et informe le Donneur d'ordre de toute résiliation ou modification substantielle de garantie. Le défaut d'assurance constitue un manquement grave au sens de l'article 21.",
       },
       {
-        titre: "Article 13 — Conformité sociale et fiscale — obligation de vigilance",
+        titre: "Article 16 — Conformité sociale et fiscale — obligation de vigilance",
         texte: [
           "Le Prestataire atteste sur l'honneur que les prestations sont réalisées par des personnes régulièrement employées ou par lui-même, au sens des articles L8221-1 et L8221-5 du code du travail.",
-          "En application de l'article L8222-1 du code du travail, le Prestataire remet au Donneur d'ordre, à la signature puis TOUS LES SIX (6) MOIS jusqu'à la fin du contrat : une attestation de vigilance URSSAF de moins de six mois, et un justificatif d'immatriculation (extrait K, avis de situation SIRENE ou équivalent).",
-          "Le défaut de remise de ces pièces, après mise en demeure restée sans effet quinze (15) jours, autorise le Donneur d'ordre à suspendre les affectations et les paiements des factures non encore échues, puis à résilier le contrat dans les conditions de l'article 18.",
+          "En application de l'article L8222-1 du code du travail, le Prestataire remet au Donneur d'ordre, à la signature puis TOUS LES SIX (6) MOIS jusqu'à la fin du contrat : une ATTESTATION DE VIGILANCE URSSAF de moins de six mois, et un justificatif d'immatriculation (extrait K, avis de situation SIRENE ou équivalent). Il informe le Donneur d'ordre sans délai de toute radiation, cessation d'activité ou perte de son immatriculation.",
+          "⚠️ CONSÉQUENCES DU DÉFAUT — le Donneur d'ordre engage sa propre responsabilité solidaire s'il fait appel à un prestataire non à jour. En conséquence : à défaut de remise des pièces dans les quinze (15) jours d'une mise en demeure, le Donneur d'ordre SUSPEND de plein droit les affectations en cours et le paiement des factures non encore échues ; si la situation n'est pas régularisée dans les TRENTE (30) JOURS suivant cette mise en demeure, le contrat est RÉSILIÉ DE PLEIN DROIT, sans préavis ni indemnité, par simple notification écrite.",
+          "Il en va de même si l'attestation révèle que le Prestataire n'est pas à jour de ses cotisations sociales et qu'il ne justifie pas, dans le même délai, d'un plan d'apurement accepté par l'organisme.",
         ].join("\n"),
       },
       {
-        titre: "Article 14 — Non-sollicitation",
+        titre: "Article 17 — Non-sollicitation et non-contournement",
         texte: [
-          "Pendant la durée du contrat et pendant DOUZE (12) MOIS après son terme, le Prestataire s'interdit de proposer ou fournir directement, ou par personne interposée, des prestations de même nature aux garages qui lui ont été affectés en exécution du présent contrat, sauf accord écrit préalable du Donneur d'ordre.",
+          "Pendant la durée du contrat et pendant DOUZE (12) MOIS après son terme, le Prestataire s'interdit de proposer ou fournir, directement ou par personne interposée, des prestations de même nature aux garages qui lui ont été affectés en exécution du présent contrat, sauf accord écrit préalable du Donneur d'ordre.",
+          "⚠️ NON-CONTOURNEMENT — cette interdiction s'applique Y COMPRIS lorsque l'initiative vient du garage. Si un garage propose au Prestataire de travailler directement pour lui, à quelque titre que ce soit (prestation, contrat de travail, mise à disposition, société interposée), le Prestataire doit REFUSER et en informer sans délai le Donneur d'ordre. Toute mise en relation commerciale avec un garage passe par le Donneur d'ordre.",
           "Cette clause, limitée aux seuls garages effectivement affectés, à douze mois et au territoire français, ne fait pas obstacle à la poursuite et au développement de l'activité du Prestataire auprès de tout autre client : il ne s'agit PAS d'une clause de non-concurrence.",
           "En cas de manquement, le Prestataire devra au Donneur d'ordre une indemnité égale à six (6) mois de rémunération perçue au titre du garage concerné, sans préjudice de la réparation d'un préjudice supérieur.",
           "Réciproquement, le Donneur d'ordre s'interdit de solliciter les clients propres du Prestataire dont il aurait connaissance.",
         ].join("\n"),
       },
       {
-        titre: "Article 15 — Propriété des livrables et des données",
+        titre: "Article 18 — Propriété des livrables et des données",
         texte:
           "Les dossiers, documents, modèles et données produits ou renseignés dans la plateforme dans le cadre des prestations appartiennent aux garages clients et, pour ce qui concerne la plateforme, au Donneur d'ordre. Le Prestataire ne détient aucun droit sur la plateforme, sa documentation ou ses modèles, et s'interdit de les reproduire, adapter ou diffuser. Il conserve en revanche l'entière propriété de ses propres méthodes et outils.",
       },
       {
-        titre: "Article 16 — Responsabilité",
+        titre: "Article 19 — Responsabilité",
         texte: [
-          "Chaque partie répond des dommages causés par sa faute prouvée. La responsabilité du Prestataire est limitée, toutes causes confondues et par année contractuelle, au montant total des rémunérations qu'il a perçues au cours des six (6) derniers mois, sauf faute lourde, dol, atteinte à la confidentialité ou violation des obligations de protection des données.",
-          "Le Donneur d'ordre demeure seul responsable de la plateforme, de sa disponibilité et de la relation contractuelle avec les garages. Le Prestataire ne répond ni des choix techniques des garages, ni de l'exactitude des rapports d'expertise, ni des décisions prises par le garage sur ses conseils d'ordre administratif.",
+          "Chaque partie répond des dommages causés par sa faute prouvée. LA RESPONSABILITÉ DU PRESTATAIRE PEUT ÊTRE MISE EN CAUSE EN CAS DE MANQUEMENT À SON OBLIGATION DE MOYENS, telle que définie à l'article 9, ainsi qu'en cas de défaillance des moyens matériels dont il a la charge au titre de l'article 14.",
+          "La responsabilité du Prestataire est limitée, toutes causes confondues et par année contractuelle, au montant total des rémunérations qu'il a perçues au cours des six (6) derniers mois, sauf faute lourde, dol, atteinte à la confidentialité ou violation des obligations de protection des données.",
+          "Le Donneur d'ordre demeure seul responsable de la plateforme, de sa disponibilité et de la relation contractuelle avec les garages. Le Prestataire ne répond ni des choix techniques des garages, ni de l'exactitude des rapports d'expertise, ni des décisions prises par le garage sur ses informations d'ordre administratif.",
         ].join("\n"),
       },
       {
-        titre: "Article 17 — Durée et reconduction",
+        titre: "Article 20 — Durée et reconduction",
         texte: [
           `Le contrat prend effet le ${dateContratFr(c.date_debut || dateJourIso())} et est conclu pour une durée initiale d'UN (1) MOIS.`,
-          "Il se reconduit ensuite TACITEMENT, de mois en mois, sauf dénonciation par l'une des parties dans les conditions de l'article 18. Cette reconduction traduit la volonté commune de poursuivre la collaboration ; à défaut d'accord sur sa poursuite, le contrat prend fin de plein droit au terme de la période en cours.",
+          "Il se reconduit ensuite TACITEMENT, de mois en mois, sauf dénonciation par l'une des parties dans les conditions de l'article 21. Cette reconduction traduit la volonté commune de poursuivre la collaboration ; à défaut d'accord sur sa poursuite, le contrat prend fin de plein droit au terme de la période en cours.",
           "IL N'EST PAS PRÉVU DE PÉRIODE D'ESSAI : le présent contrat étant un contrat d'entreprise entre professionnels indépendants, cette notion, propre au contrat de travail, est sans objet.",
         ].join("\n"),
       },
       {
-        titre: "Article 18 — Résiliation",
+        titre: "Article 21 — Résiliation",
         texte: [
-          "Chaque partie peut mettre fin au contrat par lettre recommandée avec accusé de réception ou courrier électronique avec accusé de réception, moyennant un préavis de : quinze (15) jours pendant les six premiers mois de relation ; un (1) mois de six mois à deux ans de relation ; deux (2) mois au-delà de deux ans. Ce préavis gradué a pour objet de tenir compte de l'ancienneté de la relation commerciale au sens de l'article L442-1, II du code de commerce.",
+          "Chaque partie peut mettre fin au contrat par lettre recommandée avec accusé de réception ou courrier électronique avec accusé de réception, moyennant un préavis de : quinze (15) jours pendant les six premiers mois de relation ; un (1) mois de six mois à deux ans de relation ; deux (2) mois au-delà de deux ans. Ce préavis gradué tient compte de l'ancienneté de la relation commerciale au sens de l'article L442-1, II du code de commerce.",
           "Pendant le préavis, les affectations en cours se poursuivent aux conditions habituelles et les prestations exécutées restent dues.",
-          "Résiliation immédiate, sans préavis ni indemnité, en cas de manquement grave : violation de la confidentialité ou des obligations de protection des données, abandon de mission, détournement de clientèle, défaut d'assurance ou des attestations de l'article 13, comportement portant atteinte à l'image du Donneur d'ordre ou d'un garage. La résiliation intervient après mise en demeure restée sans effet huit (8) jours, sauf urgence ou manquement insusceptible de régularisation.",
+          "RÉSILIATION IMMÉDIATE, sans préavis ni indemnité, en cas de manquement grave : violation de la confidentialité ou des obligations de protection des données ; contournement au sens de l'article 17 ; abandon de mission ; défaut d'assurance (article 15) ; défaut de mise à jour sociale ou d'attestation de vigilance dans les conditions de l'article 16 ; manquements répétés constatés selon l'article 10 ; comportement portant atteinte à l'image du Donneur d'ordre ou d'un garage. La résiliation intervient après mise en demeure restée sans effet huit (8) jours, sauf urgence ou manquement insusceptible de régularisation.",
           "Le contrat prend fin de plein droit en cas de cessation d'activité, de radiation, de liquidation judiciaire d'une partie, ou de perte par le Prestataire de son immatriculation.",
         ].join("\n"),
       },
       {
-        titre: "Article 19 — Force majeure",
+        titre: "Article 22 — Force majeure",
         texte:
-          "Aucune partie n'est responsable d'un manquement dû à un cas de force majeure au sens de l'article 1218 du code civil. La partie empêchée en informe l'autre sans délai. Si l'empêchement dure plus de deux (2) mois, chaque partie peut résilier le contrat par écrit, sans indemnité, les prestations exécutées restant dues.",
+          "Aucune partie n'est responsable d'un manquement dû à un cas de force majeure au sens de l'article 1218 du code civil. La partie empêchée en informe l'autre sans délai. Si l'empêchement dure plus de deux (2) mois, chaque partie peut résilier le contrat par écrit, sans indemnité, les prestations exécutées restant dues. Une panne du matériel ou de la connexion du Prestataire ne constitue pas un cas de force majeure (article 14).",
       },
       {
-        titre: "Article 20 — Fin du contrat et réversibilité",
+        titre: "Article 23 — Fin du contrat et réversibilité",
         texte:
-          "À la fin du contrat, quelle qu'en soit la cause, le Prestataire : achève ou transmet les dossiers en cours selon les instructions du Donneur d'ordre ; restitue ou détruit tout document et toute donnée en sa possession ; cesse tout accès à la plateforme. Il apporte, pendant le préavis, une assistance raisonnable à la reprise de ses dossiers par le Donneur d'ordre ou par un autre prestataire. Les articles 9, 10, 14, 15 et 16 survivent à la fin du contrat.",
+          "À la fin du contrat, quelle qu'en soit la cause, le Prestataire : achève ou transmet les dossiers en cours selon les instructions du Donneur d'ordre ; restitue ou détruit tout document et toute donnée en sa possession ; cesse tout accès à la plateforme. Il apporte, pendant le préavis, une assistance raisonnable à la reprise de ses dossiers par le Donneur d'ordre ou par un autre prestataire. Les articles 12, 13, 17, 18 et 19 survivent à la fin du contrat.",
       },
       {
-        titre: "Article 21 — Dispositions générales",
+        titre: "Article 24 — Dispositions générales",
         texte: [
           "Le contrat, ses annexes et les avenants signés expriment l'intégralité de l'accord des parties et remplacent tout échange antérieur. Toute modification requiert un écrit signé des deux parties.",
           "Si une stipulation est jugée nulle ou inapplicable, les autres demeurent en vigueur et les parties lui substituent une stipulation valide d'effet équivalent.",
@@ -367,7 +408,7 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
         ].join("\n"),
       },
       {
-        titre: "Article 22 — Droit applicable et règlement des litiges",
+        titre: "Article 25 — Droit applicable et règlement des litiges",
         texte:
           "Le contrat est soumis au droit français. En cas de différend, les parties s'engagent à rechercher une solution amiable pendant trente (30) jours à compter de la première notification écrite, le cas échéant en recourant à un médiateur désigné d'un commun accord. À défaut d'accord, compétence expresse est attribuée au tribunal de commerce de Nanterre, y compris en cas de pluralité de défendeurs ou d'appel en garantie.",
       },
@@ -504,7 +545,7 @@ export function avenantAffectationDefaut(
           {
             titre: "Article 2 — Prestations et rémunération dues",
             texte:
-              "Les prestations exécutées jusqu'à la date d'effet demeurent dues et sont facturées dans les conditions de l'article 7 du contrat. Le Prestataire transmet les dossiers en cours selon les instructions du Donneur d'ordre et cesse, à la date d'effet, tout accès aux données de ce garage.",
+              "Les prestations exécutées jusqu'à la date d'effet demeurent dues et sont facturées dans les conditions de l'article 8 du contrat. Le Prestataire transmet les dossiers en cours selon les instructions du Donneur d'ordre et cesse, à la date d'effet, tout accès aux données de ce garage.",
           },
           {
             titre: "Article 3 — Suites",

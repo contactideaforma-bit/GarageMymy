@@ -44,6 +44,7 @@ import {
 import DossierPicker, { libelleDossier } from "@/components/DossierPicker";
 import ConfigBanner from "@/components/ConfigBanner";
 import ChampEcheance from "@/components/ChampEcheance";
+import CompteurHeures from "@/components/CompteurHeures";
 
 const CLE_ASTUCE = "mea.conversation.astuce";
 
@@ -580,6 +581,11 @@ export default function ConversationPage() {
             Même liste que le bloc « À faire » du tableau de bord — cochée ici, cochée là-bas.
           </p>
         </section>
+      </div>
+
+      {/* Compteur d'heures de secrétariat (v11.6) — en bas, pleine largeur. */}
+      <div className="mt-4">
+        <CompteurHeures dossiers={dossiers} auteur={role} />
       </div>
 
       {pickerPour && (

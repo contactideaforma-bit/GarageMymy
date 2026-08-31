@@ -44,7 +44,10 @@ export default function ChampEcheance({
     // (colonne Tâches de /conversation) : les minutes et la croix sortaient du
     // cadre. Les trois champs se replient maintenant et se partagent la largeur.
     <div className={`flex w-full min-w-0 flex-wrap items-end gap-1 ${className}`}>
-      <label className="min-w-0 flex-1 basis-[8.5rem]">
+      {/* v11.6 — `flex-1` vaut `flex: 1 1 0%` : il ANNULE la base de 8,5 rem et
+          le champ Date se réduisait à un carré vide de quelques pixels (vu sur
+          la capture iPhone). `grow` conserve la base. */}
+      <label className="min-w-0 grow basis-[9rem]">
         <span className={etiquette}>Date</span>
         <input
           type="date"
@@ -53,7 +56,7 @@ export default function ChampEcheance({
           onChange={(e) => emettre(e.target.value, heure, minute)}
         />
       </label>
-      <label className="min-w-0 basis-[4.5rem]">
+      <label className="min-w-0 grow-0 basis-[5.25rem]">
         <span className={etiquette}>Heure</span>
         <select
           className="field-input field-compact w-full min-w-0 disabled:opacity-40"
@@ -67,7 +70,7 @@ export default function ChampEcheance({
           ))}
         </select>
       </label>
-      <label className="min-w-0 basis-[4.5rem]">
+      <label className="min-w-0 grow-0 basis-[5.25rem]">
         <span className={etiquette}>Minutes</span>
         <select
           className="field-input field-compact w-full min-w-0 disabled:opacity-40"
