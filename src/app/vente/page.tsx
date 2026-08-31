@@ -20,6 +20,7 @@ import { FORMULES, Formule, Parametres, Periodicite, fusionnerParametres, grille
 import { QUESTIONS_BESOINS, ReponseCode } from "@/lib/admin/ventePublic";
 import { ACCEPTATION_CGV, MODES_PAIEMENT, VenteContrat, articlesCGV, conditionsParticulieres } from "@/lib/admin/contratGarage";
 import { ACCEPTATION_CGU, VERSION_CGU, articlesCGU } from "@/lib/admin/cgu";
+import { AUTORISATION_SOUS_TRAITANCE, VERSION_DPA, articlesDPA } from "@/lib/admin/dpa";
 import { telechargerContratPdf } from "@/lib/admin/contratPdf";
 
 const eur = (n: number | null | undefined) => (Number(n) || 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
@@ -59,7 +60,7 @@ export default function VentePage() {
     formule: "starter", engagement_12: true, periodicite: "mensuel", remise_supp_pct: 0, date_debut_souhaitee: "",
   });
   const [paiement, setPaiement] = useState({ mode_paiement: "virement", paiement_sur_place: false, paiement_montant: "", paiement_reference: "" });
-  const [contrat, setContrat] = useState({ signataire_nom: "", signataire_qualite: "Gérant(e)", cgv_acceptees: false, cgu_acceptees: false, signature: null as string | null });
+  const [contrat, setContrat] = useState({ signataire_nom: "", signataire_qualite: "Gérant(e)", cgv_acceptees: false, cgu_acceptees: false, autorisation_st: false, signature: null as string | null });
 
   const prix = useMemo(() => (params ? prixVente(offre.formule, { engagement12: offre.engagement_12, periodicite: offre.periodicite, remiseSupp: offre.remise_supp_pct }, params) : null), [params, offre]);
   const prime = useMemo(
@@ -125,6 +126,7 @@ export default function VentePage() {
     if (!contrat.signataire_nom.trim()) return setErreur("Indique le nom du signataire.");
     if (!contrat.cgv_acceptees) return setErreur("Le garage doit cocher l'acceptation des conditions générales de VENTE.");
     if (!contrat.cgu_acceptees) return setErreur("Le garage doit cocher l'acceptation des conditions générales d'UTILISATION.");
+    if (!contrat.autorisation_st) return setErreur("Le garage doit autoriser l'intervention d'un collaborateur externe (RGPD).");
     if (!contrat.signature) return setErreur("La signature du garage est obligatoire.");
     setEnvoi(true);
     try {
@@ -141,6 +143,8 @@ export default function VentePage() {
           cgv_acceptees: true,
           cgu_acceptees: true,
           version_cgu: VERSION_CGU,
+          autorisation_sous_traitance: true,
+          version_dpa: VERSION_DPA,
           signataire_nom: contrat.signataire_nom,
           signataire_qualite: contrat.signataire_qualite,
           signature: contrat.signature,
@@ -395,6 +399,17 @@ export default function VentePage() {
                   <p className="text-xs leading-relaxed text-slate-600">{a.texte}</p>
                 </div>
               ))}
+              {/* Accord de traitement des données (v11.8) — c'est LUI qui porte
+                  l'autorisation d'intervention des secrétaires indépendantes.
+                  Sans elle, chaque dossier traité était une sous-traitance non
+                  autorisée (art. 28.2 RGPD) — audit du 31/08/2026, §2. */}
+              <div className="mt-5 font-semibold text-slate-800">Accord de traitement des données (annexe RGPD)</div>
+              {articlesDPA().map((a) => (
+                <div key={a.titre} className="mt-2">
+                  <div className="text-xs font-semibold text-slate-700">{a.titre}</div>
+                  <p className="whitespace-pre-line text-xs leading-relaxed text-slate-600">{a.texte}</p>
+                </div>
+              ))}
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <Champ label="Nom du signataire *"><input className="lp-input" value={contrat.signataire_nom} onChange={(e) => setContrat((c) => ({ ...c, signataire_nom: e.target.value }))} placeholder={g.contact_nom} /></Champ>
@@ -410,6 +425,10 @@ export default function VentePage() {
             <label className="mt-2 flex items-start gap-2 text-sm text-slate-700">
               <input type="checkbox" className="mt-1 shrink-0" checked={contrat.cgu_acceptees} onChange={(e) => setContrat((c) => ({ ...c, cgu_acceptees: e.target.checked }))} />
               <span className="min-w-0">{ACCEPTATION_CGU}</span>
+            </label>
+            <label className="mt-2 flex items-start gap-2 text-sm text-slate-700">
+              <input type="checkbox" className="mt-1 shrink-0" checked={contrat.autorisation_st} onChange={(e) => setContrat((c) => ({ ...c, autorisation_st: e.target.checked }))} />
+              <span className="min-w-0">{AUTORISATION_SOUS_TRAITANCE}</span>
             </label>
             <div className="mt-4">
               <div className="text-sm font-semibold text-slate-700">Signature du garage</div>

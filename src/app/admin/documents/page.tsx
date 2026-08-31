@@ -18,14 +18,28 @@
 //     confidentialité) qui vivent dans l'application, avec leur version.
 // ====================================================================
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminShell from "@/components/admin/AdminShell";
 import { DOCS_COMMERCIAL, DOCS_SECRETAIRE, DocPack } from "@/lib/admin/packDocs";
 import { VERSION_CGU } from "@/lib/admin/cgu";
+import { VERSION_DPA } from "@/lib/admin/dpa";
 import { VERSION_CGV } from "@/lib/admin/contratGarage";
 import { VERSION_CONTRAT_APPORTEUR, VERSION_CONTRAT_PRESTATION } from "@/lib/admin/contratCollaborateur";
 import { fetchAuth } from "@/lib/apiClient";
+import { Collaborateur, lireParametres } from "@/lib/admin/client";
+import { Parametres } from "@/lib/admin/economie";
+import { contratDefaut } from "@/lib/admin/contratCollaborateur";
+import { construireContratCollaborateurPdf, prechargerLogoPdf } from "@/lib/admin/contratPdf";
+
+/** Fiche vide : sert à produire un modèle À BLANC, à faire lire avant signature. */
+function collaborateurVide(type: "commercial" | "secretaire"): Collaborateur {
+  return {
+    id: "", created_at: "", type, nom: "", prenom: null, email: null, tel: null, siret: null,
+    adresse: null, statut: "actif", date_debut: null, date_fin: null, iban: null,
+    taux_retrocession: null, taux_horaire: null, notes: null,
+  };
+}
 
 async function telecharger(d: DocPack) {
   const res = await fetchAuth(`/api/admin/pack-doc?cle=${encodeURIComponent(d.cle)}`);
@@ -63,10 +77,42 @@ function Famille({ titre, aide, docs, onErreur }: { titre: string; aide: string;
 
 export default function DocumentsAdminPage() {
   const [erreur, setErreur] = useState<string | null>(null);
+  const [params, setParams] = useState<Parametres | null>(null);
+
+  useEffect(() => {
+    lireParametres().then(setParams).catch(() => undefined);
+  }, []);
+
+  /**
+   * MODÈLE À BLANC généré depuis l'application (v11.8).
+   * L'audit du 31/08/2026 avait relevé que le contrat de prestation PAPIER
+   * était resté en v1 — avec la période d'essai de 2 mois qu'on avait
+   * justement retirée — pendant que l'appli était en v2.1. Plutôt que
+   * d'entretenir des .docx qui rediviergeront, on produit le PDF depuis
+   * le MÊME modèle que celui utilisé pour les contrats réels : le papier
+   * ne peut plus être en retard sur l'écran.
+   */
+  async function modeleABlanc(type: "commercial" | "secretaire") {
+    if (!params) return setErreur("Paramètres non chargés.");
+    try {
+      await prechargerLogoPdf();
+      const contenu = contratDefaut(collaborateurVide(type), params);
+      const pdf = construireContratCollaborateurPdf(contenu, {
+        nomCollaborateur: "",
+        signatureEditeur: null,
+        signatureCollaborateur: null,
+        signeLe: null,
+      });
+      pdf.save(`modele-${type === "commercial" ? "contrat-apporteur" : "contrat-prestation"}-${contenu.version}.pdf`);
+    } catch (e) {
+      setErreur(e instanceof Error ? e.message : "Génération impossible.");
+    }
+  }
 
   const textes: { titre: string; version: string; href: string; aide: string }[] = [
     { titre: "Conditions générales d'utilisation (CGU)", version: VERSION_CGU, href: "/cgu", aide: "Acceptées par le garage à la vente depuis la v11.7." },
     { titre: "Conditions générales de vente (CGV)", version: VERSION_CGV, href: "/vente", aide: "Affichées et signées sur la page de vente." },
+    { titre: "Accord de traitement des données (annexe RGPD)", version: VERSION_DPA, href: "/vente", aide: "Annexe au contrat d'abonnement : porte l'autorisation d'intervention des secrétaires indépendantes." },
     { titre: "Mentions légales", version: "—", href: "/mentions-legales", aide: "Page publique." },
     { titre: "Politique de confidentialité", version: "—", href: "/confidentialite", aide: "Page publique." },
   ];
@@ -76,16 +122,26 @@ export default function DocumentsAdminPage() {
       {erreur && <p className="badge badge-danger">{erreur}</p>}
 
       <div className="space-y-4">
-        <div className="alerte alerte-info text-xs">
-          <div className="alerte-titre">Modèles de contrats</div>
-          <p className="mt-1">
-            Les contrats se génèrent <b>préremplis depuis la fiche du collaborateur</b>
-            {" "}(Collaborateurs → une fiche → « Générer le contrat prérempli ») :
-            prestation <b>{VERSION_CONTRAT_PRESTATION}</b>, apporteur d&apos;affaires <b>{VERSION_CONTRAT_APPORTEUR}</b>.
-            Les versions papier ci-dessous servent de support de lecture — vérifie qu&apos;elles sont
-            à jour avant de les remettre.
+        <section className="glass-card p-4">
+          <h2 className="titre-bloc">Modèles de contrats — toujours à jour</h2>
+          <p className="mb-3 text-xs text-white/45">
+            Ces PDF sont produits à partir des <b>modèles de l&apos;application</b>, ceux-là mêmes qui
+            servent aux contrats réels : le papier ne peut donc plus être en retard sur l&apos;écran.
+            Pour un contrat nominatif, passer par Collaborateurs → une fiche → « Générer le contrat prérempli ».
           </p>
-        </div>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn-ghost btn-compact" disabled={!params} onClick={() => modeleABlanc("secretaire")}>
+              📄 Contrat de prestation (secrétaire) — {VERSION_CONTRAT_PRESTATION}
+            </button>
+            <button className="btn-ghost btn-compact" disabled={!params} onClick={() => modeleABlanc("commercial")}>
+              📄 Contrat d&apos;apporteur d&apos;affaires — {VERSION_CONTRAT_APPORTEUR}
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] text-white/40">
+            Le contrat d&apos;abonnement du garage (conditions particulières + CGV + CGU + accord RGPD)
+            se lit et se signe sur la page de vente ; le PDF signé est produit à chaque vente.
+          </p>
+        </section>
 
         <Famille
           titre="Pack commercial"
