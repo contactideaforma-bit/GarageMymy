@@ -7,6 +7,7 @@ import { heureLisible } from "@/lib/ardoise";
 import { messageErreur } from "@/lib/format";
 import { Evenement, Dossier } from "@/lib/types";
 import ConfigBanner from "@/components/ConfigBanner";
+import { useZoneVisible } from "@/lib/cadreMobile";
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
@@ -36,6 +37,8 @@ export default function AgendaPage() {
 
   // modal RDV
   const [open, setOpen] = useState(false);
+  // Téléphone : la modale épouse la zone visible, clavier compris (v11.2).
+  const { style: zoneStyle } = useZoneVisible(open);
   const [fDossier, setFDossier] = useState("");
   const [fDate, setFDate] = useState(ymd(new Date()));
   const [fHeure, setFHeure] = useState("09:00");
@@ -228,8 +231,8 @@ export default function AgendaPage() {
 
       {/* Modal RDV */}
       {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm">
-          <div className="w-full max-w-lg glass-card my-8 modal-panel p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto backdrop-blur-sm" style={zoneStyle}>
+          <div className="w-full max-w-lg glass-card my-2 sm:my-8 modal-panel p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-white">Nouveau rendez-vous</h2>
               <button onClick={() => setOpen(false)} className="text-white/50 hover:text-white text-xl">×</button>

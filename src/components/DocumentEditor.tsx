@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, DocumentLigne, DocumentType, Dossier } from "@/lib/types";
 import {
@@ -30,6 +30,18 @@ import {
 import { formatEuros, messageErreur, ymd } from "@/lib/format";
 import { detecterCorrections, type LigneComparable } from "@/lib/apprentissage";
 import { apprendreDesCorrections } from "@/lib/apprentissageDb";
+import { useZoneVisible } from "@/lib/cadreMobile";
+import MentionsRapport from "@/components/MentionsRapport";
+import { mentionsBloquantes, mentionsDepuisJson } from "@/lib/mentionsRapport";
+import {
+  Particularite,
+  aDesTarifs,
+  appliquerTarifs,
+  chargerLiens,
+  chargerParticularites,
+  ecartsTarifs,
+  resumeTarifs,
+} from "@/lib/particularites";
 
 /**
  * Grille d'une ligne de saisie (v8.1).
@@ -107,6 +119,37 @@ export default function DocumentEditor({
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Téléphone : la modale épouse la zone visible, clavier compris (v11.2).
+  const { style: zoneStyle } = useZoneVisible(true);
+
+  // MENTIONS PARTICULIÈRES DU RAPPORT (v11.2) : conservatoire, sursis à
+  // travaux, VGE, règlement direct… rappelées ICI, au moment de facturer.
+  const mentions = horsRapport ? [] : mentionsDepuisJson(dossier.mentions_rapport);
+  const bloquantes = mentionsBloquantes(mentions);
+
+  // AGRÉMENT À TARIF PARTICULIER (v11.2) : les particularités du dossier
+  // qui portent des taux / remises négociés. Chargement tolérant (table ou
+  // colonnes absentes → aucun agrément, l'éditeur fonctionne comme avant).
+  const [agrements, setAgrements] = useState<Particularite[]>([]);
+  useEffect(() => {
+    if (horsRapport) return;
+    let actif = true;
+    (async () => {
+      try {
+        const [cat, liens] = await Promise.all([chargerParticularites(), chargerLiens(dossier.id)]);
+        const ids = new Set(liens.map((l) => l.particularite_id));
+        if (actif) setAgrements(cat.filter((p) => ids.has(p.id) && aDesTarifs(p)));
+      } catch {
+        /* sans agrément */
+      }
+    })();
+    return () => {
+      actif = false;
+    };
+  }, [dossier.id, horsRapport]);
+  function appliquerAgrement(p: Particularite) {
+    majItems((arr) => appliquerTarifs(p, arr));
+  }
 
   // CHIFFRAGE DU RAPPORT (v50) : conservé sur le dossier, il permet de
   // reconstituer le document à l'identique — à la demande de l'utilisateur,
@@ -429,8 +472,8 @@ export default function DocumentEditor({
     items.map((_, i) => i).filter((i) => items[i].categorie === cat);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm">
-      <div className="w-full max-w-6xl glass-card my-8 modal-panel">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto backdrop-blur-sm" style={zoneStyle}>
+      <div className="w-full max-w-6xl glass-card my-2 sm:my-8 modal-panel">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-white">
             {isEdit ? `Modifier ${titre.toLowerCase()}` : `Nouveau ${titre.toLowerCase()}`}
@@ -439,6 +482,61 @@ export default function DocumentEditor({
         </div>
 
         <div className="px-6 py-5 space-y-5">
+          {/* ALERTES DU RAPPORT (v11.2) : l'expert a posé une condition — on
+              la rappelle au moment précis où le garage facture. Jamais
+              bloquant : c'est lui qui décide. */}
+          {mentions.length > 0 && (
+            <MentionsRapport
+              mentions={mentions}
+              compact
+              titre={
+                bloquantes.length > 0
+                  ? `Attention avant de ${type === "devis" ? "chiffrer" : "facturer"} : mention particulière du rapport`
+                  : "Mentions particulières du rapport"
+              }
+            />
+          )}
+
+          {/* AGRÉMENT (v11.2) : conditions négociées avec l'assureur. On
+              propose de les appliquer et on signale les écarts — l'appli ne
+              modifie jamais un montant toute seule. */}
+          {agrements.map((p) => {
+            const ecarts = ecartsTarifs(p, items.filter((l) => l.designation.trim() !== ""));
+            return (
+              <div key={p.id} className={`alerte ${ecarts.length ? "alerte-warn" : "alerte-ok"} text-xs`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    <span className="font-semibold">Agrément « {p.nom} »</span> — {resumeTarifs(p)}
+                    {ecarts.length === 0 && <span className="ml-1">✓ lignes conformes à l&apos;agrément</span>}
+                  </span>
+                  {ecarts.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => appliquerAgrement(p)}
+                      className="btn-ghost btn-compact shrink-0"
+                      title="Reprendre les taux horaires et remises négociés sur les lignes de ce document"
+                    >
+                      Appliquer les tarifs de l&apos;agrément
+                    </button>
+                  )}
+                </div>
+                {ecarts.length > 0 && (
+                  <ul className="mt-1 ml-4 list-disc">
+                    {ecarts.slice(0, 8).map((e) => (
+                      <li key={e}>{e}</li>
+                    ))}
+                    {ecarts.length > 8 && <li>… et {ecarts.length - 8} autre(s)</li>}
+                  </ul>
+                )}
+                {ecarts.length > 0 && (
+                  <p className="mt-1 opacity-80">
+                    Le rapport de l&apos;expert prime en principe ; si l&apos;agrément impose ses conditions, applique-les puis vérifie l&apos;écart avec le total du rapport ci-dessous.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-5">
             <div>
               <label className="field-label">N° {titre.toLowerCase()}</label>

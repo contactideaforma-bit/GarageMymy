@@ -36,3 +36,6 @@ next-env.d.ts
 # Fichiers mis de côté avant suppression manuelle
 /_to_delete/
 .pdftest/
+
+# Rapports d'expertise de test — NE PAS pousser (données clients, même anonymisées)
+/docs/rapport factices/

@@ -4,11 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 import {
   CATEGORIES_PARTICULARITE,
   Particularite,
+  TarifsAgrement,
+  aDesTarifs,
   badgeParticularite,
   chargerLiens,
   chargerParticularites,
   creerParticularite,
+  enregistrerTarifs,
   poserParticularite,
+  resumeTarifs,
   retirerParticularite,
   supprimerParticularite,
 } from "@/lib/particularites";
@@ -21,6 +25,17 @@ import { messageErreur } from "@/lib/format";
  * ensuite sur autant de dossiers qu'on veut, et la liste des sinistres permet
  * de filtrer dessus.
  */
+const TARIFS_VIDES: Record<keyof TarifsAgrement, string> = {
+  taux_t1: "",
+  taux_t2: "",
+  taux_t3: "",
+  taux_peinture: "",
+  taux_ingredients: "",
+  remise_pieces: "",
+  remise_mo: "",
+  assureurs: "",
+};
+
 export default function ParticularitesPanel({
   dossierId,
   onChanged,
@@ -35,6 +50,50 @@ export default function ParticularitesPanel({
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [gestion, setGestion] = useState(false);
+  // TARIFS D'AGRÉMENT (v11.2) : édition en place dans le catalogue.
+  const [tarifsDe, setTarifsDe] = useState<string | null>(null);
+  const [tarifs, setTarifs] = useState<Record<keyof TarifsAgrement, string>>(TARIFS_VIDES);
+  const [tarifsBusy, setTarifsBusy] = useState(false);
+
+  function ouvrirTarifs(p: Particularite) {
+    setTarifsDe(p.id);
+    setTarifs({
+      taux_t1: p.taux_t1 != null ? String(p.taux_t1) : "",
+      taux_t2: p.taux_t2 != null ? String(p.taux_t2) : "",
+      taux_t3: p.taux_t3 != null ? String(p.taux_t3) : "",
+      taux_peinture: p.taux_peinture != null ? String(p.taux_peinture) : "",
+      taux_ingredients: p.taux_ingredients != null ? String(p.taux_ingredients) : "",
+      remise_pieces: p.remise_pieces != null ? String(p.remise_pieces) : "",
+      remise_mo: p.remise_mo != null ? String(p.remise_mo) : "",
+      assureurs: p.assureurs || "",
+    });
+  }
+
+  async function sauverTarifs() {
+    if (!tarifsDe || tarifsBusy) return;
+    setTarifsBusy(true);
+    setErreur(null);
+    const num = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", ".")) || null);
+    try {
+      await enregistrerTarifs(tarifsDe, {
+        taux_t1: num(tarifs.taux_t1),
+        taux_t2: num(tarifs.taux_t2),
+        taux_t3: num(tarifs.taux_t3),
+        taux_peinture: num(tarifs.taux_peinture),
+        taux_ingredients: num(tarifs.taux_ingredients),
+        remise_pieces: num(tarifs.remise_pieces),
+        remise_mo: num(tarifs.remise_mo),
+        assureurs: tarifs.assureurs.trim() || null,
+      });
+      setTarifsDe(null);
+      await charger();
+      onChanged?.();
+    } catch (err) {
+      setErreur(messageErreur(err, "Tarifs non enregistrés (migration v61 exécutée ?)."));
+    } finally {
+      setTarifsBusy(false);
+    }
+  }
 
   const charger = useCallback(async () => {
     const [cat, liens] = await Promise.all([chargerParticularites(), chargerLiens(dossierId)]);
@@ -109,13 +168,26 @@ export default function ParticularitesPanel({
             key={p.id}
             onClick={() => basculer(p)}
             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeParticularite(p.couleur)}`}
-            title="Retirer de ce dossier"
+            title={aDesTarifs(p) ? `Tarifs de l'agrément : ${resumeTarifs(p)} — cliquer pour retirer du dossier` : "Retirer de ce dossier"}
           >
             {p.nom}
+            {aDesTarifs(p) && <span title="Tarif particulier">€</span>}
             <span className="opacity-50">×</span>
           </button>
         ))}
       </div>
+
+      {/* AGRÉMENT À TARIF PARTICULIER (v11.2) : rappel des conditions négociées.
+          L'éditeur de facture propose de les appliquer et signale les écarts. */}
+      {actives.filter(aDesTarifs).map((p) => (
+        <div key={`tarifs-${p.id}`} className="alerte alerte-info text-xs">
+          <span className="font-semibold">Agrément « {p.nom} » — tarif particulier :</span> {resumeTarifs(p)}
+          {p.notes ? <span className="block opacity-80">{p.notes}</span> : null}
+          <span className="block opacity-80">
+            Dans le devis / la facture, le bouton « Appliquer les tarifs de l&apos;agrément » reprend ces conditions ; les écarts avec le rapport sont signalés.
+          </span>
+        </div>
+      ))}
 
       {/* Étiquettes disponibles (un clic pour poser) */}
       {inactives.length > 0 && (
@@ -184,15 +256,78 @@ export default function ParticularitesPanel({
                     {CATEGORIES_PARTICULARITE[p.categorie] || "Autre"}
                   </span>
                 </span>
-                <button
-                  onClick={() => supprimerDuCatalogue(p)}
-                  className="shrink-0 text-white/40 hover:text-rose-300"
-                >
-                  Suppr.
-                </button>
+                <span className="flex shrink-0 items-center gap-2">
+                  {p.categorie === "agrement" && (
+                    <button
+                      onClick={() => (tarifsDe === p.id ? setTarifsDe(null) : ouvrirTarifs(p))}
+                      className="text-accent-teal hover:underline"
+                      title="Taux horaires, remises et assureur de l'agrément"
+                    >
+                      {aDesTarifs(p) ? "Tarifs €" : "+ Tarifs"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => supprimerDuCatalogue(p)}
+                    className="text-white/40 hover:text-rose-300"
+                  >
+                    Suppr.
+                  </button>
+                </span>
               </li>
             ))}
           </ul>
+
+          {/* Formulaire des tarifs d'un agrément (v11.2) */}
+          {tarifsDe && (
+            <div className="mt-2 rounded-lg border border-white/15 p-2.5">
+              <div className="mb-2 text-xs font-semibold text-white/80">
+                Tarifs de l&apos;agrément « {catalogue.find((p) => p.id === tarifsDe)?.nom} » — laisse vide ce qui n&apos;est pas négocié.
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {(
+                  [
+                    ["taux_t1", "T1 €/h"],
+                    ["taux_t2", "T2 €/h"],
+                    ["taux_t3", "T3 €/h"],
+                    ["taux_peinture", "Peinture €/h"],
+                    ["taux_ingredients", "Ingrédients €/h"],
+                    ["remise_pieces", "Remise pièces %"],
+                    ["remise_mo", "Remise MO %"],
+                  ] as [keyof TarifsAgrement, string][]
+                ).map(([k, label]) => (
+                  <label key={k} className="block text-[11px] text-white/60">
+                    {label}
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputMode="decimal"
+                      className="field-input field-compact mt-0.5 text-right tabular-nums"
+                      value={tarifs[k]}
+                      onChange={(e) => setTarifs((t) => ({ ...t, [k]: e.target.value }))}
+                    />
+                  </label>
+                ))}
+                <label className="col-span-2 block text-[11px] text-white/60 sm:col-span-3">
+                  Assureur(s) concerné(s) — mots clés séparés par des virgules (rattachement automatique à l&apos;import)
+                  <input
+                    className="field-input field-compact mt-0.5"
+                    placeholder="ex. MAIF, Filia"
+                    value={tarifs.assureurs}
+                    onChange={(e) => setTarifs((t) => ({ ...t, assureurs: e.target.value }))}
+                  />
+                </label>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button onClick={sauverTarifs} disabled={tarifsBusy} className="btn-primary btn-compact">
+                  {tarifsBusy ? "Enregistrement…" : "Enregistrer les tarifs"}
+                </button>
+                <button onClick={() => setTarifsDe(null)} className="btn-ghost btn-compact">
+                  Annuler
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

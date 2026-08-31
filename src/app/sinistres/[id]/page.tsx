@@ -22,6 +22,8 @@ import {
 import { calculeProchaineAction } from "@/lib/actions";
 import SuggestionAction from "@/components/SuggestionAction";
 import LitigePanel from "@/components/LitigePanel";
+import MentionsRapport from "@/components/MentionsRapport";
+import { mentionsDepuisJson } from "@/lib/mentionsRapport";
 import PiecesPanel from "@/components/PiecesPanel";
 import PhotosEtatPanel from "@/components/PhotosEtatPanel";
 import PartageSuiviPanel from "@/components/PartageSuiviPanel";
@@ -343,6 +345,8 @@ export default function DossierDetailPage() {
         chiffrage: r.lignes,
         montant: r.montant ?? dossier.montant,
         tva: r.tva ?? dossier.tva,
+        // Mentions particulières relues en même temps (v11.2).
+        ...(r.mentions ? { mentions_rapport: r.mentions } : {}),
       });
       const src = r.controle?.source === "grille" ? "lue directement dans le rapport (sans IA)" : "lue par l'analyse IA";
       const coh =
@@ -723,6 +727,12 @@ export default function DossierDetailPage() {
           il propose, et rien n'apparaît dans « À faire » sans un clic sur
           « Programmer » (feu vert du chef d'atelier, procédures propres à
           chaque garage). */}
+      {/* MENTIONS PARTICULIÈRES DU RAPPORT (v11.2) : conservatoire, sursis à
+          travaux, VGE, règlement direct, franchise… — visibles dès l'ouverture
+          du dossier, au-dessus de tout. « ↻ Relire le rapport » les met à jour
+          sur un dossier importé avant cette version. */}
+      <MentionsRapport mentions={mentionsDepuisJson(dossier.mentions_rapport)} />
+
       <SuggestionAction dossier={dossier} action={action} avecCta={action?.href !== `/sinistres/${dossier.id}`} />
 
       {/* MODE LITIGE (v10.8) : le dossier est bloqué — problème, plan de

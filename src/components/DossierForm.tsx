@@ -1,10 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import RechercheSiren from "@/components/RechercheSiren";
 import { supabase } from "@/lib/supabaseClient";
 import { deposerFichier } from "@/lib/storage";
 import { analyserRapport, type ControleChiffrage } from "@/lib/extraction";
+import { useZoneVisible } from "@/lib/cadreMobile";
+import MentionsRapport from "@/components/MentionsRapport";
+import type { MentionRapport } from "@/lib/mentionsRapport";
+import {
+  Particularite,
+  agrementsPourAssureur,
+  chargerParticularites,
+  ecartsTarifs,
+  poserParticularite,
+  resumeTarifs,
+} from "@/lib/particularites";
 import FilePicker from "@/components/FilePicker";
 import { Dossier } from "@/lib/types";
 import { STATUTS_ORDRE, addJoursOuvres, formatEuros, libelleStatut, ymd } from "@/lib/format";
@@ -129,6 +140,7 @@ export default function DossierForm({
   prefill,
   prefillFile,
   prefillLignes,
+  prefillMentions,
   prefillTva,
 }: {
   onClose: () => void;
@@ -138,6 +150,8 @@ export default function DossierForm({
   prefill?: Partial<Dossier> | null;
   prefillFile?: File | null;
   prefillLignes?: LigneExtraite[] | null;
+  /** Mentions particulières lues par l'analyse de la page /import (v11.2). */
+  prefillMentions?: MentionRapport[] | null;
   prefillTva?: number | null;
 }) {
   const isEdit = Boolean(dossier);
@@ -163,6 +177,8 @@ export default function DossierForm({
       Boolean(dossier?.cabinet_expert || dossier?.expert_nom || dossier?.date_expertise)
   );
   const [file, setFile] = useState<File | null>(prefillFile ?? null);
+  // Téléphone : la modale épouse la zone visible, clavier compris (v11.2).
+  const { style: zoneStyle } = useZoneVisible(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
@@ -173,6 +189,20 @@ export default function DossierForm({
   const [analysed, setAnalysed] = useState<boolean>(Boolean(prefillLignes));
   // Cohérence « somme des lignes = total HT du rapport » (contrôle serveur)
   const [controle, setControle] = useState<ControleChiffrage | null>(null);
+  // MENTIONS PARTICULIÈRES du rapport (v11.2) — null = pas (re)analysé.
+  const [mentions, setMentions] = useState<MentionRapport[] | null>(prefillMentions ?? null);
+  // AGRÉMENTS À TARIF PARTICULIER (v11.2) : catalogue chargé une fois ;
+  // après l'analyse, les agréments dont l'assureur correspond sont proposés
+  // au rattachement (cochés par défaut). Tolérant : table absente → rien.
+  const [catalogue, setCatalogue] = useState<Particularite[]>([]);
+  const [rattacher, setRattacher] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    if (isEdit) return;
+    chargerParticularites()
+      .then(setCatalogue)
+      .catch(() => undefined);
+  }, [isEdit]);
+  const agrementsProposes = agrementsPourAssureur(catalogue, form.assureur);
 
   // La TVA vit désormais SUR LE DOSSIER : un seul taux, celui du formulaire,
   // sert à la fois à l'affichage HT/TTC et aux documents générés.
@@ -354,6 +384,9 @@ export default function DossierForm({
       setAutoLignes(Array.isArray(d.lignes) ? d.lignes : []);
       setAnalysed(true);
       setControle(ctrl);
+      setMentions(Array.isArray(extrait.mentions) ? extrait.mentions : []);
+      // Agréments reconnus sur l'assureur lu : proposés cochés.
+      setRattacher({});
       const apprises = Number(extrait.regles_appliquees) || 0;
       setAnalyzeMsg(
         avertissement
@@ -431,10 +464,18 @@ export default function DossierForm({
       };
 
       let idFinal: string | undefined;
+      // MENTIONS PARTICULIÈRES (v11.2) : écriture SÉPARÉE et tolérante — si
+      // la migration v61 n'est pas passée, le dossier est créé quand même.
+      const conserverMentions = async (id: string | undefined) => {
+        if (!id || mentions === null) return;
+        const { error: eM } = await supabase.from("dossiers").update({ mentions_rapport: mentions }).eq("id", id);
+        if (eM) console.warn("Mentions du rapport non conservées :", eM.message);
+      };
       if (isEdit && dossier) {
         const { error: updErr } = await supabase.from("dossiers").update(payload).eq("id", dossier.id);
         if (updErr) throw updErr;
         idFinal = dossier.id;
+        await conserverMentions(dossier.id);
         await synchroniserAnnuaire(dossier.id);
       } else {
         const { data: created, error: insErr } = await supabase
@@ -445,6 +486,19 @@ export default function DossierForm({
         if (insErr) throw insErr;
         const newId = created?.id as string | undefined;
         idFinal = newId;
+
+        await conserverMentions(newId);
+        // AGRÉMENT reconnu et laissé coché : on rattache (tolérant).
+        if (newId) {
+          for (const p of agrementsProposes) {
+            if (rattacher[p.id] === false) continue;
+            try {
+              await poserParticularite(newId, p.id);
+            } catch (e) {
+              console.warn("Agrément non rattaché :", e);
+            }
+          }
+        }
 
         await synchroniserAnnuaire(newId);
 
@@ -529,8 +583,8 @@ export default function DossierForm({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm">
-      <div className="w-full max-w-2xl glass-card my-8 modal-panel">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto backdrop-blur-sm" style={zoneStyle}>
+      <div className="w-full max-w-2xl glass-card my-2 sm:my-8 modal-panel">
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-white">
             {isEdit ? "Modifier le dossier" : "Nouveau dossier"}
@@ -615,6 +669,64 @@ export default function DossierForm({
                   )}
                 </div>
               )
+            )}
+
+            {/* MENTIONS PARTICULIÈRES (v11.2) : conservatoire, sursis à travaux,
+                VGE, règlement direct, franchise… — l'alerte apparaît AVANT
+                l'enregistrement, puis reste sur la fiche et dans la facture. */}
+            {mentions && mentions.length > 0 && <MentionsRapport mentions={mentions} className="mt-3" />}
+            {mentions && mentions.length === 0 && (
+              <p className="mt-2 text-xs text-white/50">Aucune mention particulière relevée dans le rapport.</p>
+            )}
+
+            {/* AGRÉMENT RECONNU (v11.2) : l'assureur lu correspond à un agrément
+                à tarif particulier → rattachement proposé + écarts de taux. */}
+            {!isEdit && agrementsProposes.length > 0 && (
+              <div className="alerte alerte-info mt-3 text-xs">
+                <div className="alerte-titre">Agrément à tarif particulier reconnu</div>
+                {agrementsProposes.map((p) => {
+                  const ecarts = ecartsTarifs(
+                    p,
+                    autoLignes.map((l) => ({
+                      designation: l.designation || "",
+                      prix_unitaire: Number(l.prix_unitaire) || 0,
+                      remise: Number(l.remise) || 0,
+                      categorie: l.categorie || null,
+                    }))
+                  );
+                  return (
+                    <div key={p.id} className="mt-1.5">
+                      <label className="flex cursor-pointer items-start gap-2">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 shrink-0"
+                          checked={rattacher[p.id] !== false}
+                          onChange={(e) => setRattacher((r) => ({ ...r, [p.id]: e.target.checked }))}
+                        />
+                        <span className="min-w-0">
+                          <span className="font-semibold">Rattacher ce dossier à « {p.nom} »</span> — {resumeTarifs(p)}
+                        </span>
+                      </label>
+                      {ecarts.length > 0 ? (
+                        <div className="mt-1 pl-6">
+                          <span className="font-semibold">⚠ Le rapport ne suit pas les tarifs de l&apos;agrément :</span>
+                          <ul className="ml-4 list-disc">
+                            {ecarts.slice(0, 6).map((e) => (
+                              <li key={e}>{e}</li>
+                            ))}
+                            {ecarts.length > 6 && <li>… et {ecarts.length - 6} autre(s)</li>}
+                          </ul>
+                          <span className="block opacity-80">
+                            Rien n&apos;est modifié automatiquement : dans la facture, le bouton « Appliquer les tarifs de l&apos;agrément » reprend les conditions négociées.
+                          </span>
+                        </div>
+                      ) : (
+                        autoLignes.length > 0 && <span className="block pl-6 opacity-80">✓ Les taux du rapport sont conformes à l&apos;agrément.</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
 
             {analysed && (

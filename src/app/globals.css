@@ -662,6 +662,59 @@ html.light .skeleton::after {
   .segment-btn { padding: 0.28rem 0.55rem; font-size: 0.7rem; }
 }
 
+/* ====================================================================
+   ALERTES (v11.2) — mentions particulières du rapport, agréments.
+   Fond pastel + texte foncé : lisible dans les DEUX thèmes sans surcharge.
+==================================================================== */
+.alerte {
+  border-radius: 0.6rem;
+  border: 2px solid;
+  padding: 0.6rem 0.8rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.alerte-titre { font-weight: 700; font-size: 0.85rem; }
+.alerte-danger { background: #ffe4e6; border-color: #fb7185; color: #881337; }
+.alerte-warn   { background: #fef3c7; border-color: #fbbf24; color: #78350f; }
+.alerte-info   { background: #ede9fe; border-color: #a78bfa; color: #4c1d95; }
+.alerte-ok     { background: #d1fae5; border-color: #34d399; color: #064e3b; }
+html:not(.light) .alerte-danger { background: rgba(244, 63, 94, 0.16); border-color: rgba(251, 113, 133, 0.7); color: #fecdd3; }
+html:not(.light) .alerte-warn   { background: rgba(245, 158, 11, 0.16); border-color: rgba(251, 191, 36, 0.7); color: #fde68a; }
+html:not(.light) .alerte-info   { background: rgba(139, 92, 246, 0.16); border-color: rgba(167, 139, 250, 0.7); color: #ddd6fe; }
+html:not(.light) .alerte-ok     { background: rgba(16, 185, 129, 0.16); border-color: rgba(52, 211, 153, 0.7); color: #a7f3d0; }
+
+/* ====================================================================
+   CADRAGE (v11.2) — plus rien ne sort de l'écran.
+   Constat utilisateur : des champs et des textes « hors champ » dans
+   plusieurs onglets, davantage encore sur iPhone. Causes réelles :
+   1. un enfant de grille / de flex a une largeur minimale = son contenu
+      (min-width:auto) : un email, un VIN ou un libellé long pousse la
+      colonne au-delà du cadre — on remet min-width:0 partout, le texte
+      se replie ;
+   2. les mots longs ne se coupent pas — overflow-wrap sur tout le corps ;
+   3. iOS ZOOME la page dès qu'un champ de moins de 16 px reçoit le focus,
+      et la page reste décalée à droite après le clavier — les champs
+      passent à 16 px sur téléphone (le corps de texte est à 17 px, ce
+      n'est pas plus gros que le reste) ;
+   4. filet de sécurité : la page elle-même ne défile jamais latéralement
+      (overflow-x: clip, qui ne bloque pas le sticky ni les modales).
+==================================================================== */
+html, body { overflow-x: hidden; overflow-x: clip; max-width: 100%; }
+body { overflow-wrap: break-word; }
+.grid > *, .flex > *:not(.shrink-0), .inline-flex > *:not(.shrink-0) { min-width: 0; }
+img, svg, video, canvas { max-width: 100%; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+input, select, textarea { max-width: 100%; }
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea,
+  .field-input {
+    font-size: 16px !important;
+  }
+  .modal-panel > div { padding-left: 0.9rem; padding-right: 0.9rem; }
+}
+
 /* Champs du formulaire de contact public (v9.4) */
 .lp-input {
   width: 100%;

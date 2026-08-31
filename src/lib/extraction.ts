@@ -16,6 +16,7 @@ import { Dossier } from "./types";
 import { LigneExtraite, normaliseLignes } from "./documents";
 import { fetchAuth, lireReponse } from "./apiClient";
 import { supabase } from "./supabaseClient";
+import { fusionnerMentions, type MentionRapport } from "./mentionsRapport";
 
 /**
  * Contrôle rendu par le serveur : la somme des lignes extraites retombe-t-elle
@@ -47,6 +48,13 @@ export type Extraction = Partial<Dossier> & {
   controle?: ControleChiffrage | null;
   /** Nombre de corrections appliquées depuis la mémoire de l'analyse. */
   regles_appliquees?: number | null;
+  /**
+   * v11.2 — mentions particulières du rapport (conservatoire, sursis à
+   * travaux, VGE, règlement direct…). Renvoyées par les deux moitiés de
+   * l'analyse et fusionnées ; absentes = non calculées (scan sans calque
+   * côté chiffrage).
+   */
+  mentions?: MentionRapport[] | null;
 };
 
 export type ResultatAnalyse = {
@@ -91,6 +99,13 @@ export async function analyserRapport(file: File): Promise<ResultatAnalyse> {
     ...(okId ? identite.value : {}),
     ...(okCh ? chiffrage.value : {}),
   };
+  // Les mentions viennent des DEUX moitiés (calque texte d'un côté, IA de
+  // l'autre) : la fusion dédoublonne par code, la seconde ne doit pas
+  // écraser la première.
+  data.mentions = fusionnerMentions(
+    okId ? identite.value.mentions : null,
+    okCh ? chiffrage.value.mentions : null
+  );
 
   let avertissement: string | null = null;
   if (okId && !okCh) {
@@ -129,6 +144,8 @@ export type ResultatReanalyse = {
   montant: number | null;
   tva: number | null;
   controle: ControleChiffrage | null;
+  /** Mentions relues (null si le rapport n'a pas de calque texte). */
+  mentions: MentionRapport[] | null;
 };
 
 export async function reanalyserChiffrage(
@@ -159,5 +176,12 @@ export async function reanalyserChiffrage(
   const { error: eMaj } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
   if (eMaj) throw new Error(`Chiffrage relu mais non enregistré : ${eMaj.message}`);
 
-  return { lignes, montant, tva, controle: extrait.controle ?? null };
+  // Mentions particulières (v11.2) : mise à jour SÉPARÉE et tolérante —
+  // si la migration v61 n'est pas passée, le chiffrage relu reste acquis.
+  const mentions = Array.isArray(extrait.mentions) ? extrait.mentions : null;
+  if (mentions) {
+    await supabase.from("dossiers").update({ mentions_rapport: mentions }).eq("id", dossier.id);
+  }
+
+  return { lignes, montant, tva, controle: extrait.controle ?? null, mentions };
 }

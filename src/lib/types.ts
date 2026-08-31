@@ -85,6 +85,8 @@ export type Dossier = {
   litige_probleme?: string | null;
   litige_deblocage?: string | null;
   litige_depuis?: string | null;
+  /** v11.2 — mentions particulières lues dans le rapport (jsonb, cf. lib/mentionsRapport). */
+  mentions_rapport?: unknown;
   pec_reference?: string | null; // référence / n° de l'accord (optionnel)
   // Note libre du dossier (bouton rond en bas à droite de la fiche) — v7.2
   note?: string | null;

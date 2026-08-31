@@ -6,6 +6,7 @@ import { IaRegle } from "@/lib/types";
 import { estPosteMo } from "@/lib/documents";
 import { texteDuPdf } from "@/lib/pdfTexte";
 import { lireChiffrageGrille } from "@/lib/chiffrageGrille";
+import { detecterMentions, fusionnerMentions, mentionObservations } from "@/lib/mentionsRapport";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -65,7 +66,9 @@ Extrais UNIQUEMENT les informations d'identité (PAS le chiffrage, PAS la liste 
 "client_tel":string|null,
 "client_adresse":string|null,
 "client_code_postal":string|null,
-"client_ville":string|null
+"client_ville":string|null,
+"observations":string|null,
+"mentions_particulieres":string[]
 }
 
 Où chercher :
@@ -76,6 +79,16 @@ Où chercher :
 - ATTENTION : le bloc "RÉPARATEUR" est le GARAGE — ne le mets nulle part.
   L'adresse du cabinet n'est pas celle de l'assurance.
 - Téléphones gardés tels quels (ex: 04 69 42 01 80).
+- "observations" = le texte du bloc « OBSERVATIONS » / « COMMENTAIRES » / « CONCLUSIONS »
+  de l'expert, recopié tel quel (300 caractères max, null si absent). Ignore les
+  mentions de pied de page communes à tous les rapports (« ne constitue en aucun cas
+  un ordre de réparation », « sous réserve de garanties »).
+- "mentions_particulieres" = liste (peut être vide) des mentions qui changent la conduite
+  du dossier, recopiées TELLES QUELLES depuis le rapport : « expertise à titre
+  conservatoire », « sursis à travaux », « procédure VGE », « véhicule économiquement
+  irréparable », « règlement direct : non / suspendu / sous réserve », « TVA ouvrant
+  droit : oui », « franchise … € », « vétusté … », « rapport provisoire », « accord
+  réparateur : non », « prise en charge : non ». Rien d'autre.
 
 ${REGLES_COMMUNES}`;
 
@@ -490,6 +503,10 @@ export async function POST(req: NextRequest) {
               }),
               source: "grille" as const,
             },
+            // MENTIONS PARTICULIÈRES (v11.2) : lues dans le calque texte,
+            // sans IA — renvoyées aussi ici pour que « Relire le rapport »
+            // les rafraîchisse sur un dossier ancien.
+            mentions: detecterMentions(calqueTexte),
           },
           partie,
         });
@@ -583,6 +600,51 @@ export async function POST(req: NextRequest) {
       data.controle = { ...controle, blocs: controlerBlocs(lignes, recap) };
       delete (data as { recap?: Recap }).recap;
     }
+
+    // ================================================================
+    //  MENTIONS PARTICULIÈRES (v11.2)
+    //  Deux sources fusionnées : la lecture DÉTERMINISTE du calque texte
+    //  (fiable, gratuite) et, pour les scans sans calque, le bloc
+    //  d'observations + la liste rendue par le modèle, repassés dans le
+    //  même détecteur (mêmes codes, mêmes conseils). Le texte libre des
+    //  observations est conservé en mention « info » quand il dit
+    //  quelque chose.
+    // ================================================================
+    if (partie !== "chiffrage" || calqueTexte) {
+      const obs = typeof data.observations === "string" ? data.observations : "";
+      const listeIa = Array.isArray(data.mentions_particulieres)
+        ? (data.mentions_particulieres as unknown[]).map((m) => String(m ?? "")).join("\n")
+        : "";
+      const mentions = fusionnerMentions(
+        detecterMentions(calqueTexte),
+        detecterMentions(obs),
+        detecterMentions(listeIa),
+        // Sans calque texte, la liste IA fait foi même si aucun motif connu ne
+        // matche : on l'affiche telle quelle en avertissement.
+        !calqueTexte && listeIa
+          ? listeIa
+              .split("\n")
+              .map((t) => t.trim())
+              .filter((t) => t.length > 3)
+              .slice(0, 6)
+              .map((t, i) => ({
+                code: `ia_${i}`,
+                gravite: "warn" as const,
+                libelle: "Mention relevée par l'analyse",
+                conseil: "Vérifie cette mention dans le rapport avant de facturer ou d'engager les travaux.",
+                extrait: t.slice(0, 200),
+                montant: null,
+              }))
+          : [],
+        (() => {
+          const o = mentionObservations(obs);
+          return o ? [o] : [];
+        })()
+      );
+      data.mentions = mentions;
+    }
+    delete data.observations;
+    delete data.mentions_particulieres;
 
     return NextResponse.json({ data, partie });
   } catch (err: unknown) {

@@ -110,6 +110,7 @@ export default function ImportPage() {
           prefill={prefill}
           prefillFile={file}
           prefillLignes={prefill?.lignes}
+          prefillMentions={prefill?.mentions ?? null}
           prefillTva={prefill?.tva ?? null}
           onClose={() => setShowForm(false)}
           onSaved={(id) => router.push(id ? `/sinistres/${id}` : "/sinistres")}

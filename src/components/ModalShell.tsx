@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useZoneVisible } from "@/lib/cadreMobile";
 
 /**
  * Coque de modale PARTAGÉE, rendue via un portail React sur <body>.
@@ -24,6 +25,8 @@ export default function ModalShell({
   maxWidth?: string;
 }) {
   const [mounted, setMounted] = useState(false);
+  // Téléphone : la modale épouse la zone VISIBLE (clavier compris) — v11.2.
+  const { style: zoneStyle } = useZoneVisible(true);
 
   useEffect(() => {
     setMounted(true);
@@ -46,12 +49,13 @@ export default function ModalShell({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 overflow-y-auto backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto backdrop-blur-sm"
+      style={zoneStyle}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className={`w-full ${maxWidth} glass-card my-8 modal-panel`}>
+      <div className={`w-full ${maxWidth} glass-card my-2 sm:my-8 modal-panel`}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <h2 className="text-lg font-semibold text-white">{title}</h2>
           <button onClick={onClose} className="text-white/50 hover:text-white text-xl leading-none">×</button>

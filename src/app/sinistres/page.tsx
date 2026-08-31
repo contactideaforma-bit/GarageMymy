@@ -25,6 +25,7 @@ import StatCard from "@/components/StatCard";
 import { ouvrirFichier } from "@/lib/storage";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
+import { mentionsBloquantes, mentionsDepuisJson, resumeMentions } from "@/lib/mentionsRapport";
 import {
   Particularite,
   badgeParticularite,
@@ -743,6 +744,7 @@ export default function SinistresPage() {
                         ⚠ Litige
                       </span>
                     )}
+              <BadgeMentions dossier={d} />
               {aUneNote(d) && <PastilleNote note={d.note} />}
               {d.mode_cession && (
                 <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
@@ -861,6 +863,7 @@ export default function SinistresPage() {
                         ⚠ Litige
                       </span>
                     )}
+                    <BadgeMentions dossier={d} />
                     {d.mode_cession && (
                       <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
                         Cession
@@ -970,5 +973,28 @@ function ThTri({
         />
       )}
     </th>
+  );
+}
+
+/**
+ * Badge « mention particulière » (v11.2) : conservatoire, sursis, VGE…
+ * Rouge si une mention bloque la facturation, ambre sinon ; infobulle =
+ * la liste. Les mentions purement informatives n'ont pas de badge.
+ */
+function BadgeMentions({ dossier }: { dossier: Dossier }) {
+  const mentions = mentionsDepuisJson(dossier.mentions_rapport);
+  const resume = resumeMentions(mentions, 2);
+  if (!resume) return null;
+  const bloque = mentionsBloquantes(mentions).length > 0;
+  return (
+    <span
+      className={`badge ${bloque ? "badge-danger" : "badge-warn"}`}
+      title={mentions
+        .filter((m) => m.gravite !== "info")
+        .map((m) => `${m.libelle}${m.montant != null ? ` (${m.montant} €)` : ""}`)
+        .join(" · ")}
+    >
+      {bloque ? "⛔" : "⚠"} {resume}
+    </span>
   );
 }
