@@ -699,9 +699,22 @@ html:not(.light) .alerte-ok     { background: rgba(16, 185, 129, 0.16); border-c
    4. filet de sécurité : la page elle-même ne défile jamais latéralement
       (overflow-x: clip, qui ne bloque pas le sticky ni les modales).
 ==================================================================== */
-html, body { overflow-x: hidden; overflow-x: clip; max-width: 100%; }
-body { overflow-wrap: break-word; }
-.grid > *, .flex > *:not(.shrink-0), .inline-flex > *:not(.shrink-0) { min-width: 0; }
+/* v11.4 — `overflow-x: hidden` sur html ET body faisait de body un conteneur
+   de défilement : la barre du haut en `position: sticky` décrochait et se
+   retrouvait AU-DESSUS du titre de page (constaté sur la fiche dossier).
+   `clip` ne crée PAS de conteneur de défilement : on ne garde que lui, et
+   uniquement sur html. */
+html { overflow-x: clip; }
+body { max-width: 100%; overflow-wrap: break-word; }
+
+/* v11.4 — cette règle écrasait les `min-w-*` VOLONTAIRES de Tailwind (elle
+   est plus spécifique) : le bloc texte d'une suggestion, censé garder 16rem
+   et faire passer les boutons à la ligne, se réduisait à rien et le texte
+   tombait en colonne d'un mot. On épargne donc tout élément qui déclare
+   lui-même une largeur minimale. */
+.grid > *:not([class*="min-w-"]),
+.flex > *:not(.shrink-0):not([class*="min-w-"]),
+.inline-flex > *:not(.shrink-0):not([class*="min-w-"]) { min-width: 0; }
 img, svg, video, canvas { max-width: 100%; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; }
 input, select, textarea { max-width: 100%; }
@@ -737,9 +750,20 @@ input, select, textarea { max-width: 100%; }
      l'écran même quand la barre d'adresse de Safari change de hauteur. */
   .fixed { max-width: 100vw; }
 
-  /* Un mot très long (email, VIN, référence constructeur, URL) ne doit
-     jamais imposer sa largeur à sa colonne. */
-  td, th, dd, dt, li, p, span, div { overflow-wrap: anywhere; }
+  /* Un tableau `w-full` placé dans un cadre défilant ne défile PAS : il se
+     comprime jusqu'à ce que ses colonnes fassent une lettre de large. Sur
+     téléphone on lui impose donc un plancher — il défile alors dans son
+     cadre, comme prévu, au lieu d'écraser son contenu. (11 tableaux étaient
+     concernés : rentabilité, planning, archives, flotte, finance, banque,
+     véhicules, commandes, documents, simulateur.) */
+  .overflow-x-auto table { min-width: 40rem; }
+
+  /* ⛔ NE PAS remettre `overflow-wrap: anywhere` ici (v11.3, retiré en v11.4).
+     Contrairement à `break-word`, `anywhere` réduit la largeur MINIMALE
+     intrinsèque d'une cellule à UN caractère : les tableaux de l'annuaire
+     s'écrasaient et le texte s'affichait à la verticale, une lettre par
+     ligne. `break-word` (posé sur body) suffit et ne casse pas les colonnes.
+     Pour un identifiant vraiment long, utiliser `break-all` au cas par cas. */
 }
 
 /* Champs du formulaire de contact public (v9.4) */

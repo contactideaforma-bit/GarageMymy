@@ -175,8 +175,8 @@ export default function AssureursView() {
 
       {/* v52 : tableau à colonnes FIXES (le SIREN avait poussé les actions hors
           cadre). Email / téléphone / origine masqués sur écran étroit. */}
-      <div className="glass-card overflow-hidden">
-        <table className="w-full table-fixed text-sm">
+      <div className="glass-card overflow-x-auto">
+        <table className="w-full min-w-[44rem] table-fixed text-sm">
           <colgroup>
             <col className="w-[34%] md:w-[26%]" />
             <col className="hidden w-[13%] md:table-column" />

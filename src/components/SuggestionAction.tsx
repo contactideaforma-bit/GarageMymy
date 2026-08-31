@@ -137,8 +137,11 @@ export default function SuggestionAction({
       className="glass-card p-4"
       style={{ borderLeft: `8px solid ${tacheProgrammee ? "#10b981" : st.couleur}` }}
     >
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="min-w-[16rem] flex-1">
+      <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+        {/* v11.4 — sur téléphone le texte occupe toute la largeur et les
+            boutons passent à la ligne : la suggestion se lisait sinon dans
+            une colonne de deux mots de large. */}
+        <div className="w-full flex-1 sm:w-auto sm:min-w-[16rem]">
           <div className="flex items-center gap-2">
             <span className="font-pixel text-[0.5rem] text-white/50">SUGGESTION</span>
             {tacheProgrammee ? (
@@ -157,7 +160,7 @@ export default function SuggestionAction({
             </div>
           )}
         </div>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
+        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
           {tacheProgrammee ? (
             <button onClick={annulerProgrammation} className="btn-ghost btn-compact" title="Retirer la tâche du bloc À faire">
               Annuler

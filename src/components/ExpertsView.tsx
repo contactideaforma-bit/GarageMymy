@@ -92,8 +92,10 @@ export default function ExpertsView() {
         </div>
       )}
 
+      {/* v11.4 — sans largeur minimale, le tableau se comprimait jusqu'à une
+          lettre par colonne sur téléphone au lieu de défiler. */}
       <div className="glass-card overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[44rem] text-sm">
           <thead className="text-left text-white/50">
             <tr>
               <th className="px-5 py-3 font-medium">Cabinet</th>
