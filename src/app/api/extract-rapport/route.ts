@@ -8,6 +8,14 @@ import { texteDuPdf } from "@/lib/pdfTexte";
 import { lireChiffrageGrille } from "@/lib/chiffrageGrille";
 import { detecterMentions, fusionnerMentions, mentionObservations } from "@/lib/mentionsRapport";
 
+/**
+ * Mots qui annoncent un vrai blocage (v11.9). Sert à filtrer les lignes
+ * brutes rendues par le modèle quand le PDF n'a pas de calque texte : sans
+ * l'un de ces mots, la ligne n'est PAS remontée en avertissement.
+ */
+const RE_BLOQUANT =
+  /ne\s+pas\s+(?:engager|commencer|d[ée]buter|entreprendre|r[ée]parer|facturer)|sursis|surseoir|surseoit|conservatoire|en\s+attente|accord\s+(?:pr[ée]alable|de\s+la\s+compagnie|de\s+l.assureur)|sous\s+r[ée]serve|interdit|suspendu|refus|bloqu|non\s+r[ée]parable|irr[ée]parable|VGE|[ée]pave/i;
+
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -621,16 +629,28 @@ export async function POST(req: NextRequest) {
         detecterMentions(listeIa),
         // Sans calque texte, la liste IA fait foi même si aucun motif connu ne
         // matche : on l'affiche telle quelle en avertissement.
+        // REPLI IA — v11.9, fortement resserré.
+        // Avant : toute ligne rendue par le modèle devenait un avertissement
+        // « Mention relevée par l'analyse ». Résultat constaté sur un vrai
+        // rapport : « TVA Ouvrant Droit : OUI » s'affichait DEUX FOIS (une
+        // fois correctement typée, une fois en doublon générique) et
+        // « R.D.R. OUI » — qui est une bonne nouvelle — passait pour un
+        // problème à vérifier. On ne garde donc une ligne brute que si
+        // (a) aucune règle ne la reconnaît déjà, ET (b) elle contient un mot
+        // qui annonce vraiment un blocage. Mieux vaut ne rien dire que crier
+        // au loup : un avertissement inutile décrédibilise les vrais.
         !calqueTexte && listeIa
           ? listeIa
               .split("\n")
               .map((t) => t.trim())
               .filter((t) => t.length > 3)
-              .slice(0, 6)
+              .filter((t) => detecterMentions(t).length === 0)
+              .filter((t) => RE_BLOQUANT.test(t))
+              .slice(0, 4)
               .map((t, i) => ({
                 code: `ia_${i}`,
                 gravite: "warn" as const,
-                libelle: "Mention relevée par l'analyse",
+                libelle: "Condition relevée dans le rapport",
                 conseil: "Vérifie cette mention dans le rapport avant de facturer ou d'engager les travaux.",
                 extrait: t.slice(0, 200),
                 montant: null,

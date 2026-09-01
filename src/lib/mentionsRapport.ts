@@ -147,6 +147,20 @@ const REGLES: Regle[] = [
     motifs: [/r[èe]glement\s+direct[^\n]{0,30}:\s*accord[ée][^\n]{0,20}sous\s+r[ée]serve/i],
   },
   {
+    // v11.9 — « R.D.R. OUI » remontait en « mention relevée par l'analyse »,
+    // donc en avertissement, alors que c'est une BONNE nouvelle. On la type
+    // pour qu'elle s'affiche en information utile plutôt qu'en alarme.
+    code: "reglement_direct_oui",
+    gravite: "info",
+    libelle: "Règlement direct accordé",
+    conseil:
+      "L'assurance règle directement le garage : la facture lui est adressée (sous déduction de la franchise et de la vétusté éventuelles, qui restent au client).",
+    motifs: [
+      /r[èe]glement\s+direct[^\n]{0,30}:\s*(?:oui|accord[ée])/i,
+      /\bR\.?\s?D\.?\s?R\.?\s*:?\s*OUI\b/i,
+    ],
+  },
+  {
     code: "reglement_direct_non",
     gravite: "warn",
     libelle: "Pas de règlement direct",
@@ -168,7 +182,11 @@ const REGLES: Regle[] = [
   },
   {
     code: "tva_recuperable",
-    gravite: "warn",
+    // v11.9 — était "warn". Retour utilisateur : « la TVA, ce n'est pas
+    // nécessaire d'avertir à chaque fois, ce n'est pas pertinent ». C'est une
+    // information utile à la facturation, pas un problème à régler : elle
+    // reste affichée, mais en observation, avec les autres informations.
+    gravite: "info",
     libelle: "Client assujetti : TVA récupérable",
     conseil:
       "Le client récupère la TVA : l'assurance indemnise HORS TAXES, la TVA est à facturer et à encaisser auprès du client.",
@@ -304,7 +322,7 @@ export function detecterMentions(texte: string | null | undefined): MentionRappo
   }
 
   // Un seul état de règlement direct : le plus précis l'emporte.
-  const rd = ["reglement_direct_suspendu", "reglement_direct_reserve", "reglement_direct_non"];
+  const rd = ["reglement_direct_suspendu", "reglement_direct_reserve", "reglement_direct_non", "reglement_direct_oui"];
   const presents = rd.filter((c) => vus.has(c));
   if (presents.length > 1) {
     const garder = presents[0];
@@ -397,7 +415,6 @@ export function resumeMentions(mentions: MentionRapport[] | null | undefined, ma
     reglement_direct_reserve: "RD sous réserve",
     reglement_direct_non: "Sans RD",
     accord_reparateur_non: "Sans accord réparateur",
-    tva_recuperable: "TVA client",
     franchise: "Franchise",
     vetuste: "Vétusté",
   };

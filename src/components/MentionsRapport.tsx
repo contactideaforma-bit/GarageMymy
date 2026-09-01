@@ -45,7 +45,12 @@ export default function MentionsRapport({
       {titre && (
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="alerte-titre">
-            {bloquantes ? "⛔" : importantes.length ? "⚠" : "ℹ"} {titre}
+            {/* v11.9 — un bloc qui ne contient que des observations ne doit pas
+                s'annoncer comme une alerte : « Mentions particulières » sur
+                fond ambre faisait passer « TVA récupérable » pour un problème.
+                Le titre change avec le contenu réel. */}
+            {bloquantes ? "⛔" : importantes.length ? "⚠" : "ℹ"}{" "}
+            {importantes.length === 0 ? "Informations du rapport" : titre}
           </span>
           {bloquantes && !compact && (
             <span className="badge badge-danger">Ne pas facturer sans accord</span>
