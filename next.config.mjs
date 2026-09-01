@@ -11,10 +11,19 @@ const nextConfig = {
   // Documents du pack commercial (v10.6) : PDF servis aux collaborateurs
   // par /api/admin/pack-doc et /api/commercial/pack — embarqués dans le
   // déploiement Vercel de ces fonctions (sinon absents du bundle serveur).
-  outputFileTracingIncludes: {
-    "/api/admin/pack-doc": ["./docs/pack-commercial/**"],
-    "/api/admin/donnees": ["./docs/pack-commercial/**"],
-    "/api/commercial/pack": ["./docs/pack-commercial/**"],
+  //
+  // ⚠️ v12.0 — cette clé était à la RACINE. Sur Next 14 elle n'y est pas
+  // reconnue (« Unrecognized key(s) in object: outputFileTracingIncludes »)
+  // et était donc IGNORÉE : les PDF n'étaient pas embarqués et le
+  // téléchargement des documents échouait en production. Elle doit vivre
+  // sous `experimental` tant qu'on est en Next 14 (elle passe à la racine
+  // en Next 15).
+  experimental: {
+    outputFileTracingIncludes: {
+      "/api/admin/pack-doc": ["./docs/pack-commercial/**"],
+      "/api/admin/donnees": ["./docs/pack-commercial/**"],
+      "/api/commercial/pack": ["./docs/pack-commercial/**"],
+    },
   },
   // Images libres de droits (banque Unsplash) affichées sur la page d'accueil
   images: {

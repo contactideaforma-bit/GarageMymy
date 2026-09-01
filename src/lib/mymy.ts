@@ -73,8 +73,12 @@ export type ContexteMyMy = {
 export const SUGGESTIONS_MYMY = [
   "Qu'est-ce que j'ai à faire aujourd'hui ?",
   "Quels dossiers sont impayés ?",
-  "Quels véhicules sont au garage ?",
-  "Résume mon activité",
+  // v12.0 — MY-MY fait aussi office de support : on montre d'emblée qu'on
+  // peut l'interroger sur l'abonnement, nos conditions et la réglementation.
+  "Que veut dire « sursis à travaux » ?",
+  "Que comprend mon forfait de secrétariat ?",
+  "Comment résilier mon abonnement ?",
+  "Quels sont les délais de paiement entre pros ?",
   "Rappelle-moi d'appeler un client demain",
 ];
 

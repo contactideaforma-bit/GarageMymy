@@ -1,20 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/relances-auto",
-      "schedule": "0 8 * * 1-5"
-    },
-    {
       "path": "/api/notifications-push",
       "schedule": "0 6 * * *"
     },
     {
-      "path": "/api/cron-comptes",
-      "schedule": "0 5 * * *"
-    },
-    {
-      "path": "/api/rappels-push",
-      "schedule": "*/15 * * * *"
+      "path": "/api/relances-auto",
+      "schedule": "0 8 * * 1-5"
     }
   ]
 }

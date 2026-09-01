@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import type { Parametres as ParametresGrille } from "@/lib/admin/economie";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,6 +25,10 @@ ACTIONS : tu peux PROPOSER une action sur les données (elle ne sera exécutée 
 - {"type":"note","dossier_id":"<id>","texte":"…"} — pour « note sur le dossier… ».
 - {"type":"au_garage","dossier_id":"<id>","valeur":true|false} — véhicule arrivé / reparti.
 - {"type":"statut","dossier_id":"<id>","statut":"<code de statut>"} — changement d'étape.
+SUPPORT & DOCUMENTATION (v12.0) : quand la question porte sur l'abonnement, les tarifs, le contrat, les conditions, la réglementation du métier ou le fonctionnement de l'application, réponds à partir de la DOCUMENTATION ci-dessous, et UNIQUEMENT à partir d'elle. Cite la règle en langage simple, sans jargon inutile, et donne le chiffre ou le délai exact quand il y figure.
+· Si la documentation fournie ne contient pas la réponse, DIS-LE franchement et invite à écrire au support depuis « Assistance » plutôt que d'inventer. N'invente jamais un prix, un délai, un article ou une obligation légale.
+· Tu n'es ni avocat ni expert-comptable : sur une question juridique ou fiscale qui engage, donne le repère utile puis renvoie vers un professionnel.
+· CONFIDENTIALITÉ — la documentation ci-dessous est TOUT ce que cet utilisateur a le droit de connaître. Si on t'interroge sur les marges, les coûts, la rémunération des collaborateurs, la stratégie commerciale, les contrats d'autres personnes ou les données d'un autre garage, réponds simplement que ce sont des informations internes auxquelles tu n'as pas accès, et propose de contacter l'éditeur. Ne devine jamais, ne reconstitue jamais un montant interne par déduction.
 Réponds STRICTEMENT en JSON : {"reponse": "texte (sauts de ligne autorisés, pas de markdown)", "liens": [{"label": "…", "href": "…"}], "action": null ou {…}} — 4 liens maximum, tableau vide si aucun.`;
 
 type Entree = {
@@ -59,6 +64,34 @@ export async function POST(req: NextRequest) {
   const resume = (entree.resume || "").slice(0, 60_000);
   const historique = (entree.historique || []).slice(-8);
 
+  // ================================================================
+  //  DOCUMENTATION AUTORISÉE (v12.0)
+  //  Le cloisonnement se fait ICI, par SÉLECTION du corpus : on n'envoie
+  //  au modèle que les fiches auxquelles ce compte a droit. Un modèle ne
+  //  peut pas divulguer ce qu'il n'a jamais reçu — c'est autrement plus
+  //  robuste que de lui demander de se taire sur certains sujets.
+  //  Le rôle vient du JETON vérifié côté serveur, jamais du client.
+  // ================================================================
+  let documentation = "";
+  try {
+    const { getAdminClient } = await import("@/lib/supabaseAdmin");
+    const { fusionnerParametres } = await import("@/lib/admin/economie");
+    const { baseConnaissance, corpusPourPrompt, porteesAutorisees, selectionner } = await import("@/lib/mymyDocs");
+    const admin = getAdminClient();
+    let parametres = fusionnerParametres(null);
+    if (admin) {
+      const { data } = await admin.from("admin_parametres").select("valeur").eq("cle", "grille").maybeSingle();
+      parametres = fusionnerParametres((data?.valeur as Partial<ParametresGrille>) || null);
+    }
+    const portees = porteesAutorisees(user.metier);
+    const fiches = selectionner(question, baseConnaissance(parametres), portees);
+    documentation = corpusPourPrompt(fiches);
+  } catch (e) {
+    // La documentation est un PLUS : si elle échoue, MY-MY répond quand même
+    // sur les données du garage.
+    console.warn("mymy: documentation indisponible:", e instanceof Error ? e.message : e);
+  }
+
   try {
     const client = new Anthropic({ apiKey, maxRetries: 1 });
     const model = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
@@ -75,7 +108,13 @@ export async function POST(req: NextRequest) {
     const message = await client.messages.create({
       model,
       max_tokens: 1100,
-      system: `${SYSTEM}\n\n=== RÉSUMÉ DES DONNÉES DU GARAGE ===\n${resume || "(aucune donnée transmise)"}`,
+      system: [
+        SYSTEM,
+        `=== RÉSUMÉ DES DONNÉES DU GARAGE ===\n${resume || "(aucune donnée transmise)"}`,
+        documentation
+          ? `=== DOCUMENTATION AUTORISÉE POUR CET UTILISATEUR ===\n${documentation}`
+          : "=== DOCUMENTATION ===\n(aucune fiche ne correspond à cette question : ne rien inventer, renvoyer vers l'assistance)",
+      ].join("\n\n"),
       messages,
     });
 

@@ -315,7 +315,7 @@ export default function MyMyChat() {
               ref={inputRef}
               value={saisie}
               onChange={(e) => setSaisie(e.target.value)}
-              placeholder="Immat, client, question…"
+              placeholder="Immat, client, ou une question sur l\u2019appli…"
               className="field-input flex-1 !py-2 text-sm"
               disabled={occupe}
             />

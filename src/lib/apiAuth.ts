@@ -6,7 +6,11 @@ import { getAdminClient } from "./supabaseAdmin";
 
 export async function utilisateurDepuisRequete(
   req: Request
-): Promise<{ id: string; email: string | null } | null> {
+  // v12.0 — `metier` ajouté (champ EN PLUS, aucun appelant cassé) : MY-MY doit
+  // connaître le rôle CÔTÉ SERVEUR pour choisir la documentation qu'il a le
+  // droit de lire. Le rôle ne doit jamais venir du client, qui pourrait se
+  // déclarer « commercial » pour lire nos documents commerciaux.
+): Promise<{ id: string; email: string | null; metier: string | null } | null> {
   const header = req.headers.get("authorization") || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : null;
   if (!token) return null;
@@ -14,7 +18,8 @@ export async function utilisateurDepuisRequete(
   if (!admin) return null;
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data.user) return null;
-  return { id: data.user.id, email: data.user.email ?? null };
+  const metier = (data.user.app_metadata as { metier?: string } | undefined)?.metier ?? null;
+  return { id: data.user.id, email: data.user.email ?? null, metier };
 }
 
 export const REPONSE_401 = {
