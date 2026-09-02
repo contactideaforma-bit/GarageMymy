@@ -65,7 +65,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           >
             ☰
           </button>
-          <Image src="/logo.png" alt="" width={28} height={28} className="rounded-lg" />
+          <Image src="/logo.png" alt="" width={28} height={28} />
           <span className="marque">My Easy Auto</span>
         </div>
       </div>

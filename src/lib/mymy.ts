@@ -492,7 +492,7 @@ export function repondreLocalement(ctx: ContexteMyMy, question: string): Message
   const pages: [RegExp, string, string][] = [
     [/planning/, "Planning réparation", "/planning"],
     [/agenda|rendez.?vous|rdv/, "Agenda", "/agenda"],
-    [/annuaire|contacts?/, "Annuaire", "/annuaire"],
+    [/annuaire|contacts?|base de donn/, "Base de données", "/annuaire"],
     [/factures?$/, "Factures", "/factures"],
     [/banque/, "Banque", "/banque"],
     [/emails?|mails?/, "Emails", "/emails"],
@@ -517,14 +517,14 @@ export function repondreLocalement(ctx: ContexteMyMy, question: string): Message
     const { dossiers: trouves } = chercherParMots(ctx, q, 4);
     if (trouves.length === 1) {
       const d = trouves[0];
-      return { role: "assistant", texte: `${libelleDossier(d)}\n${contactsDuDossier(ctx, d, cible).join("\n")}`, liens: [lienDossier(d), { label: "Annuaire", href: "/annuaire" }] };
+      return { role: "assistant", texte: `${libelleDossier(d)}\n${contactsDuDossier(ctx, d, cible).join("\n")}`, liens: [lienDossier(d), { label: "Base de données", href: "/annuaire" }] };
     }
     if (trouves.length > 1) {
       const texte = trouves.map((d) => `▪ ${libelleDossier(d)}\n${contactsDuDossier(ctx, d, cible).map((x) => "   " + x).join("\n")}`).join("\n");
       return { role: "assistant", texte: `Plusieurs dossiers correspondent :\n${texte}`, liens: trouves.map(lienDossier) };
     }
     const annuaire = contactsAnnuaire(ctx, q);
-    if (annuaire.length) return { role: "assistant", texte: annuaire.join("\n"), liens: [{ label: "Annuaire", href: "/annuaire" }] };
+    if (annuaire.length) return { role: "assistant", texte: annuaire.join("\n"), liens: [{ label: "Base de données", href: "/annuaire" }] };
     // sinon → IA (elle a l'annuaire dans son résumé)
   }
 

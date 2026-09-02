@@ -109,6 +109,14 @@ const CLE_ETAT_LISTE = "sinistres.selection";
  * ================================================================== */
 const CLE_LARGEURS = "mea.sinistres.colonnes";
 
+/** Bornes (v12.2) : en dessous de 96 px le contenu d'une cellule chevauchait
+ *  la colonne voisine ; au-delà de 560 px le tableau sort de l'écran. */
+const LARGEUR_MIN = 96;
+const LARGEUR_MAX = 560;
+function borneLargeur(px: number): number {
+  return Math.min(LARGEUR_MAX, Math.max(LARGEUR_MIN, px));
+}
+
 function lireLargeurs(): Record<string, number> {
   try {
     const brut = JSON.parse(localStorage.getItem(CLE_LARGEURS) || "{}");
@@ -233,7 +241,7 @@ export default function SinistresPage() {
     setLargeurs((prev) => {
       const suiv = { ...prev };
       if (px == null) delete suiv[cle];
-      else suiv[cle] = Math.round(px);
+      else suiv[cle] = Math.round(borneLargeur(px));
       ecrireLargeurs(suiv);
       return suiv;
     });
@@ -952,22 +960,28 @@ function ThTri({
       {/* Poignée : glisser = largeur manuelle (mémorisée), double-clic = auto. */}
       {onLargeur && (
         <span
-          onMouseDown={(e) => {
+          onPointerDown={(e) => {
+            // v12.2 : événements POINTEUR — la poignée répond aussi au doigt
+            // (tablette, téléphone en paysage), plus seulement à la souris.
             e.preventDefault();
             e.stopPropagation();
-            const th = (e.currentTarget as HTMLElement).closest("th");
+            const poignee = e.currentTarget as HTMLElement;
+            const th = poignee.closest("th");
             const base = th?.offsetWidth || 120;
             const depart = e.clientX;
-            const bouger = (ev: MouseEvent) => onLargeur(cle, Math.max(64, base + ev.clientX - depart));
+            try { poignee.setPointerCapture(e.pointerId); } catch { /* ignoré */ }
+            const bouger = (ev: PointerEvent) => onLargeur(cle, borneLargeur(base + ev.clientX - depart));
             const lacher = () => {
-              window.removeEventListener("mousemove", bouger);
-              window.removeEventListener("mouseup", lacher);
+              poignee.removeEventListener("pointermove", bouger);
+              poignee.removeEventListener("pointerup", lacher);
+              poignee.removeEventListener("pointercancel", lacher);
             };
-            window.addEventListener("mousemove", bouger);
-            window.addEventListener("mouseup", lacher);
+            poignee.addEventListener("pointermove", bouger);
+            poignee.addEventListener("pointerup", lacher);
+            poignee.addEventListener("pointercancel", lacher);
           }}
           onDoubleClick={() => onLargeur(cle, null)}
-          className="absolute -right-0.5 top-0 z-10 h-full w-2 cursor-col-resize rounded hover:bg-accent-teal/40"
+          className="absolute -right-1 top-0 z-10 h-full w-3 cursor-col-resize touch-none rounded hover:bg-accent-pink/40 sm:w-2"
           title="Glisser pour ajuster la largeur · double-clic : automatique"
           aria-hidden
         />

@@ -18,24 +18,20 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
     titre: "Pilotage",
     items: [
       { href: "/", label: "Tableau de bord" },
-      { href: "/conversation", label: "💬 Conversation" },
-      { href: "/rentabilite", label: "Rentabilité" },
+      { href: "/sinistres", label: "Sinistres" },
+      { href: "/conversation", label: "Conversation" },
     ],
   },
   {
-    titre: "Dossiers",
+    titre: "Suivi",
     items: [
-      { href: "/sinistres", label: "Sinistres" },
       { href: "/vehicules", label: "Véhicules" },
       { href: "/flotte", label: "Flotte du garage" },
-      { href: "/annuaire", label: "Annuaire" },
       { href: "/extranets", label: "Espaces experts" },
+      { href: "/annuaire", label: "Base de données" },
       { href: "/archives", label: "Archives" },
+      { href: "/factures", label: "Factures" },
     ],
-  },
-  {
-    titre: "Documents",
-    items: [{ href: "/factures", label: "Factures" }],
   },
   {
     titre: "Finance",
@@ -43,12 +39,13 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
       { href: "/finance", label: "Paiements & relances" },
       { href: "/compta", label: "Export comptable" },
       { href: "/banque", label: "Banque" },
-      { href: "/emails", label: "Emails" },
+      { href: "/rentabilite", label: "Rentabilité" },
     ],
   },
   {
     titre: "Organisation",
     items: [
+      { href: "/emails", label: "Emails" },
       { href: "/planning", label: "Planning réparation" },
       { href: "/agenda", label: "Agenda" },
       { href: "/sauvegarde", label: "Sauvegarde" },
@@ -63,6 +60,11 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
   },
 ];
 
+/** Sections repliables (v12.2) : la section de la page courante s'ouvre
+ *  d'elle-même ; un clic sur un titre replie/déplie, et le choix est
+ *  mémorisé sur l'appareil (localStorage). */
+const CLE_NAV = "mea.nav.";
+
 export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const isActive = (href: string) =>
@@ -73,6 +75,27 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         href === "/support"
         ? pathname === "/support"
         : pathname.startsWith(href);
+
+  const [ouvertes, setOuvertes] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    const init: Record<string, boolean> = {};
+    for (const sec of SECTIONS) {
+      let v: string | null = null;
+      try { v = window.localStorage.getItem(CLE_NAV + sec.titre); } catch { /* ignoré */ }
+      init[sec.titre] = v === "1" ? true : v === "0" ? false : false;
+    }
+    setOuvertes(init);
+  }, []);
+  // La section qui contient la page courante est toujours visible.
+  const sectionCourante = SECTIONS.find((sec) => sec.items.some((it) => isActive(it.href)))?.titre;
+  function basculerSection(titre: string) {
+    setOuvertes((prev) => {
+      const suivant = !(prev[titre] ?? titre === sectionCourante);
+      try { window.localStorage.setItem(CLE_NAV + titre, suivant ? "1" : "0"); } catch { /* ignoré */ }
+      return { ...prev, [titre]: suivant };
+    });
+  }
+  const estOuverte = (titre: string) => (ouvertes[titre] ?? false) || titre === sectionCourante;
 
   const [email, setEmail] = useState<string | null>(null);
   // Messages de la conversation garage ↔ secrétaire pas encore lus par le
@@ -127,7 +150,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             alt="My Easy Auto"
             width={44}
             height={44}
-            className="rounded-xl shadow-[0_0_18px_rgba(236,72,153,0.35)]"
+            className="drop-shadow-[0_0_10px_rgba(236,72,153,0.3)]"
           />
         </button>
         <div className="min-w-0">
@@ -140,7 +163,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         {t.importer}
       </Link>
 
-      <nav className="space-y-4">
+      <nav className="space-y-1">
         {/* ESPACE CLIENTS (v10.2) : comptes commerciaux et éditeur, en tête de menu. */}
         {(metier === "commercial" || admin) && (
           <div>
@@ -163,8 +186,16 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         )}
         {SECTIONS.map((sec) => (
           <div key={sec.titre}>
-            <div className="nav-section">{sec.titre}</div>
-            <div className="space-y-0.5">
+            <button
+              type="button"
+              onClick={() => basculerSection(sec.titre)}
+              className={`nav-titre ${estOuverte(sec.titre) ? "ouvert" : ""}`}
+              aria-expanded={estOuverte(sec.titre)}
+            >
+              <span>{sec.titre}</span>
+              <span className="chevron" aria-hidden>▶</span>
+            </button>
+            <div className={`nav-sous space-y-0.5 ${estOuverte(sec.titre) ? "" : "hidden"}`}>
               {sec.items.map((item) => {
                 const active = isActive(item.href);
                 return (
@@ -186,11 +217,11 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      <div className="space-y-0.5 border-t border-white/10 pt-3 mt-4">
+      <div className="space-y-0 border-t border-white/10 pt-2 mt-3">
         <Link
           href="/profil"
           onClick={onNavigate}
-          className={`nav-lien ${isActive("/profil") ? "actif" : ""}`}
+          className={`nav-lien nav-compact ${isActive("/profil") ? "actif" : ""}`}
         >
           Profil du garage
         </Link>
@@ -198,7 +229,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <Link
             href="/support/admin"
             onClick={onNavigate}
-            className={`nav-lien ${isActive("/support/admin") ? "actif" : ""}`}
+            className={`nav-lien nav-compact ${isActive("/support/admin") ? "actif" : ""}`}
           >
             🛠️ Console d&apos;assistance
           </Link>
@@ -207,7 +238,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <Link
             href="/admin"
             onClick={onNavigate}
-            className={`nav-lien ${isActive("/admin") ? "actif" : ""}`}
+            className={`nav-lien nav-compact ${isActive("/admin") ? "actif" : ""}`}
           >
             📈 Espace éditeur
           </Link>
@@ -216,13 +247,13 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         {email && (
           <button
             onClick={deconnexion}
-            className="nav-lien"
+            className="nav-lien nav-compact"
           >
             Se déconnecter
           </button>
         )}
-        {email && <div className="px-3 pt-1 text-[11px] text-white/30 truncate">{email}</div>}
-        <div className="px-3 pt-2 text-xs text-white/30">My Easy Auto · {VERSION_LABEL}</div>
+        {email && <div className="px-3 pt-0.5 text-[10px] text-white/30 truncate">{email}</div>}
+        <div className="px-3 pt-1 text-[10px] text-white/30">My Easy Auto · {VERSION_LABEL}</div>
       </div>
 
       {snakeOpen && <SnakeGame onClose={() => setSnakeOpen(false)} />}

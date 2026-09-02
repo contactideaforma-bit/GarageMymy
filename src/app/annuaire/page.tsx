@@ -19,7 +19,7 @@ export default function AnnuairePage() {
 
   return (
     <div>
-      <h1 className="titre-page mb-4">Annuaire</h1>
+      <h1 className="titre-page mb-4">Base de données</h1>
       <ConfigBanner />
 
       <div className="inline-flex rounded-xl border border-white/10 bg-white/5 p-1 mb-5">

@@ -18,7 +18,7 @@ export default function ThemeToggle() {
   }
 
   return (
-    <button onClick={toggle} className="nav-lien justify-between" title="Changer de thème">
+    <button onClick={toggle} className="nav-lien nav-compact justify-between" title="Changer de thème">
       <span className="flex items-center gap-2">{light ? "Mode clair" : "Mode sombre"}</span>
       <span
         className="relative h-5 w-9 shrink-0 rounded-full border transition-colors"

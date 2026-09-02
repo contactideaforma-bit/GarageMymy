@@ -42,8 +42,8 @@
   --mea-neon-fond: rgba(236, 72, 153, 0.16);
   --mea-neon-fond-2: rgba(236, 72, 153, 0.26);
   --mea-neon-bordure: rgba(244, 114, 182, 0.55);
-  --mea-lueur: 0 0 0 1px rgba(244, 114, 182, 0.25), 0 0 18px rgba(236, 72, 153, 0.35);
-  --mea-lueur-forte: 0 0 0 1px rgba(244, 114, 182, 0.45), 0 0 26px rgba(236, 72, 153, 0.5);
+  --mea-lueur: 0 0 0 1px rgba(244, 114, 182, 0.2), 0 0 12px rgba(236, 72, 153, 0.22);
+  --mea-lueur-forte: 0 0 0 1px rgba(244, 114, 182, 0.35), 0 0 18px rgba(236, 72, 153, 0.34);
   --mea-flou: blur(18px) saturate(1.5);
 }
 
@@ -67,8 +67,8 @@ html.light {
   --mea-neon-fond: rgba(236, 72, 153, 0.12);
   --mea-neon-fond-2: rgba(236, 72, 153, 0.2);
   --mea-neon-bordure: rgba(219, 39, 119, 0.45);
-  --mea-lueur: 0 0 0 1px rgba(236, 72, 153, 0.2), 0 0 16px rgba(236, 72, 153, 0.28);
-  --mea-lueur-forte: 0 0 0 1px rgba(236, 72, 153, 0.35), 0 0 22px rgba(236, 72, 153, 0.4);
+  --mea-lueur: 0 0 0 1px rgba(236, 72, 153, 0.16), 0 0 10px rgba(236, 72, 153, 0.18);
+  --mea-lueur-forte: 0 0 0 1px rgba(236, 72, 153, 0.28), 0 0 16px rgba(236, 72, 153, 0.26);
 }
 
 /* Base un peu plus grande : public pas forcément à l'aise avec l'écran */
@@ -137,7 +137,7 @@ input[type="time"] {
 :focus-visible {
   outline: 2px solid var(--mea-neon);
   outline-offset: 2px;
-  box-shadow: 0 0 12px rgba(236, 72, 153, 0.35);
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.25);
 }
 
 /* Conservé pour compat */
@@ -404,7 +404,7 @@ html:not(.light) .badge-neutral { background: rgba(255, 255, 255, 0.08); color: 
   width: 3px;
   border-radius: 2px;
   background: linear-gradient(180deg, var(--mea-rose), var(--mea-violet));
-  box-shadow: 0 0 8px rgba(236, 72, 153, 0.55);
+  box-shadow: 0 0 6px rgba(236, 72, 153, 0.4);
 }
 
 /* ---------- Étiquette capitale (compteurs, rubriques) ---------- */
@@ -489,8 +489,35 @@ html:not(.light) .badge-neutral { background: rgba(255, 255, 255, 0.08); color: 
   width: 3px;
   border-radius: 3px;
   background: var(--mea-neon);
-  box-shadow: 0 0 10px var(--mea-neon);
+  box-shadow: 0 0 6px var(--mea-neon);
 }
+
+/* Sections repliables de la barre latérale (v12.2) */
+.nav-titre {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.6rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mea-texte-3);
+  transition: background 0.15s, color 0.15s;
+}
+.nav-titre:hover { background: var(--mea-halo); color: var(--mea-texte-2); }
+.nav-titre .chevron {
+  font-size: 0.6rem;
+  transition: transform 0.15s;
+  color: var(--mea-neon);
+  opacity: 0.8;
+}
+.nav-titre.ouvert .chevron { transform: rotate(90deg); }
+.nav-sous { padding-left: 0.5rem; margin-top: 0.15rem; }
+/* Bas de barre (profil, thème, déconnexion) : plus resserré */
+.nav-lien.nav-compact { padding: 0.25rem 0.7rem; font-size: 0.78rem; }
 
 /* Logo-texte : dégradé violet → rose (lisible dans les deux thèmes) */
 .marque {
@@ -686,6 +713,10 @@ input, select, textarea { max-width: 100%; }
   .fixed { max-width: 100vw; }
   .overflow-x-auto table { min-width: 40rem; }
 }
+
+/* Tableau à colonnes réglées (v12.2) : une cellule trop étroite COUPE son
+   contenu au lieu de le laisser chevaucher la colonne voisine. */
+table.table-fixed th, table.table-fixed td { overflow: hidden; }
 
 /* ===== Densité MOBILE ===== */
 @media (max-width: 640px) {

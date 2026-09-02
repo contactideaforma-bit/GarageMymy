@@ -134,9 +134,75 @@ async function logoDataUrl(path: string | null | undefined): Promise<string | nu
 
 // Ouvre un PDF dans un nouvel onglet (visualisation ; le téléchargement
 // reste possible depuis la visionneuse du navigateur).
-function ouvrirPdf(pdf: jsPDF) {
-  const url = pdf.output("bloburl");
-  window.open(String(url), "_blank", "noopener,noreferrer");
+function ouvrirPdf(pdf: jsPDF, nomFichier = "document.pdf") {
+  const url = String(pdf.output("bloburl"));
+  // v12.2 — Safari (iPad, iPhone) BLOQUE window.open dès qu'il n'est plus
+  // dans le geste de l'utilisateur : le PDF est généré après des appels
+  // réseau, donc la fenêtre ne s'ouvrait jamais, sans message ni demande
+  // d'autorisation. Quand l'ouverture échoue, on affiche le PDF dans une
+  // visionneuse intégrée (avec un lien direct « Ouvrir » qui, lui, est un
+  // vrai clic et passe le bloqueur).
+  let fenetre: Window | null = null;
+  try {
+    fenetre = window.open(url, "_blank", "noopener,noreferrer");
+  } catch {
+    fenetre = null;
+  }
+  if (fenetre) return;
+  afficherPdfIntegre(url, nomFichier);
+}
+
+/** Visionneuse PDF intégrée (repli quand le navigateur bloque les fenêtres). */
+function afficherPdfIntegre(url: string, nomFichier: string) {
+  if (typeof document === "undefined") return;
+  document.getElementById("mea-visionneuse-pdf")?.remove();
+  const voile = document.createElement("div");
+  voile.id = "mea-visionneuse-pdf";
+  voile.setAttribute("role", "dialog");
+  voile.style.cssText =
+    "position:fixed;inset:0;z-index:10000;display:flex;flex-direction:column;background:rgba(8,10,22,0.92);";
+  const barre = document.createElement("div");
+  barre.style.cssText =
+    "display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.6rem .8rem;color:#eef0fb;font:600 .85rem system-ui,sans-serif;";
+  const titre = document.createElement("span");
+  titre.textContent = nomFichier;
+  titre.style.cssText = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;";
+  const actions = document.createElement("div");
+  actions.style.cssText = "display:flex;gap:.4rem;flex-shrink:0;";
+  const styleBtn =
+    "border:1px solid rgba(244,114,182,.5);background:rgba(236,72,153,.16);color:#fbcfe8;border-radius:.6rem;padding:.35rem .7rem;font:600 .8rem system-ui,sans-serif;text-decoration:none;cursor:pointer;";
+  const ouvrir = document.createElement("a");
+  ouvrir.href = url;
+  ouvrir.target = "_blank";
+  ouvrir.rel = "noopener noreferrer";
+  ouvrir.textContent = "Ouvrir";
+  ouvrir.style.cssText = styleBtn;
+  const telecharger = document.createElement("a");
+  telecharger.href = url;
+  telecharger.download = nomFichier;
+  telecharger.textContent = "Télécharger";
+  telecharger.style.cssText = styleBtn;
+  const fermer = document.createElement("button");
+  fermer.type = "button";
+  fermer.textContent = "Fermer";
+  fermer.style.cssText = styleBtn.replace("rgba(236,72,153,.16)", "rgba(255,255,255,.08)").replace("#fbcfe8", "#eef0fb").replace("rgba(244,114,182,.5)", "rgba(255,255,255,.2)");
+  const detruire = () => {
+    voile.remove();
+    document.removeEventListener("keydown", surTouche);
+  };
+  const surTouche = (e: KeyboardEvent) => {
+    if (e.key === "Escape") detruire();
+  };
+  fermer.onclick = detruire;
+  document.addEventListener("keydown", surTouche);
+  actions.append(ouvrir, telecharger, fermer);
+  barre.append(titre, actions);
+  const cadre = document.createElement("iframe");
+  cadre.src = url;
+  cadre.title = nomFichier;
+  cadre.style.cssText = "flex:1;width:100%;border:0;background:#fff;";
+  voile.append(barre, cadre);
+  document.body.appendChild(voile);
 }
 
 /* ==================================================================
