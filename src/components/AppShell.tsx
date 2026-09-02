@@ -57,25 +57,23 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* Barre du haut (mobile uniquement) — fond opaque pour que le
           contenu ne soit pas visible derrière en défilant */}
       <div className="lg:hidden sticky top-0 z-30 p-3 topbar-mobile">
-        <div className="glass-card flex items-center gap-3 px-3 py-2">
+        <div className="glass-card glass-blur flex items-center gap-3 px-3 py-2">
           <button
             onClick={() => setOpen(true)}
             aria-label="Ouvrir le menu"
-            className="rounded-lg px-2 py-1 text-2xl leading-none text-white/80 hover:bg-white/10"
+            className="btn-ghost btn-compact px-2.5 text-lg leading-none"
           >
             ☰
           </button>
-          <Image src="/logo.png" alt="" width={28} height={28} className="rounded border border-white/20" />
-          <span className="font-pixel text-[0.6rem] bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
-            MY EASY AUTO
-          </span>
+          <Image src="/logo.png" alt="" width={28} height={28} className="rounded-lg" />
+          <span className="marque">My Easy Auto</span>
         </div>
       </div>
 
       {/* Fond sombre (mobile, quand le tiroir est ouvert) */}
       {open && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-md"
           onClick={() => setOpen(false)}
         />
       )}
@@ -94,7 +92,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <button
             onClick={() => setOpen(false)}
             aria-label="Fermer le menu"
-            className="lg:hidden absolute right-1 top-1 z-10 rounded-lg px-2 py-1 text-xl text-white/70 hover:bg-white/10"
+            className="lg:hidden absolute right-2 top-2 z-10 btn-ghost btn-compact px-2.5 text-lg leading-none"
           >
             ×
           </button>

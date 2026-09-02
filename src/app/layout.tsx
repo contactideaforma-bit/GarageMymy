@@ -1,16 +1,22 @@
 import type { Metadata } from "next";
-import { Press_Start_2P } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import AuthGate from "@/components/AuthGate";
 import MetierProvider from "@/components/MetierProvider";
 
-// Police pixel (titres uniquement — le corps de texte reste une police
-// classique très lisible, l'appli vise un public peu à l'aise avec l'informatique).
-const pixel = Press_Start_2P({
-  weight: "400",
+// Polices (v12.1) : Inter pour le corps de texte, Space Grotesk pour les
+// titres et le logo-texte — géométrique, légèrement futuriste, jamais enfantin.
+// La police pixel est abandonnée (rendu « brouillon, pas sérieux »).
+const sans = Inter({
   subsets: ["latin"],
-  variable: "--font-pixel",
+  variable: "--font-sans",
+  display: "swap",
+});
+const titre = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-titre",
   display: "swap",
 });
 
@@ -31,7 +37,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#241f3d",
+  themeColor: "#f5f6fb",
   width: "device-width",
   initialScale: 1,
 };
@@ -46,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" className={pixel.variable}>
+    <html lang="fr" className={`${sans.variable} ${titre.variable}`}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>

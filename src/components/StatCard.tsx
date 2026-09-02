@@ -41,18 +41,16 @@ export default function StatCard({
       />
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="font-pixel text-[0.42rem] leading-relaxed text-white/60 sm:text-[0.5rem]">
-            {label}
-          </div>
+          <div className="etiquette truncate" title={label}>{label}</div>
           <div className="valeur-hud mt-1 truncate" title={value}>
             {value}
           </div>
-          {hint && <div className="mt-0.5 truncate text-[11px] text-white/40">{hint}</div>}
+          {hint && <div className="mt-0.5 truncate text-[11px] text-white/45">{hint}</div>}
         </div>
         {icone && (
           <span
             className="hud-icone shrink-0"
-            style={{ borderColor: `${a.couleur}66`, color: a.couleur }}
+            style={{ borderColor: `${a.couleur}55`, color: a.couleur, background: `${a.couleur}1f` }}
             aria-hidden
           >
             {icone}

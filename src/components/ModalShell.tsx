@@ -49,16 +49,16 @@ export default function ModalShell({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-2 sm:p-4 overflow-y-auto backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-2 sm:p-4 overflow-y-auto backdrop-blur-md"
       style={zoneStyle}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div className={`w-full ${maxWidth} glass-card my-2 sm:my-8 modal-panel`}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
-          <h2 className="text-lg font-semibold text-white">{title}</h2>
-          <button onClick={onClose} className="text-white/50 hover:text-white text-xl leading-none">×</button>
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-white/10">
+          <h2 className="titre-bloc">{title}</h2>
+          <button onClick={onClose} aria-label="Fermer" className="btn-ghost btn-compact px-2.5 text-base leading-none">×</button>
         </div>
         <div className="px-6 py-5 space-y-4">{children}</div>
       </div>

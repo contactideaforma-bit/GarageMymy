@@ -37,12 +37,12 @@ export default function StatutPipeline({
               title={label}
             >
               <span
-                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold transition-colors ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full border text-xs font-semibold transition-all ${
                   active
-                    ? "border-transparent bg-gradient-to-br from-accent-violet to-accent-pink text-white"
+                    ? "border-transparent bg-gradient-to-br from-accent-violet to-accent-pink text-white shadow-[0_0_16px_rgba(236,72,153,0.55)]"
                     : done
-                    ? "border-accent-violet/50 bg-accent-violet/20 text-white"
-                    : "border-white/20 bg-white/5 text-white/40 group-hover:border-accent-violet/60"
+                    ? "border-accent-violet/50 bg-accent-violet/20 text-accent-violet"
+                    : "border-white/20 bg-white/5 text-white/40 group-hover:border-accent-pink/60"
                 }`}
               >
                 {done ? "✓" : i + 1}
@@ -59,7 +59,7 @@ export default function StatutPipeline({
             {i < STATUTS_ORDRE.length - 1 && (
               <div
                 className={`mx-1 h-0.5 flex-1 ${
-                  done ? "bg-accent-violet/60" : "bg-white/10"
+                  done ? "bg-gradient-to-r from-accent-violet/70 to-accent-pink/50" : "bg-white/10"
                 }`}
               />
             )}

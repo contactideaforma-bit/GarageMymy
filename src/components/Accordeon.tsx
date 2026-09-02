@@ -67,7 +67,7 @@ export default function Accordeon({
           title={ouvert ? "Replier" : "Déplier"}
         >
           <span
-            className={`shrink-0 text-white/40 transition-transform ${ouvert ? "rotate-90" : ""}`}
+            className={`shrink-0 text-accent-pink transition-transform ${ouvert ? "rotate-90" : ""}`}
             aria-hidden
           >
             ▸

@@ -119,7 +119,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   }
 
   return (
-    <div className="glass-card min-h-full flex flex-col p-4">
+    <div className="glass-card glass-blur min-h-full flex flex-col p-3">
       <div className="px-2 py-3 flex items-center gap-3">
         <button onClick={clicLogo} className="shrink-0" aria-label="Tableau de bord" title="Retour au tableau de bord">
           <Image
@@ -127,37 +127,35 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             alt="My Easy Auto"
             width={44}
             height={44}
-            className="rounded-md border-2 border-white/20"
+            className="rounded-xl shadow-[0_0_18px_rgba(236,72,153,0.35)]"
           />
         </button>
-        <div>
-          <div className="font-pixel text-[0.6rem] leading-[1.6] bg-gradient-to-r from-accent-violet via-accent-pink to-accent-teal bg-clip-text text-transparent">
-            MY EASY AUTO
-          </div>
-          <div className="text-xs text-white/40">{sousTitre}</div>
+        <div className="min-w-0">
+          <div className="marque">My Easy Auto</div>
+          <div className="truncate text-xs text-white/45">{sousTitre}</div>
         </div>
       </div>
 
-      <Link href="/import" onClick={onNavigate} className="btn-primary mt-2 mb-4 flex items-center justify-center gap-2">
+      <Link href="/import" onClick={onNavigate} className="btn-primary mt-2 mb-4 flex items-center justify-center gap-2 text-center">
         {t.importer}
       </Link>
 
-      <nav className="space-y-5">
+      <nav className="space-y-4">
         {/* ESPACE CLIENTS (v10.2) : comptes commerciaux et éditeur, en tête de menu. */}
         {(metier === "commercial" || admin) && (
           <div>
-            <div className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent-teal">Commercial</div>
+            <div className="nav-section">Commercial</div>
             <Link
               href="/prospects"
               onClick={onNavigate}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${isActive("/prospects") && !isActive("/prospects/documents") ? "bg-white/15 text-white font-medium shadow-inner" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
+              className={`nav-lien ${isActive("/prospects") && !isActive("/prospects/documents") ? "actif" : ""}`}
             >
               👥 Mes clients
             </Link>
             <Link
               href="/prospects/documents"
               onClick={onNavigate}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${isActive("/prospects/documents") ? "bg-white/15 text-white font-medium shadow-inner" : "text-white/70 hover:bg-white/10 hover:text-white"}`}
+              className={`nav-lien ${isActive("/prospects/documents") ? "actif" : ""}`}
             >
               📄 Mes documents
             </Link>
@@ -165,10 +163,8 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         )}
         {SECTIONS.map((sec) => (
           <div key={sec.titre}>
-            <div className="px-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-white/35">
-              {sec.titre}
-            </div>
-            <div className="space-y-1">
+            <div className="nav-section">{sec.titre}</div>
+            <div className="space-y-0.5">
               {sec.items.map((item) => {
                 const active = isActive(item.href);
                 return (
@@ -176,11 +172,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     key={item.href}
                     href={item.href}
                     onClick={onNavigate}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                      active
-                        ? "bg-white/15 text-white font-medium shadow-inner"
-                        : "text-white/70 hover:bg-white/10 hover:text-white"
-                    }`}
+                    className={`nav-lien ${active ? "actif" : ""}`}
                   >
                     {labelNav(item.href, item.label)}
                     {item.href === "/conversation" && nonLus > 0 && (
@@ -194,15 +186,11 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      <div className="space-y-1 border-t border-white/10 pt-3 mt-3">
+      <div className="space-y-0.5 border-t border-white/10 pt-3 mt-4">
         <Link
           href="/profil"
           onClick={onNavigate}
-          className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-            isActive("/profil")
-              ? "bg-white/15 text-white font-medium"
-              : "text-white/70 hover:bg-white/10 hover:text-white"
-          }`}
+          className={`nav-lien ${isActive("/profil") ? "actif" : ""}`}
         >
           Profil du garage
         </Link>
@@ -210,11 +198,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <Link
             href="/support/admin"
             onClick={onNavigate}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-              isActive("/support/admin")
-                ? "bg-white/15 text-white font-medium"
-                : "text-white/70 hover:bg-white/10 hover:text-white"
-            }`}
+            className={`nav-lien ${isActive("/support/admin") ? "actif" : ""}`}
           >
             🛠️ Console d&apos;assistance
           </Link>
@@ -223,11 +207,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           <Link
             href="/admin"
             onClick={onNavigate}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-              isActive("/admin")
-                ? "bg-white/15 text-white font-medium"
-                : "text-white/70 hover:bg-white/10 hover:text-white"
-            }`}
+            className={`nav-lien ${isActive("/admin") ? "actif" : ""}`}
           >
             📈 Espace éditeur
           </Link>
@@ -236,7 +216,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         {email && (
           <button
             onClick={deconnexion}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            className="nav-lien"
           >
             Se déconnecter
           </button>

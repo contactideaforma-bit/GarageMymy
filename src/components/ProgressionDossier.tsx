@@ -26,12 +26,12 @@ export default function ProgressionDossier({
   const color =
     pct >= 100 ? "#10b981" : pct >= 70 ? "#14b8a6" : pct >= 40 ? "#f59e0b" : "#ec4899";
 
-  const h = size === "sm" ? "h-3.5" : "h-5";
+  const h = size === "sm" ? "h-3" : "h-4";
 
   return (
     <div className="flex items-center gap-2">
       <div
-        className={`retro-bar flex-1 min-w-[6rem] ${h} rounded-sm p-[2px]`}
+        className={`retro-bar flex-1 min-w-[6rem] ${h} rounded-md p-[2px]`}
         role="progressbar"
         aria-valuenow={pct}
         aria-valuemin={0}
@@ -43,10 +43,10 @@ export default function ProgressionDossier({
           {Array.from({ length: blocks }).map((_, i) => (
             <span
               key={i}
-              className={`flex-1 rounded-[1px] ${i < filled ? "" : "retro-bar-vide"}`}
+              className={`flex-1 rounded-[2px] ${i < filled ? "" : "retro-bar-vide"}`}
               style={
                 i < filled
-                  ? { backgroundColor: color, boxShadow: "inset 0 -2px 0 rgba(0,0,0,0.35)" }
+                  ? { backgroundColor: color, boxShadow: `0 0 6px ${color}99` }
                   : undefined
               }
             />
@@ -56,7 +56,7 @@ export default function ProgressionDossier({
       {showLabel && (
         <span
           className={`font-pixel shrink-0 ${size === "sm" ? "text-[0.6rem]" : "text-[0.7rem]"}`}
-          style={{ color, textShadow: "1px 1px 0 rgba(0,0,0,0.25)" }}
+          style={{ color }}
         >
           {pct >= 100 ? "PAYE !" : `${pct}%`}
         </span>

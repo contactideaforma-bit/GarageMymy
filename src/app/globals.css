@@ -3,59 +3,123 @@
 @tailwind utilities;
 
 /* ====================================================================
-   MY EASY AUTO — thème RÉTRO GAME
-   Codes arcade : panneaux "cartouche" à bordures épaisses, ombres dures
-   (pas de flou), police pixel sur les TITRES seulement, effet CRT léger.
-   Ergonomie d'abord : corps de texte classique et lisible, gros boutons,
-   contrastes forts, focus visible.
+   MY EASY AUTO — design « NÉO-VERRE » (v12.1)
+   Refonte graphique complète. Esprit gaming conservé mais SUBTIL :
+   surfaces translucides, lueur rose néon sur les boutons / onglets
+   actifs, ambiance futuriste et minimaliste inspirée de la page
+   d'accueil (fond clair perle, violet → rose, cartes fines).
+
+   RÈGLE D'OR : toutes les couleurs passent par les variables --mea-*,
+   redéfinies pour le thème clair. Les utilitaires « text-white/NN »,
+   « bg-white/NN », « border-white/NN » hérités sont retapés PAR
+   GÉNÉRATION (bloc « THÈME CLAIR — surcharges ») : toutes les nuances
+   de 5 à 95 sont couvertes, plus les variantes hover:.
+   → Plus jamais de texte clair sur fond clair après un changement de mode.
 ==================================================================== */
+
+/* ---------- Jetons (thème SOMBRE = valeurs de base) ---------- */
+:root {
+  --mea-fond: #0c0e1a;
+  --mea-surface: rgba(255, 255, 255, 0.045);
+  --mea-surface-2: rgba(255, 255, 255, 0.07);
+  --mea-surface-3: rgba(8, 10, 22, 0.55);
+  --mea-surface-opaque: #151830;
+  --mea-bordure: rgba(255, 255, 255, 0.09);
+  --mea-bordure-2: rgba(255, 255, 255, 0.16);
+  --mea-texte: #eef0fb;
+  --mea-texte-2: rgba(238, 240, 251, 0.68);
+  --mea-texte-3: rgba(238, 240, 251, 0.46);
+  --mea-ombre: rgba(0, 0, 0, 0.35);
+  --mea-ombre-carte: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px rgba(0, 0, 0, 0.28);
+  --mea-halo: rgba(255, 255, 255, 0.06);
+  --mea-lisere: rgba(255, 255, 255, 0.08);
+  --mea-violet: #8b5cf6;
+  --mea-rose: #ec4899;
+  --mea-teal: #2dd4bf;
+  /* Rose néon : la « pointe de rose » du logo, par touches */
+  --mea-neon: #f472b6;
+  --mea-neon-texte: #fbcfe8;
+  --mea-neon-fond: rgba(236, 72, 153, 0.16);
+  --mea-neon-fond-2: rgba(236, 72, 153, 0.26);
+  --mea-neon-bordure: rgba(244, 114, 182, 0.55);
+  --mea-lueur: 0 0 0 1px rgba(244, 114, 182, 0.25), 0 0 18px rgba(236, 72, 153, 0.35);
+  --mea-lueur-forte: 0 0 0 1px rgba(244, 114, 182, 0.45), 0 0 26px rgba(236, 72, 153, 0.5);
+  --mea-flou: blur(18px) saturate(1.5);
+}
+
+html.light {
+  --mea-fond: #f5f6fb;
+  --mea-surface: rgba(255, 255, 255, 0.72);
+  --mea-surface-2: rgba(255, 255, 255, 0.55);
+  --mea-surface-3: rgba(255, 255, 255, 0.85);
+  --mea-surface-opaque: #ffffff;
+  --mea-bordure: rgba(30, 34, 51, 0.09);
+  --mea-bordure-2: rgba(30, 34, 51, 0.16);
+  --mea-texte: #1e2233;
+  --mea-texte-2: rgba(30, 34, 51, 0.7);
+  --mea-texte-3: rgba(30, 34, 51, 0.5);
+  --mea-ombre: rgba(30, 34, 51, 0.12);
+  --mea-ombre-carte: 0 1px 3px rgba(30, 34, 51, 0.05), 0 10px 30px rgba(30, 34, 51, 0.05);
+  --mea-halo: rgba(30, 34, 51, 0.045);
+  --mea-lisere: rgba(255, 255, 255, 0.9);
+  --mea-neon: #db2777;
+  --mea-neon-texte: #9d174d;
+  --mea-neon-fond: rgba(236, 72, 153, 0.12);
+  --mea-neon-fond-2: rgba(236, 72, 153, 0.2);
+  --mea-neon-bordure: rgba(219, 39, 119, 0.45);
+  --mea-lueur: 0 0 0 1px rgba(236, 72, 153, 0.2), 0 0 16px rgba(236, 72, 153, 0.28);
+  --mea-lueur-forte: 0 0 0 1px rgba(236, 72, 153, 0.35), 0 0 22px rgba(236, 72, 153, 0.4);
+}
 
 /* Base un peu plus grande : public pas forcément à l'aise avec l'écran */
 html {
   font-size: 17px;
 }
 
-/* ===== Fond nuit d'arcade (mode sombre) ===== */
+/* ---------- Fond d'ambiance ----------
+   Nuit profonde (sombre) / perle (clair) + deux halos violet et rose +
+   un quadrillage TRÈS discret : le clin d'œil gaming, sans le bruit. */
 body {
   min-height: 100vh;
-  color: #eef0fb;
-  background-color: #14102b;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--mea-texte);
+  background-color: var(--mea-fond);
   background-image:
-    linear-gradient(rgba(139, 92, 246, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(139, 92, 246, 0.07) 1px, transparent 1px),
-    radial-gradient(50rem 30rem at 50% -10%, rgba(236, 72, 153, 0.18), transparent 70%);
-  background-size: 28px 28px, 28px 28px, 100% 100%;
+    radial-gradient(60rem 40rem at 78% -12%, rgba(139, 92, 246, 0.22), transparent 62%),
+    radial-gradient(48rem 34rem at -8% 108%, rgba(236, 72, 153, 0.16), transparent 62%),
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
   background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+html.light body {
+  background-image:
+    radial-gradient(60rem 40rem at 78% -12%, rgba(139, 92, 246, 0.11), transparent 62%),
+    radial-gradient(48rem 34rem at -8% 108%, rgba(236, 72, 153, 0.09), transparent 62%),
+    linear-gradient(rgba(30, 34, 51, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 34, 51, 0.03) 1px, transparent 1px);
 }
 
-/* Effet CRT : très léger balayage de lignes (désactivable en clair) */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(0, 0, 0, 0.05) 0px,
-    rgba(0, 0, 0, 0.05) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-}
-
-/* Titres en police pixel, tailles maîtrisées pour rester lisibles */
+/* ---------- Titres : police géométrique, plus de police pixel ----------
+   `.font-pixel` est CONSERVÉ comme nom de classe (22 fichiers l'utilisent)
+   mais rend désormais une étiquette capitale espacée, lisible : la taille
+   utilitaire minuscule qui accompagnait la police pixel est neutralisée. */
 h1, h2, .font-pixel {
-  font-family: var(--font-pixel), "Courier New", monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  /* La police pixel ne se coupe pas naturellement : on force le retour
-     à la ligne pour éviter tout texte hors champ (PC et mobile). */
+  font-family: var(--font-titre), var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.01em;
   overflow-wrap: break-word;
   word-break: break-word;
 }
-h1 { font-size: 1.05rem !important; line-height: 1.8; }
-h2 { font-size: 0.72rem !important; line-height: 1.9; }
+h1 { font-size: clamp(1.2rem, 4vw, 1.5rem); font-weight: 700; line-height: 1.2; }
+h2 { font-size: clamp(0.95rem, 3.2vw, 1.1rem); font-weight: 600; line-height: 1.3; }
+.font-pixel {
+  font-size: 0.72rem !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  line-height: 1.4;
+}
 
 /* Champs date/heure : iOS leur impose une largeur intrinsèque qui fait
    déborder les cartes — on la neutralise. */
@@ -69,417 +133,176 @@ input[type="time"] {
   min-height: 2.65rem; /* iOS écrase la hauteur sans contenu */
 }
 
-/* Focus toujours visible (navigation clavier / accessibilité) */
+/* Focus toujours visible (navigation clavier / accessibilité) : anneau rose */
 :focus-visible {
-  outline: 3px solid #ec4899;
+  outline: 2px solid var(--mea-neon);
   outline-offset: 2px;
+  box-shadow: 0 0 12px rgba(236, 72, 153, 0.35);
 }
 
-/* Conservé pour compat (plus utilisé par le fond) */
+/* Conservé pour compat */
 @keyframes aurora {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
 
-/* ===== Panneaux "cartouche" (ex-verre) ===== */
+/* ===== Surfaces & contrôles ===== */
 @layer components {
+  /* Carte de verre : fine, translucide, ombre douce.
+     ⚠️ PAS de backdrop-filter ici : il ferait de chaque carte le bloc
+     conteneur des éléments `fixed` rendus dedans (formulaires de dossier,
+     éditeur de document) — ils resteraient piégés dans la carte.
+     Le flou est réservé à `.glass-blur` (barre latérale, barre du haut,
+     modales) et aux boutons. */
   .glass-card {
-    @apply rounded-lg;
-    background-color: #1d1836;
-    border: 3px solid #453c74;
-    box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.45);
+    @apply rounded-2xl;
+    background-color: var(--mea-surface);
+    border: 1px solid var(--mea-bordure);
+    box-shadow: var(--mea-ombre-carte), inset 0 1px 0 var(--mea-lisere);
   }
   .glass-soft {
-    @apply rounded-md;
-    background-color: #272052;
-    border: 2px solid #453c74;
-    box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.35);
+    @apply rounded-xl;
+    background-color: var(--mea-surface-2);
+    border: 1px solid var(--mea-bordure);
+  }
+  .glass-blur {
+    -webkit-backdrop-filter: var(--mea-flou);
+    backdrop-filter: var(--mea-flou);
   }
 
-  /* Boutons : gros, francs, effet "pressé" physique */
+  /* ---------- Boutons : verre translucide + lueur rose néon ----------
+     Principal : rose translucide, texte rose profond, halo néon permanent.
+     Secondaire : verre neutre, halo rose au survol seulement. */
   .btn-primary {
-    @apply rounded-md px-5 py-2.5 text-sm font-bold text-white uppercase tracking-wide
-           transition disabled:opacity-50;
-    background-color: #ec4899;
-    border: 2px solid #9d174d;
-    box-shadow: 0 4px 0 #9d174d;
+    @apply rounded-xl px-5 py-2.5 text-sm font-semibold transition disabled:opacity-50;
+    color: var(--mea-neon-texte);
+    background-color: var(--mea-neon-fond);
+    background-image: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(236, 72, 153, 0.08) 60%, transparent);
+    border: 1px solid var(--mea-neon-bordure);
+    box-shadow: var(--mea-lueur), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
   }
-  .btn-primary:hover { filter: brightness(1.08); }
-  .btn-primary:active { transform: translateY(4px); box-shadow: 0 0 0 #9d174d; }
+  .btn-primary:hover {
+    background-color: var(--mea-neon-fond-2);
+    box-shadow: var(--mea-lueur-forte), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  }
+  .btn-primary:active { transform: translateY(1px); box-shadow: var(--mea-lueur); }
 
   .btn-ghost {
-    @apply rounded-md px-5 py-2.5 text-sm font-semibold text-white/85 transition;
-    background-color: #272052;
-    border: 2px solid #453c74;
-    box-shadow: 0 3px 0 #453c74;
+    @apply rounded-xl px-5 py-2.5 text-sm font-semibold transition;
+    color: var(--mea-texte);
+    background-color: var(--mea-surface-2);
+    border: 1px solid var(--mea-bordure-2);
+    box-shadow: inset 0 1px 0 var(--mea-lisere);
   }
-  .btn-ghost:hover { filter: brightness(1.12); }
-  .btn-ghost:active { transform: translateY(3px); box-shadow: 0 0 0 #453c74; }
+  .btn-ghost:hover {
+    border-color: var(--mea-neon-bordure);
+    box-shadow: var(--mea-lueur), inset 0 1px 0 var(--mea-lisere);
+  }
+  .btn-ghost:active { transform: translateY(1px); }
 
   .btn-danger {
-    @apply rounded-md px-5 py-2.5 text-sm font-bold text-white uppercase tracking-wide transition;
-    background-color: #e11d48;
-    border: 2px solid #881337;
-    box-shadow: 0 4px 0 #881337;
+    @apply rounded-xl px-5 py-2.5 text-sm font-semibold transition;
+    color: #fecdd3;
+    background-color: rgba(225, 29, 72, 0.18);
+    border: 1px solid rgba(251, 113, 133, 0.5);
+    box-shadow: 0 0 0 1px rgba(251, 113, 133, 0.2), 0 0 16px rgba(225, 29, 72, 0.3);
   }
-  .btn-danger:active { transform: translateY(4px); box-shadow: 0 0 0 #881337; }
+  .btn-danger:hover { background-color: rgba(225, 29, 72, 0.28); }
+  html.light .btn-danger {
+    color: #9f1239;
+    background-color: rgba(225, 29, 72, 0.1);
+    border-color: rgba(225, 29, 72, 0.45);
+    box-shadow: 0 0 0 1px rgba(225, 29, 72, 0.15), 0 0 14px rgba(225, 29, 72, 0.22);
+  }
+  html.light .btn-danger:hover { background-color: rgba(225, 29, 72, 0.18); }
+  .btn-danger:active { transform: translateY(1px); }
 
-  /* Variante COMPACTE (v7.8) : barres de recherche et de filtres.
-     Les boutons/champs pleine taille mangeaient la moitié de l'écran au-dessus
-     de la liste des sinistres — ici on garde le style, en plus discret. */
+  /* Variante COMPACTE (v7.8) : barres de recherche et de filtres. */
   .btn-compact {
-    @apply rounded-md px-3 py-1.5 text-xs font-semibold normal-case tracking-normal;
-    border-width: 1px;
-    box-shadow: 0 2px 0 #453c74;
+    @apply rounded-lg px-3 py-1.5 text-xs font-semibold normal-case tracking-normal;
   }
-  .btn-compact:active { transform: translateY(2px); box-shadow: 0 0 0 #453c74; }
-
   .field-compact {
-    @apply rounded-md px-2.5 py-1.5 text-xs;
-    border-width: 1px;
+    @apply rounded-lg px-2.5 py-1.5 text-xs;
   }
 
-  /* Formulaires : champs nets, focus très visible */
+  /* Formulaires : champs en verre, anneau rose au focus */
   .field-label {
-    @apply block text-sm font-semibold text-white/70 mb-1;
+    @apply block text-sm font-semibold mb-1;
+    color: var(--mea-texte-2);
   }
   .field-input {
-    @apply w-full rounded-md px-3 py-2.5 text-sm text-white placeholder-white/30
-           outline-none transition;
-    background-color: #120e26;
-    border: 2px solid #453c74;
+    @apply w-full rounded-xl px-3 py-2.5 text-sm outline-none transition;
+    color: var(--mea-texte);
+    background-color: var(--mea-surface-3);
+    border: 1px solid var(--mea-bordure-2);
   }
+  .field-input::placeholder { color: var(--mea-texte-3); }
   .field-input:focus {
-    border-color: #ec4899;
-    box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.25);
+    border-color: var(--mea-neon-bordure);
+    box-shadow: var(--mea-lueur);
   }
   .field-input option {
-    @apply bg-[#1d1836] text-white;
+    background-color: var(--mea-surface-opaque);
+    color: var(--mea-texte);
   }
 
+  /* Panneau de modale : fond quasi opaque (lisibilité) + flou */
   .modal-panel {
-    background-color: #1d1836;
+    background-color: var(--mea-surface-opaque);
+    -webkit-backdrop-filter: var(--mea-flou);
+    backdrop-filter: var(--mea-flou);
   }
 
-  /* Barre du haut mobile : OPAQUE, sinon le contenu défile visiblement
-     derrière elle (padding transparent du wrapper sticky). */
+  /* Barre du haut mobile : translucide floutée, le contenu passe dessous */
   .topbar-mobile {
-    background-color: rgba(20, 16, 43, 0.96);
+    background-color: transparent;
   }
 
-  /* ---------- DENSITÉ (v7.0) ----------
-     Les blocs étaient trop hauts et le texte ne s'adaptait pas au mobile :
-     on resserre les rembourrages et on rend la typographie fluide. */
-
-  /* Titre de page : suit la largeur d'écran au lieu d'un 2xl fixe. */
+  /* ---------- Typographie fluide (v7.0) ---------- */
   .titre-page {
-    @apply font-semibold text-white;
+    @apply font-semibold;
+    color: var(--mea-texte);
+    font-family: var(--font-titre), var(--font-sans), sans-serif;
     font-size: clamp(1.15rem, 4.5vw, 1.5rem);
     line-height: 1.2;
+    letter-spacing: -0.01em;
   }
-  /* Titre de bloc */
   .titre-bloc {
-    @apply font-semibold text-white;
+    @apply font-semibold;
+    color: var(--mea-texte);
     font-size: clamp(0.9rem, 3.2vw, 1rem);
     line-height: 1.25;
   }
-  /* Valeur chiffrée d'un compteur : ne déborde plus sur 2 lignes en mobile. */
   .valeur-hud {
-    @apply font-bold leading-tight text-white tabular-nums;
-    font-size: clamp(1.05rem, 5.2vw, 1.5rem);
+    @apply font-bold leading-tight tabular-nums;
+    color: var(--mea-texte);
+    font-family: var(--font-titre), var(--font-sans), sans-serif;
+    font-size: clamp(1.15rem, 5.2vw, 1.6rem);
+    letter-spacing: -0.02em;
   }
-  /* Ligne de tableau compacte et de hauteur régulière */
   .cellule {
     @apply px-3 py-2 sm:px-4 sm:py-2.5 align-middle;
   }
 
-  /* Barre de progression rétro : cadre et fond bien contrastés dans les 2 thèmes */
+  /* Piste de progression (ex-barre rétro) : fine, translucide */
   .retro-bar {
-    border: 2px solid #6b5fae;
-    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--mea-bordure-2);
+    background-color: var(--mea-halo);
   }
   .retro-bar-vide {
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: var(--mea-halo);
   }
-}
-
-html.light .retro-bar {
-  border-color: #241f3d;
-  background-color: rgba(36, 31, 61, 0.14);
-}
-html.light .retro-bar-vide {
-  background-color: rgba(36, 31, 61, 0.18);
-}
-
-/* ===================================================================
-   MODE CLAIR (par défaut) — rétro crème, façon console pastel
-   (aucune modif des composants : on retape les utilitaires utilisés)
-=================================================================== */
-html.light body {
-  color: #241f3d;
-  background-color: #f7efdc;
-  background-image:
-    linear-gradient(rgba(36, 31, 61, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(36, 31, 61, 0.05) 1px, transparent 1px),
-    radial-gradient(50rem 30rem at 50% -10%, rgba(236, 72, 153, 0.10), transparent 70%);
-  background-size: 28px 28px, 28px 28px, 100% 100%;
-}
-html.light body::after {
-  background: repeating-linear-gradient(
-    to bottom,
-    rgba(36, 31, 61, 0.025) 0px,
-    rgba(36, 31, 61, 0.025) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-}
-
-/* Cartouches / surfaces */
-html.light .glass-card {
-  background-color: #fffdf4;
-  border-color: #241f3d;
-  box-shadow: 5px 5px 0 rgba(36, 31, 61, 0.22);
-}
-html.light .glass-soft {
-  background-color: #fbf6e8;
-  border-color: #4b4374;
-  box-shadow: 3px 3px 0 rgba(36, 31, 61, 0.16);
-}
-html.light .modal-panel { background-color: #fffdf4; }
-html.light .topbar-mobile { background-color: rgba(247, 239, 220, 0.97); }
-
-/* Boutons */
-html.light .btn-ghost {
-  background-color: #f1e9d4;
-  border-color: #241f3d;
-  box-shadow: 0 3px 0 #241f3d;
-  color: #241f3d;
-}
-
-/* Champs */
-html.light .field-input {
-  background-color: #ffffff;
-  border-color: #4b4374;
-  color: #241f3d;
-}
-html.light .field-input::placeholder { color: rgba(36, 31, 61, 0.4); }
-html.light .field-input option { background-color: #ffffff; color: #241f3d; }
-html.light .field-label { color: rgba(36, 31, 61, 0.75); }
-
-/* Textes blancs -> sombres */
-html.light .text-white { color: #241f3d; }
-html.light .text-white\/90 { color: rgba(36,31,61,0.9); }
-html.light .text-white\/80 { color: rgba(36,31,61,0.8); }
-html.light .text-white\/70 { color: rgba(36,31,61,0.72); }
-html.light .text-white\/60 { color: rgba(36,31,61,0.62); }
-html.light .text-white\/50 { color: rgba(36,31,61,0.55); }
-html.light .text-white\/45 { color: rgba(36,31,61,0.5); }
-html.light .text-white\/40 { color: rgba(36,31,61,0.46); }
-html.light .text-white\/35 { color: rgba(36,31,61,0.42); }
-html.light .text-white\/30 { color: rgba(36,31,61,0.38); }
-/* Nuances complémentaires (v7.2) : sans elles, un texte en text-white/85 ou
-   /55 restait BLANC sur le thème clair — donc invisible (cas de l'ardoise). */
-html.light .text-white\/85 { color: rgba(36,31,61,0.86); }
-html.light .text-white\/75 { color: rgba(36,31,61,0.76); }
-html.light .text-white\/65 { color: rgba(36,31,61,0.66); }
-html.light .text-white\/55 { color: rgba(36,31,61,0.58); }
-html.light .text-white\/25 { color: rgba(36,31,61,0.34); }
-html.light .text-white\/20 { color: rgba(36,31,61,0.3); }
-
-/* Bordures blanches -> sombres */
-html.light .border-white\/15 { border-color: rgba(36,31,61,0.16); }
-html.light .border-white\/10 { border-color: rgba(36,31,61,0.12); }
-html.light .border-white\/5 { border-color: rgba(36,31,61,0.08); }
-html.light .divide-white\/10 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(36,31,61,0.12); }
-
-/* Fonds blancs translucides -> teinte claire */
-html.light .bg-white\/20 { background-color: rgba(36,31,61,0.12); }
-html.light .bg-white\/15 { background-color: rgba(36,31,61,0.08); }
-html.light .bg-white\/10 { background-color: rgba(36,31,61,0.06); }
-html.light .bg-white\/5 { background-color: rgba(36,31,61,0.04); }
-html.light .hover\:bg-white\/10:hover { background-color: rgba(36,31,61,0.06); }
-html.light .hover\:bg-white\/5:hover { background-color: rgba(36,31,61,0.04); }
-
-/* Couleurs de texte claires -> versions lisibles sur fond clair */
-html.light .text-amber-100 { color: #92400e; }
-html.light .text-amber-300 { color: #b45309; }
-html.light .text-emerald-300, html.light .text-emerald-200 { color: #047857; }
-html.light .text-emerald-300\/80 { color: rgba(4, 120, 87, 0.9); }
-html.light .text-rose-200, html.light .text-rose-300 { color: #be123c; }
-html.light .text-rose-300\/80 { color: rgba(190, 18, 60, 0.9); }
-html.light .text-amber-200, html.light .text-amber-200\/80 { color: #92400e; }
-html.light .text-accent-teal { color: #0d9488; }
-html.light .file\:text-white::file-selector-button { color: #241f3d; }
-
-/* ====================================================================
-   PAGE D'ACCUEIL PUBLIQUE (.landing-pro) — vitrine professionnelle.
-   Volontairement HORS du thème rétro interne : fond propre (pas de
-   quadrillage ni de scanlines), typographie classique, cartes fines.
-   S'applique quel que soit le mode clair/sombre de l'appli.
-==================================================================== */
-body:has(.landing-pro),
-html.light body:has(.landing-pro) {
-  color: #1e2233;
-  background-color: #f6f7fb;
-  background-image:
-    radial-gradient(60rem 40rem at 75% -10%, rgba(139, 92, 246, 0.1), transparent 60%),
-    radial-gradient(50rem 35rem at -10% 110%, rgba(20, 184, 166, 0.07), transparent 60%);
-  background-size: 100% 100%;
-  background-attachment: fixed;
-}
-body:has(.landing-pro)::after,
-html.light body:has(.landing-pro)::after {
-  display: none; /* pas d'effet CRT sur la vitrine */
-}
-
-/* Titres : police classique (pas de pixel), tailles marketing */
-.landing-pro h1,
-.landing-pro h2,
-.landing-pro h3 {
-  font-family: inherit;
-  text-transform: none;
-  letter-spacing: -0.02em;
-}
-.landing-pro h1 { font-size: clamp(1.9rem, 4.5vw, 3rem) !important; line-height: 1.12; font-weight: 700; }
-.landing-pro h2 { font-size: clamp(1.35rem, 2.6vw, 1.8rem) !important; line-height: 1.25; font-weight: 700; }
-
-/* Cartes fines et sobres */
-.lp-card {
-  border: 1px solid #e4e6f0;
-  background: #ffffff;
-  border-radius: 1rem;
-  box-shadow: 0 1px 3px rgba(30, 34, 51, 0.05), 0 10px 30px rgba(30, 34, 51, 0.04);
-}
-.lp-card-hover { transition: border-color 0.2s, transform 0.2s; }
-.lp-card-hover:hover { border-color: rgba(139, 92, 246, 0.45); transform: translateY(-2px); }
-
-/* Boutons vitrine */
-.lp-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: 0.6rem;
-  padding: 0.65rem 1.35rem;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: #fff;
-  background: linear-gradient(135deg, #7c3aed, #db2777);
-  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
-  transition: filter 0.15s, transform 0.15s;
-}
-.lp-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
-.lp-btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: 0.6rem;
-  padding: 0.65rem 1.35rem;
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: #3b3f52;
-  border: 1px solid #d5d8e6;
-  background: #ffffff;
-  transition: background 0.15s, border-color 0.15s;
-}
-.lp-btn-ghost:hover { background: #f0f1f8; border-color: #b9bdd2; }
-
-/* Étiquette de section */
-.lp-chip {
-  display: inline-block;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #6d28d9;
-}
-
-/* ===== Densité MOBILE (v7.0) =====
-   Sur téléphone, les rembourrages « confortables » du bureau donnaient des
-   blocs énormes : on les resserre, sans toucher au rendu desktop. */
-@media (max-width: 640px) {
-  .glass-card { box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.4); border-width: 2px; }
-  .glass-soft { box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3); }
-  .btn-primary,
-  .btn-ghost,
-  .btn-danger {
-    padding-left: 0.85rem;
-    padding-right: 0.85rem;
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-    font-size: 0.78rem;
-    letter-spacing: 0.01em;
-  }
-  .field-input {
-    padding-top: 0.5rem;
-    padding-bottom: 0.5rem;
-    font-size: 0.85rem;
-  }
-  .field-label { font-size: 0.75rem; }
 }
 
 /* ====================================================================
-   DESIGN v8.2 — MONTÉE EN GAMME
-   Même identité rétro-arcade, exécution plus soignée : surfaces avec
-   relief, badges lisibles dans les DEUX thèmes, onglets segmentés,
-   cartes de liste qui répondent au survol, squelettes de chargement.
-
-   Règle : ces classes s'appuient sur des VARIABLES (--mea-*) redéfinies
-   en thème clair. Plus de piège du « text-white/95 invisible sur crème ».
+   COMPOSANTS DE DESIGN (ex-v8.2, restylés v12.1)
 ==================================================================== */
-
-:root {
-  --mea-surface: #1d1836;
-  --mea-surface-2: #272052;
-  --mea-surface-3: #120e26;
-  --mea-bordure: #453c74;
-  --mea-bordure-2: #6b5fae;
-  --mea-texte: #eef0fb;
-  --mea-texte-2: rgba(238, 240, 251, 0.64);
-  --mea-texte-3: rgba(238, 240, 251, 0.42);
-  --mea-ombre: rgba(0, 0, 0, 0.45);
-  --mea-halo: rgba(255, 255, 255, 0.06);
-  --mea-lisere: rgba(255, 255, 255, 0.06);
-  --mea-violet: #8b5cf6;
-  --mea-rose: #ec4899;
-  --mea-teal: #2dd4bf;
-}
-
-html.light {
-  --mea-surface: #fffdf4;
-  --mea-surface-2: #fbf6e8;
-  --mea-surface-3: #ffffff;
-  --mea-bordure: #241f3d;
-  --mea-bordure-2: #4b4374;
-  --mea-texte: #241f3d;
-  --mea-texte-2: rgba(36, 31, 61, 0.68);
-  --mea-texte-3: rgba(36, 31, 61, 0.45);
-  --mea-ombre: rgba(36, 31, 61, 0.2);
-  --mea-halo: rgba(36, 31, 61, 0.05);
-  --mea-lisere: rgba(255, 255, 255, 0.85);
-}
-
-/* ---------- Surfaces : relief discret plutôt qu'aplat ---------- */
-.glass-card {
-  background-image: linear-gradient(180deg, var(--mea-halo), transparent 96px);
-  box-shadow: 5px 5px 0 var(--mea-ombre), inset 0 1px 0 var(--mea-lisere);
-}
-.glass-soft {
-  background-image: linear-gradient(180deg, var(--mea-halo), transparent 60px);
-  box-shadow: 3px 3px 0 var(--mea-ombre), inset 0 1px 0 var(--mea-lisere);
-}
-
-/* ---------- Bouton principal : dégradé + brillance ---------- */
-.btn-primary {
-  background-image: linear-gradient(180deg, #f472b6 0%, #ec4899 55%, #db2777 100%);
-}
-.btn-primary:hover { filter: brightness(1.06) saturate(1.05); }
 
 /* ---------- Badges lisibles dans les deux thèmes ----------
-   Fond pastel + texte foncé : aucune surcharge html.light nécessaire.
-   À préférer aux couples text-emerald-300 / text-rose-300. */
+   Fond pastel + texte foncé : aucune surcharge html.light nécessaire. */
 .badge {
   display: inline-flex;
   align-items: center;
@@ -489,78 +312,85 @@ html.light {
   border: 1px solid transparent;
   padding: 0.12rem 0.55rem;
   font-size: 0.7rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.01em;
   line-height: 1.5;
 }
-.badge-ok      { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
-.badge-warn    { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
-.badge-danger  { background: #ffe4e6; color: #9f1239; border-color: #fda4af; }
-.badge-info    { background: #ede9fe; color: #5b21b6; border-color: #c4b5fd; }
-.badge-neutral { background: #e5e7eb; color: #374151; border-color: #cbd5e1; }
+.badge-ok      { background: #d1fae5; color: #065f46; border-color: #a7f3d0; }
+.badge-warn    { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.badge-danger  { background: #ffe4e6; color: #9f1239; border-color: #fecdd3; }
+.badge-info    { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+.badge-neutral { background: #e5e7eb; color: #374151; border-color: #d1d5db; }
+html:not(.light) .badge-ok      { background: rgba(16, 185, 129, 0.16); color: #a7f3d0; border-color: rgba(52, 211, 153, 0.35); }
+html:not(.light) .badge-warn    { background: rgba(245, 158, 11, 0.16); color: #fde68a; border-color: rgba(251, 191, 36, 0.35); }
+html:not(.light) .badge-danger  { background: rgba(244, 63, 94, 0.16); color: #fecdd3; border-color: rgba(251, 113, 133, 0.35); }
+html:not(.light) .badge-info    { background: rgba(139, 92, 246, 0.18); color: #ddd6fe; border-color: rgba(167, 139, 250, 0.35); }
+html:not(.light) .badge-neutral { background: rgba(255, 255, 255, 0.08); color: var(--mea-texte-2); border-color: var(--mea-bordure-2); }
 
-/* Pastille « nouveau / non lu » */
+/* Pastille « nouveau / non lu » : point néon */
 .pastille-neuve {
   display: inline-block;
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 999px;
   background: var(--mea-rose);
-  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.22);
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.2), 0 0 10px rgba(236, 72, 153, 0.6);
   flex-shrink: 0;
 }
 
-/* ---------- Onglets segmentés (remplace les faux boutons) ---------- */
+/* ---------- Onglets segmentés : verre + onglet actif néon ---------- */
 .segment {
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
-  padding: 0.2rem;
-  border-radius: 0.7rem;
-  background: var(--mea-halo);
-  border: 2px solid var(--mea-bordure);
+  gap: 0.2rem;
+  padding: 0.22rem;
+  border-radius: 0.85rem;
+  background: var(--mea-surface-2);
+  border: 1px solid var(--mea-bordure);
 }
 .segment-btn {
-  border-radius: 0.5rem;
-  padding: 0.32rem 0.7rem;
+  border-radius: 0.6rem;
+  padding: 0.35rem 0.8rem;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--mea-texte-2);
-  transition: background 0.15s, color 0.15s;
+  border: 1px solid transparent;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
-.segment-btn:hover { color: var(--mea-texte); }
+.segment-btn:hover { color: var(--mea-texte); background: var(--mea-halo); }
 .segment-btn.actif {
-  background: linear-gradient(180deg, var(--mea-violet), #6d34d6);
-  color: #fff;
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.28);
+  background: var(--mea-neon-fond);
+  color: var(--mea-neon-texte);
+  border-color: var(--mea-neon-bordure);
+  box-shadow: var(--mea-lueur);
 }
 
 /* ---------- Carte de liste cliquable ---------- */
 .carte-liste {
   position: relative;
   display: block;
-  border-radius: 0.6rem;
-  border: 2px solid var(--mea-bordure);
-  background: var(--mea-surface-2);
-  box-shadow: 3px 3px 0 var(--mea-ombre);
-  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  border-radius: 1rem;
+  border: 1px solid var(--mea-bordure);
+  background: var(--mea-surface);
+  box-shadow: inset 0 1px 0 var(--mea-lisere);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 .carte-liste:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 5px 5px 0 var(--mea-ombre);
-  border-color: var(--mea-bordure-2);
+  transform: translateY(-1px);
+  border-color: var(--mea-neon-bordure);
+  box-shadow: var(--mea-lueur), inset 0 1px 0 var(--mea-lisere);
 }
-.carte-liste:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--mea-ombre); }
+.carte-liste:active { transform: none; }
 .carte-liste-active {
-  border-color: var(--mea-rose);
-  box-shadow: 4px 4px 0 rgba(236, 72, 153, 0.35);
+  border-color: var(--mea-neon-bordure);
+  box-shadow: var(--mea-lueur);
 }
 
-/* ---------- Titre de section avec barre d'accent ---------- */
+/* ---------- Titre de section avec barre d'accent néon ---------- */
 .titre-section {
   position: relative;
-  padding-left: 0.7rem;
-  font-weight: 700;
+  padding-left: 0.75rem;
+  font-weight: 600;
   color: var(--mea-texte);
   font-size: clamp(0.9rem, 3.2vw, 1.02rem);
   line-height: 1.3;
@@ -569,49 +399,117 @@ html.light {
   content: "";
   position: absolute;
   left: 0;
-  top: 0.12em;
-  bottom: 0.12em;
-  width: 4px;
+  top: 0.15em;
+  bottom: 0.15em;
+  width: 3px;
   border-radius: 2px;
   background: linear-gradient(180deg, var(--mea-rose), var(--mea-violet));
+  box-shadow: 0 0 8px rgba(236, 72, 153, 0.55);
+}
+
+/* ---------- Étiquette capitale (compteurs, rubriques) ---------- */
+.etiquette {
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mea-texte-3);
 }
 
 /* ---------- Compteurs HUD (StatCard) ---------- */
 .hud-barre {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: 1rem;
+  right: 1rem;
   top: 0;
-  height: 4px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  opacity: 0.9;
 }
 .hud::after {
   content: "";
   position: absolute;
-  right: -25%;
-  top: -70%;
+  right: -20%;
+  top: -60%;
   width: 55%;
-  height: 170%;
+  height: 160%;
   pointer-events: none;
-  background: radial-gradient(circle, var(--hud-teinte, rgba(139, 92, 246, 0.2)), transparent 70%);
+  background: radial-gradient(circle, var(--hud-teinte, rgba(139, 92, 246, 0.18)), transparent 70%);
 }
 .hud-icone {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
-  border: 2px solid;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid;
   background: var(--mea-halo);
-  font-size: 0.95rem;
+  font-size: 1rem;
   line-height: 1;
+}
+
+/* ---------- Navigation latérale ---------- */
+.nav-section {
+  padding: 0 0.6rem;
+  margin-bottom: 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mea-texte-3);
+}
+.nav-lien {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.84rem;
+  color: var(--mea-texte-2);
+  border: 1px solid transparent;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+.nav-lien:hover { background: var(--mea-halo); color: var(--mea-texte); }
+.nav-lien.actif {
+  background: var(--mea-neon-fond);
+  color: var(--mea-neon-texte);
+  font-weight: 600;
+  border-color: var(--mea-neon-bordure);
+  box-shadow: var(--mea-lueur);
+}
+.nav-lien.actif::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--mea-neon);
+  box-shadow: 0 0 10px var(--mea-neon);
+}
+
+/* Logo-texte : dégradé violet → rose (lisible dans les deux thèmes) */
+.marque {
+  font-family: var(--font-titre), var(--font-sans), sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  background-image: linear-gradient(90deg, #8b5cf6, #ec4899 60%, #f472b6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 /* ---------- Squelettes de chargement ---------- */
 .skeleton {
   position: relative;
   overflow: hidden;
-  border-radius: 0.45rem;
+  border-radius: 0.6rem;
   background: var(--mea-halo);
 }
 .skeleton::after {
@@ -619,11 +517,11 @@ html.light {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.14), transparent);
   animation: mea-shimmer 1.4s infinite;
 }
 html.light .skeleton::after {
-  background: linear-gradient(90deg, transparent, rgba(36, 31, 61, 0.08), transparent);
+  background: linear-gradient(90deg, transparent, rgba(30, 34, 51, 0.07), transparent);
 }
 @keyframes mea-shimmer {
   100% { transform: translateX(100%); }
@@ -654,119 +552,95 @@ html.light .skeleton::after {
   .carte-liste:hover { transform: none; }
 }
 
-/* ---------- Densité mobile (rappel après le bloc v8.2) ---------- */
-@media (max-width: 640px) {
-  .glass-card { box-shadow: 3px 3px 0 var(--mea-ombre), inset 0 1px 0 var(--mea-lisere); }
-  .glass-soft { box-shadow: 2px 2px 0 var(--mea-ombre); }
-  .carte-liste { box-shadow: 2px 2px 0 var(--mea-ombre); }
-  .segment-btn { padding: 0.28rem 0.55rem; font-size: 0.7rem; }
-}
-
 /* ====================================================================
-   ALERTES (v11.2) — mentions particulières du rapport, agréments.
-   Fond pastel + texte foncé : lisible dans les DEUX thèmes sans surcharge.
+   ALERTES (v11.2) — fond pastel + texte foncé, lisibles dans les 2 thèmes.
 ==================================================================== */
 .alerte {
-  border-radius: 0.6rem;
-  border: 2px solid;
-  padding: 0.6rem 0.8rem;
+  border-radius: 0.85rem;
+  border: 1px solid;
+  padding: 0.65rem 0.85rem;
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.alerte-titre { font-weight: 700; font-size: 0.85rem; }
-.alerte-danger { background: #ffe4e6; border-color: #fb7185; color: #881337; }
-.alerte-warn   { background: #fef3c7; border-color: #fbbf24; color: #78350f; }
-.alerte-info   { background: #ede9fe; border-color: #a78bfa; color: #4c1d95; }
-.alerte-ok     { background: #d1fae5; border-color: #34d399; color: #064e3b; }
-html:not(.light) .alerte-danger { background: rgba(244, 63, 94, 0.16); border-color: rgba(251, 113, 133, 0.7); color: #fecdd3; }
-html:not(.light) .alerte-warn   { background: rgba(245, 158, 11, 0.16); border-color: rgba(251, 191, 36, 0.7); color: #fde68a; }
-html:not(.light) .alerte-info   { background: rgba(139, 92, 246, 0.16); border-color: rgba(167, 139, 250, 0.7); color: #ddd6fe; }
-html:not(.light) .alerte-ok     { background: rgba(16, 185, 129, 0.16); border-color: rgba(52, 211, 153, 0.7); color: #a7f3d0; }
+.alerte-titre { font-weight: 600; font-size: 0.85rem; }
+.alerte-danger { background: #ffe4e6; border-color: #fda4af; color: #881337; }
+.alerte-warn   { background: #fef3c7; border-color: #fcd34d; color: #78350f; }
+.alerte-info   { background: #ede9fe; border-color: #c4b5fd; color: #4c1d95; }
+.alerte-ok     { background: #d1fae5; border-color: #6ee7b7; color: #064e3b; }
+html:not(.light) .alerte-danger { background: rgba(244, 63, 94, 0.14); border-color: rgba(251, 113, 133, 0.5); color: #fecdd3; }
+html:not(.light) .alerte-warn   { background: rgba(245, 158, 11, 0.14); border-color: rgba(251, 191, 36, 0.5); color: #fde68a; }
+html:not(.light) .alerte-info   { background: rgba(139, 92, 246, 0.14); border-color: rgba(167, 139, 250, 0.5); color: #ddd6fe; }
+html:not(.light) .alerte-ok     { background: rgba(16, 185, 129, 0.14); border-color: rgba(52, 211, 153, 0.5); color: #a7f3d0; }
 
 /* ====================================================================
-   CADRAGE (v11.2) — plus rien ne sort de l'écran.
-   Constat utilisateur : des champs et des textes « hors champ » dans
-   plusieurs onglets, davantage encore sur iPhone. Causes réelles :
-   1. un enfant de grille / de flex a une largeur minimale = son contenu
-      (min-width:auto) : un email, un VIN ou un libellé long pousse la
-      colonne au-delà du cadre — on remet min-width:0 partout, le texte
-      se replie ;
-   2. les mots longs ne se coupent pas — overflow-wrap sur tout le corps ;
-   3. iOS ZOOME la page dès qu'un champ de moins de 16 px reçoit le focus,
-      et la page reste décalée à droite après le clavier — les champs
-      passent à 16 px sur téléphone (le corps de texte est à 17 px, ce
-      n'est pas plus gros que le reste) ;
-   4. filet de sécurité : la page elle-même ne défile jamais latéralement
-      (overflow-x: clip, qui ne bloque pas le sticky ni les modales).
+   PAGE D'ACCUEIL PUBLIQUE (.landing-pro) — vitrine. Même palette que
+   l'appli désormais ; on force juste le fond clair et pas de quadrillage.
 ==================================================================== */
-/* v11.4 — `overflow-x: hidden` sur html ET body faisait de body un conteneur
-   de défilement : la barre du haut en `position: sticky` décrochait et se
-   retrouvait AU-DESSUS du titre de page (constaté sur la fiche dossier).
-   `clip` ne crée PAS de conteneur de défilement : on ne garde que lui, et
-   uniquement sur html. */
-html { overflow-x: clip; }
-body { max-width: 100%; overflow-wrap: break-word; }
-
-/* v11.4 — cette règle écrasait les `min-w-*` VOLONTAIRES de Tailwind (elle
-   est plus spécifique) : le bloc texte d'une suggestion, censé garder 16rem
-   et faire passer les boutons à la ligne, se réduisait à rien et le texte
-   tombait en colonne d'un mot. On épargne donc tout élément qui déclare
-   lui-même une largeur minimale. */
-.grid > *:not([class*="min-w-"]),
-.flex > *:not(.shrink-0):not([class*="min-w-"]),
-.inline-flex > *:not(.shrink-0):not([class*="min-w-"]) { min-width: 0; }
-img, svg, video, canvas { max-width: 100%; }
-pre { white-space: pre-wrap; overflow-wrap: anywhere; }
-input, select, textarea { max-width: 100%; }
-@media (max-width: 640px) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
-  select,
-  textarea,
-  .field-input {
-    font-size: 16px !important;
-  }
-  .modal-panel > div { padding-left: 0.9rem; padding-right: 0.9rem; }
+body:has(.landing-pro),
+html.light body:has(.landing-pro) {
+  color: #1e2233;
+  background-color: #f6f7fb;
+  background-image:
+    radial-gradient(60rem 40rem at 75% -10%, rgba(139, 92, 246, 0.1), transparent 60%),
+    radial-gradient(50rem 35rem at -10% 110%, rgba(20, 184, 166, 0.07), transparent 60%);
+  background-size: 100% 100%;
+  background-attachment: fixed;
 }
-
-/* ====================================================================
-   CADRAGE MOBILE — 2e passe (v11.3)
-   La v11.2 a traité les causes de fond (min-width:0, coupure des mots,
-   champs à 16 px, modales calées sur la zone visible). Restent quelques
-   familles d'éléments qui peuvent encore élargir la page sur iPhone :
-   on les borne ici, sans casser les tableaux qui doivent défiler.
-==================================================================== */
-@media (max-width: 640px) {
-  /* Une carte ne dépasse jamais l'écran, quel que soit son contenu. */
-  .glass-card, .glass-soft, .modal-panel { max-width: 100%; }
-
-  /* Un conteneur qui défile horizontalement doit être borné, sinon il
-     pousse la page au lieu de défiler dans son cadre. */
-  .overflow-x-auto { max-width: 100%; overscroll-behavior-x: contain; }
-
-  /* « nowrap » dans une rangée souple : la rangée défile, elle n'élargit pas. */
-  .flex.flex-nowrap { overflow-x: auto; max-width: 100%; }
-
-  /* Les éléments flottants (assistant MY-MY, boutons ronds) restent dans
-     l'écran même quand la barre d'adresse de Safari change de hauteur. */
-  .fixed { max-width: 100vw; }
-
-  /* Un tableau `w-full` placé dans un cadre défilant ne défile PAS : il se
-     comprime jusqu'à ce que ses colonnes fassent une lettre de large. Sur
-     téléphone on lui impose donc un plancher — il défile alors dans son
-     cadre, comme prévu, au lieu d'écraser son contenu. (11 tableaux étaient
-     concernés : rentabilité, planning, archives, flotte, finance, banque,
-     véhicules, commandes, documents, simulateur.) */
-  .overflow-x-auto table { min-width: 40rem; }
-
-  /* ⛔ NE PAS remettre `overflow-wrap: anywhere` ici (v11.3, retiré en v11.4).
-     Contrairement à `break-word`, `anywhere` réduit la largeur MINIMALE
-     intrinsèque d'une cellule à UN caractère : les tableaux de l'annuaire
-     s'écrasaient et le texte s'affichait à la verticale, une lettre par
-     ligne. `break-word` (posé sur body) suffit et ne casse pas les colonnes.
-     Pour un identifiant vraiment long, utiliser `break-all` au cas par cas. */
+.landing-pro h1,
+.landing-pro h2,
+.landing-pro h3 {
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: -0.02em;
 }
-
-/* Champs du formulaire de contact public (v9.4) */
+.landing-pro h1 { font-size: clamp(1.9rem, 4.5vw, 3rem) !important; line-height: 1.12; font-weight: 700; }
+.landing-pro h2 { font-size: clamp(1.35rem, 2.6vw, 1.8rem) !important; line-height: 1.25; font-weight: 700; }
+.lp-card {
+  border: 1px solid #e4e6f0;
+  background: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 1px 3px rgba(30, 34, 51, 0.05), 0 10px 30px rgba(30, 34, 51, 0.04);
+}
+.lp-card-hover { transition: border-color 0.2s, transform 0.2s; }
+.lp-card-hover:hover { border-color: rgba(139, 92, 246, 0.45); transform: translateY(-2px); }
+.lp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.6rem;
+  padding: 0.65rem 1.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #fff;
+  background: linear-gradient(135deg, #7c3aed, #db2777);
+  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.35);
+  transition: filter 0.15s, transform 0.15s;
+}
+.lp-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+.lp-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.6rem;
+  padding: 0.65rem 1.35rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #3b3f52;
+  border: 1px solid #d5d8e6;
+  background: #ffffff;
+  transition: background 0.15s, border-color 0.15s;
+}
+.lp-btn-ghost:hover { background: #f0f1f8; border-color: #b9bdd2; }
+.lp-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6d28d9;
+}
 .lp-input {
   width: 100%;
   border: 1px solid #d5d8e6;
@@ -784,3 +658,161 @@ input, select, textarea { max-width: 100%; }
 }
 .lp-input::placeholder { color: #9aa0b8; }
 .lp-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
+
+/* ====================================================================
+   CADRAGE (v11.2 → v11.4) — plus rien ne sort de l'écran. INCHANGÉ.
+   ⛔ Ne pas remettre overflow-wrap:anywhere en global, ni overflow-x sur
+   body (casse le sticky), ni min-width:0 aveugle (écrase les min-w-*).
+==================================================================== */
+html { overflow-x: clip; }
+body { max-width: 100%; overflow-wrap: break-word; }
+.grid > *:not([class*="min-w-"]),
+.flex > *:not(.shrink-0):not([class*="min-w-"]),
+.inline-flex > *:not(.shrink-0):not([class*="min-w-"]) { min-width: 0; }
+img, svg, video, canvas { max-width: 100%; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+input, select, textarea { max-width: 100%; }
+@media (max-width: 640px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea,
+  .field-input {
+    font-size: 16px !important;
+  }
+  .modal-panel > div { padding-left: 0.9rem; padding-right: 0.9rem; }
+  .glass-card, .glass-soft, .modal-panel { max-width: 100%; }
+  .overflow-x-auto { max-width: 100%; overscroll-behavior-x: contain; }
+  .flex.flex-nowrap { overflow-x: auto; max-width: 100%; }
+  .fixed { max-width: 100vw; }
+  .overflow-x-auto table { min-width: 40rem; }
+}
+
+/* ===== Densité MOBILE ===== */
+@media (max-width: 640px) {
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger {
+    padding-left: 0.85rem;
+    padding-right: 0.85rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    font-size: 0.8rem;
+  }
+  .field-input {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  .field-label { font-size: 0.75rem; }
+  .segment-btn { padding: 0.3rem 0.6rem; font-size: 0.7rem; }
+}
+
+/* ====================================================================
+   THÈME CLAIR — surcharges GÉNÉRÉES des utilitaires hérités.
+   L'appli a été écrite « blanc sur sombre » : en clair, chaque nuance de
+   text-white/NN, bg-white/NN, border-white/NN, divide-white/NN et leurs
+   variantes hover: est retapée en teinte ENCRE (#1e2233). Toutes les
+   valeurs de 5 à 95 sont couvertes : aucune nuance ne peut rester blanche.
+==================================================================== */
+html.light .text-white { color: #1e2233; }
+html.light .hover\:text-white:hover { color: #1e2233; }
+html.light .file\:text-white::file-selector-button { color: #1e2233; }
+html.light .placeholder-white\/30::placeholder { color: rgba(30,34,51,0.4); }
+
+html.light .text-white\/5 { color: rgba(30,34,51,0.17); }
+html.light .hover\:text-white\/5:hover { color: rgba(30,34,51,0.17); }
+html.light .text-white\/10 { color: rgba(30,34,51,0.21); }
+html.light .hover\:text-white\/10:hover { color: rgba(30,34,51,0.21); }
+html.light .text-white\/15 { color: rgba(30,34,51,0.26); }
+html.light .hover\:text-white\/15:hover { color: rgba(30,34,51,0.26); }
+html.light .text-white\/20 { color: rgba(30,34,51,0.3); }
+html.light .hover\:text-white\/20:hover { color: rgba(30,34,51,0.3); }
+html.light .text-white\/25 { color: rgba(30,34,51,0.34); }
+html.light .hover\:text-white\/25:hover { color: rgba(30,34,51,0.34); }
+html.light .text-white\/30 { color: rgba(30,34,51,0.39); }
+html.light .hover\:text-white\/30:hover { color: rgba(30,34,51,0.39); }
+html.light .text-white\/35 { color: rgba(30,34,51,0.43); }
+html.light .hover\:text-white\/35:hover { color: rgba(30,34,51,0.43); }
+html.light .text-white\/40 { color: rgba(30,34,51,0.48); }
+html.light .hover\:text-white\/40:hover { color: rgba(30,34,51,0.48); }
+html.light .text-white\/45 { color: rgba(30,34,51,0.53); }
+html.light .hover\:text-white\/45:hover { color: rgba(30,34,51,0.53); }
+html.light .text-white\/50 { color: rgba(30,34,51,0.57); }
+html.light .hover\:text-white\/50:hover { color: rgba(30,34,51,0.57); }
+html.light .text-white\/55 { color: rgba(30,34,51,0.61); }
+html.light .hover\:text-white\/55:hover { color: rgba(30,34,51,0.61); }
+html.light .text-white\/60 { color: rgba(30,34,51,0.66); }
+html.light .hover\:text-white\/60:hover { color: rgba(30,34,51,0.66); }
+html.light .text-white\/65 { color: rgba(30,34,51,0.71); }
+html.light .hover\:text-white\/65:hover { color: rgba(30,34,51,0.71); }
+html.light .text-white\/70 { color: rgba(30,34,51,0.75); }
+html.light .hover\:text-white\/70:hover { color: rgba(30,34,51,0.75); }
+html.light .text-white\/75 { color: rgba(30,34,51,0.8); }
+html.light .hover\:text-white\/75:hover { color: rgba(30,34,51,0.8); }
+html.light .text-white\/80 { color: rgba(30,34,51,0.84); }
+html.light .hover\:text-white\/80:hover { color: rgba(30,34,51,0.84); }
+html.light .text-white\/85 { color: rgba(30,34,51,0.89); }
+html.light .hover\:text-white\/85:hover { color: rgba(30,34,51,0.89); }
+html.light .text-white\/90 { color: rgba(30,34,51,0.93); }
+html.light .hover\:text-white\/90:hover { color: rgba(30,34,51,0.93); }
+html.light .text-white\/95 { color: rgba(30,34,51,0.97); }
+html.light .hover\:text-white\/95:hover { color: rgba(30,34,51,0.97); }
+html.light .bg-white\/5 { background-color: rgba(30,34,51,0.028); }
+html.light .hover\:bg-white\/5:hover { background-color: rgba(30,34,51,0.028); }
+html.light .file\:bg-white\/5::file-selector-button { background-color: rgba(30,34,51,0.028); }
+html.light .bg-white\/10 { background-color: rgba(30,34,51,0.055); }
+html.light .hover\:bg-white\/10:hover { background-color: rgba(30,34,51,0.055); }
+html.light .file\:bg-white\/10::file-selector-button { background-color: rgba(30,34,51,0.055); }
+html.light .bg-white\/15 { background-color: rgba(30,34,51,0.083); }
+html.light .hover\:bg-white\/15:hover { background-color: rgba(30,34,51,0.083); }
+html.light .file\:bg-white\/15::file-selector-button { background-color: rgba(30,34,51,0.083); }
+html.light .bg-white\/20 { background-color: rgba(30,34,51,0.11); }
+html.light .hover\:bg-white\/20:hover { background-color: rgba(30,34,51,0.11); }
+html.light .file\:bg-white\/20::file-selector-button { background-color: rgba(30,34,51,0.11); }
+html.light .bg-white\/25 { background-color: rgba(30,34,51,0.138); }
+html.light .hover\:bg-white\/25:hover { background-color: rgba(30,34,51,0.138); }
+html.light .file\:bg-white\/25::file-selector-button { background-color: rgba(30,34,51,0.138); }
+html.light .bg-white\/30 { background-color: rgba(30,34,51,0.165); }
+html.light .hover\:bg-white\/30:hover { background-color: rgba(30,34,51,0.165); }
+html.light .file\:bg-white\/30::file-selector-button { background-color: rgba(30,34,51,0.165); }
+html.light .border-white\/5 { border-color: rgba(30,34,51,0.075); }
+html.light .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,34,51,0.075); }
+html.light .border-white\/10 { border-color: rgba(30,34,51,0.11); }
+html.light .divide-white\/10 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,34,51,0.11); }
+html.light .border-white\/15 { border-color: rgba(30,34,51,0.145); }
+html.light .divide-white\/15 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,34,51,0.145); }
+html.light .border-white\/20 { border-color: rgba(30,34,51,0.18); }
+html.light .divide-white\/20 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,34,51,0.18); }
+html.light .border-white\/25 { border-color: rgba(30,34,51,0.215); }
+html.light .divide-white\/25 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,34,51,0.215); }
+html.light .border-white\/30 { border-color: rgba(30,34,51,0.25); }
+html.light .divide-white\/30 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,34,51,0.25); }
+html.light .border-white\/35 { border-color: rgba(30,34,51,0.285); }
+html.light .divide-white\/35 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,34,51,0.285); }
+html.light .border-white\/40 { border-color: rgba(30,34,51,0.32); }
+html.light .divide-white\/40 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,34,51,0.32); }
+html.light .border-white\/45 { border-color: rgba(30,34,51,0.355); }
+html.light .divide-white\/45 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,34,51,0.355); }
+html.light .border-white\/50 { border-color: rgba(30,34,51,0.39); }
+html.light .divide-white\/50 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,34,51,0.39); }
+
+/* Couleurs nommées CLAIRES (pensées pour le fond sombre) → versions foncées */
+html.light .text-amber-100, html.light .text-amber-200, html.light .text-amber-200\/80,
+html.light .text-amber-100\/80, html.light .text-amber-100\/70, html.light .text-amber-100\/60 { color: #92400e; }
+html.light .text-amber-300, html.light .text-amber-400 { color: #b45309; }
+html.light .text-emerald-100, html.light .text-emerald-200, html.light .text-emerald-300,
+html.light .text-emerald-400, html.light .text-emerald-200\/70 { color: #047857; }
+html.light .text-emerald-300\/80 { color: rgba(4, 120, 87, 0.9); }
+html.light .text-rose-100, html.light .text-rose-200, html.light .text-rose-300, html.light .text-rose-400,
+html.light .text-pink-200 { color: #be123c; }
+html.light .text-rose-300\/80 { color: rgba(190, 18, 60, 0.9); }
+html.light .text-violet-100, html.light .text-violet-200, html.light .text-violet-400 { color: #6d28d9; }
+html.light .text-teal-200, html.light .text-accent-teal { color: #0f766e; }
+html.light .text-sky-400 { color: #0369a1; }
+html.light .text-accent-pink { color: #be185d; }
+
+/* Fonds sombres codés en dur (rares) */
+html.light .bg-white\/40 { background-color: rgba(30,34,51,0.3); }
+html.light .bg-black\/20 { background-color: rgba(30,34,51,0.08); }
+html.light .bg-black\/30 { background-color: rgba(30,34,51,0.1); }
+html.light .bg-black\/40 { background-color: rgba(30,34,51,0.14); }
+
