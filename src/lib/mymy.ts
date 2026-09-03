@@ -17,6 +17,8 @@ import {
   Document,
   Dossier,
   Evenement,
+  FlotteMiseADispo,
+  FlotteVehicule,
   LigneArdoise,
   OrdreReparation,
   Paiement,
@@ -29,6 +31,7 @@ import { ajouterRappel } from "./ardoise";
 import { estActionFaite } from "./aFaire";
 import { STATUTS_ORDRE, estActif, formatDate, formatDateTime, formatEuros, labelStatut } from "./format";
 import { resteAPayer, totalPaye } from "./paiements";
+import { detenteurA, phraseDetenteur } from "./flotte";
 
 export type LienMyMy = { label: string; href: string };
 
@@ -66,6 +69,9 @@ export type ContexteMyMy = {
   rappels: LigneArdoise[];
   aFaire: { dossier: Dossier; action: ProchaineAction }[];
   impayes: { doc: Document; dossier: Dossier | undefined; reste: number; retard: boolean }[];
+  /** Flotte du garage + historique des prêts / locations (v12.3) : « qui avait le véhicule le … ? ». */
+  flotte: FlotteVehicule[];
+  mads: FlotteMiseADispo[];
   chargeLe: string;
 };
 
@@ -103,13 +109,17 @@ export async function chargerContexteMyMy(metier: string | null): Promise<Contex
   // téléphone de … ». Chargé à part : une table absente ne bloque rien.
   const depuis = new Date(Date.now() - 60 * 86400000).toISOString();
   const jusqua = new Date(Date.now() + 120 * 86400000).toISOString();
-  const [cl, ass, ex, ev, ard] = await Promise.all([
+  const [cl, ass, ex, ev, ard, fl, md] = await Promise.all([
     supabase.from("clients").select("*"),
     supabase.from("assureurs").select("*"),
     supabase.from("experts").select("*"),
     supabase.from("evenements").select("*").gte("date_evenement", depuis).lte("date_evenement", jusqua).order("date_evenement", { ascending: true }),
     supabase.from("ardoise").select("*").eq("fait", false),
+    supabase.from("flotte_vehicules").select("*"),
+    supabase.from("flotte_mises_a_dispo").select("*").order("date_debut", { ascending: false }),
   ]);
+  const flotte = (fl.data as FlotteVehicule[]) || [];
+  const mads = (md.data as FlotteMiseADispo[]) || [];
   const evenements = (ev.data as Evenement[]) || [];
   const rappels = (ard.data as LigneArdoise[]) || [];
   const clients = (cl.data as Client[]) || [];
@@ -161,7 +171,7 @@ export async function chargerContexteMyMy(metier: string | null): Promise<Contex
     .filter((x) => x.reste > 0.01)
     .sort((a, b) => Number(b.retard) - Number(a.retard));
 
-  return { dossiers, documents, paiements, relances, clients, assureurs, experts, evenements, rappels, aFaire, impayes, chargeLe: new Date().toISOString() };
+  return { dossiers, documents, paiements, relances, clients, assureurs, experts, evenements, rappels, aFaire, impayes, flotte, mads, chargeLe: new Date().toISOString() };
 }
 
 // ---------------------------------------------------------------------------
@@ -391,6 +401,102 @@ function reponseAgenda(ctx: ContexteMyMy, p: Periode): MessageMyMy {
 // ---------------------------------------------------------------------------
 //  Réponses LOCALES (sans IA) — renvoie null si la question ne s'y prête pas
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+//  FLOTTE (v12.3) — qui avait le véhicule à telle date ?
+// ---------------------------------------------------------------------------
+const MOIS_FR = ["janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre", "decembre"];
+
+/** Date (AAAA-MM-JJ) lue dans la phrase : 12/08/2026, 12/08, 12 août, hier, avant-hier, aujourd'hui. */
+export function dateDansPhrase(q: string): string | null {
+  const auj = debutJour(new Date());
+  const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  if (/avant.?hier/.test(q)) return iso(plusJours(auj, -2));
+  if (/\bhier\b/.test(q)) return iso(plusJours(auj, -1));
+  if (/aujourd.?hui|ce jour/.test(q)) return iso(auj);
+  const num = q.match(/\b(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/);
+  if (num) {
+    const j = Number(num[1]), m = Number(num[2]);
+    let a = num[3] ? Number(num[3]) : auj.getFullYear();
+    if (a < 100) a += 2000;
+    if (j >= 1 && j <= 31 && m >= 1 && m <= 12) {
+      const d = new Date(a, m - 1, j);
+      if (!num[3] && d > auj) d.setFullYear(a - 1); // « le 12/11 » sans année = le dernier passé
+      return iso(d);
+    }
+  }
+  const lettres = q.match(new RegExp(`\\b(\\d{1,2}|1er)\\s+(${MOIS_FR.join("|")})(?:\\s+(\\d{4}))?`));
+  if (lettres) {
+    const j = lettres[1] === "1er" ? 1 : Number(lettres[1]);
+    const m = MOIS_FR.indexOf(lettres[2]);
+    const a = lettres[3] ? Number(lettres[3]) : auj.getFullYear();
+    const d = new Date(a, m, j);
+    if (!lettres[3] && d > auj) d.setFullYear(a - 1);
+    return iso(d);
+  }
+  return null;
+}
+
+function normaliseImmatMyMy(s: string): string {
+  return s.toUpperCase().replace(/[\s\-_.]/g, "");
+}
+
+/** Véhicule de la flotte visé par la phrase (immatriculation ou modèle). */
+export function vehiculeDansPhrase(ctx: ContexteMyMy, q: string): FlotteVehicule | null {
+  const compact = normaliseImmatMyMy(q);
+  const parImmat = ctx.flotte.find((v) => v.immatriculation && compact.includes(normaliseImmatMyMy(v.immatriculation)));
+  if (parImmat) return parImmat;
+  const mots = q.split(/[^a-z0-9]+/).filter((m) => m.length >= 3);
+  const parModele = ctx.flotte.filter((v) => {
+    const modele = (v.marque_modele || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    return modele && mots.some((m) => modele.includes(m) && !["vehicule", "voiture", "flotte", "garage"].includes(m));
+  });
+  return parModele.length === 1 ? parModele[0] : null;
+}
+
+function reponseFlotte(ctx: ContexteMyMy, q: string): MessageMyMy | null {
+  const parleFlotte = /qui (avait|conduisait|etait au volant|a eu|utilisait|louait|empruntait)|a qui (etait|est) (prete|loue)|(pv|amende|contravention|radar|stationnement|fourriere|infraction)/.test(q);
+  if (!parleFlotte || ctx.flotte.length === 0) return null;
+  const vehicule = vehiculeDansPhrase(ctx, q);
+  const date = dateDansPhrase(q);
+  if (!vehicule) {
+    if (!date) return null;
+    // Date sans véhicule : tout ce qui était sorti ce jour-là.
+    const sortis = ctx.flotte
+      .map((v) => ({ v, m: detenteurA(ctx.mads.filter((m) => m.vehicule_id === v.id), date) }))
+      .filter((x) => x.m);
+    if (sortis.length === 0) {
+      return { role: "assistant", texte: `Le ${formatDate(date)}, aucun véhicule de la flotte n'était prêté ni loué (d'après les contrats enregistrés).` };
+    }
+    return {
+      role: "assistant",
+      texte: `Le ${formatDate(date)}, ${sortis.length} véhicule(s) étaient sortis :\n` + sortis.map((x) => `• ${phraseDetenteur(x.v.immatriculation, x.m, date, formatDate)}`).join("\n"),
+      liens: sortis.map((x) => ({ label: `Fiche ${x.v.immatriculation}`, href: `/flotte/${x.v.id}` })),
+    };
+  }
+  const mads = ctx.mads.filter((m) => m.vehicule_id === vehicule.id);
+  if (!date) {
+    const enCours = mads.find((m) => m.statut === "en_cours");
+    const texte = enCours
+      ? `${vehicule.immatriculation} (${vehicule.marque_modele || "—"}) est actuellement ${enCours.type === "location" ? "loué" : "prêté"} à ${enCours.conducteur_nom || "—"}${enCours.conducteur_tel ? ` (tél. ${enCours.conducteur_tel})` : ""} depuis le ${formatDate(enCours.date_debut)}${enCours.date_fin ? `, retour prévu le ${formatDate(enCours.date_fin)}` : ""}. Précise une date (« le 12/08 ») pour savoir qui l'avait ce jour-là.`
+      : `${vehicule.immatriculation} (${vehicule.marque_modele || "—"}) est au garage, disponible. Précise une date (« le 12/08 ») pour savoir qui l'avait ce jour-là.`;
+    return { role: "assistant", texte, liens: [{ label: `Fiche ${vehicule.immatriculation}`, href: `/flotte/${vehicule.id}` }] };
+  }
+  const m = detenteurA(mads, date);
+  const d = m?.dossier_id ? ctx.dossiers.find((x) => x.id === m.dossier_id) : undefined;
+  const liens: LienMyMy[] = [{ label: `Fiche ${vehicule.immatriculation}`, href: `/flotte/${vehicule.id}` }];
+  if (d) liens.push(lienDossier(d));
+  return {
+    role: "assistant",
+    texte:
+      phraseDetenteur(vehicule.immatriculation, m, date, formatDate) +
+      (m?.conducteur_adresse ? ` Adresse : ${m.conducteur_adresse}.` : "") +
+      (m?.conducteur_email ? ` Email : ${m.conducteur_email}.` : "") +
+      (m ? " C'est cette personne à désigner sur l'avis de contravention (art. L121-6 du Code de la route) ; le contrat PDF signé fait foi." : ""),
+    liens,
+  };
+}
+
 export function repondreLocalement(ctx: ContexteMyMy, question: string): MessageMyMy | null {
   const q = question
     .toLowerCase()
@@ -404,6 +510,11 @@ export function repondreLocalement(ctx: ContexteMyMy, question: string): Message
   if (/^(mymy|my-my)?[\s,]*(rappel|rappelle|note|ajoute|cree|creer|planifie|programme|passe|marque|mets|met)\b/.test(q) || /(est arrivee?|est repartie?|est sortie?|au garage aujourd)/.test(q)) {
     return null;
   }
+
+  // FLOTTE (v12.3) : « qui avait la AB-123-CD le 12/08 ? », « PV de
+  // stationnement du 3 septembre sur la Clio », « qui conduisait … hier ? »
+  const flotteRep = reponseFlotte(ctx, q);
+  if (flotteRep) return flotteRep;
 
   // AGENDA : « je dois faire quoi demain ? », « qu'est-ce qu'il y a lundi ? »,
   // « cette semaine », « aujourd'hui »… → RDV + rappels datés + rappels sans date.
@@ -604,8 +715,17 @@ export function resumePourIA(ctx: ContexteMyMy, question = ""): string {
     const d = r.dossier_id ? parId.get(r.dossier_id) : undefined;
     return `- ${r.echeance ? new Date(r.echeance).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "sans date"} | ${r.texte}${d ? ` | dossier ${libelleDossier(d)}` : ""}`;
   });
+  const flotte = ctx.flotte.slice(0, 60).map((v) => {
+    const hist = ctx.mads
+      .filter((m) => m.vehicule_id === v.id && m.statut !== "annulee")
+      .slice(0, 12)
+      .map((m) => `${m.type} à ${m.conducteur_nom || "?"} (tel ${m.conducteur_tel || "?"}) du ${m.date_debut || "?"} au ${m.date_retour ? m.date_retour.slice(0, 10) : m.statut === "en_cours" ? "EN COURS" : m.date_fin || "?"}${m.signature || m.cg_acceptees ? ", CG signées" : ", CG non signées"}`)
+      .join(" ; ");
+    return `- ${v.immatriculation} | ${v.marque_modele || "?"} | fiche=/flotte/${v.id} | ${v.loue ? "SORTI" : "disponible"}${v.hors_garage ? " | hors garage (CG au nom de " + (v.titulaire_cg || "?") + ")" : ""} | assurance ${v.assurance || "?"} ${v.type_contrat_assurance || ""} police ${v.numero_police || "?"} | prochain CT ${v.date_prochain_ct || "?"} | km ${v.kilometrage ?? "?"} | historique : ${hist || "aucun prêt/location"}`;
+  });
   return (
     `Date du jour : ${now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })} (${now.toISOString().slice(0, 10)})\n` +
+    `FLOTTE DU GARAGE (véhicules de prêt / location — pour « qui avait le véhicule le … ? ») :\n${flotte.join("\n") || "(vide)"}\n` +
     `AGENDA (7 derniers jours → 120 jours) :\n${agenda.join("\n") || "(vide)"}\n` +
     `RAPPELS ÉCRITS non faits :\n${rappels.join("\n") || "(aucun)"}\n` +
     `Codes de statut possibles : ${STATUTS_ORDRE.join(", ")}\n` +

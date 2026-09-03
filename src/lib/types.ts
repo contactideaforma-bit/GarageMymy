@@ -433,6 +433,103 @@ export type FlotteVehicule = {
   location_fin: string | null;
   prix_jour: number | null;
   commentaire: string | null;
+  // FICHE VÉHICULE (v67 / v12.3)
+  type_contrat_assurance?: string | null;
+  numero_police?: string | null;
+  date_debut_contrat?: string | null;
+  date_fin_contrat?: string | null;
+  assureur_tel?: string | null;
+  assureur_email?: string | null;
+  vin?: string | null;
+  date_mise_circulation?: string | null;
+  date_ct?: string | null;
+  date_prochain_ct?: string | null;
+  kilometrage?: number | null;
+  couleur?: string | null;
+  carburant?: string | null;
+  notes?: string | null;
+  /** Véhicule du garage immatriculé au nom d'un tiers (onglet « Flotte hors garage »). */
+  hors_garage?: boolean | null;
+  titulaire_cg?: string | null;
+  titulaire_cg_tel?: string | null;
+};
+
+export type FlotteDocument = {
+  id: string;
+  created_at: string;
+  vehicule_id: string;
+  type: string; // carte_grise | assurance | cni | permis | controle_technique | photo | entretien | contrat | autre
+  nom: string | null;
+  path: string;
+  date_expiration: string | null;
+};
+
+export type FlotteEntretien = {
+  id: string;
+  created_at: string;
+  vehicule_id: string;
+  date_entretien: string | null;
+  type: string; // revision | vidange | pneus | freins | ct | carrosserie | reparation | autre
+  description: string | null;
+  kilometrage: number | null;
+  cout: number | null;
+  prestataire: string | null;
+  prochain_le: string | null;
+  prochain_km: number | null;
+};
+
+/** Prêt OU location d'un véhicule de la flotte (v67). */
+export type FlotteMiseADispo = {
+  id: string;
+  created_at: string;
+  vehicule_id: string;
+  type: string; // pret | location
+  statut: string; // en_cours | terminee | annulee
+  dossier_id: string | null;
+  client_id: string | null;
+  transfert_id: string | null;
+  conducteur_nom: string | null;
+  conducteur_tel: string | null;
+  conducteur_email: string | null;
+  conducteur_adresse: string | null;
+  conducteur_naissance: string | null;
+  permis_numero: string | null;
+  permis_date: string | null;
+  date_debut: string | null;
+  date_fin: string | null;
+  date_retour: string | null;
+  km_depart: number | null;
+  km_retour: number | null;
+  carburant_depart: string | null;
+  carburant_retour: string | null;
+  observations_depart: string | null;
+  observations_retour: string | null;
+  tarif_jour: number | null;
+  tarif_horaire: number | null;
+  franchise: number | null;
+  km_jour: number | null;
+  prix_km: number | null;
+  prise_en_charge: string | null; // assurance | client
+  caution: number | null;
+  clauses: string | null;
+  signataire_nom: string | null;
+  signature: string | null;
+  signe_le: string | null;
+  cg_acceptees: boolean;
+  notes: string | null;
+};
+
+export type FlottePhoto = {
+  id: string;
+  created_at: string;
+  vehicule_id: string;
+  mise_a_dispo_id: string | null;
+  moment: string; // depart | retour | libre
+  angle: string;
+  path: string;
+  kilometrage: number | null;
+  commentaire: string | null;
+  prise_le: string;
 };
 
 export type BankTransaction = {

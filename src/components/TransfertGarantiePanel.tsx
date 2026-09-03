@@ -90,6 +90,12 @@ export default function TransfertGarantiePanel({
         .from("flotte_vehicules")
         .update({ loue: false, locataire: null, locataire_tel: null })
         .ilike("immatriculation", t.vehicule_immat.trim());
+      // v12.3 — clôture le prêt correspondant dans la fiche véhicule.
+      await supabase
+        .from("flotte_mises_a_dispo")
+        .update({ statut: "terminee", date_retour: new Date().toISOString() })
+        .eq("transfert_id", t.id)
+        .eq("statut", "en_cours");
     }
     refresh();
   }
@@ -312,7 +318,7 @@ function TransfertModal({
         notes: notes || null,
       };
       const d = defautsContrat(ent, dossier);
-      let { error: e1 } = await supabase.from("transferts_garantie").insert({
+      let { data: cree, error: e1 } = await supabase.from("transferts_garantie").insert({
         ...base,
         tarif_jour: d.tarif_jour,
         tarif_horaire: d.tarif_horaire,
@@ -321,9 +327,9 @@ function TransfertModal({
         prix_km: d.prix_km,
         conducteur_nom: d.conducteur_nom || null,
         prise_en_charge: d.prise_en_charge,
-      });
+      }).select("id").single();
       if (e1 && /column|colonne/i.test(e1.message || "")) {
-        ({ error: e1 } = await supabase.from("transferts_garantie").insert(base));
+        ({ data: cree, error: e1 } = await supabase.from("transferts_garantie").insert(base).select("id").single());
       }
       if (e1) throw e1;
       // Marque le véhicule de flotte comme loué au client du dossier
@@ -335,6 +341,28 @@ function TransfertModal({
           location_debut: debut || null,
           location_fin: fin || null,
         }).eq("id", vehiculeId);
+        // v12.3 — le prêt apparaît aussi dans l'historique de la FICHE VÉHICULE
+        // (qui avait le véhicule à telle date). Best-effort : table absente
+        // (migration v67 non passée) → on ignore.
+        await supabase.from("flotte_mises_a_dispo").insert({
+          vehicule_id: vehiculeId,
+          type: "pret",
+          statut: "en_cours",
+          dossier_id: dossier.id,
+          transfert_id: (cree as { id: string } | null)?.id || null,
+          conducteur_nom: dossier.client_nom || null,
+          conducteur_tel: dossier.client_tel || null,
+          conducteur_email: dossier.client_email || null,
+          conducteur_adresse: [dossier.client_adresse, `${dossier.client_code_postal || ""} ${dossier.client_ville || ""}`.trim()].filter(Boolean).join(", ") || null,
+          date_debut: debut || null,
+          date_fin: fin || null,
+          tarif_jour: 0,
+          franchise: d.franchise,
+          km_jour: d.km_jour,
+          prix_km: d.prix_km,
+          prise_en_charge: "assurance",
+          notes: notes || null,
+        });
       }
       onSaved();
     } catch (err: unknown) {

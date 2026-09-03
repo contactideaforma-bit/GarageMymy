@@ -46,6 +46,14 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Agenda** (`/agenda`) : vue **semaine / mois**, navigation passé-futur, **+ RDV** (type client/expert, dossier, date, heure, motif, interlocuteur).
 - Fiche dossier enrichie : coordonnées cabinet d'expert, expert en charge, assurance ; planning réparation.
 
+### Ajouté v12.3 — Fiche véhicule & flotte hors garage
+- **Migration** `supabase/migration_v67.sql` : colonnes fiche sur `flotte_vehicules` (type de contrat, n° de police, dates de contrat, VIN, CT, km, notes, `hors_garage`, `titulaire_cg`) + tables `flotte_documents`, `flotte_entretiens`, `flotte_mises_a_dispo` (prêt OU location, liée à un dossier sinistre / une fiche client / un transfert de garantie), `flotte_photos` (départ / retour). RLS owner_id partout.
+- **Fiche véhicule** `/flotte/[id]` (`src/app/flotte/[id]/page.tsx`) : mentions importantes (assurance, contrat, police, échéances, CT), notes, panneaux `MiseADispoPanel` (Prêter / Louer → `MiseADispoModal` pré-rempli depuis le dossier ou le client, CG modifiables, signature `SignerModal`, photos avant/après `PhotosMadModal` avec comparaison, retour `RetourModal` km/carburant/état, **« qui avait le véhicule le … ? »**), `FlotteDocumentsPanel` (carte grise, assurance, CNI, CT, photos, PV… avec expiration), `FlotteEntretiensPanel` (carnet + prochain passage). Composants dans `src/components/flotte/`, formulaire `VehiculeForm`.
+- **Liste** `/flotte` → `FlotteListe` (un véhicule créé ouvre sa fiche ; boutons Prêter / Louer / Fiche / Retour). **`/flotte/hors-garage`** : même liste filtrée `hors_garage = true`, visible uniquement pour les comptes de `COMPTES_FLOTTE_HORS_GARAGE` (`lib/flotte.ts`, aujourd'hui `latelierdesaintjoseph@gmail.com`) — entrée Sidebar conditionnelle.
+- **Helpers** : `lib/flotte.ts` (`detenteurA`, `phraseDetenteur`, `synchroniserStatutVehicule` qui maintient `loue/locataire` pour l'ancien panneau, dépôt documents/photos), `lib/pret.ts` (`clausesMiseADispo`, `conducteurDepuisDossier/Client`, `defautsMiseADispo`), `lib/pdf.ts` (`buildContratMiseADispoPdf` + aperçu / téléchargement / base64).
+- **MY-MY** : contexte enrichi (flotte + mises à dispo), réponse locale « qui avait la AB-123-CD le 12/08 ? » / « PV du 3 septembre » (`reponseFlotte`, `dateDansPhrase`, `vehiculeDansPhrase`) et résumé IA avec l'historique par véhicule.
+- Le prêt créé depuis la fiche dossier (`TransfertGarantiePanel`) crée aussi la mise à disposition dans la fiche véhicule (et la clôture à la suppression).
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

@@ -10,6 +10,7 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { useMetier } from "@/components/MetierProvider";
 import { METIER_INFOS, termes } from "@/lib/metier";
 import { estAdmin } from "@/lib/support";
+import { aFlotteHorsGarage } from "@/lib/flotte";
 import { VERSION_LABEL } from "@/lib/version";
 import { compterNonLus, lireRole } from "@/lib/conversation";
 
@@ -107,6 +108,8 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   // Onglet console d'assistance : visible pour l'éditeur uniquement.
   // (Affichage seulement — le contrôle réel est fait côté serveur.)
   const admin = estAdmin(email);
+  // Onglet « Flotte hors garage » (v12.3) : réservé à certains comptes.
+  const horsGarage = aFlotteHorsGarage(email);
   const { metier } = useMetier();
   const sousTitre = METIER_INFOS[metier].sousTitre;
   const t = termes(metier);
@@ -196,8 +199,14 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               <span className="chevron" aria-hidden>▶</span>
             </button>
             <div className={`nav-sous space-y-0.5 ${estOuverte(sec.titre) ? "" : "hidden"}`}>
-              {sec.items.map((item) => {
-                const active = isActive(item.href);
+              {sec.items
+                .flatMap((item) =>
+                  item.href === "/flotte" && horsGarage
+                    ? [item, { href: "/flotte/hors-garage", label: "Flotte hors garage" }]
+                    : [item]
+                )
+                .map((item) => {
+                const active = item.href === "/flotte" ? pathname.startsWith("/flotte") && !pathname.startsWith("/flotte/hors-garage") : isActive(item.href);
                 return (
                   <Link
                     key={item.href}

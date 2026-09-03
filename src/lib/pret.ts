@@ -16,7 +16,7 @@
 //  consommation) ; RGPD pour les données du conducteur.
 // ============================================================
 
-import { Dossier, Entreprise, TransfertGarantie } from "./types";
+import { Client, Dossier, Entreprise, FlotteMiseADispo, FlotteVehicule, TransfertGarantie } from "./types";
 import { formatDate, formatEuros } from "./format";
 
 export const PRISES_EN_CHARGE: Record<string, string> = {
@@ -101,5 +101,115 @@ export function clausesParDefaut(
     }.`,
     `Article 10 — Données personnelles\nLes informations recueillies (identité, permis, coordonnées) sont nécessaires à l'exécution du contrat et à la désignation du conducteur en cas d'infraction. Elles sont conservées par ${garage} pendant la durée légale et l'emprunteur dispose d'un droit d'accès, de rectification et d'effacement (RGPD).`,
     `Article 11 — Litiges\nLe présent contrat est soumis au droit français. En cas de litige, les parties recherchent une solution amiable ; l'emprunteur consommateur peut recourir gratuitement au médiateur de la consommation dont relève ${garage}. À défaut, les tribunaux compétents sont ceux du ressort du siège de ${garage}.`,
+  ].join("\n\n");
+}
+
+/* ====================================================================
+   MISE À DISPOSITION DEPUIS LA FICHE VÉHICULE (v67 / v12.3)
+
+   Même logique que le contrat de prêt du dossier sinistre, mais le
+   contrat est porté par le VÉHICULE : prêt (gratuit, art. 1875 C. civ.)
+   ou location (payante, art. 1709 C. civ.). Le conducteur vient d'un
+   dossier sinistre, d'une fiche client, ou est saisi à la main — chaque
+   donnée reste modifiable.
+==================================================================== */
+
+/** Pré-remplissage du conducteur depuis un dossier sinistre. */
+export function conducteurDepuisDossier(d: Dossier): Partial<FlotteMiseADispo> {
+  return {
+    dossier_id: d.id,
+    conducteur_nom: d.client_nom || null,
+    conducteur_tel: d.client_tel || null,
+    conducteur_email: d.client_email || null,
+    conducteur_adresse: [d.client_adresse, `${d.client_code_postal || ""} ${d.client_ville || ""}`.trim()].filter(Boolean).join(", ") || null,
+    date_debut: d.reparation_debut || null,
+    date_fin: d.reparation_fin || null,
+    prise_en_charge: "assurance",
+  };
+}
+
+/** Pré-remplissage du conducteur depuis une fiche client de l'annuaire. */
+export function conducteurDepuisClient(c: Client): Partial<FlotteMiseADispo> {
+  return {
+    client_id: c.id,
+    conducteur_nom: c.nom || null,
+    conducteur_tel: c.telephone || null,
+    conducteur_email: c.email || null,
+    conducteur_adresse: [c.adresse, `${c.code_postal || ""} ${c.ville || ""}`.trim()].filter(Boolean).join(", ") || null,
+    prise_en_charge: "client",
+  };
+}
+
+/** Tarifs par défaut d'une mise à disposition (profil du garage / véhicule). */
+export function defautsMiseADispo(type: string, ent: Partial<Entreprise> | null, v: FlotteVehicule): Partial<FlotteMiseADispo> {
+  const location = type === "location";
+  return {
+    type,
+    tarif_jour: location ? (v.prix_jour ?? ent?.pret_tarif_jour ?? null) : 0,
+    tarif_horaire: location ? (ent?.pret_tarif_horaire ?? null) : null,
+    franchise: ent?.pret_franchise ?? null,
+    km_jour: ent?.pret_km_jour ?? null,
+    prix_km: ent?.pret_prix_km ?? null,
+    km_depart: v.kilometrage ?? null,
+    prise_en_charge: "client",
+  };
+}
+
+export function coutMiseADispoHt(m: Pick<FlotteMiseADispo, "date_debut" | "date_fin" | "date_retour" | "tarif_jour">): number {
+  const fin = m.date_retour ? m.date_retour.slice(0, 10) : m.date_fin;
+  const j = joursPret(m.date_debut, fin);
+  return Math.round(j * (Number(m.tarif_jour) || 0) * 100) / 100;
+}
+
+/**
+ * Conditions générales de prêt / location (texte modifiable, un article par
+ * paragraphe, « Article n — Titre » en première ligne : le PDF s'appuie dessus).
+ */
+export function clausesMiseADispo(
+  m: Partial<FlotteMiseADispo>,
+  v: FlotteVehicule,
+  ent: Partial<Entreprise> | null,
+  dossier?: Dossier | null
+): string {
+  const location = m.type === "location";
+  const gratuit = !location || !(Number(m.tarif_jour) > 0 || Number(m.tarif_horaire) > 0);
+  const garage = ent?.nom || "le garage";
+  const role = location ? "locataire" : "emprunteur";
+  const jours = joursPret(m.date_debut, m.date_fin);
+  const parAssurance = m.prise_en_charge === "assurance" && dossier;
+
+  const conditions = gratuit
+    ? `Le véhicule est mis à disposition à titre gratuit${dossier ? ` dans le cadre de la réparation du véhicule de l'emprunteur (sinistre n° ${dossier.numero_sinistre || "—"})` : ""}. Il s'agit d'un prêt à usage régi par les articles 1875 et suivants du Code civil. L'emprunteur ne peut en faire qu'un usage personnel et conforme à sa destination.`
+    : `La location est consentie au tarif de ${euro(m.tarif_jour)} HT par jour${
+        Number(m.tarif_horaire) > 0 ? ` (ou ${euro(m.tarif_horaire)} HT par heure pour une durée inférieure à une journée)` : ""
+      }, TVA en sus au taux en vigueur, soit une estimation de ${euro(coutMiseADispoHt(m as FlotteMiseADispo))} HT pour ${jours || "—"} jour(s). Toute journée commencée est due. Il s'agit d'un contrat de louage de chose régi par les articles 1709 et suivants du Code civil.` +
+      (Number(m.caution) > 0 ? `\nUn dépôt de garantie de ${euro(m.caution)} est versé à la remise des clés ; il est restitué dans les 15 jours suivant le retour du véhicule, déduction faite des sommes éventuellement dues (dommages, carburant, franchise, amendes).` : "") +
+      (parAssurance
+        ? `\nLes frais sont pris en charge par l'assureur du locataire (${dossier!.assureur || "assureur"}${dossier!.numero_police ? `, contrat n° ${dossier!.numero_police}` : ""}) au titre du sinistre n° ${dossier!.numero_sinistre || "—"}. En cas de refus total ou partiel de prise en charge, la somme restant due est réglée par le locataire dans les 30 jours suivant la présentation de la facture.`
+        : `\nLes frais sont à la charge du locataire et réglés à la restitution du véhicule.`);
+
+  const km =
+    Number(m.km_jour) > 0
+      ? `Le contrat inclut ${m.km_jour} km par jour ; au-delà, chaque kilomètre supplémentaire est facturé ${euro(m.prix_km)} HT.`
+      : "Le kilométrage est libre, dans le cadre d'un usage normal et privé du véhicule.";
+
+  const assurance = v.assurance
+    ? `Le véhicule est assuré par ${garage} auprès de ${v.assurance}${v.numero_police ? ` (police n° ${v.numero_police})` : ""}${v.type_contrat_assurance ? `, contrat ${v.type_contrat_assurance.toLowerCase()}` : ""}.`
+    : `Le véhicule est assuré par ${garage}.`;
+
+  return [
+    `Article 1 — Objet\n${garage} met à la disposition du ${role} le véhicule désigné ci-dessus${dossier ? ", en remplacement de son véhicule immobilisé pour réparation" : ""}. Le véhicule est remis en bon état de marche, propre, avec ses papiers de bord (copie du certificat d'immatriculation et attestation d'assurance).`,
+    `Article 2 — Durée\nLa mise à disposition court du ${formatDate(m.date_debut)} au ${formatDate(m.date_fin)}${jours ? ` (${jours} jour(s))` : ""}. Toute prolongation doit être acceptée par écrit par ${garage}. À défaut de restitution à la date convenue et sans accord, ${garage} pourra facturer chaque jour de retard au tarif journalier en vigueur et engager toute démarche utile.`,
+    `Article 3 — Conditions financières\n${conditions}`,
+    `Article 4 — Conducteur\nLe véhicule ne peut être conduit que par le ${role} ou le(s) conducteur(s) désigné(s) au contrat, titulaires d'un permis de conduire en cours de validité depuis plus de 3 ans. Toute sous-location, cession ou prêt à un tiers est interdit.`,
+    `Article 5 — Assurance et franchise\n${assurance} En cas de sinistre responsable, de vol ou de dommages non couverts, une franchise de ${euro(m.franchise)} reste à la charge du ${role}, ainsi que le montant des dommages non pris en charge par l'assurance. Le ${role} déclare tout accident à ${garage} sous 48 heures et remplit un constat amiable.`,
+    `Article 6 — Utilisation\nLe ${role} s'engage à utiliser le véhicule en bon père de famille, à respecter le Code de la route, à ne pas conduire sous l'emprise de l'alcool ou de stupéfiants, à ne pas l'utiliser pour le transport de marchandises, la compétition, l'apprentissage de la conduite ou hors du territoire national sans accord écrit. ${km}`,
+    `Article 7 — Infractions et amendes\nLes contraventions, amendes, frais de fourrière et majorations liés à l'usage du véhicule pendant la mise à disposition sont à la charge du ${role}. Conformément à l'article L121-6 du Code de la route, ${garage} désignera le ${role} (ou le conducteur déclaré) comme conducteur responsable auprès des autorités ; les dates et heures de remise et de restitution enregistrées dans le présent contrat font foi.`,
+    `Article 8 — Carburant et entretien\nLe véhicule est remis avec un niveau de carburant de ${m.carburant_depart || "—"} et restitué au même niveau ; à défaut, le carburant manquant est facturé au prix en vigueur majoré d'un forfait de service. Le ${role} veille aux niveaux (huile, liquide de refroidissement, pression des pneus) et signale sans délai tout voyant ou anomalie.`,
+    `Article 9 — Restitution et état des lieux\nLe véhicule est restitué à l'adresse de ${garage} à la date convenue, dans l'état où il a été remis (état des lieux contradictoire et photos au départ et au retour). Les dommages constatés au retour, non signalés au départ, sont facturés au ${role} sur la base du devis de remise en état, sous réserve de l'application de l'article 5. Kilométrage au départ : ${
+      m.km_depart != null ? `${Number(m.km_depart).toLocaleString("fr-FR")} km` : "—"
+    }.`,
+    `Article 10 — Données personnelles\nLes informations recueillies (identité, permis, coordonnées) sont nécessaires à l'exécution du contrat et à la désignation du conducteur en cas d'infraction. Elles sont conservées par ${garage} pendant la durée légale et le ${role} dispose d'un droit d'accès, de rectification et d'effacement (RGPD).`,
+    `Article 11 — Litiges\nLe présent contrat est soumis au droit français. En cas de litige, les parties recherchent une solution amiable ; le ${role} consommateur peut recourir gratuitement au médiateur de la consommation dont relève ${garage}. À défaut, les tribunaux compétents sont ceux du ressort du siège de ${garage}.`,
   ].join("\n\n");
 }

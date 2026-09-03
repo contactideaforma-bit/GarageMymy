@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable, { UserOptions } from "jspdf-autotable";
-import { CessionCreance, Document, DocumentLigne, Dossier, Entreprise, OrdreReparation, Restitution, TransfertGarantie } from "./types";
-import { PRISES_EN_CHARGE, clausesParDefaut, coutPretHt, joursPret } from "./pret";
+import { CessionCreance, Document, DocumentLigne, Dossier, Entreprise, FlotteMiseADispo, FlotteVehicule, OrdreReparation, Restitution, TransfertGarantie } from "./types";
+import { PRISES_EN_CHARGE, clausesMiseADispo, clausesParDefaut, coutMiseADispoHt, coutPretHt, joursPret } from "./pret";
 import {
   computeTotaux,
   groupeLignes,
@@ -1751,6 +1751,134 @@ export async function apercuContratPretPdf(t: TransfertGarantie, dossier: Dossie
 
 export async function contratPretPdfBase64(t: TransfertGarantie, dossier: Dossier): Promise<string> {
   const pdf = await buildContratPretPdf(t, dossier);
+  const uri = pdf.output("datauristring");
+  return uri.substring(uri.indexOf(",") + 1);
+}
+
+/* ====================================================================
+   CONTRAT DE PRÊT / LOCATION D'UN VÉHICULE DE LA FLOTTE (v67 / v12.3)
+
+   Porté par la fiche véhicule : conducteur venu d'un dossier sinistre, d'une
+   fiche client ou saisi à la main. Clauses = conditions générales, signées
+   à l'écran (SignaturePad) ; état des lieux départ/retour et kilométrages.
+==================================================================== */
+
+async function buildContratMiseADispoPdf(m: FlotteMiseADispo, v: FlotteVehicule, dossier?: Dossier | null): Promise<jsPDF> {
+  const location = m.type === "location";
+  const ctx = await startAttestationPdf(
+    location ? "CONTRAT DE LOCATION DE VÉHICULE" : "CONTRAT DE PRÊT DE VÉHICULE (MISE À DISPOSITION)",
+    null,
+    m.date_debut
+  );
+  const { pdf, pageW, M, ent } = ctx;
+  const role = location ? "Locataire" : "Emprunteur";
+
+  const preteur = [
+    ent.nom || "—",
+    [ent.adresse, `${ent.code_postal || ""} ${ent.ville || ""}`.trim()].filter(Boolean).join(", "),
+    [ent.siret ? `SIRET ${ent.siret}` : "", ent.tel ? `Tél. ${ent.tel}` : ""].filter(Boolean).join(" · "),
+  ].filter(Boolean);
+  const conducteur = [
+    m.conducteur_nom || "—",
+    m.conducteur_adresse || "",
+    [m.conducteur_tel ? `Tél. ${m.conducteur_tel}` : "", m.conducteur_email || ""].filter(Boolean).join(" · "),
+    m.conducteur_naissance ? `Né(e) le ${dateFr(m.conducteur_naissance)}` : "",
+    [m.permis_numero ? `Permis n° ${m.permis_numero}` : "", m.permis_date ? `délivré le ${dateFr(m.permis_date)}` : ""].filter(Boolean).join(" "),
+  ].filter(Boolean);
+  pdf.setFontSize(10);
+  pdf.setTextColor(30);
+  pdf.text(location ? "Loueur (garage)" : "Prêteur (garage)", M, ctx.y);
+  pdf.text(role, pageW / 2 + 6, ctx.y);
+  pdf.setFontSize(9);
+  pdf.setTextColor(70);
+  pdf.text(preteur, M, ctx.y + 6);
+  pdf.text(conducteur, pageW / 2 + 6, ctx.y + 6);
+  ctx.y += 6 + Math.max(preteur.length, conducteur.length) * 4.5 + 6;
+
+  const finAffichee = m.date_retour ? m.date_retour.slice(0, 10) : m.date_fin;
+  const jours = joursPret(m.date_debut, finAffichee);
+  autoTable(pdf, {
+    startY: ctx.y,
+    margin: { left: M, right: M },
+    theme: "grid",
+    styles: { fontSize: 8.5, cellPadding: 2, textColor: 50 },
+    headStyles: { fillColor: [235, 235, 240], textColor: 30, fontStyle: "bold" },
+    head: [["Véhicule", "Période", "Départ / retour", "Conditions"]],
+    body: [[
+      [
+        v.marque_modele || "—",
+        `Immat. ${v.immatriculation}`,
+        v.vin ? `VIN ${v.vin}` : "",
+        v.couleur ? `Couleur ${v.couleur}` : "",
+        v.assurance ? `Assuré : ${v.assurance}${v.numero_police ? ` (police ${v.numero_police})` : ""}` : "",
+      ].filter(Boolean).join("\n"),
+      [
+        `Du ${dateFr(m.date_debut)}`,
+        `au ${dateFr(m.date_fin)} (prévu)`,
+        m.date_retour ? `Retour effectif : ${dateFr(m.date_retour)}` : "",
+        jours ? `${jours} jour(s)` : "",
+        dossier ? `Sinistre n° ${dossier.numero_sinistre || "—"} — ${dossier.marque_modele || ""} ${dossier.immatriculation || ""}` : "",
+      ].filter(Boolean).join("\n"),
+      [
+        m.km_depart != null ? `Km départ : ${Number(m.km_depart).toLocaleString("fr-FR")}` : "Km départ : —",
+        m.km_retour != null ? `Km retour : ${Number(m.km_retour).toLocaleString("fr-FR")}` : "",
+        m.km_depart != null && m.km_retour != null ? `Parcourus : ${(Number(m.km_retour) - Number(m.km_depart)).toLocaleString("fr-FR")} km` : "",
+        m.carburant_depart ? `Carburant départ : ${m.carburant_depart}` : "",
+        m.carburant_retour ? `Carburant retour : ${m.carburant_retour}` : "",
+      ].filter(Boolean).join("\n"),
+      [
+        location && Number(m.tarif_jour) > 0 ? `${euros(Number(m.tarif_jour))} HT / jour` : "Mise à disposition gratuite",
+        location && Number(m.tarif_horaire) > 0 ? `${euros(Number(m.tarif_horaire))} HT / heure` : "",
+        location && Number(m.tarif_jour) > 0 ? `Estimation : ${euros(coutMiseADispoHt(m))} HT` : "",
+        Number(m.caution) > 0 ? `Dépôt de garantie : ${euros(Number(m.caution))}` : "",
+        `Franchise : ${euros(Number(m.franchise) || 0)}`,
+        Number(m.km_jour) > 0 ? `${m.km_jour} km/jour inclus, ${euros(Number(m.prix_km) || 0)}/km au-delà` : "Kilométrage libre",
+        location ? `Frais : ${PRISES_EN_CHARGE[m.prise_en_charge || "client"] || "—"}` : "",
+      ].filter(Boolean).join("\n"),
+    ]],
+  });
+  ctx.y = ((pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable?.finalY || ctx.y) + 8;
+
+  if (m.observations_depart) drawParagrapheMultiPage(ctx, "État du véhicule au départ", m.observations_depart);
+  if (m.observations_retour) drawParagrapheMultiPage(ctx, "État du véhicule au retour", m.observations_retour);
+
+  const clauses = (m.clauses && m.clauses.trim()) || clausesMiseADispo(m, v, ent, dossier);
+  const blocs = clauses.split(/\n\s*\n/);
+  for (const bloc of blocs) {
+    const [premiere, ...reste] = bloc.split("\n");
+    if (/^article\s+\d+/i.test(premiere.trim()) && reste.length) {
+      drawParagrapheMultiPage(ctx, premiere.trim(), reste.join("\n"));
+    } else {
+      drawParagrapheMultiPage(ctx, null, bloc);
+    }
+  }
+
+  if (ctx.y + 60 > ctx.pageH - 24) {
+    pdf.addPage();
+    piedDePage(ctx);
+    ctx.y = 20;
+  }
+  pdf.setFontSize(9);
+  pdf.setTextColor(30);
+  pdf.text(`Fait en deux exemplaires, le ${dateFr(m.signe_le || m.date_debut)}.`, M, ctx.y);
+  ctx.y += 6;
+  pdf.text(`Signature du ${role.toLowerCase()} (« lu et approuvé », conditions générales acceptées) :`, ctx.right - 95, ctx.y);
+  pdf.text(location ? "Le loueur :" : "Le prêteur :", M, ctx.y);
+  drawSignatureBloc(ctx, m.signataire_nom || m.conducteur_nom, m.signature || null, m.signe_le || null);
+  return pdf;
+}
+
+export async function generateContratMiseADispoPdf(m: FlotteMiseADispo, v: FlotteVehicule, dossier?: Dossier | null) {
+  const pdf = await buildContratMiseADispoPdf(m, v, dossier);
+  pdf.save(`contrat-${m.type}-${v.immatriculation}-${m.date_debut || "sans-date"}.pdf`);
+}
+
+export async function apercuContratMiseADispoPdf(m: FlotteMiseADispo, v: FlotteVehicule, dossier?: Dossier | null) {
+  ouvrirPdf(await buildContratMiseADispoPdf(m, v, dossier), `contrat-${m.type}-${v.immatriculation}.pdf`);
+}
+
+export async function contratMiseADispoPdfBase64(m: FlotteMiseADispo, v: FlotteVehicule, dossier?: Dossier | null): Promise<string> {
+  const pdf = await buildContratMiseADispoPdf(m, v, dossier);
   const uri = pdf.output("datauristring");
   return uri.substring(uri.indexOf(",") + 1);
 }
