@@ -13,13 +13,25 @@ Extrais les champs suivants et renvoie UNIQUEMENT un objet JSON valide (aucun te
 {
   "immatriculation": string|null,        // champ A, format AA-123-AA
   "marque": string|null,                 // champ D.1
-  "modele": string|null,                 // champ D.3 (ou dénomination commerciale)
+  "modele": string|null,                 // champ D.3 (dénomination commerciale) — sinon D.2 (type/variante/version)
   "numero_serie": string|null,           // champ E (VIN, 17 caractères)
   "premiere_circulation": string|null,   // champ B, format AAAA-MM-JJ
-  "titulaire": string|null               // champ C.1 (nom et prénom du titulaire)
+  "date_certificat": string|null,        // champ I (date du certificat), format AAAA-MM-JJ
+  "titulaire": string|null,              // champ C.1 (nom et prénom du titulaire, ou raison sociale)
+  "cotitulaire": string|null,            // champ C.4.1 si présent
+  "titulaire_adresse": string|null,      // champ C.3 (adresse complète sur une ligne)
+  "energie": string|null,                // champ P.3 : code (ES, GO, EL, EH, GH, GL, GP, EE…) traduit en clair : "Essence", "Diesel", "Électrique", "Hybride essence", "Hybride diesel", "GPL", "Hybride rechargeable essence"…
+  "puissance_fiscale": number|null,      // champ P.6 (CV)
+  "puissance_kw": number|null,           // champ P.2 (kW)
+  "genre": string|null,                  // champ J.1 (VP, CTTE, VASP, MTL…)
+  "carrosserie": string|null,            // champ J.3 ou J.2 (CI, BREAK, FOURGON…)
+  "places": number|null,                 // champ S.1 (places assises)
+  "ptac": number|null,                   // champ F.2 (kg)
+  "couleur": string|null,                // si une couleur figure sur le document (rare), sinon null
+  "numero_formule": string|null          // numéro de formule (en bas, ex. 2019AB12345)
 }
 
-Règles : n'invente rien ; corrige l'orientation/qualité mentalement ; l'immatriculation en MAJUSCULES avec tirets.`;
+Règles : n'invente rien ; corrige l'orientation/qualité mentalement ; l'immatriculation en MAJUSCULES avec tirets ; les dates au format AAAA-MM-JJ.`;
 
 export async function POST(req: NextRequest) {
   // SÉCURITÉ : analyse réservée aux utilisateurs connectés (crédits IA).
@@ -71,7 +83,7 @@ export async function POST(req: NextRequest) {
 
     const message = await client.messages.create({
       model,
-      max_tokens: 500,
+      max_tokens: 900,
       messages: [{ role: "user", content }],
     });
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { FlotteVehicule } from "@/lib/types";
 import { messageErreur } from "@/lib/format";
-import { TYPES_CONTRAT_ASSURANCE } from "@/lib/flotte";
+import { TYPES_CONTRAT_ASSURANCE, deposerDocumentFlotte } from "@/lib/flotte";
 import ModalShell from "@/components/ModalShell";
 
 /**
@@ -16,12 +16,15 @@ import ModalShell from "@/components/ModalShell";
 export default function VehiculeForm({
   vehicule,
   prefill,
+  documentInitial,
   horsGarage = false,
   onClose,
   onSaved,
 }: {
   vehicule?: FlotteVehicule;
   prefill?: Partial<FlotteVehicule>;
+  /** Fichier à ranger dans les documents du véhicule dès sa création (ex. la carte grise analysée). */
+  documentInitial?: { fichier: File; type: string };
   /** Le formulaire est ouvert depuis l'onglet « Flotte hors garage ». */
   horsGarage?: boolean;
   onClose: () => void;
@@ -110,7 +113,13 @@ export default function VehiculeForm({
       } else {
         const { data, error: e1 } = await supabase.from("flotte_vehicules").insert(payload).select("id").single();
         if (e1) throw e1;
-        onSaved((data as { id: string }).id);
+        const id = (data as { id: string }).id;
+        if (documentInitial) {
+          try {
+            await deposerDocumentFlotte({ vehiculeId: id, type: documentInitial.type, fichier: documentInitial.fichier, nom: "Carte grise (analysée)" });
+          } catch { /* migration v67 absente : le véhicule est créé quand même */ }
+        }
+        onSaved(id);
       }
     } catch (err: unknown) {
       setError(messageErreur(err, "Enregistrement impossible (migration v67 exécutée ?)."));

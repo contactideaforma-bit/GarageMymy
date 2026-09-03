@@ -35,7 +35,11 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
   const [loading, setLoading] = useState(true);
   const [filtre, setFiltre] = useState<Filtre>("tous");
   const [recherche, setRecherche] = useState("");
-  const [editModal, setEditModal] = useState<{ vehicule?: FlotteVehicule; prefill?: Partial<FlotteVehicule> } | null>(null);
+  const [editModal, setEditModal] = useState<{
+    vehicule?: FlotteVehicule;
+    prefill?: Partial<FlotteVehicule>;
+    document?: { fichier: File; type: string };
+  } | null>(null);
   const [locModal, setLocModal] = useState<{ vehicule: FlotteVehicule; type: string } | null>(null);
   const [analyseCg, setAnalyseCg] = useState(false);
   const [cgError, setCgError] = useState<string | null>(null);
@@ -81,20 +85,49 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
         modele?: string | null;
         numero_serie?: string | null;
         premiere_circulation?: string | null;
+        date_certificat?: string | null;
         titulaire?: string | null;
+        cotitulaire?: string | null;
+        titulaire_adresse?: string | null;
+        energie?: string | null;
+        puissance_fiscale?: number | null;
+        puissance_kw?: number | null;
+        genre?: string | null;
+        carrosserie?: string | null;
+        places?: number | null;
+        ptac?: number | null;
+        couleur?: string | null;
+        numero_formule?: string | null;
       };
-      const infos = [
-        d.numero_serie ? `VIN ${d.numero_serie}` : "",
-        d.premiere_circulation ? `1ère circulation ${d.premiere_circulation}` : "",
-        d.titulaire ? `Titulaire carte grise : ${d.titulaire}` : "",
-      ].filter(Boolean).join(" · ");
+      // Tout ce qui n'a pas de champ dédié va dans les notes, pour ne rien perdre.
+      const notes = [
+        d.titulaire ? `Titulaire carte grise : ${d.titulaire}${d.cotitulaire ? ` (co-titulaire ${d.cotitulaire})` : ""}` : "",
+        d.titulaire_adresse ? `Adresse titulaire : ${d.titulaire_adresse}` : "",
+        d.puissance_fiscale != null ? `${d.puissance_fiscale} CV fiscaux` : "",
+        d.puissance_kw != null ? `${d.puissance_kw} kW` : "",
+        d.genre ? `Genre ${d.genre}` : "",
+        d.carrosserie ? `Carrosserie ${d.carrosserie}` : "",
+        d.places != null ? `${d.places} places` : "",
+        d.ptac != null ? `PTAC ${d.ptac} kg` : "",
+        d.date_certificat ? `Carte grise établie le ${d.date_certificat}` : "",
+        d.numero_formule ? `N° de formule ${d.numero_formule}` : "",
+      ].filter(Boolean).join("\n");
       setEditModal({
         prefill: {
           immatriculation: d.immatriculation || "",
           marque_modele: [d.marque, d.modele].filter(Boolean).join(" ") || null,
-          conducteur: d.titulaire || null,
-          commentaire: infos || null,
+          vin: d.numero_serie || null,
+          date_mise_circulation: d.premiere_circulation || null,
+          carburant: d.energie || null,
+          couleur: d.couleur || null,
+          titulaire_cg: d.titulaire || null,
+          cg_ok: Boolean(d.immatriculation),
+          commentaire: d.puissance_fiscale != null ? `${d.puissance_fiscale} CV${d.energie ? ` · ${d.energie}` : ""}` : null,
+          notes: notes || null,
         },
+        // La photo de la carte grise est conservée : elle sera rangée dans
+        // les documents du véhicule dès l'enregistrement.
+        document: { fichier: file, type: "carte_grise" },
       });
     } catch (err: unknown) {
       setCgError(messageErreur(err, "Analyse impossible : réessaie avec une photo plus nette."));
@@ -343,6 +376,7 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
         <VehiculeForm
           vehicule={editModal.vehicule}
           prefill={editModal.prefill}
+          documentInitial={editModal.document}
           horsGarage={horsGarage}
           onClose={() => setEditModal(null)}
           onSaved={(id) => {

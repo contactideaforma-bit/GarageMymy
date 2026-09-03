@@ -216,6 +216,28 @@ type ThemePdf = { modele: ModelePdf; accent: [number, number, number] };
 
 // En-tête commun (charte du garage), décliné selon le modèle choisi dans le
 // profil. Renvoie le y où commencer le contenu.
+/**
+ * Titre de l'en-tête sans chevauchement (v12.3) : on mesure la place qui
+ * reste à droite du nom du garage ; la taille baisse jusqu'à tenir, sinon
+ * le titre passe sur deux lignes. Renvoie les lignes et la taille retenue.
+ */
+function titreEnTete(
+  pdf: jsPDF,
+  titre: string,
+  largeurDispo: number,
+  tailleMax: number,
+  tailleMin = 11
+): { lignes: string[]; taille: number } {
+  pdf.setFont("helvetica", "bold");
+  for (let taille = tailleMax; taille >= tailleMin; taille -= 1) {
+    pdf.setFontSize(taille);
+    if (pdf.getTextWidth(titre) <= largeurDispo) return { lignes: [titre], taille };
+  }
+  pdf.setFontSize(tailleMin);
+  const lignes = pdf.splitTextToSize(titre, largeurDispo) as string[];
+  return { lignes: lignes.slice(0, 2), taille: tailleMin };
+}
+
 function drawEnTete(
   pdf: jsPDF,
   ent: Partial<Entreprise>,
@@ -251,15 +273,17 @@ function drawEnTete(
     pdf.setTextColor(255);
     pdf.setFont("helvetica", "bold");
     pdf.text(ent.nom || "Mon garage", headerX, 15);
+    const finNom = headerX + pdf.getTextWidth(ent.nom || "Mon garage") + 8;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8.5);
     pdf.text(coordonnees.slice(0, 4), headerX, 21);
-    pdf.setFontSize(titre.length > 14 ? 15 : 20);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(titre, right, 16, { align: "right" });
+    const t = titreEnTete(pdf, titre, Math.max(70, right - finNom), titre.length > 14 ? 15 : 20);
+    pdf.setFontSize(t.taille);
+    t.lignes.forEach((l, i) => pdf.text(l, right, 16 + i * (t.taille * 0.42), { align: "right" }));
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(9.5);
-    sousLignes.forEach((l, i) => pdf.text(l, right, 24 + i * 5, { align: "right" }));
+    const ySous = 24 + (t.lignes.length - 1) * (t.taille * 0.42);
+    sousLignes.forEach((l, i) => pdf.text(l, right, ySous + i * 5, { align: "right" }));
     pdf.setTextColor(30);
     return 54;
   }
@@ -277,16 +301,20 @@ function drawEnTete(
     pdf.setTextColor(30);
     pdf.setFont("helvetica", "bold");
     pdf.text(ent.nom || "Mon garage", headerX, 19);
+    const finNom = headerX + pdf.getTextWidth(ent.nom || "Mon garage") + 8;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(8.5);
     pdf.setTextColor(110);
     pdf.text(coordonnees, headerX, 25);
-    pdf.setFontSize(titre.length > 14 ? 15 : 18);
+    const t = titreEnTete(pdf, titre, Math.max(70, right - finNom), titre.length > 14 ? 15 : 18);
+    pdf.setFontSize(t.taille);
     pdf.setTextColor(30);
-    pdf.text(titre, right, 20, { align: "right" });
+    t.lignes.forEach((l, i) => pdf.text(l, right, 20 + i * (t.taille * 0.42), { align: "right" }));
+    pdf.setFont("helvetica", "normal");
     pdf.setFontSize(9.5);
     pdf.setTextColor(110);
-    sousLignes.forEach((l, i) => pdf.text(l, right, 27 + i * 5, { align: "right" }));
+    const ySous = 27 + (t.lignes.length - 1) * (t.taille * 0.42);
+    sousLignes.forEach((l, i) => pdf.text(l, right, ySous + i * 5, { align: "right" }));
     pdf.setDrawColor(...theme.accent);
     pdf.setLineWidth(1.1);
     pdf.line(M, 42, right, 42);
@@ -307,15 +335,19 @@ function drawEnTete(
   pdf.setFontSize(16);
   pdf.setTextColor(...theme.accent);
   pdf.text(ent.nom || "Mon garage", headerX, 19);
+  const finNom = headerX + pdf.getTextWidth(ent.nom || "Mon garage") + 8;
   pdf.setFontSize(9);
   pdf.setTextColor(90);
   pdf.text(coordonnees, headerX, 26);
-  pdf.setFontSize(titre.length > 14 ? 17 : 22);
+  const t = titreEnTete(pdf, titre, Math.max(70, right - finNom), titre.length > 14 ? 17 : 22);
+  pdf.setFontSize(t.taille);
   pdf.setTextColor(30);
-  pdf.text(titre, right, 21, { align: "right" });
+  t.lignes.forEach((l, i) => pdf.text(l, right, 21 + i * (t.taille * 0.42), { align: "right" }));
+  pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
   pdf.setTextColor(90);
-  sousLignes.forEach((l, i) => pdf.text(l, right, 29 + i * 5, { align: "right" }));
+  const ySous = 29 + (t.lignes.length - 1) * (t.taille * 0.42);
+  sousLignes.forEach((l, i) => pdf.text(l, right, ySous + i * 5, { align: "right" }));
   return 50;
 }
 
