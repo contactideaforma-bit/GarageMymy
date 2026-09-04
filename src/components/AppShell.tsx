@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar";
 import BandeauService from "@/components/BandeauService";
 import BandeauHorsLigne from "@/components/BandeauHorsLigne";
 import MyMyChat from "@/components/MyMyChat";
+import TableauxFluides from "@/components/TableauxFluides";
 import BandeauCompte from "@/components/BandeauCompte";
 import { estRoutePublique } from "@/lib/routesPubliques";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
@@ -105,6 +106,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
       {/* MY-MY (v9.5) : l'assistant du garage, en bas à droite de toutes les pages. */}
       <MyMyChat />
+      {/* v12.6 : tous les tableaux tiennent dans l'écran, colonnes réglables au doigt. */}
+      <TableauxFluides />
     </div>
   );
 }

@@ -10,7 +10,7 @@
 //   · Supprimé récemment : la corbeille (migration v69), avec RESTAURER.
 // ====================================================================
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import ConfigBanner from "@/components/ConfigBanner";
 import StatCard from "@/components/StatCard";
@@ -23,6 +23,9 @@ import {
 
 type Volet = "actions" | "corbeille";
 
+// Couleurs des familles : nuances CLAIRES pour le fond sombre ; le thème
+// clair les fonce via les surcharges de globals.css (sky/teal/pink/indigo/
+// orange ajoutées en v12.6) — plus de texte clair sur fond clair.
 const COULEUR_FAMILLE: Record<FamilleAction, string> = {
   dossier: "bg-violet-500/20 text-violet-100 border-violet-400/30",
   document: "bg-sky-500/20 text-sky-100 border-sky-400/30",
@@ -35,6 +38,8 @@ const COULEUR_FAMILLE: Record<FamilleAction, string> = {
   suppression: "bg-rose-500/20 text-rose-100 border-rose-400/30",
 };
 
+const TOUTES_FAMILLES = FAMILLES.filter((f) => f.code !== "tout") as { code: FamilleAction; label: string; icone: string }[];
+
 function heure(iso: string): string {
   return new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 }
@@ -46,8 +51,32 @@ export default function HistoriquePage() {
   const [corbeille, setCorbeille] = useState<LigneCorbeille[]>([]);
   const [corbeilleDispo, setCorbeilleDispo] = useState(true);
   const [loading, setLoading] = useState(true);
-  const [famille, setFamille] = useState<FamilleAction | "tout">("tout");
+  // v12.6 — filtre MULTI-COCHES dans une liste déroulante (vide = tout).
+  const [familles, setFamilles] = useState<Set<FamilleAction>>(new Set());
+  const [filtreOuvert, setFiltreOuvert] = useState(false);
+  const refFiltre = useRef<HTMLDivElement>(null);
   const [recherche, setRecherche] = useState("");
+
+  useEffect(() => {
+    if (!filtreOuvert) return;
+    const fermer = (e: PointerEvent) => {
+      if (refFiltre.current && !refFiltre.current.contains(e.target as Node)) setFiltreOuvert(false);
+    };
+    const touche = (e: KeyboardEvent) => { if (e.key === "Escape") setFiltreOuvert(false); };
+    document.addEventListener("pointerdown", fermer);
+    document.addEventListener("keydown", touche);
+    return () => {
+      document.removeEventListener("pointerdown", fermer);
+      document.removeEventListener("keydown", touche);
+    };
+  }, [filtreOuvert]);
+
+  const basculerFamille = (code: FamilleAction) =>
+    setFamilles((prev) => {
+      const suiv = new Set(prev);
+      if (suiv.has(code)) suiv.delete(code); else suiv.add(code);
+      return suiv;
+    });
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
 
@@ -68,13 +97,13 @@ export default function HistoriquePage() {
   const visibles = useMemo(() => {
     const q = recherche.trim().toLowerCase();
     return actions.filter((a) => {
-      if (famille !== "tout" && a.famille !== famille) return false;
+      if (familles.size > 0 && !familles.has(a.famille)) return false;
       if (!q) return true;
       const d = a.dossier_id ? dossiers.get(a.dossier_id) : null;
       const texte = `${a.titre} ${a.detail || ""} ${d ? `${d.immatriculation || ""} ${d.numero_sinistre || ""} ${d.client_nom || ""}` : ""}`.toLowerCase();
       return texte.includes(q);
     });
-  }, [actions, famille, recherche, dossiers]);
+  }, [actions, familles, recherche, dossiers]);
 
   const groupes = useMemo(() => grouperParJour(visibles), [visibles]);
   const corbeilleVisibles = useMemo(() => corbeille.filter(corbeilleVisible), [corbeille]);
@@ -155,32 +184,74 @@ export default function HistoriquePage() {
 
       {volet === "actions" && (
         <section className="glass-card p-3 sm:p-4">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-wrap gap-1">
-              {FAMILLES.map((f) => (
-                <button
-                  key={f.code}
-                  onClick={() => setFamille(f.code)}
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
-                    famille === f.code ? "border-accent-pink/60 bg-white/15 text-white" : "border-white/10 bg-white/5 text-white/60 hover:bg-white/10"
-                  }`}
-                >
-                  {f.icone ? `${f.icone} ` : ""}{f.label}
-                  {f.code !== "tout" && <span className="ml-1 text-white/40">{compte(f.code)}</span>}
-                </button>
-              ))}
-            </div>
+          {/* Recherche pleine largeur + bouton « Filtres » à liste déroulante (multi-coches) */}
+          <div className="flex items-stretch gap-2">
             <input
-              className="field-input field-compact md:w-64"
-              placeholder="Rechercher (texte, immat, client)…"
+              className="field-input field-compact min-w-0 flex-1"
+              placeholder="Rechercher (texte, immatriculation, client, n° de facture…)"
               value={recherche}
               onChange={(e) => setRecherche(e.target.value)}
             />
+            <div className="relative shrink-0" ref={refFiltre}>
+              <button
+                type="button"
+                onClick={() => setFiltreOuvert((o) => !o)}
+                aria-expanded={filtreOuvert}
+                aria-haspopup="listbox"
+                className={`btn-ghost btn-compact h-full whitespace-nowrap ${familles.size ? "border-accent-pink/60 text-white" : ""}`}
+                title="Choisir les familles d'actions à afficher"
+              >
+                ⚙ Filtres{familles.size ? ` (${familles.size})` : ""} <span aria-hidden className="ml-1 text-white/50">{filtreOuvert ? "▴" : "▾"}</span>
+              </button>
+              {filtreOuvert && (
+                <div
+                  role="listbox"
+                  aria-multiselectable
+                  className="modal-panel absolute right-0 z-20 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-white/10 p-2 shadow-xl"
+                >
+                  <div className="flex items-center justify-between px-1 pb-1 text-[11px] text-white/50">
+                    <span>Afficher</span>
+                    <button type="button" className="hover:text-white/90" onClick={() => setFamilles(new Set())}>
+                      {familles.size ? "Tout réafficher" : "Tout (par défaut)"}
+                    </button>
+                  </div>
+                  <ul className="max-h-[60vh] overflow-y-auto">
+                    {TOUTES_FAMILLES.map((f) => {
+                      const coche = familles.has(f.code);
+                      return (
+                        <li key={f.code}>
+                          <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-white/85 hover:bg-white/10">
+                            <input type="checkbox" checked={coche} onChange={() => basculerFamille(f.code)} />
+                            <span className="flex-1">{f.icone} {f.label}</span>
+                            <span className="text-xs text-white/40">{compte(f.code)}</span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
+          {familles.size > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              {TOUTES_FAMILLES.filter((f) => familles.has(f.code)).map((f) => (
+                <button
+                  key={f.code}
+                  type="button"
+                  onClick={() => basculerFamille(f.code)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${COULEUR_FAMILLE[f.code]}`}
+                  title="Retirer ce filtre"
+                >
+                  {f.icone} {f.label} <span aria-hidden>×</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {loading && <p className="mt-4 text-sm text-white/40">Chargement…</p>}
           {!loading && groupes.length === 0 && (
-            <p className="mt-4 text-sm text-white/40">Aucune action sur cette période{famille !== "tout" || recherche ? " avec ces filtres" : ""}.</p>
+            <p className="mt-4 text-sm text-white/40">Aucune action sur cette période{familles.size || recherche ? " avec ces filtres" : ""}.</p>
           )}
 
           <div className="mt-3 space-y-4">

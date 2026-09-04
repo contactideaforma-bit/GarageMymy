@@ -718,6 +718,56 @@ input, select, textarea { max-width: 100%; }
    contenu au lieu de le laisser chevaucher la colonne voisine. */
 table.table-fixed th, table.table-fixed td { overflow: hidden; }
 
+/* ===== TABLEAUX FLUIDES (v12.6, cf. components/TableauxFluides.tsx) =====
+   Colonnes en pourcentages : le tableau remplit l'écran sans dépasser ;
+   une cellule ne mord jamais sur sa voisine ; la frontière entre deux
+   colonnes se glisse (large zone de prise au doigt). */
+table.tf { table-layout: fixed; width: 100%; }
+table.tf th, table.tf td {
+  overflow: hidden;
+  overflow-wrap: break-word;   /* jamais « anywhere » (cf. cadrage mobile) */
+  vertical-align: middle;
+}
+table.tf td .field-input, table.tf td select, table.tf td input { max-width: 100%; }
+table.tf .truncate, table.tf .whitespace-nowrap { text-overflow: ellipsis; }
+table.tf thead th, table.tf tr:first-child th { position: relative; touch-action: none; user-select: none; }
+/* Frontière : fine ligne, rose au survol / pendant le glissement */
+table.tf thead th:not(:last-child)::after, table.tf tr:first-child th:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 22%;
+  bottom: 22%;
+  right: -1px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--mea-bordure);
+  transition: background 0.15s, box-shadow 0.15s;
+  pointer-events: none;
+}
+table.tf th.tf-pres::after, table.tf th.tf-actif::after {
+  background: var(--mea-neon-bordure);
+  box-shadow: var(--mea-lueur);
+  top: 10%;
+  bottom: 10%;
+}
+table.tf th.tf-pres, table.tf.tf-glisse { cursor: col-resize; }
+table.tf.tf-glisse th, table.tf.tf-glisse td { cursor: col-resize; user-select: none; }
+/* Au doigt : poignée visible (3 points) pour signaler qu'on peut glisser */
+@media (pointer: coarse) {
+  table.tf thead th:not(:last-child)::after, table.tf tr:first-child th:not(:last-child)::after {
+    width: 3px;
+    top: 30%;
+    bottom: 30%;
+    background: var(--mea-neon-bordure);
+    opacity: 0.55;
+  }
+}
+/* La règle mobile « min-width: 40rem » ne s'applique plus aux tableaux fluides
+   (ils calculent eux-mêmes leur largeur minimale selon le nombre de colonnes). */
+@media (max-width: 640px) {
+  .overflow-x-auto table.tf { min-width: 0; }
+}
+
 /* ===== Densité MOBILE ===== */
 @media (max-width: 640px) {
   .btn-primary,
@@ -839,6 +889,13 @@ html.light .text-rose-300\/80 { color: rgba(190, 18, 60, 0.9); }
 html.light .text-violet-100, html.light .text-violet-200, html.light .text-violet-400 { color: #6d28d9; }
 html.light .text-teal-200, html.light .text-accent-teal { color: #0f766e; }
 html.light .text-sky-400 { color: #0369a1; }
+/* v12.6 — nuances ajoutées par /historique (chips de familles) */
+html.light .text-sky-100, html.light .text-sky-200, html.light .text-sky-300 { color: #0369a1; }
+html.light .text-teal-100, html.light .text-teal-300, html.light .text-teal-400 { color: #0f766e; }
+html.light .text-pink-100, html.light .text-pink-300 { color: #be185d; }
+html.light .text-indigo-100, html.light .text-indigo-200, html.light .text-indigo-300 { color: #4338ca; }
+html.light .text-orange-100, html.light .text-orange-200, html.light .text-orange-300 { color: #c2410c; }
+html.light .text-violet-300 { color: #6d28d9; }
 html.light .text-accent-pink { color: #be185d; }
 
 /* Fonds sombres codés en dur (rares) */
