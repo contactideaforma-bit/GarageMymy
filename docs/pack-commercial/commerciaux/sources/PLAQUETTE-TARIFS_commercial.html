@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<title>Plaquette tarifaire du commercial — My Easy Auto</title>
+<style>
+@page { size: A4; margin: 0; }
+body { padding: 0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; font-family: "Inter", "Helvetica Neue", Arial, sans-serif; color: #1e2233; font-size: 9.6pt; line-height: 1.38; background: #fff; }
+h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+.sur { font-size: 7.5pt; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #7C3AED; }
+h1 { font-size: 21pt; margin: 2px 0 2px; background: linear-gradient(90deg,#7C3AED,#DB2777); -webkit-background-clip: text; color: transparent; }
+.sous { color: #5b6076; font-size: 10.5pt; margin-bottom: 8px; }
+h2 { font-size: 12pt; color: #7C3AED; margin: 12px 0 5px; padding-bottom: 3px; border-bottom: 1.5px solid #ede9fe; }
+p { margin: 3px 0; }
+.muted { color: #5b6076; }
+.intro { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin: 6px 0 4px; }
+.pill { background: #F6F7FB; border: 1px solid #e6e4f2; border-radius: 10px; padding: 7px 9px; font-size: 8.8pt; }
+.pill b { display: block; color: #7C3AED; font-size: 8pt; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
+/* cartes formules */
+.cartes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 6px; }
+.carte { border: 1px solid #e6e4f2; border-radius: 12px; padding: 9px 9px 8px; background: #fff; position: relative; break-inside: avoid; }
+.carte.star { border-color: #DB2777; box-shadow: 0 0 0 1px #DB2777 inset; }
+.carte .badge { position: absolute; top: -8px; right: 8px; background: linear-gradient(90deg,#7C3AED,#DB2777); color: #fff; font-size: 6.8pt; font-weight: 700; padding: 2px 7px; border-radius: 999px; letter-spacing: .06em; }
+.carte h3 { font-size: 10.5pt; color: #1e2233; }
+.carte .heures { font-size: 8pt; color: #7C3AED; font-weight: 700; margin-top: 1px; }
+.prix { margin: 6px 0 2px; }
+.prix .g { font-size: 17pt; font-weight: 800; color: #1e2233; letter-spacing: -.02em; }
+.prix .u { font-size: 8pt; color: #5b6076; }
+.ligne { display: grid; grid-template-columns: 1fr auto; gap: 6px; font-size: 7.9pt; padding: 3px 0; border-top: 1px dashed #e6e4f2; align-items: baseline; }
+.ligne b { white-space: nowrap; }
+.ligne .l { color: #5b6076; }
+.carte .pour { font-size: 8pt; color: #5b6076; margin-top: 5px; border-top: 1px solid #e6e4f2; padding-top: 5px; }
+.carte .prime { margin-top: 5px; background: #fdf2f8; border-radius: 8px; padding: 4px 7px; font-size: 8pt; color: #9d174d; }
+.carte .prime b { color: #DB2777; }
+/* tableaux */
+table { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 8.6pt; }
+th { background: linear-gradient(90deg,#7C3AED,#DB2777); color: #fff; text-align: left; padding: 5px 7px; font-weight: 700; font-size: 8.2pt; }
+td { padding: 5px 7px; border-bottom: 1px solid #ebe9f3; vertical-align: top; }
+tr:nth-child(even) td { background: #fafafe; }
+td.k { font-weight: 700; white-space: nowrap; }
+.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.note { background: #F6F7FB; border-left: 3px solid #7C3AED; padding: 6px 9px; border-radius: 0 8px 8px 0; font-size: 8.6pt; margin-top: 6px; }
+.alerte { background: #fff7ed; border-left: 3px solid #f59e0b; padding: 6px 9px; border-radius: 0 8px 8px 0; font-size: 8.6pt; margin-top: 6px; }
+.alerte b.t, .note b.t { display: block; margin-bottom: 2px; }
+.ok { color: #047857; font-weight: 700; } .non { color: #be123c; font-weight: 700; }
+.deux { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.saut { break-before: page; }
+tr { break-inside: avoid; }
+.check li { margin: 2px 0; }
+ul { margin: 3px 0 3px 16px; padding: 0; }
+</style></head><body>
+
+<div class="sur">My Easy Auto by IDEAFORMA — document réservé au commercial</div>
+<h1>Tarifs et conditions de vente</h1>
+<div class="sous">Les quatre formules, les trois façons de souscrire, ce que vous pouvez promettre — et votre prime pour chaque cas.</div>
+
+<div class="intro">
+  <div class="pill"><b>Sans engagement</b>Prix plein, mise en service 290 € HT facturée une fois. Résiliable avec un mois de préavis.</div>
+  <div class="pill"><b>Engagement 12 mois</b>Remise de grille (5 à 15 %) et mise en service offerte. Votre prime est versée dès la 1re mensualité.</div>
+  <div class="pill"><b>Année payée en une fois</b>Vaut engagement 12 mois : remise + avantage (mensualité ou 100 / 200 € offerts) + mise en service offerte.</div>
+</div>
+
+<h2>1. Les quatre formules — prix HT par mois</h2>
+<div class="cartes">
+  <div class="carte">
+    <h3>ESSENTIEL</h3><div class="heures">Application seule</div>
+    <div class="prix"><span class="g">79 €</span> <span class="u">/ mois HT</span></div>
+    <div class="ligne"><span class="l">Engagé 12 mois</span><b>75,05 € / mois</b></div>
+    <div class="ligne"><span class="l">Année en une fois</span><b>825,55 €</b></div>
+    <div class="ligne"><span class="l">Économie / an</span><b>47 € · 122 €</b></div>
+    <div class="pour">Dossiers sinistres, lecture IA des rapports, devis / factures conformes, relances, planning, prêt, gardiennage, portail client, MY-MY. Pour le garage qui gère lui-même ses papiers.</div>
+    <div class="prime">Prime : <b>130 €</b> · engagé <b>170 €</b></div>
+  </div>
+  <div class="carte">
+    <h3>STARTER</h3><div class="heures">Appli + 10 h de secrétariat / mois</div>
+    <div class="prix"><span class="g">490 €</span> <span class="u">/ mois HT</span></div>
+    <div class="ligne"><span class="l">Engagé 12 mois</span><b>441 € / mois</b></div>
+    <div class="ligne"><span class="l">Année en une fois</span><b>5 192 €</b></div>
+    <div class="ligne"><span class="l">Économie / an</span><b>588 € · 688 €</b></div>
+    <div class="pour">Saisie des dossiers, envoi des devis / factures, relances, appels assurances et experts. Pour le patron qui fait encore les papiers le soir.</div>
+    <div class="prime">Prime : <b>415 €</b> · engagé <b>500 €</b></div>
+  </div>
+  <div class="carte star">
+    <span class="badge">LA PLUS VENDUE</span>
+    <h3>CONFORT</h3><div class="heures">Appli + 20 h de secrétariat / mois</div>
+    <div class="prix"><span class="g">860 €</span> <span class="u">/ mois HT</span></div>
+    <div class="ligne"><span class="l">Engagé 12 mois</span><b>756,80 € / mois</b></div>
+    <div class="ligne"><span class="l">Année en une fois</span><b>8 881,60 €</b></div>
+    <div class="ligne"><span class="l">Économie / an</span><b>1 238 € · 1 438 €</b></div>
+    <div class="pour">2 à 5 personnes, 15 à 30 dossiers par mois : le suivi administratif des sinistres est pris en charge.</div>
+    <div class="prime">Prime : <b>730 €</b> · engagé <b>815 €</b></div>
+  </div>
+  <div class="carte">
+    <h3>SÉRÉNITÉ</h3><div class="heures">Appli + 40 h de secrétariat / mois</div>
+    <div class="prix"><span class="g">1 570 €</span> <span class="u">/ mois HT</span></div>
+    <div class="ligne"><span class="l">Engagé 12 mois</span><b>1 334,50 € / mois</b></div>
+    <div class="ligne"><span class="l">Année en une fois</span><b>15 814 €</b></div>
+    <div class="ligne"><span class="l">Économie / an</span><b>2 826 € · 3 026 €</b></div>
+    <div class="pour">Un vrai secrétariat externalisé : le garage délègue tout le suivi administratif des sinistres.</div>
+    <div class="prime">Prime : <b>1 335 €</b> · engagé <b>1 420 €</b></div>
+  </div>
+</div>
+<p class="muted" style="font-size:8pt;margin-top:5px">Économie sur 12 mois : engagé · année en une fois (remise + avantage + mise en service offerte). Remises d'engagement : 5 % ESSENTIEL, 10 % STARTER, 12 % CONFORT, 15 % SÉRÉNITÉ. Avantage « année en une fois » : 1 mensualité offerte (ESSENTIEL), 100 € (STARTER), 200 € (CONFORT, SÉRÉNITÉ). Tous les prix sont hors taxes, TVA 20 % en sus.</p>
+
+<h2>2. Le détail des trois prix</h2>
+<table>
+  <tr><th>Formule</th><th>Sans engagement</th><th>Engagement 12 mois</th><th>Année payée en une fois</th></tr>
+  <tr><td class="k">ESSENTIEL</td><td>79 € / mois <span class="muted">+ mise en service 290 €</span></td><td>75,05 € / mois <span class="muted">(−5 %, mise en service offerte)</span></td><td>825,55 € <span class="muted">(1 mensualité offerte en plus)</span></td></tr>
+  <tr><td class="k">STARTER</td><td>490 € / mois <span class="muted">+ mise en service 290 €</span></td><td>441 € / mois <span class="muted">(−10 %, mise en service offerte)</span></td><td>5 192 € <span class="muted">(100 € offerts en plus)</span></td></tr>
+  <tr><td class="k">CONFORT</td><td>860 € / mois <span class="muted">+ mise en service 290 €</span></td><td>756,80 € / mois <span class="muted">(−12 %, mise en service offerte)</span></td><td>8 881,60 € <span class="muted">(200 € offerts en plus)</span></td></tr>
+  <tr><td class="k">SÉRÉNITÉ</td><td>1 570 € / mois <span class="muted">+ mise en service 290 €</span></td><td>1 334,50 € / mois <span class="muted">(−15 %, mise en service offerte)</span></td><td>15 814 € <span class="muted">(200 € offerts en plus)</span></td></tr>
+</table>
+
+<h2>3. Ce qui est compris, ce qui se facture en plus</h2>
+<table>
+  <tr><th style="width:26%">Élément</th><th>Règle</th></tr>
+  <tr><td class="k">Mise en service</td><td>Paramétrage du compte, import des données, formation à distance : <b>290 € HT</b>, facturée une fois. <span class="ok">Offerte</span> avec engagement 12 mois ou année payée en une fois.</td></tr>
+  <tr><td class="k">Heures de secrétariat</td><td>Incluses dans la formule (10 h, 20 h ou 40 h par mois). Heure supplémentaire <b>45 € HT</b>. Heures non consommées <b>reportables à 50 %</b> sur le mois suivant.</td></tr>
+  <tr><td class="k">Analyses IA</td><td>Lecture des rapports d'expertise et des cartes grises : incluses, dans la limite d'un usage raisonnable (l'équivalent de 15 € d'analyses par mois — très au-delà du besoin d'un garage).</td></tr>
+  <tr><td class="k">Utilisateurs, dossiers, documents, stockage</td><td><b>Illimités.</b> Pas de jetons, pas d'option payante cachée.</td></tr>
+  <tr><td class="k">Changement de formule <span class="muted">(CGV art. 12)</span></td><td><b>Montée en gamme</b> à tout moment (effet le 1er du mois suivant, ou immédiat au prorata) ; l'engagement est conservé avec la remise de la nouvelle formule. <b>Descente en gamme</b> : préavis d'un mois sans engagement ; avec engagement, au terme ou après 6 mensualités réglées, sans indemnité. Avenant signé dans tous les cas.</td></tr>
+  <tr><td class="k">Résiliation <span class="muted">(CGV art. 2, 3, 5)</span></td><td><b>Sans engagement</b> : par email, préavis d'un mois (fin de mois). <b>Engagé 12 mois</b>, arrêt anticipé du fait du garage : il doit (a) le rattrapage de la remise sur les mois déjà consommés, (b) la mise en service qui avait été offerte, (c) une indemnité de <b>50 % des mensualités restantes</b> ; ce qui a été payé d'avance s'impute dessus. Aucune indemnité si l'arrêt vient d'un manquement d'IDEAFORMA, d'une hausse de prix refusée ou d'un cas de force majeure. <b>Rétractation 14 jours</b> si le contrat est signé hors établissement et que le garage a 5 salariés au plus. <b>Après 12 mois</b> : mois par mois, préavis d'un mois, au tarif engagé.</td></tr>
+  <tr><td class="k">Données</td><td>Export complet à tout moment depuis l'application ; conservées <b>90 jours</b> après la fin du contrat, puis supprimées.</td></tr>
+</table>
+
+<h2>4. Le paiement — ce que vous avez le droit de faire</h2>
+<div class="alerte"><b class="t">Vous n'encaissez JAMAIS en votre nom.</b>
+Tout paiement est libellé à l'ordre d'IDEAFORMA (chèque) ou versé sur le compte d'IDEAFORMA (virement avec la référence « MEA + nom du garage »), ou réglé par prélèvement SEPA mensuel, carte bancaire (lien de paiement) ou espèces contre reçu IDEAFORMA dans la limite légale.</div>
+<div class="deux">
+  <div class="note"><b class="t">Le garage règle sur place ?</b>Vous le déclarez dans la vente (montant + référence du chèque / virement / reçu) : IDEAFORMA rapproche et pointe la mensualité. Un paiement remis au commercial et non déclaré sous 48 h est une faute contractuelle.</div>
+  <div class="note"><b class="t">La 1re échéance, à la signature</b>Première mensualité (+ mise en service s'il n'y a pas d'engagement), ou l'année complète. La facture est émise par IDEAFORMA ; les mensualités sont payables d'avance.</div>
+</div>
+
+<h2>5. Les remises — qui décide quoi</h2>
+<table>
+  <tr><th>Remise</th><th>Qui décide</th><th>Effet sur votre prime</th></tr>
+  <tr><td class="k">Engagement 12 mois <span class="muted">(5 / 10 / 12 / 15 %)</span></td><td>Vous, sans autorisation : c'est la grille.</td><td><span class="ok">Aucun</span> — prime pleine + bonus engagement.</td></tr>
+  <tr><td class="k">Année payée en une fois <span class="muted">(1 mensualité / 100 € / 200 €)</span></td><td>Vous, sans autorisation : c'est la grille.</td><td><span class="ok">Aucun</span> — prime pleine + bonus engagement.</td></tr>
+  <tr><td class="k">Remise exceptionnelle hors grille <span class="muted">(jusqu'à 30 %)</span></td><td>IDEAFORMA seulement, par écrit. Vous pouvez la <b>demander</b> dans la déclaration de vente.</td><td>Prime réduite dans la même proportion (plancher ESSENTIEL, bonus inchangé).</td></tr>
+  <tr><td class="k">Toute autre promesse <span class="muted">(gratuité, prix, option…)</span></td><td><span class="non">Interdite</span> : le contrat garage l'exclut (art. 11).</td><td>Vente annulable, prime reprise.</td></tr>
+</table>
+
+<h2>6. Votre prime, pour chaque cas</h2>
+<table>
+  <tr><th>Formule</th><th>Sans engagement</th><th>Engagement 12 mois</th><th>Année en une fois</th></tr>
+  <tr><td class="k">ESSENTIEL</td><td><b>130 €</b> <span class="muted">à la 3e mensualité encaissée</span></td><td><b>170 €</b> <span class="muted">dès la 1re mensualité encaissée</span></td><td><b>170 €</b> <span class="muted">dès l'encaissement du forfait</span></td></tr>
+  <tr><td class="k">STARTER</td><td><b>415 €</b> <span class="muted">à la 3e mensualité encaissée</span></td><td><b>500 €</b> <span class="muted">dès la 1re mensualité encaissée</span></td><td><b>500 €</b> <span class="muted">dès l'encaissement du forfait</span></td></tr>
+  <tr><td class="k">CONFORT</td><td><b>730 €</b> <span class="muted">à la 3e mensualité encaissée</span></td><td><b>815 €</b> <span class="muted">dès la 1re mensualité encaissée</span></td><td><b>815 €</b> <span class="muted">dès l'encaissement du forfait</span></td></tr>
+  <tr><td class="k">SÉRÉNITÉ</td><td><b>1 335 €</b> <span class="muted">à la 3e mensualité encaissée</span></td><td><b>1 420 €</b> <span class="muted">dès la 1re mensualité encaissée</span></td><td><b>1 420 €</b> <span class="muted">dès l'encaissement du forfait</span></td></tr>
+</table>
+<p class="muted" style="font-size:8pt">Reprise de la prime si le garage arrête avant sa 3e mensualité (grille de commissions, § 3). Montée en formule : 85 % de la différence. Bonus volume trimestriel hors ESSENTIEL : 5 ventes → 255 €, 10 ventes → 680 €. Pas de commission sur les heures hors forfait ni sur la mise en service. Détail complet : GRILLE-COMMISSIONS v1.3.</p>
+
+<h2>7. Le compte démo</h2>
+<p>Pour la démonstration, utilisez <b>uniquement</b> le compte démo (identifiants remis avec votre kit). Il contient des dossiers fictifs, des rapports d'expertise anonymisés à importer, des factures, des relances, un véhicule de prêt et un gardiennage. Ne créez jamais de dossier réel du garage dedans : le compte du garage est créé par IDEAFORMA après validation de la vente.</p>
+<div class="note"><b class="t">À dire au garage, toujours</b>Les prix sont HT ; le garage récupère la TVA. Le secrétariat est assuré à distance par des collaborateurs indépendants d'IDEAFORMA, du lundi au vendredi, dans la limite des heures de la formule. Le contrat, les CGV, les CGU et l'autorisation d'intervention d'un collaborateur externe se lisent et se signent sur la page /vente.</div>
+</body></html>

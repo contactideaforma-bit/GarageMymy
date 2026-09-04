@@ -74,7 +74,7 @@ export const REGIMES: Record<CleRegime, Regime> = {
 };
 
 /** Date à laquelle les taux ci-dessus ont été vérifiés. */
-export const DATE_TAUX = "31/08/2026";
+export const DATE_TAUX = "04/09/2026";
 
 /** Seuils 2026 (prestations de services). */
 export const SEUILS = {
