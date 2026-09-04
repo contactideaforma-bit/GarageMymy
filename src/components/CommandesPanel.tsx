@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { CommandePiece, Document, DocumentLigne, Dossier } from "@/lib/types";
 import { formatEuros, messageErreur } from "@/lib/format";
 import ModalShell from "@/components/ModalShell";
+import EmailComposer from "@/components/EmailComposer";
+import { apercuCommandePiecesPdf, commandePiecesPdfBase64 } from "@/lib/pdf";
 
 // Statuts de commande (section NON bloquante pour l'avancement du dossier)
 export const STATUTS_COMMANDE: Record<string, { label: string; badge: string }> = {
@@ -27,6 +29,9 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
   const [importing, setImporting] = useState(false);
   const [ajoutOpen, setAjoutOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // v12.5 — bon de commande PDF (aperçu / envoi au carrossier ou fournisseur)
+  const [pdfEnCours, setPdfEnCours] = useState(false);
+  const [envoiOpen, setEnvoiOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,17 +63,18 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
       if (!or) throw new Error("Aucun ordre de réparation sur ce dossier : émets-le d'abord (bloc Documents).");
 
       const dejaLa = new Set(commandes.map((c) => c.designation.toLowerCase()));
-      let aImporter: { dossier_id: string; designation: string; prix_ht: number; statut: string }[] = [];
+      let aImporter: { dossier_id: string; designation: string; prix_ht: number; statut: string; quantite?: number }[] = [];
 
       // 1) Lignes de l'OR : format "- DÉSIGNATION (xN) — 123.45 € HT"
-      const regex = /^-\s*(.+?)(?:\s*\(x\d+\))?\s*—\s*([\d\s.,]+)\s*€\s*HT\s*$/;
+      const regex = /^-\s*(.+?)(?:\s*\(x(\d+)\))?\s*—\s*([\d\s.,]+)\s*€\s*HT\s*$/;
       for (const ligne of (or.travaux || "").split("\n")) {
         const m = ligne.trim().match(regex);
         if (!m) continue;
         const des = m[1].trim();
-        const prix = Number(m[2].replace(/\s/g, "").replace(",", "."));
+        const qte = Number(m[2]) || 1;
+        const prix = Number(m[3].replace(/\s/g, "").replace(",", "."));
         if (!des || !prix || MOTIFS_MO.test(des) || dejaLa.has(des.toLowerCase())) continue;
-        aImporter.push({ dossier_id: dossier.id, designation: des, prix_ht: prix, statut: "a_commander" });
+        aImporter.push({ dossier_id: dossier.id, designation: des, prix_ht: prix, statut: "a_commander", quantite: qte });
       }
 
       // 2) Repli : lignes de la facture (même chiffrage) si l'OR est en texte libre
@@ -98,6 +104,7 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
               designation: (l.designation || "").trim(),
               prix_ht: (Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0),
               statut: "a_commander",
+              quantite: Number(l.quantite) || 1,
             }));
         }
       }
@@ -124,6 +131,25 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
     if (error) {
       setCommandes((prev) => prev.map((x) => (x.id === c.id ? { ...x, statut: avant } : x)));
       alert(messageErreur(error, "Changement de statut impossible."));
+    }
+  }
+
+  // v12.5 — référence constructeur et quantité (colonnes de la migration v69).
+  async function changerChamp(c: CommandePiece, champ: "reference" | "quantite", valeur: string) {
+    const v = champ === "quantite" ? Math.max(1, Number(valeur) || 1) : valeur.trim() || null;
+    setCommandes((prev) => prev.map((x) => (x.id === c.id ? { ...x, [champ]: v } : x)));
+    const { error } = await supabase.from("commandes_pieces").update({ [champ]: v }).eq("id", c.id);
+    if (error) alert(messageErreur(error, "Modification non enregistrée (migration v69 exécutée ?)."));
+  }
+
+  async function ouvrirPdf() {
+    setPdfEnCours(true);
+    try {
+      await apercuCommandePiecesPdf(commandes, dossier);
+    } catch (e) {
+      alert(messageErreur(e, "PDF impossible à générer."));
+    } finally {
+      setPdfEnCours(false);
     }
   }
 
@@ -180,6 +206,16 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
           <button onClick={() => setAjoutOpen(true)} className="btn-ghost py-1.5 px-3 text-xs">
             + Pièce
           </button>
+          {commandes.length > 0 && (
+            <>
+              <button onClick={ouvrirPdf} disabled={pdfEnCours} className="btn-ghost py-1.5 px-3 text-xs" title="Bon de commande PDF à remettre au carrossier">
+                {pdfEnCours ? "PDF…" : "📄 Bon de commande PDF"}
+              </button>
+              <button onClick={() => setEnvoiOpen(true)} className="btn-primary py-1.5 px-3 text-xs" title="Envoyer le bon de commande par email">
+                ✉ Envoyer
+              </button>
+            </>
+          )}
         </div>
           </div>
         )}
@@ -203,6 +239,8 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
               <thead className="text-left text-white/50">
                 <tr>
                   <th className="py-2 pr-4 font-medium">Pièce</th>
+                  <th className="py-2 pr-4 font-medium">Référence</th>
+                  <th className="py-2 pr-4 font-medium text-right">Qté</th>
                   <th className="py-2 pr-4 font-medium text-right">Prix HT</th>
                   <th className="py-2 pr-4 font-medium">Statut</th>
                   <th className="py-2 pr-4 font-medium">Commentaire</th>
@@ -214,6 +252,25 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
                   <tr key={c.id} className="border-t border-white/5 align-middle">
                     <td className="py-2.5 pr-4 text-white/90 max-w-[280px]">
                       <span className="block truncate" title={c.designation}>{c.designation}</span>
+                    </td>
+                    <td className="py-2.5 pr-4">
+                      <input
+                        className={`field-input py-1.5 text-xs w-32 font-mono ${(c.reference || "").trim() ? "" : "border-amber-400/40"}`}
+                        defaultValue={c.reference || ""}
+                        placeholder="Réf. constructeur"
+                        title={(c.reference || "").trim() ? c.reference || "" : "Référence manquante — à compléter avant commande"}
+                        onBlur={(e) => changerChamp(c, "reference", e.target.value)}
+                      />
+                    </td>
+                    <td className="py-2.5 pr-4 text-right">
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        className="field-input py-1.5 text-xs w-16 text-right"
+                        defaultValue={Number(c.quantite ?? 1) || 1}
+                        onBlur={(e) => changerChamp(c, "quantite", e.target.value)}
+                      />
                     </td>
                     <td className="py-2.5 pr-4 text-right text-white/80 whitespace-nowrap">
                       {c.prix_ht != null ? formatEuros(c.prix_ht) : "—"}
@@ -245,7 +302,7 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
               </tbody>
               <tfoot>
                 <tr className="border-t border-white/10">
-                  <td className="py-2 pr-4 text-white/50">Total pièces HT</td>
+                  <td className="py-2 pr-4 text-white/50" colSpan={3}>Total pièces HT</td>
                   <td className="py-2 pr-4 text-right font-medium text-white">{formatEuros(totalHt)}</td>
                   <td colSpan={3} />
                 </tr>
@@ -258,6 +315,24 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
           <div className="mt-3 rounded-lg bg-rose-500/15 border border-rose-400/30 px-3 py-2 text-sm text-rose-200">{error}</div>
         )}
       </div>
+
+      {envoiOpen && (
+        <EmailComposer
+          dossier={dossier}
+          piecesJointes={[
+            {
+              label: "Bon de commande pièces (PDF)",
+              filename: `commande-pieces-${dossier.immatriculation || dossier.numero_sinistre || "dossier"}.pdf`,
+              getBase64: () => commandePiecesPdfBase64(commandes, dossier),
+              coche: true,
+            },
+          ]}
+          defaultSubject={`Commande de pièces — ${dossier.marque_modele || ""} ${dossier.immatriculation || ""} — dossier ${dossier.numero_sinistre || ""}`.replace(/\s+/g, " ").trim()}
+          defaultBody={`Bonjour,\n\nVeuillez trouver ci-joint le bon de commande des pièces pour le véhicule ${dossier.marque_modele || ""} ${dossier.immatriculation || ""} (dossier ${dossier.numero_sinistre || "—"}).\n\nLes références sont indiquées sur le document ; merci de vérifier la compatibilité avant expédition.\n\nCordialement,`}
+          onClose={() => setEnvoiOpen(false)}
+          onSent={() => setEnvoiOpen(false)}
+        />
+      )}
 
       {ajoutOpen && (
         <AjoutPieceModal
@@ -284,6 +359,8 @@ function AjoutPieceModal({
   onSaved: () => void;
 }) {
   const [designation, setDesignation] = useState("");
+  const [reference, setReference] = useState("");
+  const [quantite, setQuantite] = useState("1");
   const [prix, setPrix] = useState("");
   const [commentaire, setCommentaire] = useState("");
   const [saving, setSaving] = useState(false);
@@ -297,6 +374,8 @@ function AjoutPieceModal({
       const { error: e1 } = await supabase.from("commandes_pieces").insert({
         dossier_id: dossier.id,
         designation: designation.trim(),
+        reference: reference.trim() || null,
+        quantite: Math.max(1, Number(quantite) || 1),
         prix_ht: prix === "" ? null : Number(prix),
         commentaire: commentaire || null,
       });
@@ -314,6 +393,16 @@ function AjoutPieceModal({
       <div>
         <label className="field-label">Désignation</label>
         <input className="field-input" value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="Ex. PARE-CHOCS AR" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="field-label">Référence constructeur</label>
+          <input className="field-input font-mono" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Ex. 7P6807221" />
+        </div>
+        <div>
+          <label className="field-label">Quantité</label>
+          <input type="number" min={1} step={1} className="field-input" value={quantite} onChange={(e) => setQuantite(e.target.value)} />
+        </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>

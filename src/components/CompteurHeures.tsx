@@ -10,13 +10,18 @@
 //
 //  Mise en page : tout en colonne, aucune largeur fixe, chaque ligne se
 //  replie — c'est un bloc qui vit dans une colonne étroite sur téléphone.
+//
+//  v12.4 : une ligne peut concerner PLUSIEURS dossiers (un même appel à
+//  l'expert couvre souvent deux ou trois sinistres). Sélection par une
+//  liste « Ajouter un dossier… » qui empile des puces retirables — plus
+//  lisible au doigt qu'un <select multiple>.
 // ====================================================================
 
 import { useCallback, useEffect, useState } from "react";
 import { Dossier } from "@/lib/types";
 import { messageErreur } from "@/lib/format";
 import {
-  DUREES, LigneHeures, ajouterHeures, chargerHeures, forfaitHeures,
+  DUREES, LigneHeures, ajouterHeures, chargerHeures, dossiersDeLigne, forfaitHeures,
   formatDuree, libelleMois, moisCourant, supprimerHeures, totalMinutes,
 } from "@/lib/heures";
 
@@ -44,7 +49,7 @@ export default function CompteurHeures({
   const [jour, setJour] = useState(ymdParis());
   const [minutes, setMinutes] = useState<number>(30);
   const [description, setDescription] = useState("");
-  const [dossierId, setDossierId] = useState("");
+  const [dossierIds, setDossierIds] = useState<string[]>([]);
 
   const charger = useCallback(async () => {
     try {
@@ -74,9 +79,9 @@ export default function CompteurHeures({
     setBusy(true);
     setErreur(null);
     try {
-      await ajouterHeures({ jour, minutes, description, dossier_id: dossierId || null, auteur });
+      await ajouterHeures({ jour, minutes, description, dossier_ids: dossierIds, auteur });
       setDescription("");
-      setDossierId("");
+      setDossierIds([]);
       setMinutes(30);
       await charger();
     } catch (e) {
@@ -101,6 +106,12 @@ export default function CompteurHeures({
     const d = dossiers.find((x) => x.id === id);
     return d ? d.immatriculation || d.numero_sinistre || d.client_nom || "dossier" : null;
   };
+  const ajouterDossier = (id: string) => {
+    if (!id) return;
+    setDossierIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+  const retirerDossier = (id: string) => setDossierIds((prev) => prev.filter((x) => x !== id));
+  const dossiersRestants = dossiers.filter((d) => !dossierIds.includes(d.id));
 
   return (
     <section className="glass-card p-3 sm:p-4">
@@ -168,17 +179,43 @@ export default function CompteurHeures({
               placeholder="ex. appelé l'assurance pour débloquer le règlement, relancé l'expert, saisi la facture"
             />
           </label>
-          <label className="block text-[11px] text-white/60">
-            Dossier concerné (facultatif)
-            <select className="field-input field-compact mt-0.5 w-full" value={dossierId} onChange={(e) => setDossierId(e.target.value)}>
-              <option value="">— aucun —</option>
-              {dossiers.map((d) => (
+          <div className="text-[11px] text-white/60">
+            Dossier(s) concerné(s) (facultatif)
+            {dossierIds.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {dossierIds.map((id) => (
+                  <span
+                    key={id}
+                    className="inline-flex max-w-full items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/85"
+                  >
+                    <span className="truncate">📁 {nomDossier(id) || "dossier"}</span>
+                    <button
+                      type="button"
+                      onClick={() => retirerDossier(id)}
+                      className="shrink-0 text-white/40 hover:text-rose-300"
+                      aria-label="Retirer ce dossier"
+                      title="Retirer"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <select
+              className="field-input field-compact mt-1 w-full"
+              value=""
+              onChange={(e) => ajouterDossier(e.target.value)}
+              aria-label="Ajouter un dossier concerné"
+            >
+              <option value="">{dossierIds.length ? "+ Ajouter un autre dossier…" : "— aucun — (ou choisir un dossier)"}</option>
+              {dossiersRestants.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.immatriculation || d.numero_sinistre || "dossier"} — {d.client_nom || ""}
                 </option>
               ))}
             </select>
-          </label>
+          </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button className="btn-ghost btn-compact w-full sm:w-auto" onClick={() => setOuvert(false)}>Annuler</button>
             <button className="btn-primary btn-compact w-full sm:w-auto" disabled={busy || !description.trim()} onClick={enregistrer}>
@@ -198,7 +235,11 @@ export default function CompteurHeures({
                 <span className="block break-words text-white/85">{l.description}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-white/40">
                   <span>{new Date(l.jour).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" })}</span>
-                  {nomDossier(l.dossier_id) && <span className="rounded-full bg-white/10 px-1.5 py-px">📁 {nomDossier(l.dossier_id)}</span>}
+                  {dossiersDeLigne(l).map((id) =>
+                    nomDossier(id) ? (
+                      <span key={id} className="rounded-full bg-white/10 px-1.5 py-px">📁 {nomDossier(id)}</span>
+                    ) : null
+                  )}
                 </span>
               </span>
               <button onClick={() => retirer(l)} className="shrink-0 px-1 text-white/25 hover:text-rose-300" title="Supprimer">×</button>

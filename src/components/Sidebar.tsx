@@ -31,6 +31,7 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
       { href: "/extranets", label: "Espaces experts" },
       { href: "/annuaire", label: "Base de données" },
       { href: "/archives", label: "Archives" },
+      { href: "/historique", label: "Historique" },
       { href: "/factures", label: "Factures" },
     ],
   },

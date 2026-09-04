@@ -21,8 +21,17 @@ export type LigneHeures = {
   minutes: number;
   description: string;
   dossier_id: string | null;
+  /** v12.4 — tous les dossiers concernés (dossier_id = le premier). */
+  dossier_ids?: string[] | null;
   auteur: string | null;
 };
+
+/** Liste des dossiers d'une ligne, quelle que soit la version de la table. */
+export function dossiersDeLigne(l: Pick<LigneHeures, "dossier_id" | "dossier_ids">): string[] {
+  const ids = Array.isArray(l.dossier_ids) ? l.dossier_ids.filter(Boolean) : [];
+  if (ids.length) return ids;
+  return l.dossier_id ? [l.dossier_id] : [];
+}
 
 /** Durées proposées en un clic (minutes). */
 export const DUREES = [15, 30, 45, 60, 90, 120, 180, 240] as const;
@@ -79,17 +88,29 @@ export async function ajouterHeures(l: {
   jour: string;
   minutes: number;
   description: string;
+  /** Un ou plusieurs dossiers (v12.4). `dossier_id` seul reste accepté. */
+  dossier_ids?: string[] | null;
   dossier_id?: string | null;
   auteur?: string | null;
 }): Promise<void> {
-  const { error } = await supabase.from("heures_secretariat").insert({
+  const ids = Array.from(new Set([...(l.dossier_ids || []), l.dossier_id || ""].filter(Boolean)));
+  const base = {
     jour: l.jour,
     minutes: l.minutes,
     description: l.description.trim(),
-    dossier_id: l.dossier_id || null,
+    // Premier dossier en `dossier_id` : compatibilité avec l'existant.
+    dossier_id: ids[0] || null,
     auteur: l.auteur || null,
-  });
-  if (error) throw error;
+  };
+  const { error } = await supabase.from("heures_secretariat").insert({ ...base, dossier_ids: ids });
+  if (!error) return;
+  // Migration v68 pas encore exécutée : on enregistre au moins le premier dossier.
+  if (/dossier_ids/i.test(error.message || "")) {
+    const { error: e2 } = await supabase.from("heures_secretariat").insert(base);
+    if (e2) throw e2;
+    return;
+  }
+  throw error;
 }
 
 export async function supprimerHeures(id: string): Promise<void> {

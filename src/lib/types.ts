@@ -378,6 +378,21 @@ export type CommandePiece = {
   prix_ht: number | null;
   statut: string; // a_commander | commande | en_livraison | receptionne
   commentaire: string | null;
+  // v12.5 (migration v69) — référence constructeur et quantité, pour le
+  // bon de commande PDF remis au carrossier.
+  reference?: string | null;
+  quantite?: number | null;
+};
+
+/** Ligne de la corbeille (v12.5, migration v69) : une suppression restaurable 30 jours. */
+export type LigneCorbeille = {
+  id: string;
+  supprime_le: string;
+  table_name: string;
+  ligne_id: string;
+  libelle: string | null;
+  dossier_id: string | null;
+  donnees: Record<string, unknown>;
 };
 
 export type DemandeAssurance = {

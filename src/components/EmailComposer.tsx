@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, DocumentLigne, Dossier, Entreprise } from "@/lib/types";
-import { documentPdfBase64, facturxBase64 } from "@/lib/pdf";
+import { documentPdfBase64, facturxBase64, ouvrirFichierBase64 } from "@/lib/pdf";
 import { fetchAuth } from "@/lib/apiClient";
 import ModalShell from "@/components/ModalShell";
 
@@ -62,6 +62,8 @@ export default function EmailComposer({
   );
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // v12.4 — aperçu d'une pièce jointe avant envoi ("doc" = document principal, sinon l'index).
+  const [apercuEnCours, setApercuEnCours] = useState<string | null>(null);
 
   // Contacts du dossier (accès rapide) + annuaire complet (autocomplétion)
   const [contactsDossier, setContactsDossier] = useState<Contact[]>([]);
@@ -216,6 +218,55 @@ export default function EmailComposer({
       `${to},${cci}`.split(",").some((t) => emailsClient.includes(t.trim().toLowerCase()))
   );
 
+  // PDF du document principal (devis / facture), tel qu'il partira en PJ.
+  async function base64DocumentPrincipal(): Promise<{ filename: string; content: string } | null> {
+    if (!document || !dossier) return null;
+    const { data: lignes } = await supabase
+      .from("document_lignes")
+      .select("*")
+      .eq("document_id", document.id)
+      .order("ordre", { ascending: true });
+    const titre = document.type === "devis" ? "Devis" : "Facture";
+    // v52 : une FACTURE part au format Factur-X (PDF + XML) dès que les
+    // mentions le permettent ; sinon PDF classique, sans bloquer l'envoi.
+    let b64: string | null = null;
+    if (document.type === "facture") {
+      const fx = await facturxBase64(document, (lignes as DocumentLigne[]) || [], dossier, document.mode_paiement);
+      if (fx.ok) b64 = fx.base64;
+    }
+    if (!b64) b64 = await documentPdfBase64(document, (lignes as DocumentLigne[]) || [], dossier, document.mode_paiement);
+    return { filename: `${document.numero || titre}.pdf`, content: b64 };
+  }
+
+  // v12.4 — « Voir » : ouvre la pièce exactement comme elle sera jointe.
+  async function apercu(cle: string, filename: string, getBase64: () => Promise<string>) {
+    if (apercuEnCours) return;
+    setApercuEnCours(cle);
+    setError(null);
+    try {
+      ouvrirFichierBase64(await getBase64(), filename);
+    } catch {
+      setError(`Impossible d'ouvrir « ${filename} ».`);
+    } finally {
+      setApercuEnCours(null);
+    }
+  }
+
+  function BoutonVoir({ cle, filename, getBase64 }: { cle: string; filename: string; getBase64: () => Promise<string> }) {
+    const actif = apercuEnCours === cle;
+    return (
+      <button
+        type="button"
+        onClick={() => apercu(cle, filename, getBase64)}
+        disabled={Boolean(apercuEnCours)}
+        className="ml-auto shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] text-white/70 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+        title={`Voir ${filename}`}
+      >
+        {actif ? "…" : "👁 Voir"}
+      </button>
+    );
+  }
+
   async function envoyer() {
     setSending(true);
     setError(null);
@@ -224,22 +275,9 @@ export default function EmailComposer({
     let attachments: { filename: string; content: string }[] | undefined;
     try {
       const liste: { filename: string; content: string }[] = [];
-      if (attachPdf && document && dossier) {
-        const { data: lignes } = await supabase
-          .from("document_lignes")
-          .select("*")
-          .eq("document_id", document.id)
-          .order("ordre", { ascending: true });
-        const titre = document.type === "devis" ? "Devis" : "Facture";
-        // v52 : une FACTURE part au format Factur-X (PDF + XML) dès que les
-        // mentions le permettent ; sinon PDF classique, sans bloquer l'envoi.
-        let b64: string | null = null;
-        if (document.type === "facture") {
-          const fx = await facturxBase64(document, (lignes as DocumentLigne[]) || [], dossier, document.mode_paiement);
-          if (fx.ok) b64 = fx.base64;
-        }
-        if (!b64) b64 = await documentPdfBase64(document, (lignes as DocumentLigne[]) || [], dossier, document.mode_paiement);
-        liste.push({ filename: `${document.numero || titre}.pdf`, content: b64 });
+      if (attachPdf) {
+        const principal = await base64DocumentPrincipal();
+        if (principal) liste.push(principal);
       }
       for (let i = 0; i < (piecesJointes || []).length; i++) {
         if (!pjCochees[i]) continue;
@@ -393,23 +431,36 @@ export default function EmailComposer({
           {(document || (piecesJointes && piecesJointes.length > 0)) && (
             <div className="space-y-1.5">
               <div className="field-label">Pièces jointes</div>
+              <p className="text-xs text-white/40">Coche ce qui doit partir ; « Voir » ouvre la pièce telle qu&apos;elle sera jointe.</p>
               {document && (
-                <label className="flex items-center gap-2 text-sm text-white/70">
-                  <input type="checkbox" checked={attachPdf} onChange={(e) => setAttachPdf(e.target.checked)} />
-                  {document.type === "devis" ? "Devis" : "Facture"} {document.numero || ""} (PDF)
-                </label>
+                <div className="flex items-center gap-2 text-sm text-white/70">
+                  <label className="flex min-w-0 items-center gap-2">
+                    <input type="checkbox" checked={attachPdf} onChange={(e) => setAttachPdf(e.target.checked)} />
+                    <span className="truncate">{document.type === "devis" ? "Devis" : "Facture"} {document.numero || ""} (PDF)</span>
+                  </label>
+                  {dossier && (
+                    <BoutonVoir
+                      cle="doc"
+                      filename={`${document.numero || document.type}.pdf`}
+                      getBase64={async () => (await base64DocumentPrincipal())?.content || ""}
+                    />
+                  )}
+                </div>
               )}
               {(piecesJointes || []).map((pj, i) => (
-                <label key={pj.filename + i} className="flex items-center gap-2 text-sm text-white/70">
-                  <input
-                    type="checkbox"
-                    checked={pjCochees[i] || false}
-                    onChange={(e) =>
-                      setPjCochees((prev) => prev.map((v, j) => (j === i ? e.target.checked : v)))
-                    }
-                  />
-                  {pj.label}
-                </label>
+                <div key={pj.filename + i} className="flex items-center gap-2 text-sm text-white/70">
+                  <label className="flex min-w-0 items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={pjCochees[i] || false}
+                      onChange={(e) =>
+                        setPjCochees((prev) => prev.map((v, j) => (j === i ? e.target.checked : v)))
+                      }
+                    />
+                    <span className="truncate">{pj.label}</span>
+                  </label>
+                  <BoutonVoir cle={`pj-${i}`} filename={pj.filename} getBase64={pj.getBase64} />
+                </div>
               ))}
             </div>
           )}

@@ -38,6 +38,8 @@ import { reanalyserChiffrage } from "@/lib/extraction";
 import { archiverDossier } from "@/lib/archive";
 import { marquerFactureEnvoyee } from "@/lib/dossierSync";
 import { fichierBase64, ouvrirFichier } from "@/lib/storage";
+import { labelPiece } from "@/lib/pieces";
+import { fermerOnglet, libelleOnglet, ouvrirOnglet } from "@/lib/onglets";
 import { formatEuros, formatDate, formatDateTime, messageErreur } from "@/lib/format";
 import { montantTtc, tauxTva } from "@/lib/tva";
 import { badgeStatutDoc, controlerRapport, labelStatutDoc, modeParDefaut } from "@/lib/documents";
@@ -403,7 +405,11 @@ export default function DossierDetailPage() {
 
   async function supprimer() {
     if (!dossier) return;
-    if (!confirm("Supprimer définitivement ce dossier ? Les fichiers associés (rapport, pièces) seront aussi effacés.")) return;
+    // v12.5 — le dossier part dans la corbeille (Historique → Supprimé
+    // récemment) et reste RESTAURABLE 30 jours : on ne détruit plus les
+    // fichiers déposés (rapport, pièces), sinon la restauration rendrait un
+    // dossier amputé.
+    if (!confirm("Supprimer ce dossier ? Il sera restaurable pendant 30 jours depuis Historique → Supprimé récemment.")) return;
     // On supprime la LIGNE D'ABORD : si le delete échoue (RLS, contrainte),
     // les fichiers sont toujours là et le dossier reste consultable.
     // (L'ancien ordre purgeait le Storage avant, ce qui pouvait laisser un
@@ -413,9 +419,7 @@ export default function DossierDetailPage() {
       alert(messageErreur(error, "Suppression impossible — le dossier n'a PAS été supprimé."));
       return;
     }
-    const cheminsPieces = pieces.map((p) => p.path).filter(Boolean);
-    if (cheminsPieces.length) await supabase.storage.from("pieces").remove(cheminsPieces);
-    if (dossier.rapport_path) await supabase.storage.from("rapports").remove([dossier.rapport_path]);
+    fermerOnglet(dossier.id);
     router.push("/sinistres");
   }
 
@@ -570,6 +574,11 @@ export default function DossierDetailPage() {
   }
 
 
+  // v12.5 — épingle la fiche dans la barre d'onglets dès qu'elle est chargée.
+  useEffect(() => {
+    if (dossier) ouvrirOnglet(dossier.id, libelleOnglet(dossier));
+  }, [dossier]);
+
   if (loading) return <p className="text-white/40">Chargement…</p>;
 
   if (!dossier) {
@@ -594,6 +603,9 @@ export default function DossierDetailPage() {
   const enPec = Boolean(dossier.mode_pec);
   const pecPieces = pieces.filter((p) => p.type === "prise_en_charge");
   const pecJointe = pecPieces.length > 0;
+  // v12.4 — les autres pièces déposées (carte grise, constat, permis…) sont
+  // aussi joignables, décochées par défaut.
+  const autresPieces = pieces.filter((p) => p.type !== "prise_en_charge");
 
   // Autres pièces joignables au même email (cochables, décochées par défaut)
   const pjPourDoc = (docCourant: Document): PieceJointeOption[] => [
@@ -617,6 +629,17 @@ export default function DossierDetailPage() {
       getBase64: () => cessionPdfBase64(c, dossier),
       coche: false,
     })),
+    // v12.4 — Rapport d'expertise déposé sur le dossier (bucket « rapports »).
+    ...(dossier.rapport_path
+      ? [
+          {
+            label: `Rapport d'expertise${dossier.rapport_nom ? ` — ${dossier.rapport_nom}` : ""}`,
+            filename: dossier.rapport_nom || `rapport-expertise-${dossier.numero_sinistre || "dossier"}.pdf`,
+            getBase64: () => fichierBase64("rapports", dossier.rapport_path!),
+            coche: false,
+          },
+        ]
+      : []),
     // Accord de prise en charge rempli (pièce du dossier) : coché d'office
     // quand on envoie une facture d'un dossier en prise en charge.
     ...pecPieces.map((p) => ({
@@ -624,6 +647,13 @@ export default function DossierDetailPage() {
       filename: p.nom || "accord-prise-en-charge.pdf",
       getBase64: () => fichierBase64("pieces", p.path),
       coche: enPec && docCourant.type === "facture",
+    })),
+    // v12.4 — autres pièces du dossier (carte grise, constat, permis, autres).
+    ...autresPieces.map((p) => ({
+      label: `${labelPiece(p.type)}${p.nom ? ` — ${p.nom}` : ""}`,
+      filename: p.nom || `${p.type}.pdf`,
+      getBase64: () => fichierBase64("pieces", p.path),
+      coche: false,
     })),
     { label: "RIB du garage", filename: "RIB.pdf", getBase64: ribPdfBase64, coche: false },
   ];

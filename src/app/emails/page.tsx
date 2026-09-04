@@ -40,6 +40,7 @@ export default function EmailsPage() {
   const [loading, setLoading] = useState(true);
   const [recherche, setRecherche] = useState("");
   const [selectionne, setSelectionne] = useState<EmailRow | null>(null);
+  const [suppression, setSuppression] = useState(false);
 
   // fenêtres
   const [nouvelEmail, setNouvelEmail] = useState(false);
@@ -58,6 +59,21 @@ export default function EmailsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  // v12.5 — supprimer un email du journal. Il part dans la corbeille
+  // (Historique → Supprimé récemment) et reste restaurable 30 jours.
+  async function supprimer(m: EmailRow) {
+    if (!confirm(`Supprimer cet email (« ${m.objet || "sans objet"} ») du journal ? Restaurable 30 jours depuis Historique.`)) return;
+    setSuppression(true);
+    const { error } = await supabase.from("emails").delete().eq("id", m.id);
+    setSuppression(false);
+    if (error) {
+      alert(`Suppression impossible : ${error.message}`);
+      return;
+    }
+    setEmails((prev) => prev.filter((x) => x.id !== m.id));
+    if (selectionne?.id === m.id) setSelectionne(null);
+  }
 
   const visibles = useMemo(() => {
     const q = recherche.trim().toLowerCase();
@@ -182,14 +198,24 @@ export default function EmailsPage() {
                       </div>
                     )}
                   </div>
-                  {selectionne.dossier_id && (
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    {selectionne.dossier_id && (
+                      <button
+                        onClick={() => router.push(`/sinistres/${selectionne.dossier_id}`)}
+                        className="text-sm text-accent-teal hover:underline"
+                      >
+                        Ouvrir le dossier lié
+                      </button>
+                    )}
                     <button
-                      onClick={() => router.push(`/sinistres/${selectionne.dossier_id}`)}
-                      className="mt-2 text-sm text-accent-teal hover:underline"
+                      onClick={() => supprimer(selectionne)}
+                      disabled={suppression}
+                      className="btn-ghost btn-compact text-rose-200 hover:text-rose-100"
+                      title="Supprimer cet email du journal (restaurable 30 jours)"
                     >
-                      Ouvrir le dossier lié
+                      🗑 Supprimer
                     </button>
-                  )}
+                  </div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4" style={{ maxHeight: "55vh" }}>
                   <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-white/80">

@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable, { UserOptions } from "jspdf-autotable";
-import { CessionCreance, Document, DocumentLigne, Dossier, Entreprise, FlotteMiseADispo, FlotteVehicule, OrdreReparation, Restitution, TransfertGarantie } from "./types";
+import { CessionCreance, CommandePiece, Document, DocumentLigne, Dossier, Entreprise, FlotteMiseADispo, FlotteVehicule, OrdreReparation, Restitution, TransfertGarantie } from "./types";
 import { PRISES_EN_CHARGE, clausesMiseADispo, clausesParDefaut, coutMiseADispoHt, coutPretHt, joursPret } from "./pret";
 import {
   computeTotaux,
@@ -135,7 +135,34 @@ async function logoDataUrl(path: string | null | undefined): Promise<string | nu
 // Ouvre un PDF dans un nouvel onglet (visualisation ; le téléchargement
 // reste possible depuis la visionneuse du navigateur).
 function ouvrirPdf(pdf: jsPDF, nomFichier = "document.pdf") {
-  const url = String(pdf.output("bloburl"));
+  ouvrirUrlFichier(String(pdf.output("bloburl")), nomFichier);
+}
+
+/** Type MIME d'après l'extension (pièces du dossier : PDF, photos…). */
+function mimeDepuisNom(nom: string): string {
+  const ext = (nom.split(".").pop() || "").toLowerCase();
+  if (ext === "jpg" || ext === "jpeg") return "image/jpeg";
+  if (ext === "png") return "image/png";
+  if (ext === "webp") return "image/webp";
+  if (ext === "heic") return "image/heic";
+  return "application/pdf";
+}
+
+/**
+ * v12.4 — Aperçu d'une pièce jointe AVANT envoi : le fichier base64 (celui
+ * qui partira dans l'email) est ouvert tel quel, dans un onglet ou dans la
+ * visionneuse intégrée. On voit exactement ce que recevra le destinataire.
+ */
+export function ouvrirFichierBase64(base64: string, nomFichier: string, mime?: string) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  const blob = new Blob([bytes], { type: mime || mimeDepuisNom(nomFichier) });
+  ouvrirUrlFichier(URL.createObjectURL(blob), nomFichier);
+}
+
+// Ouvre une URL (blob) dans un nouvel onglet, avec repli visionneuse.
+function ouvrirUrlFichier(url: string, nomFichier: string) {
   // v12.2 — Safari (iPad, iPhone) BLOQUE window.open dès qu'il n'est plus
   // dans le geste de l'utilisateur : le PDF est généré après des appels
   // réseau, donc la fenêtre ne s'ouvrait jamais, sans message ni demande
@@ -2021,5 +2048,127 @@ export async function miseEnDemeurePdfBase64(
   reste: number
 ): Promise<string> {
   const pdf = await buildMiseEnDemeurePdf(facture, dossier, cible, reste);
+  return pdf.output("datauristring").split(",")[1];
+}
+
+/* ==================================================================
+ *  BON DE COMMANDE PIÈCES (v12.5)
+ *  Récapitulatif propre des pièces à commander pour le carrossier /
+ *  le fournisseur : désignation, RÉFÉRENCE, quantité, prix HT, état,
+ *  commentaire (fournisseur, délai). Document interne : pas de mentions
+ *  de facturation, mais l'en-tête du garage pour qu'on sache d'où il vient.
+ * ================================================================== */
+
+const LABEL_STATUT_COMMANDE: Record<string, string> = {
+  a_commander: "À commander",
+  commande: "Commandé",
+  en_livraison: "En livraison",
+  receptionne: "Réceptionné",
+};
+
+async function buildCommandePiecesPdf(commandes: CommandePiece[], dossier: Dossier): Promise<jsPDF> {
+  const ent = await getEntreprise();
+  const logo = await logoDataUrl(ent.logo_path);
+  const pdf = new jsPDF();
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+  const M = 14;
+  const right = pageW - M;
+  const theme = themePdf(ent);
+  const accent = theme.accent;
+
+  function drawFooter() {
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(150);
+    pdf.text(
+      `${ent.nom || ""} — bon de commande pièces — dossier ${dossier.numero_sinistre || dossier.immatriculation || ""} — édité le ${dateFr(new Date().toISOString().slice(0, 10))}`,
+      pageW / 2,
+      pageH - 10,
+      { align: "center" }
+    );
+  }
+
+  const yBlocs = drawEnTete(pdf, ent, logo, theme, "BON DE COMMANDE PIÈCES", [
+    `Dossier : ${dossier.numero_sinistre || "—"}`,
+    `Édité le : ${dateFr(new Date().toISOString().slice(0, 10))}`,
+  ]);
+
+  pdf.setFontSize(10);
+  pdf.setTextColor(30);
+  pdf.text("Véhicule", M, yBlocs);
+  pdf.text("Dossier", pageW / 2 + 6, yBlocs);
+  pdf.setTextColor(70);
+  pdf.setFontSize(9);
+  pdf.text(
+    [
+      dossier.marque_modele || "—",
+      `Immat. : ${dossier.immatriculation || "—"}`,
+      dossier.reparateur ? `Réparateur : ${dossier.reparateur}` : "",
+    ].filter(Boolean),
+    M, yBlocs + 6
+  );
+  pdf.text(
+    [
+      `Client : ${dossier.client_nom || "—"}`,
+      `N° sinistre : ${dossier.numero_sinistre || "—"}`,
+      dossier.date_sinistre ? `Sinistre du : ${dateFr(dossier.date_sinistre)}` : "",
+      dossier.assureur ? `Assureur : ${dossier.assureur}` : "",
+      dossier.reparation_debut ? `Début travaux : ${dateFr(dossier.reparation_debut)}` : "",
+    ].filter(Boolean),
+    pageW / 2 + 6, yBlocs + 6
+  );
+
+  const totalHt = commandes.reduce((s, c) => s + (Number(c.prix_ht) || 0), 0);
+  autoTable(pdf, {
+    startY: yBlocs + 32,
+    margin: { top: 20, left: M, right: M, bottom: 22 },
+    tableWidth: pageW - M * 2,
+    head: [["Désignation", "Référence", "Qté", "Prix HT", "État", "Commentaire"]],
+    body: commandes.map((c) => [
+      c.designation,
+      c.reference || "",
+      String(Number(c.quantite ?? 1) || 1),
+      c.prix_ht != null ? euros(Number(c.prix_ht)) : "",
+      LABEL_STATUT_COMMANDE[c.statut] || c.statut,
+      c.commentaire || "",
+    ]),
+    foot: [["Total pièces HT", "", "", euros(totalHt), "", ""]],
+    ...stylesTableau(theme),
+    styles: { fontSize: 8.5, cellPadding: 2.2, overflow: "linebreak", valign: "middle" },
+    columnStyles: {
+      0: { cellWidth: "auto" },
+      1: { cellWidth: 34, fontStyle: "bold" },
+      2: { cellWidth: 12, halign: "center" },
+      3: { cellWidth: 24, halign: "right" },
+      4: { cellWidth: 24 },
+      5: { cellWidth: 38 },
+    },
+    footStyles: { fillColor: [245, 245, 245], textColor: 30, fontStyle: "bold", halign: "right" },
+    didDrawPage: () => drawFooter(),
+  });
+  let ty = ((pdf as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? yBlocs + 60) + 10;
+
+  const sansRef = commandes.filter((c) => !(c.reference || "").trim()).length;
+  const notes = [
+    `${commandes.length} pièce${commandes.length > 1 ? "s" : ""} — ${commandes.filter((c) => c.statut === "a_commander").length} à commander.`,
+    sansRef > 0 ? `⚠ ${sansRef} ligne${sansRef > 1 ? "s" : ""} sans référence : à compléter avant commande.` : "",
+    "Vérifier les références sur le VIN du véhicule avant de passer commande.",
+  ].filter(Boolean);
+  if (ty + notes.length * 5 > pageH - 30) { pdf.addPage(); drawFooter(); ty = 25; }
+  pdf.setDrawColor(...accent);
+  pdf.setLineWidth(0.4);
+  pdf.line(M, ty - 4, right, ty - 4);
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(sansRef > 0 ? 160 : 90, sansRef > 0 ? 60 : 90, sansRef > 0 ? 40 : 90);
+  notes.forEach((n, i) => pdf.text(n, M, ty + i * 5));
+  return pdf;
+}
+
+export async function apercuCommandePiecesPdf(commandes: CommandePiece[], dossier: Dossier) {
+  ouvrirPdf(await buildCommandePiecesPdf(commandes, dossier), `commande-pieces-${dossier.immatriculation || dossier.numero_sinistre || "dossier"}.pdf`);
+}
+
+export async function commandePiecesPdfBase64(commandes: CommandePiece[], dossier: Dossier): Promise<string> {
+  const pdf = await buildCommandePiecesPdf(commandes, dossier);
   return pdf.output("datauristring").split(",")[1];
 }
