@@ -64,6 +64,34 @@ export default function EmailComposer({
   const [error, setError] = useState<string | null>(null);
   // v12.4 — aperçu d'une pièce jointe avant envoi ("doc" = document principal, sinon l'index).
   const [apercuEnCours, setApercuEnCours] = useState<string | null>(null);
+  // v12.7 — fichiers ajoutés depuis l'appareil (photos, PDF reçus, scans…),
+  // proposé SYSTÉMATIQUEMENT. Limite Vercel : 4,5 Mo par requête, tout compris.
+  const [fichiers, setFichiers] = useState<{ nom: string; taille: number; base64: string }[]>([]);
+  const LIMITE_OCTETS = 3_500_000;
+
+  async function ajouterFichiers(liste: FileList | null) {
+    if (!liste) return;
+    const ajouts: { nom: string; taille: number; base64: string }[] = [];
+    let total = fichiers.reduce((s, f) => s + f.taille, 0);
+    for (const f of Array.from(liste)) {
+      if (total + f.size > LIMITE_OCTETS) {
+        setError(`« ${f.name} » dépasse la taille maximale d'un email (3,5 Mo au total). Envoie-le séparément ou réduis-le.`);
+        continue;
+      }
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onloadend = () => {
+          const res = String(r.result || "");
+          resolve(res.substring(res.indexOf(",") + 1));
+        };
+        r.onerror = () => reject(new Error("lecture"));
+        r.readAsDataURL(f);
+      });
+      ajouts.push({ nom: f.name, taille: f.size, base64 });
+      total += f.size;
+    }
+    if (ajouts.length) setFichiers((prev) => [...prev, ...ajouts]);
+  }
 
   // Contacts du dossier (accès rapide) + annuaire complet (autocomplétion)
   const [contactsDossier, setContactsDossier] = useState<Contact[]>([]);
@@ -283,6 +311,7 @@ export default function EmailComposer({
         const pj = piecesJointes![i];
         liste.push({ filename: pj.filename, content: await pj.getBase64() });
       }
+      for (const f of fichiers) liste.push({ filename: f.nom, content: f.base64 });
       if (liste.length) attachments = liste;
     } catch {
       setError("Impossible de générer le PDF à joindre.");
@@ -427,10 +456,11 @@ export default function EmailComposer({
             />
           </div>
 
-          {(document || (piecesJointes && piecesJointes.length > 0)) && (
-            <div className="space-y-1.5">
+          <div className="space-y-1.5">
               <div className="field-label">Pièces jointes</div>
-              <p className="text-xs text-white/40">Coche ce qui doit partir ; « Voir » ouvre la pièce telle qu&apos;elle sera jointe.</p>
+              {(document || (piecesJointes && piecesJointes.length > 0)) && (
+                <p className="text-xs text-white/40">Coche ce qui doit partir ; « Voir » ouvre la pièce telle qu&apos;elle sera jointe.</p>
+              )}
               {document && (
                 <div className="flex items-center gap-2 text-sm text-white/70">
                   <label className="flex min-w-0 items-center gap-2">
@@ -461,8 +491,36 @@ export default function EmailComposer({
                   <BoutonVoir cle={`pj-${i}`} filename={pj.filename} getBase64={pj.getBase64} />
                 </div>
               ))}
+              {fichiers.map((f, i) => (
+                <div key={f.nom + i} className="flex items-center gap-2 text-sm text-white/70">
+                  <span className="truncate">📎 {f.nom}</span>
+                  <span className="shrink-0 text-xs text-white/40">{(f.taille / 1024).toFixed(0)} Ko</span>
+                  <button
+                    type="button"
+                    onClick={() => setFichiers((prev) => prev.filter((_, j) => j !== i))}
+                    className="shrink-0 text-white/40 hover:text-rose-300"
+                    title="Retirer"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              {/* v12.7 — toujours proposé : un fichier de l'appareil (photo, PDF reçu, scan…) */}
+              <label className="mt-1 flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-white/25 px-3 py-2 text-sm text-white/70 hover:border-accent-pink/60 hover:text-white">
+                <span className="text-lg leading-none">＋</span>
+                <span>Ajouter un fichier depuis cet appareil</span>
+                <input
+                  type="file"
+                  multiple
+                  accept="application/pdf,image/*,.doc,.docx,.xls,.xlsx"
+                  className="hidden"
+                  onChange={(e) => {
+                    ajouterFichiers(e.target.files);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
             </div>
-          )}
 
           {error && (
             <div className="rounded-lg bg-rose-500/15 border border-rose-400/30 px-3 py-2 text-sm text-rose-200">

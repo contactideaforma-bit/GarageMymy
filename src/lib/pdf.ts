@@ -282,6 +282,48 @@ function afficherPdfIntegre(url: string, nomFichier: string) {
   document.addEventListener("keydown", surTouche);
   actions.append(ouvrir, telecharger, fermer);
   barre.append(titre, actions);
+
+  // v12.7 — TÉLÉPHONE / TABLETTE : iOS et Android n'affichent pas un PDF
+  // « blob » dans une iframe (page blanche vue sur iPhone). On remplace la
+  // page vide par une fiche « document prêt » : nom, boutons larges
+  // Ouvrir (lecteur natif : partager, enregistrer dans Fichiers, imprimer),
+  // Télécharger, Fermer. Sur ordinateur, l'aperçu reste dans l'iframe.
+  if (appareilTactile()) {
+    barre.remove();
+    voile.style.cssText =
+      "position:fixed;inset:0;z-index:10000;display:flex;align-items:flex-end;justify-content:center;background:rgba(8,10,22,0.6);";
+    const fiche = document.createElement("div");
+    fiche.style.cssText =
+      "width:100%;max-width:520px;background:#fff;color:#1e2233;border-radius:1.25rem 1.25rem 0 0;padding:1.1rem 1.1rem calc(1.1rem + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35);font-family:system-ui,sans-serif;";
+    const poignee = document.createElement("div");
+    poignee.style.cssText = "width:2.5rem;height:4px;border-radius:2px;background:#d1d5e3;margin:0 auto .9rem;";
+    const icone = document.createElement("div");
+    icone.textContent = "📄";
+    icone.style.cssText = "font-size:2.4rem;text-align:center;line-height:1;";
+    const nom = document.createElement("div");
+    nom.textContent = nomFichier;
+    nom.style.cssText = "margin:.6rem 0 .2rem;text-align:center;font-weight:700;font-size:1rem;word-break:break-word;";
+    const aide = document.createElement("div");
+    aide.textContent = "Ton document est prêt. « Ouvrir » l'affiche dans le lecteur du téléphone (partager, imprimer, enregistrer dans Fichiers).";
+    aide.style.cssText = "text-align:center;font-size:.8rem;color:#5b6078;margin-bottom:1rem;";
+    const grand = "display:flex;align-items:center;justify-content:center;width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.9rem;font:600 .95rem system-ui,sans-serif;text-decoration:none;margin-top:.5rem;";
+    ouvrir.style.cssText = grand + "background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border:0;box-shadow:0 0 14px rgba(236,72,153,.3);";
+    ouvrir.textContent = "Ouvrir le PDF";
+    telecharger.style.cssText = grand + "background:#f3f4fa;color:#1e2233;border:1px solid #e0e3ef;";
+    telecharger.textContent = "Télécharger";
+    fermer.style.cssText = grand + "background:transparent;color:#5b6078;border:0;cursor:pointer;";
+    fermer.textContent = "Fermer";
+    voile.addEventListener("click", (e) => {
+      if (e.target === voile) detruire();
+    });
+    // Le lecteur s'ouvre dans un nouvel onglet : on replie la fiche derrière.
+    ouvrir.addEventListener("click", () => setTimeout(detruire, 400));
+    fiche.append(poignee, icone, nom, aide, ouvrir, telecharger, fermer);
+    voile.appendChild(fiche);
+    document.body.appendChild(voile);
+    return;
+  }
+
   const cadre = document.createElement("iframe");
   cadre.src = url;
   cadre.title = nomFichier;
