@@ -98,6 +98,21 @@ export function emailBienvenueHtml(b: BienvenueInput): string {
       <a href="${esc(url)}" style="display:inline-block;padding:12px 30px;color:#ffffff;font-family:Segoe UI,system-ui,sans-serif;font-size:15px;font-weight:bold;text-decoration:none">Ouvrir ${esc(SOCIETE.produit)}</a>
     </td></tr></table>
 
+    <!-- vidéo de présentation (v12.7) : une IMAGE cliquable vers la vitrine,
+         jamais un fichier joint ni une vidéo intégrée (non lus par les
+         messageries, et lourds = risque de spam). -->
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px">
+      <tr><td style="border-radius:12px;overflow:hidden;border:1px solid ${BORDURE}">
+        <a href="${esc(SOCIETE.site)}/#video" style="display:block;text-decoration:none">
+          <img src="${esc(SOCIETE.site)}/presentation-poster.jpg" width="536" alt="Voir la vidéo de présentation (1 min 30)" style="display:block;width:100%;height:auto;border:0">
+          <div style="background:${ENCADRE};padding:10px 14px;font-family:Segoe UI,system-ui,sans-serif;font-size:13px;color:${TEXTE}">
+            <span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;border-radius:50%;background:${FUCHSIA};color:#ffffff;font-size:11px;margin-right:8px">&#9654;</span>
+            <b>Découvrez l'application en 1 min 30</b> — du rapport d'expertise à la facture, en direct.
+          </div>
+        </a>
+      </td></tr>
+    </table>
+
     <!-- premiers pas -->
     <div style="color:${FUCHSIA};font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin:4px 0 8px">Vos premiers pas</div>
     <table role="presentation" cellpadding="0" cellspacing="0">
@@ -138,6 +153,8 @@ export function emailBienvenueTexte(b: BienvenueInput): string {
     `Email : ${b.email}`,
     `Mot de passe provisoire : ${b.motDePasse}`,
     "Changez ce mot de passe dès votre première connexion (Profil).",
+    "",
+    `Découvrez l'application en 1 min 30 (vidéo) : ${SOCIETE.site}/#video`,
     "",
     "Premiers pas : 1) changer le mot de passe, 2) compléter la fiche entreprise (logo, RIB), 3) créer un premier dossier ou déposer un rapport d'expertise, 4) sur mobile, ajouter l'application à l'écran d'accueil.",
     ...(b.secretaireNom ? [`Votre secrétaire dédiée, ${b.secretaireNom}, vous contacte pour la mise en service.`] : []),

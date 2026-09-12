@@ -255,7 +255,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               électronique et relances qui font rentrer l&apos;argent.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <a href="#espaces" className="lp-btn">Se connecter</a>
+              <a href="#video" className="lp-btn">▶ Voir la démo (1 min 30)</a>
               <a href="mailto:contact@myeasyauto.fr?subject=Demande de démonstration — My Easy Auto" className="lp-btn-ghost">
                 Demander une démonstration
               </a>
@@ -266,6 +266,48 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
           </div>
           <ApercuFicheDossier />
         </header>
+
+        {/* ============================ Vidéo (v12.7) ============================
+            Présentation de 90 s : du rapport d'expertise à la facture. Fichier
+            public/presentation.mp4 (720p, ~5 Mo, encodé pour le web) + affiche
+            presentation-poster.jpg ; chargée seulement au clic (preload none). */}
+        <section id="video" className="scroll-mt-20 pb-14 sm:pb-20">
+          <div className="lp-card overflow-hidden">
+            <div className="grid items-center gap-6 p-5 sm:p-8 lg:grid-cols-[1.4fr_1fr]">
+              <div className="overflow-hidden rounded-2xl bg-slate-900 shadow-xl ring-1 ring-slate-200">
+                <video
+                  className="aspect-video w-full"
+                  controls
+                  playsInline
+                  preload="none"
+                  poster="/presentation-poster.jpg"
+                  src="/presentation.mp4"
+                  aria-label="Vidéo de présentation de My Easy Auto"
+                >
+                  Votre navigateur ne lit pas les vidéos —{" "}
+                  <a href="/presentation.mp4" className="underline">
+                    télécharger la vidéo
+                  </a>
+                  .
+                </video>
+              </div>
+              <div>
+                <span className="lp-chip">La démo en 1 min 30</span>
+                <h2 className="mt-3">Passer du rapport d&apos;expertise à la facture, en direct.</h2>
+                <p className="mt-3 text-sm leading-relaxed text-slate-500">
+                  Un rapport déposé, le chiffrage lu automatiquement, le dossier créé, les documents générés et signés,
+                  la relance qui part. Pas de montage : c&apos;est l&apos;application telle que vous l&apos;utiliserez demain.
+                </p>
+                <a
+                  href="mailto:contact@myeasyauto.fr?subject=Demande de démonstration — My Easy Auto"
+                  className="lp-btn-ghost mt-5 inline-block"
+                >
+                  Demander une démonstration personnalisée
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* ========================== Chiffres clés ========================== */}
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
