@@ -22,6 +22,8 @@ import {
 import { calculeProchaineAction } from "@/lib/actions";
 import SuggestionAction from "@/components/SuggestionAction";
 import LitigePanel from "@/components/LitigePanel";
+import RetardPaiementPanel from "@/components/RetardPaiementPanel";
+import { etatRecouvrement } from "@/lib/recouvrement";
 import MentionsRapport from "@/components/MentionsRapport";
 import HistoriqueEmails from "@/components/HistoriqueEmails";
 import { mentionsDepuisJson } from "@/lib/mentionsRapport";
@@ -44,7 +46,7 @@ import { formatEuros, formatDate, formatDateTime, messageErreur } from "@/lib/fo
 import { montantTtc, tauxTva } from "@/lib/tva";
 import { badgeStatutDoc, controlerRapport, labelStatutDoc, modeParDefaut } from "@/lib/documents";
 import ModePaiementModal from "@/components/ModePaiementModal";
-import { apercuDocumentPdf, cessionPdfBase64, documentPdfBase64Auto, ordreReparationPdfBase64, ribPdfBase64, telechargerFacturx } from "@/lib/pdf";
+import { apercuDocumentPdf, cessionPdfBase64, documentPdfBase64Auto, nomFichierDocument, nomFichierSur, ordreReparationPdfBase64, ribPdfBase64, telechargerFacturx } from "@/lib/pdf";
 import type { PieceJointeOption } from "@/components/EmailComposer";
 import StatutBadge from "@/components/StatutBadge";
 import StatutPipeline from "@/components/StatutPipeline";
@@ -403,6 +405,22 @@ export default function DossierDetailPage() {
     setDossier({ ...dossier, ...patch });
   }
 
+  /** MODE RETARD DE PAIEMENT (v12.7) : activation/sortie depuis l'en-tête (et le bloc). */
+  async function basculerRetard() {
+    if (!dossier) return;
+    const activer = !dossier.retard_paiement;
+    if (!activer && !confirm("Sortir du retard de paiement ? Courriers, journal et rappels restent enregistrés.")) return;
+    const patch = activer
+      ? { retard_paiement: true, retard_depuis: new Date().toISOString(), retard_etape: dossier.retard_etape || "amiable" }
+      : { retard_paiement: false };
+    const { error } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
+    if (error) {
+      alert(messageErreur(error, "Impossible (migration v70 exécutée ?)."));
+      return;
+    }
+    setDossier({ ...dossier, ...patch });
+  }
+
   async function supprimer() {
     if (!dossier) return;
     // v12.5 — le dossier part dans la corbeille (Historique → Supprimé
@@ -613,19 +631,19 @@ export default function DossierDetailPage() {
       .filter((d) => d.id !== docCourant.id)
       .map((d) => ({
         label: `${d.type === "devis" ? "Devis" : "Facture"} ${d.numero || ""} (PDF)`,
-        filename: `${d.numero || d.type}.pdf`,
+        filename: nomFichierDocument(d),
         getBase64: () => documentPdfBase64Auto(d, dossier),
         coche: false,
       })),
     ...ordres.map((o) => ({
       label: `Ordre de réparation ${o.numero || ""} (PDF)`,
-      filename: `${o.numero || "ordre-reparation"}.pdf`,
+      filename: nomFichierSur(o.numero ? `Ordre de réparation N°${o.numero}` : "Ordre de réparation"),
       getBase64: () => ordreReparationPdfBase64(o, dossier),
       coche: false,
     })),
     ...cessions.map((c) => ({
       label: "Cession de créance (PDF)",
-      filename: `cession-creance-${dossier.numero_sinistre || "dossier"}.pdf`,
+      filename: nomFichierSur(`Cession de créance ${dossier.immatriculation || dossier.numero_sinistre || "dossier"}`),
       getBase64: () => cessionPdfBase64(c, dossier),
       coche: false,
     })),
@@ -668,6 +686,14 @@ export default function DossierDetailPage() {
     return db.localeCompare(da);
   });
 
+  // v12.7 — une facture échue et non soldée : on propose le mode « retard de paiement ».
+  const retardDetecte = !dossier.retard_paiement
+    ? documents
+        .filter((d) => d.type === "facture")
+        .map((f) => etatRecouvrement(f, paiements.filter((p) => p.document_id === f.id), relances.filter((r) => r.document_id === f.id)))
+        .find((e) => e.reste > 0.01 && e.retard > 0) || null
+    : null;
+
   const libelleOR = labelOrdre(metier);
   const aucunDocument =
     documents.length + ordres.length + cessions.length + restitutions.length === 0;
@@ -709,6 +735,11 @@ export default function DossierDetailPage() {
                   ⚠ LITIGE
                 </span>
               )}
+              {dossier.retard_paiement && (
+                <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-100 text-amber-800">
+                  ⏰ RETARD DE PAIEMENT
+                </span>
+              )}
             </div>
 
             {/* Carte d'identité du dossier (v7.8) : un numéro seul ne dit rien —
@@ -742,6 +773,13 @@ export default function DossierDetailPage() {
               </button>
             )}
             <button
+              onClick={basculerRetard}
+              className={dossier.retard_paiement ? "btn-primary" : "btn-ghost"}
+              title={dossier.retard_paiement ? "Retard de paiement en cours — cliquer pour en sortir (tout est conservé)" : "Facture impayée ? Passe le dossier en retard de paiement : relances, mise en demeure, journal des appels, rappels et procédure guidée"}
+            >
+              ⏰ {dossier.retard_paiement ? "Retard de paiement" : "Retard de paiement"}
+            </button>
+            <button
               onClick={basculerLitige}
               className={dossier.litige ? "btn-danger" : "btn-ghost"}
               title={dossier.litige ? "Litige en cours — cliquer pour le lever (notes conservées)" : "Dossier bloqué ? Active le mode litige : problème, plan de déblocage et tâches dédiées"}
@@ -770,6 +808,31 @@ export default function DossierDetailPage() {
           déblocage et tâches dédiées (partagées avec À faire / Conversation). */}
       {dossier.litige && (
         <LitigePanel dossier={dossier} onPatch={(patch) => setDossier({ ...dossier, ...patch })} onLever={basculerLitige} />
+      )}
+
+      {/* RETARD DE PAIEMENT (v12.7) : la finance remonte en haut de page —
+          procédure guidée, courriers, journal des appels, rappels, puis le
+          bloc Paiements & relances juste dessous. */}
+      {retardDetecte && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+          <span>
+            Facture échue depuis {retardDetecte.retard} j, {formatEuros(retardDetecte.reste)} restent dus.
+          </span>
+          <button onClick={basculerRetard} className="btn-primary btn-compact">
+            ⏰ Passer en retard de paiement
+          </button>
+        </div>
+      )}
+      {dossier.retard_paiement && (
+        <>
+          <RetardPaiementPanel
+            dossier={dossier}
+            onPatch={(patch) => setDossier({ ...dossier, ...patch })}
+            onLever={basculerRetard}
+            onChanged={load}
+          />
+          <PaiementsPanel dossier={dossier} onChanged={load} />
+        </>
       )}
 
       {/* Pipeline */}
@@ -1121,8 +1184,8 @@ export default function DossierDetailPage() {
       {/* Commande de pièces (suivi non bloquant) */}
       <CommandesPanel dossier={dossier} />
 
-      {/* Finance : paiements & relances */}
-      <PaiementsPanel dossier={dossier} onChanged={load} />
+      {/* Finance : paiements & relances (déjà en haut de page en retard de paiement) */}
+      {!dossier.retard_paiement && <PaiementsPanel dossier={dossier} onChanged={load} />}
 
       {/* Demandes de documents complémentaires (assurance / expert) */}
       <DemandesPanel dossier={dossier} demandes={demandes} pieces={pieces} onChanged={load} />

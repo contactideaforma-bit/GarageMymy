@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable, { UserOptions } from "jspdf-autotable";
-import { CessionCreance, CommandePiece, Document, DocumentLigne, Dossier, Entreprise, FlotteMiseADispo, FlotteVehicule, OrdreReparation, Restitution, TransfertGarantie } from "./types";
+import { CessionCreance, CommandePiece, CourrierRecouvrement, Document, DocumentLigne, Dossier, Entreprise, FlotteMiseADispo, FlotteVehicule, OrdreReparation, Restitution, TransfertGarantie } from "./types";
 import { PRISES_EN_CHARGE, clausesMiseADispo, clausesParDefaut, coutMiseADispoHt, coutPretHt, joursPret } from "./pret";
 import {
   computeTotaux,
@@ -135,7 +135,43 @@ async function logoDataUrl(path: string | null | undefined): Promise<string | nu
 // Ouvre un PDF dans un nouvel onglet (visualisation ; le téléchargement
 // reste possible depuis la visionneuse du navigateur).
 function ouvrirPdf(pdf: jsPDF, nomFichier = "document.pdf") {
+  // v12.7 — le nom du fichier voyage avec le PDF : titre dans les
+  // métadonnées (onglet du navigateur, nom proposé à l'enregistrement par
+  // Firefox/Chrome) + visionneuse intégrée sur mobile (son bouton
+  // « Télécharger » impose le nom). Fini les « document.pdf » / suite de
+  // chiffres dans les téléchargements.
+  try {
+    pdf.setProperties({ title: nomFichier.replace(/\.pdf$/i, ""), creator: "My Easy Auto" });
+  } catch {
+    /* métadonnées facultatives */
+  }
   ouvrirUrlFichier(String(pdf.output("bloburl")), nomFichier);
+}
+
+/** Nettoie un libellé pour en faire un nom de fichier (garde accents, espaces et °). */
+export function nomFichierSur(libelle: string): string {
+  const propre = libelle.replace(/[\\/:*?"<>|]+/g, "-").replace(/\s+/g, " ").trim();
+  return (propre || "document") + ".pdf";
+}
+
+/** « Facture N°F-2026-012.pdf », « Devis N°D-2026-004.pdf » — le nom que porte le fichier téléchargé. */
+export function nomFichierDocument(doc: Pick<Document, "type" | "numero" | "origine">): string {
+  const genre = doc.type === "devis" ? "Devis" : doc.origine === "gardiennage" ? "Facture gardiennage" : "Facture";
+  return nomFichierSur(doc.numero ? `${genre} N°${doc.numero}` : genre);
+}
+
+function nomFichierDossier(prefixe: string, dossier: Dossier): string {
+  return nomFichierSur(`${prefixe} ${dossier.immatriculation || dossier.numero_sinistre || dossier.client_nom || "dossier"}`);
+}
+
+/** Sur téléphone / tablette, on préfère la visionneuse intégrée (téléchargement nommé). */
+function appareilTactile(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.matchMedia("(pointer: coarse)").matches || window.innerWidth < 900;
+  } catch {
+    return false;
+  }
 }
 
 /** Type MIME d'après l'extension (pièces du dossier : PDF, photos…). */
@@ -170,6 +206,10 @@ function ouvrirUrlFichier(url: string, nomFichier: string) {
   // visionneuse intégrée (avec un lien direct « Ouvrir » qui, lui, est un
   // vrai clic et passe le bloqueur).
   let fenetre: Window | null = null;
+  if (appareilTactile()) {
+    afficherPdfIntegre(url, nomFichier);
+    return;
+  }
   try {
     fenetre = window.open(url, "_blank", "noopener,noreferrer");
   } catch {
@@ -605,8 +645,7 @@ export async function generateDocumentPdf(
   modePaiement?: string | null
 ) {
   const pdf = await buildDocumentPdf(doc, lignes, dossier, modePaiement);
-  const titre = doc.type === "devis" ? "DEVIS" : "FACTURE";
-  pdf.save(`${doc.numero || titre}.pdf`);
+  pdf.save(nomFichierDocument(doc));
 }
 
 // Visualisation dans le navigateur (sans téléchargement forcé)
@@ -616,7 +655,7 @@ export async function apercuDocumentPdf(
   dossier: Dossier,
   modePaiement?: string | null
 ) {
-  ouvrirPdf(await buildDocumentPdf(doc, lignes, dossier, modePaiement));
+  ouvrirPdf(await buildDocumentPdf(doc, lignes, dossier, modePaiement), nomFichierDocument(doc));
 }
 
 // Renvoie le PDF encodé en base64 (sans préfixe data:), pour pièce jointe email.
@@ -1218,11 +1257,11 @@ function drawSignatureBloc(
 
 export async function generateOrdreReparationPdf(or: OrdreReparation, dossier: Dossier) {
   const pdf = await buildOrdreReparationPdf(or, dossier);
-  pdf.save(`${or.numero || "ordre-reparation"}.pdf`);
+  pdf.save(nomFichierSur(or.numero ? `Ordre de réparation N°${or.numero}` : "Ordre de réparation"));
 }
 
 export async function apercuOrdreReparationPdf(or: OrdreReparation, dossier: Dossier) {
-  ouvrirPdf(await buildOrdreReparationPdf(or, dossier));
+  ouvrirPdf(await buildOrdreReparationPdf(or, dossier), nomFichierSur(or.numero ? `Ordre de réparation N°${or.numero}` : "Ordre de réparation"));
 }
 
 // Comme documentPdfBase64, mais va chercher les lignes tout seul
@@ -1565,7 +1604,7 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
 
 export async function generateCessionPdf(cession: CessionCreance, dossier: Dossier) {
   const pdf = await buildCessionPdf(cession, dossier);
-  pdf.save(`cession-creance-${dossier.numero_sinistre || dossier.immatriculation || "dossier"}.pdf`);
+  pdf.save(nomFichierDossier("Cession de créance", dossier));
 }
 
 // Base64 (sans préfixe data:) pour pièce jointe email.
@@ -1617,15 +1656,15 @@ async function buildCessionPdf(cession: CessionCreance, dossier: Dossier): Promi
 
 export async function generateRestitutionPdf(rest: Restitution, dossier: Dossier) {
   const pdf = await buildRestitutionPdf(rest, dossier);
-  pdf.save(`restitution-${dossier.immatriculation || dossier.numero_sinistre || "vehicule"}.pdf`);
+  pdf.save(nomFichierDossier("PV de restitution", dossier));
 }
 
 export async function apercuRestitutionPdf(rest: Restitution, dossier: Dossier) {
-  ouvrirPdf(await buildRestitutionPdf(rest, dossier));
+  ouvrirPdf(await buildRestitutionPdf(rest, dossier), nomFichierDossier("PV de restitution", dossier));
 }
 
 export async function apercuCessionPdf(cession: CessionCreance, dossier: Dossier) {
-  ouvrirPdf(await buildCessionPdf(cession, dossier));
+  ouvrirPdf(await buildCessionPdf(cession, dossier), nomFichierDossier("Cession de créance", dossier));
 }
 
 async function buildRestitutionPdf(rest: Restitution, dossier: Dossier): Promise<jsPDF> {
@@ -1801,11 +1840,11 @@ async function buildContratPretPdf(t: TransfertGarantie, dossier: Dossier): Prom
 
 export async function generateContratPretPdf(t: TransfertGarantie, dossier: Dossier) {
   const pdf = await buildContratPretPdf(t, dossier);
-  pdf.save(`contrat-pret-${t.vehicule_immat || dossier.numero_sinistre || "vehicule"}.pdf`);
+  pdf.save(nomFichierSur(`Contrat de prêt ${t.vehicule_immat || dossier.numero_sinistre || "véhicule"}`));
 }
 
 export async function apercuContratPretPdf(t: TransfertGarantie, dossier: Dossier) {
-  ouvrirPdf(await buildContratPretPdf(t, dossier));
+  ouvrirPdf(await buildContratPretPdf(t, dossier), nomFichierSur(`Contrat de prêt ${t.vehicule_immat || dossier.numero_sinistre || "véhicule"}`));
 }
 
 export async function contratPretPdfBase64(t: TransfertGarantie, dossier: Dossier): Promise<string> {
@@ -2029,7 +2068,7 @@ export async function generateMiseEnDemeurePdf(
   reste: number
 ) {
   const pdf = await buildMiseEnDemeurePdf(facture, dossier, cible, reste);
-  pdf.save(`mise-en-demeure-${facture.numero || dossier.numero_sinistre || "facture"}.pdf`);
+  pdf.save(nomFichierSur(`Mise en demeure facture N°${facture.numero || dossier.numero_sinistre || ""}`));
 }
 
 export async function apercuMiseEnDemeurePdf(
@@ -2038,7 +2077,7 @@ export async function apercuMiseEnDemeurePdf(
   cible: CibleMiseEnDemeure,
   reste: number
 ) {
-  ouvrirPdf(await buildMiseEnDemeurePdf(facture, dossier, cible, reste));
+  ouvrirPdf(await buildMiseEnDemeurePdf(facture, dossier, cible, reste), nomFichierSur(`Mise en demeure facture N°${facture.numero || dossier.numero_sinistre || ""}`));
 }
 
 export async function miseEnDemeurePdfBase64(
@@ -2165,10 +2204,116 @@ async function buildCommandePiecesPdf(commandes: CommandePiece[], dossier: Dossi
 }
 
 export async function apercuCommandePiecesPdf(commandes: CommandePiece[], dossier: Dossier) {
-  ouvrirPdf(await buildCommandePiecesPdf(commandes, dossier), `commande-pieces-${dossier.immatriculation || dossier.numero_sinistre || "dossier"}.pdf`);
+  ouvrirPdf(await buildCommandePiecesPdf(commandes, dossier), nomFichierDossier("Bon de commande pièces", dossier));
 }
 
 export async function commandePiecesPdfBase64(commandes: CommandePiece[], dossier: Dossier): Promise<string> {
   const pdf = await buildCommandePiecesPdf(commandes, dossier);
   return pdf.output("datauristring").split(",")[1];
+}
+
+/* ====================================================================
+   COURRIER DE RECOUVREMENT (v12.7) — relance ou mise en demeure
+
+   Le texte vient de la base (table courriers_recouvrement) : il a été
+   proposé par l'appli puis RELU ET MODIFIÉ par le garage, et signé. Le PDF
+   est un courrier classique : en-tête charte, destinataire à droite, date
+   et lieu, objet, corps, signature du garage (manuscrite si signé, sinon
+   tampon + signature enregistrée dans le profil).
+==================================================================== */
+
+export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, dossier: Dossier): Promise<jsPDF> {
+  const titre = c.type === "mise_en_demeure" ? "MISE EN DEMEURE DE PAYER" : "COURRIER DE RELANCE";
+  const ctx = await startAttestationPdf(titre, null, c.date_courrier || new Date().toISOString());
+  const { pdf, M, pageW, pageH } = ctx;
+
+  // Destinataire, en haut à droite comme sur un courrier.
+  pdf.setFontSize(10);
+  pdf.setTextColor(30);
+  const lignesCible = [c.destinataire_nom || "", ...(c.destinataire_adresse || "").split(/\r?\n/)]
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lignesCible.length) pdf.text(lignesCible, pageW - M, ctx.y, { align: "right" });
+  ctx.y += Math.max(lignesCible.length, 2) * 5 + 6;
+
+  // Lieu et date, mention recommandé pour la mise en demeure.
+  pdf.setFontSize(9);
+  pdf.setTextColor(70);
+  const lieu = ctx.ent.ville ? `${ctx.ent.ville}, le ` : "Le ";
+  pdf.text(`${lieu}${dateFr(c.date_courrier || new Date().toISOString())}`, pageW - M, ctx.y, { align: "right" });
+  ctx.y += 5;
+  if (c.type === "mise_en_demeure") {
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Lettre recommandée avec accusé de réception", M, ctx.y);
+    pdf.setFont("helvetica", "normal");
+    ctx.y += 6;
+  }
+  ctx.y += 4;
+
+  // Objet en gras
+  pdf.setFontSize(10);
+  pdf.setTextColor(30);
+  pdf.setFont("helvetica", "bold");
+  const objet = pdf.splitTextToSize(`Objet : ${c.objet || titre}`, pageW - M * 2) as string[];
+  pdf.text(objet, M, ctx.y);
+  pdf.setFont("helvetica", "normal");
+  ctx.y += objet.length * 4.6 + 6;
+
+  // Corps (texte libre, paragraphes séparés par une ligne vide)
+  drawParagrapheMultiPage(ctx, null, c.corps || "");
+
+  // Signature du garage : bloc à droite, tampon à gauche.
+  if (ctx.y + 50 > pageH - 24) {
+    pdf.addPage();
+    piedDePage(ctx);
+    ctx.y = 20;
+  }
+  const w = 70;
+  const h = 32;
+  const x = pageW - M - w;
+  drawTampon(pdf, ctx.ent, M, ctx.y + 3);
+  pdf.setFontSize(9);
+  pdf.setTextColor(30);
+  pdf.text(`Pour ${ctx.ent.nom || "le garage"},`, x, ctx.y);
+  pdf.setDrawColor(180);
+  pdf.setLineWidth(0.3);
+  pdf.rect(x, ctx.y + 3, w, h);
+  if (c.signature) {
+    try {
+      pdf.addImage(c.signature, "PNG", x + 2, ctx.y + 5, w - 4, h - 4);
+    } catch {
+      /* dataURL invalide */
+    }
+  }
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(90);
+  const infos = [c.signataire_nom ? c.signataire_nom : "", c.signe_le ? `Signé le ${dateFr(c.signe_le)}` : ""].filter(Boolean);
+  if (infos.length) pdf.text(infos, x, ctx.y + h + 8);
+  ctx.y += h + 18;
+
+  // Pièce jointe rappelée en bas
+  pdf.setFontSize(8);
+  pdf.setTextColor(120);
+  pdf.text("P.J. : copie de la facture concernée.", M, ctx.y);
+  return pdf;
+}
+
+export function nomFichierCourrier(c: CourrierRecouvrement, numeroFacture?: string | null): string {
+  const genre = c.type === "mise_en_demeure" ? "Mise en demeure" : "Relance";
+  return nomFichierSur(numeroFacture ? `${genre} facture N°${numeroFacture}` : `${genre} ${dateFr(c.date_courrier)}`);
+}
+
+export async function apercuCourrierRecouvrementPdf(c: CourrierRecouvrement, dossier: Dossier, numeroFacture?: string | null) {
+  ouvrirPdf(await buildCourrierRecouvrementPdf(c, dossier), nomFichierCourrier(c, numeroFacture));
+}
+
+export async function generateCourrierRecouvrementPdf(c: CourrierRecouvrement, dossier: Dossier, numeroFacture?: string | null) {
+  const pdf = await buildCourrierRecouvrementPdf(c, dossier);
+  pdf.save(nomFichierCourrier(c, numeroFacture));
+}
+
+export async function courrierRecouvrementPdfBase64(c: CourrierRecouvrement, dossier: Dossier): Promise<string> {
+  const pdf = await buildCourrierRecouvrementPdf(c, dossier);
+  const uri = pdf.output("datauristring");
+  return uri.substring(uri.indexOf(",") + 1);
 }

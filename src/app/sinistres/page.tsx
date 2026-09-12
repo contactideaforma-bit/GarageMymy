@@ -341,6 +341,7 @@ export default function SinistresPage() {
       if (filtrePart && !(partsParDossier[d.id] || []).some((p) => p.id === filtrePart)) return false;
       if (filtreLitige === "oui" && !d.litige) return false;
       if (filtreLitige === "non" && d.litige) return false;
+      if (filtreLitige === "retard" && !d.retard_paiement) return false; // v12.7
       // Période : comparaison sur les 10 premiers caractères (AAAA-MM-JJ),
       // ce qui marche aussi bien pour une date que pour un timestamp.
       if (du || au) {
@@ -569,7 +570,7 @@ export default function SinistresPage() {
           {filtreExpert && <PastilleFiltre label={filtreExpert} onRetirer={() => setFiltreExpert("")} />}
           {filtrePart && <PastilleFiltre label={nomParticularite} onRetirer={() => setFiltrePart("")} />}
           {filtreLitige && (
-            <PastilleFiltre label={filtreLitige === "oui" ? "⚠ En litige" : "Sans litige"} onRetirer={() => setFiltreLitige("")} />
+            <PastilleFiltre label={filtreLitige === "oui" ? "⚠ En litige" : filtreLitige === "retard" ? "⏰ Retard de paiement" : "Sans litige"} onRetirer={() => setFiltreLitige("")} />
           )}
           {(du || au) && (
             <PastilleFiltre
@@ -636,6 +637,7 @@ export default function SinistresPage() {
               <option value="">Tous les dossiers</option>
               <option value="oui">⚠ En litige</option>
               <option value="non">Sans litige</option>
+              <option value="retard">⏰ Retard de paiement</option>
             </select>
           </div>
 
@@ -710,6 +712,11 @@ export default function SinistresPage() {
                     {d.litige && (
                       <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700" title="Mode litige activé sur la fiche">
                         ⚠ Litige
+                      </span>
+                    )}
+                    {d.retard_paiement && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800" title="Retard de paiement — relances en cours">
+                        ⏰ Retard
                       </span>
                     )}
               <BadgeMentions dossier={d} />
@@ -829,6 +836,11 @@ export default function SinistresPage() {
                     {d.litige && (
                       <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700" title="Mode litige activé sur la fiche">
                         ⚠ Litige
+                      </span>
+                    )}
+                    {d.retard_paiement && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800" title="Retard de paiement — relances en cours">
+                        ⏰ Retard
                       </span>
                     )}
                     <BadgeMentions dossier={d} />

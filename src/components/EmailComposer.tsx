@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Document, DocumentLigne, Dossier, Entreprise } from "@/lib/types";
-import { documentPdfBase64, facturxBase64, ouvrirFichierBase64 } from "@/lib/pdf";
+import { documentPdfBase64, facturxBase64, nomFichierDocument, ouvrirFichierBase64 } from "@/lib/pdf";
 import { fetchAuth } from "@/lib/apiClient";
 import ModalShell from "@/components/ModalShell";
 
@@ -226,7 +226,6 @@ export default function EmailComposer({
       .select("*")
       .eq("document_id", document.id)
       .order("ordre", { ascending: true });
-    const titre = document.type === "devis" ? "Devis" : "Facture";
     // v52 : une FACTURE part au format Factur-X (PDF + XML) dès que les
     // mentions le permettent ; sinon PDF classique, sans bloquer l'envoi.
     let b64: string | null = null;
@@ -235,7 +234,7 @@ export default function EmailComposer({
       if (fx.ok) b64 = fx.base64;
     }
     if (!b64) b64 = await documentPdfBase64(document, (lignes as DocumentLigne[]) || [], dossier, document.mode_paiement);
-    return { filename: `${document.numero || titre}.pdf`, content: b64 };
+    return { filename: nomFichierDocument(document), content: b64 };
   }
 
   // v12.4 — « Voir » : ouvre la pièce exactement comme elle sera jointe.
@@ -441,7 +440,7 @@ export default function EmailComposer({
                   {dossier && (
                     <BoutonVoir
                       cle="doc"
-                      filename={`${document.numero || document.type}.pdf`}
+                      filename={nomFichierDocument(document)}
                       getBase64={async () => (await base64DocumentPrincipal())?.content || ""}
                     />
                   )}

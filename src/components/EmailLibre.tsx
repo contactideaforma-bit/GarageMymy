@@ -13,6 +13,8 @@ import { messageErreur } from "@/lib/format";
 import {
   cessionPdfBase64,
   documentPdfBase64Auto,
+  nomFichierDocument,
+  nomFichierSur,
   ordreReparationPdfBase64,
   ribPdfBase64,
 } from "@/lib/pdf";
@@ -86,13 +88,13 @@ export default function EmailLibre({
           pieces = [
             ...(((docs.data as Document[]) || []).map((doc) => ({
               label: `${doc.type === "devis" ? "Devis" : "Facture"} ${doc.numero || ""} (PDF)`,
-              filename: `${doc.numero || doc.type}.pdf`,
+              filename: nomFichierDocument(doc),
               getBase64: () => documentPdfBase64Auto(doc, dossier),
               coche: false,
             }))),
             ...(((ors.data as OrdreReparation[]) || []).map((o) => ({
               label: `Ordre de réparation ${o.numero || ""} (PDF)`,
-              filename: `${o.numero || "ordre-reparation"}.pdf`,
+              filename: nomFichierSur(o.numero ? `Ordre de réparation N°${o.numero}` : "Ordre de réparation"),
               getBase64: () => ordreReparationPdfBase64(o, dossier),
               coche: false,
             }))),

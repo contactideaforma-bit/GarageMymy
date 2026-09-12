@@ -256,6 +256,42 @@ input[type="time"] {
     backdrop-filter: var(--mea-flou);
   }
 
+  /* MY-MY (v12.7) : fenêtre de discussion OPAQUE — sur téléphone elle
+     couvre tout l'écran et la page derrière la rendait illisible. */
+  .mymy-fenetre {
+    background-color: var(--mea-fond);
+    border: 1px solid var(--mea-bordure-2);
+    box-shadow: var(--mea-ombre-carte), var(--mea-lueur);
+    color: var(--mea-texte);
+  }
+  .mymy-entete {
+    background-color: var(--mea-neon-fond);
+  }
+  .mymy-saisie {
+    background-color: var(--mea-surface-3);
+  }
+  .mymy-bulle {
+    background-color: var(--mea-surface-2);
+    border: 1px solid var(--mea-bordure);
+    color: var(--mea-texte);
+  }
+  .mymy-bulle-user {
+    background-color: var(--mea-neon);
+    color: #fff;
+  }
+  .mymy-suggestion {
+    background-color: var(--mea-surface-2);
+    border: 1px solid var(--mea-bordure-2);
+    color: var(--mea-texte-2);
+  }
+  .mymy-suggestion:hover {
+    color: var(--mea-texte);
+    box-shadow: var(--mea-lueur);
+  }
+  html.light .mymy-fenetre { background-color: #ffffff; }
+  html.light .mymy-bulle { background-color: #f3f4fa; }
+  html.light .mymy-saisie { background-color: #f7f8fc; }
+
   /* Barre du haut mobile : translucide floutée, le contenu passe dessous */
   .topbar-mobile {
     background-color: transparent;

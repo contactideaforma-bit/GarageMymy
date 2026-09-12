@@ -11,6 +11,8 @@ import {
   apercuRestitutionPdf,
   cessionPdfBase64,
   documentPdfBase64Auto,
+  nomFichierDocument,
+  nomFichierSur,
   ordreReparationPdfBase64,
   ribPdfBase64,
 } from "@/lib/pdf";
@@ -177,13 +179,13 @@ export default function AtelierPanel({
           piecesJointes={[
             {
               label: "Cession de créance (PDF)",
-              filename: `cession-creance-${dossier.numero_sinistre || "dossier"}.pdf`,
+              filename: nomFichierSur(`Cession de créance ${dossier.immatriculation || dossier.numero_sinistre || "dossier"}`),
               getBase64: () => cessionPdfBase64(emailCession, dossier),
             },
             ...(derniereFacture
               ? [{
                   label: `Facture ${derniereFacture.numero || ""} (PDF)`,
-                  filename: `${derniereFacture.numero || "facture"}.pdf`,
+                  filename: nomFichierDocument(derniereFacture),
                   getBase64: () => documentPdfBase64Auto(derniereFacture, dossier),
                 }]
               : []),
@@ -207,7 +209,7 @@ export default function AtelierPanel({
           piecesJointes={[
             {
               label: `${labelOR} ${emailOR.numero || ""} (PDF)`,
-              filename: `${emailOR.numero || "ordre-intervention"}.pdf`,
+              filename: nomFichierSur(emailOR.numero ? `${labelOrdre(metier)} N°${emailOR.numero}` : labelOrdre(metier)),
               getBase64: () => ordreReparationPdfBase64(emailOR, dossier),
             },
             pjRib,

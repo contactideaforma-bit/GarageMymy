@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 import { Document, Dossier, Paiement, Relance } from "@/lib/types";
 import { formatEuros, messageErreur } from "@/lib/format";
 import {
@@ -41,6 +43,23 @@ export default function RecouvrementPanel({
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
+  const router = useRouter();
+
+  // v12.7 — passe le dossier en « retard de paiement » (mode assisté sur la fiche).
+  async function passerEnRetard(l: LigneRecouvrement) {
+    if (!l.dossier) return;
+    setBusy(l.id);
+    const { error } = await supabase
+      .from("dossiers")
+      .update({ retard_paiement: true, retard_depuis: new Date().toISOString(), retard_etape: l.dossier.retard_etape || "amiable" })
+      .eq("id", l.dossier.id);
+    setBusy(null);
+    if (error) {
+      setErreur(messageErreur(error, "Impossible (migration v70 exécutée ?)."));
+      return;
+    }
+    router.push(`/sinistres/${l.dossier.id}`);
+  }
 
   const etats = useMemo(
     () =>
@@ -168,6 +187,14 @@ export default function RecouvrementPanel({
                     >
                       {busy === ligne.id ? "PDF…" : "Mise en demeure (PDF)"}
                     </button>
+                  )}
+                  {ligne.dossier && !ligne.dossier.retard_paiement && (
+                    <button onClick={() => passerEnRetard(ligne)} disabled={busy === ligne.id} className="btn-ghost btn-compact" title="Ouvre la fiche en mode assisté : courriers, mise en demeure, journal des appels, rappels, procédure">
+                      ⏰ Retard de paiement
+                    </button>
+                  )}
+                  {ligne.dossier?.retard_paiement && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">⏰ En retard de paiement</span>
                   )}
                   {ligne.dossier && (
                     <Link

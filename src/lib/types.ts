@@ -85,6 +85,10 @@ export type Dossier = {
   litige_probleme?: string | null;
   litige_deblocage?: string | null;
   litige_depuis?: string | null;
+  // v12.7 — mode « retard de paiement » assisté (migration v70)
+  retard_paiement?: boolean | null;
+  retard_depuis?: string | null;
+  retard_etape?: string | null; // amiable | mise_en_demeure | amiable_judiciaire | judiciaire | execution
   /** v11.2 — mentions particulières lues dans le rapport (jsonb, cf. lib/mentionsRapport). */
   mentions_rapport?: unknown;
   pec_reference?: string | null; // référence / n° de l'accord (optionnel)
@@ -305,6 +309,34 @@ export type Relance = {
   document_id: string | null;
   date_relance: string | null;
   canal: string; // email|telephone|courrier|autre
+  notes: string | null;
+  // v12.7 — journal des contacts : qui on a eu, à quelle heure
+  interlocuteur?: string | null; // client | assurance | expert | autre
+  heure?: string | null;
+};
+
+// v12.7 — courrier de relance / mise en demeure généré par l'appli
+// (texte modifiable, signé, envoyé) — table `courriers_recouvrement`.
+export type CourrierRecouvrement = {
+  id: string;
+  created_at: string;
+  dossier_id: string;
+  document_id: string | null;
+  type: "relance" | "mise_en_demeure";
+  destinataire: "client" | "assurance";
+  destinataire_nom: string | null;
+  destinataire_adresse: string | null;
+  objet: string | null;
+  corps: string | null;
+  montant: number | null;
+  delai_jours: number | null;
+  date_courrier: string;
+  signataire_nom: string | null;
+  signature: string | null;
+  signe_le: string | null;
+  envoye_le: string | null;
+  canal_envoi: string | null; // email | courrier | lrar | remis_en_main
+  statut: "brouillon" | "signe" | "envoye";
   notes: string | null;
 };
 

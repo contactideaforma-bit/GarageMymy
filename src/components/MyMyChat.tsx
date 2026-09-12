@@ -204,12 +204,12 @@ export default function MyMyChat() {
       {/* ---------- Fenêtre de discussion ---------- */}
       {ouvert && (
         <div
-          className="fixed z-40 inset-0 sm:inset-auto sm:bottom-24 sm:right-5 sm:h-[min(600px,calc(100vh-7.5rem))] sm:w-[380px] flex flex-col glass-card overflow-hidden"
+          className="mymy-fenetre fixed z-40 inset-0 sm:inset-auto sm:bottom-24 sm:right-5 sm:h-[min(600px,calc(100vh-7.5rem))] sm:w-[380px] flex flex-col overflow-hidden sm:rounded-2xl"
           role="dialog"
           aria-label="Assistant MY-MY"
         >
           {/* En-tête */}
-          <div className="flex items-center gap-3 border-b-2 border-white/10 px-3 py-2 bg-accent-pink/20">
+          <div className="mymy-entete flex items-center gap-3 border-b border-white/10 px-3 py-2">
             <Image src="/mymy-avatar.png" alt="" width={36} height={36} className="shrink-0" />
             <div className="min-w-0 flex-1">
               <div className="font-pixel text-[0.6rem] text-white">MY-MY</div>
@@ -239,8 +239,8 @@ export default function MyMyChat() {
                   <Image src="/mymy-avatar.png" alt="" width={26} height={26} className="mr-2 mt-1 shrink-0 self-start" />
                 )}
                 <div
-                  className={`max-w-[85%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap break-words ${
-                    m.role === "user" ? "bg-accent-pink text-white" : "glass-soft text-white/90"
+                  className={`max-w-[85%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
+                    m.role === "user" ? "mymy-bulle-user" : "mymy-bulle"
                   }`}
                 >
                   {m.texte}
@@ -295,7 +295,7 @@ export default function MyMyChat() {
                 <button
                   key={s}
                   onClick={() => envoyer(s)}
-                  className="rounded-full border border-white/25 px-2.5 py-1 text-[11px] text-white/80 hover:bg-white/10"
+                  className="mymy-suggestion rounded-full px-2.5 py-1 text-[11px]"
                 >
                   {s}
                 </button>
@@ -309,13 +309,13 @@ export default function MyMyChat() {
               e.preventDefault();
               envoyer();
             }}
-            className="flex items-center gap-2 border-t-2 border-white/10 p-2"
+            className="mymy-saisie flex items-center gap-2 border-t border-white/10 p-2"
           >
             <input
               ref={inputRef}
               value={saisie}
               onChange={(e) => setSaisie(e.target.value)}
-              placeholder="Immat, client, ou une question sur l\u2019appli…"
+              placeholder="Immat, client, ou une question sur l’appli…"
               className="field-input flex-1 !py-2 text-sm"
               disabled={occupe}
             />
