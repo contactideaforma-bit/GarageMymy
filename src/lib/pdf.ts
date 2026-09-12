@@ -34,6 +34,24 @@ function euros(n: number): string {
   return `${neg ? "-" : ""}${withSep},${dec} €`;
 }
 
+/**
+ * v12.7 — Texte SÛR pour les polices standard de jsPDF (Helvetica, WinAnsi).
+ * Les espaces insécables fines (U+202F, produites par Intl.NumberFormat
+ * fr-FR : « 9 158,24 € ») n'existent pas dans cette police : jsPDF les
+ * dessinait comme un glyphe parasite et se trompait dans la mesure des
+ * lignes → texte étiré qui sortait de la page. On normalise tout ce qui
+ * n'a pas de glyphe : espaces spéciaux, guillemets typographiques rares,
+ * points de suspension, apostrophes… avant TOUTE mesure/impression.
+ */
+function textePdf(t: string | null | undefined): string {
+  return (t || "")
+    .replace(/[\u202F\u00A0\u2007\u2009\u200A\u2002\u2003]/g, " ")
+    .replace(/[\u200B\u200C\u200D\uFEFF]/g, "")
+    .replace(/\u2026/g, "...")
+    .replace(/[\u2010-\u2012]/g, "-")
+    .replace(/\r\n/g, "\n");
+}
+
 function dateFr(s: string | null): string {
   if (!s) return "—";
   const d = new Date(s);
@@ -1208,6 +1226,7 @@ function drawBlocsClientVehicule(ctx: AttestationCtx, dossier: Dossier) {
 // Paragraphe avec titre. Avance y.
 function drawParagraphe(ctx: AttestationCtx, titre: string | null, texte: string) {
   const { pdf, pageW, M } = ctx;
+  texte = textePdf(texte);
   if (titre) {
     pdf.setFontSize(10);
     pdf.setTextColor(30);
@@ -1719,6 +1738,7 @@ function piedDePage(ctx: AttestationCtx) {
 // Paragraphe avec saut de page automatique (les contrats sont longs).
 function drawParagrapheMultiPage(ctx: AttestationCtx, titre: string | null, texte: string) {
   const { pdf, pageW, pageH, M } = ctx;
+  texte = textePdf(texte);
   const limite = pageH - 24;
   const nouvellePage = () => {
     pdf.addPage();
@@ -2230,7 +2250,7 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
   // Destinataire, en haut à droite comme sur un courrier.
   pdf.setFontSize(10);
   pdf.setTextColor(30);
-  const lignesCible = [c.destinataire_nom || "", ...(c.destinataire_adresse || "").split(/\r?\n/)]
+  const lignesCible = [textePdf(c.destinataire_nom), ...textePdf(c.destinataire_adresse).split("\n")]
     .map((l) => l.trim())
     .filter(Boolean);
   if (lignesCible.length) pdf.text(lignesCible, pageW - M, ctx.y, { align: "right" });
@@ -2254,7 +2274,7 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
   pdf.setFontSize(10);
   pdf.setTextColor(30);
   pdf.setFont("helvetica", "bold");
-  const objet = pdf.splitTextToSize(`Objet : ${c.objet || titre}`, pageW - M * 2) as string[];
+  const objet = pdf.splitTextToSize(textePdf(`Objet : ${c.objet || titre}`), pageW - M * 2) as string[];
   pdf.text(objet, M, ctx.y);
   pdf.setFont("helvetica", "normal");
   ctx.y += objet.length * 4.6 + 6;
@@ -2287,7 +2307,7 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
   }
   pdf.setFontSize(8.5);
   pdf.setTextColor(90);
-  const infos = [c.signataire_nom ? c.signataire_nom : "", c.signe_le ? `Signé le ${dateFr(c.signe_le)}` : ""].filter(Boolean);
+  const infos = [textePdf(c.signataire_nom), c.signe_le ? `Signé le ${dateFr(c.signe_le)}` : ""].filter(Boolean);
   if (infos.length) pdf.text(infos, x, ctx.y + h + 8);
   ctx.y += h + 18;
 

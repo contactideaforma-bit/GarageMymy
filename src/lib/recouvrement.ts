@@ -316,8 +316,12 @@ export type ModeleCourrier = {
   delaiJours: number;
 };
 
+// Espaces ORDINAIRES dans les montants (pas d'insécable fine U+202F : la
+// police du PDF ne la connaît pas et le texte sortait de la page).
 const eur = (n: number) =>
-  new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(Number(n) || 0);
+  new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" })
+    .format(Number(n) || 0)
+    .replace(/[\u202F\u00A0]/g, " ");
 const dateFr = (d?: string | null) => (d ? new Date(d).toLocaleDateString("fr-FR") : "");
 
 /** Destinataire par défaut d'un courrier : l'assurance si elle doit payer (cession / PEC), sinon le client. */
