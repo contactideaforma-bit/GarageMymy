@@ -9,13 +9,16 @@ import { getAdminClient } from "@/lib/supabaseAdmin";
 export const runtime = "nodejs";
 
 type Cible = {
-  table: "ordres_reparation" | "cessions_creance" | "documents";
+  table: "ordres_reparation" | "cessions_creance" | "documents" | "transferts_garantie" | "flotte_mises_a_dispo";
   type: string;
   titre: string;
   id: string;
-  dossier_id: string;
+  dossier_id: string | null;
   dejaSigne: boolean;
   owner_id: string;
+  /** v12.7 — contrat de flotte sans dossier : on décrit le véhicule et le conducteur directement. */
+  vehicule?: string;
+  client?: string;
 };
 
 async function trouverParToken(token: string): Promise<Cible | null> {
@@ -50,6 +53,30 @@ async function trouverParToken(token: string): Promise<Cible | null> {
       id: doc.id, dossier_id: doc.dossier_id, dejaSigne: Boolean(doc.signe_le), owner_id: doc.owner_id,
     };
   }
+  // v12.7 — contrat de prêt établi depuis un dossier sinistre
+  const { data: pret } = await admin
+    .from("transferts_garantie").select("id,dossier_id,vehicule_immat,vehicule_modele,signe_le,owner_id").eq("sign_token", token).maybeSingle();
+  if (pret) {
+    return {
+      table: "transferts_garantie", type: "Contrat de prêt de véhicule",
+      titre: `Contrat de prêt — ${pret.vehicule_modele || "véhicule"}${pret.vehicule_immat ? ` (${pret.vehicule_immat})` : ""}`,
+      id: pret.id, dossier_id: pret.dossier_id, dejaSigne: Boolean(pret.signe_le), owner_id: pret.owner_id,
+    };
+  }
+  // v12.7 — prêt ou location d'un véhicule de la flotte
+  const { data: mad } = await admin
+    .from("flotte_mises_a_dispo").select("id,dossier_id,vehicule_id,type,conducteur_nom,signe_le,owner_id").eq("sign_token", token).maybeSingle();
+  if (mad) {
+    const { data: v } = await admin.from("flotte_vehicules").select("immatriculation,marque_modele").eq("id", mad.vehicule_id).maybeSingle();
+    const genre = mad.type === "location" ? "Contrat de location" : "Contrat de prêt";
+    return {
+      table: "flotte_mises_a_dispo", type: `${genre} de véhicule`,
+      titre: `${genre} — ${v?.marque_modele || "véhicule"}${v?.immatriculation ? ` (${v.immatriculation})` : ""}`,
+      id: mad.id, dossier_id: mad.dossier_id, dejaSigne: Boolean(mad.signe_le), owner_id: mad.owner_id,
+      vehicule: `${v?.marque_modele || ""}${v?.immatriculation ? ` (${v.immatriculation})` : ""}`.trim(),
+      client: mad.conducteur_nom || "",
+    };
+  }
   return null;
 }
 
@@ -78,7 +105,9 @@ export async function GET(req: Request) {
 
   const admin = getAdminClient()!;
   const [{ data: dossier }, { data: ent }] = await Promise.all([
-    admin.from("dossiers").select("client_nom,marque_modele,immatriculation,numero_sinistre").eq("id", cible.dossier_id).maybeSingle(),
+    cible.dossier_id
+      ? admin.from("dossiers").select("client_nom,marque_modele,immatriculation,numero_sinistre").eq("id", cible.dossier_id).maybeSingle()
+      : Promise.resolve({ data: null }),
     admin.from("entreprise").select("nom").eq("owner_id", cible.owner_id).limit(1).maybeSingle(),
   ]);
 
@@ -87,8 +116,8 @@ export async function GET(req: Request) {
     titre: cible.titre,
     dejaSigne: cible.dejaSigne,
     garage: ent?.nom || "votre carrossier",
-    vehicule: dossier ? `${dossier.marque_modele || ""}${dossier.immatriculation ? ` (${dossier.immatriculation})` : ""}`.trim() : "",
-    client: dossier?.client_nom || "",
+    vehicule: cible.vehicule || (dossier ? `${dossier.marque_modele || ""}${dossier.immatriculation ? ` (${dossier.immatriculation})` : ""}`.trim() : ""),
+    client: cible.client || dossier?.client_nom || "",
     sinistre: dossier?.numero_sinistre || "",
   });
 }
@@ -124,7 +153,8 @@ export async function POST(req: Request) {
     signature: body.signature,
     signe_le: new Date().toISOString(),
   };
-  if (cible.table !== "documents") maj.statut = "signe";
+  if (cible.table === "ordres_reparation" || cible.table === "cessions_creance") maj.statut = "signe";
+  if (cible.table === "flotte_mises_a_dispo") maj.cg_acceptees = true;
 
   // Garde ATOMIQUE : l'update ne passe que si le document n'est pas déjà
   // signé (deux soumissions quasi simultanées passaient toutes deux le
@@ -144,14 +174,16 @@ export async function POST(req: Request) {
   }
 
   // Historique du dossier (owner_id explicite : service role)
-  const { error: eEvt } = await admin.from("evenements").insert({
+  const { error: eEvt } = cible.dossier_id
+    ? await admin.from("evenements").insert({
     dossier_id: cible.dossier_id,
     titre: `${cible.type} signé à distance`,
     description: `${cible.titre} — signé par ${body.nom.trim()} via le lien de signature.`,
     date_evenement: new Date().toISOString(),
     categorie: "autre",
     owner_id: cible.owner_id,
-  });
+  })
+    : { error: null };
   if (eEvt) console.error("signature: événement non journalisé:", eEvt.message);
 
   return NextResponse.json({ ok: true });

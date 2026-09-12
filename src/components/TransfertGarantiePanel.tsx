@@ -8,8 +8,9 @@ import { Dossier, Entreprise, FlotteVehicule, TransfertGarantie } from "@/lib/ty
 import { formatDate, formatEuros, messageErreur, ymd } from "@/lib/format";
 import ModalShell from "@/components/ModalShell";
 import EmailComposer from "@/components/EmailComposer";
+import SignaturePad from "@/components/SignaturePad";
 import { PRISES_EN_CHARGE, clausesParDefaut, coutPretHt, defautsContrat, joursPret } from "@/lib/pret";
-import { apercuContratPretPdf, contratPretPdfBase64, generateContratPretPdf } from "@/lib/pdf";
+import { apercuContratPretPdf, contratPretPdfBase64, generateContratPretPdf, nomFichierSur } from "@/lib/pdf";
 
 const STATUTS_TRANSFERT: Record<string, { label: string; badge: string }> = {
   a_demander: { label: "À demander", badge: "bg-rose-100 text-rose-700" },
@@ -37,6 +38,9 @@ export default function TransfertGarantiePanel({
   // CONTRAT DE PRÊT (v54) : modale d'édition + envoi du PDF au client
   const [contrat, setContrat] = useState<TransfertGarantie | null>(null);
   const [emailContrat, setEmailContrat] = useState<{ t: TransfertGarantie; pdf: string } | null>(null);
+  // v12.7 — signature du contrat EN DIRECT (au doigt) ou À DISTANCE (lien /signer/<jeton>)
+  const [signer, setSigner] = useState<TransfertGarantie | null>(null);
+  const [emailSign, setEmailSign] = useState<TransfertGarantie | null>(null);
   const [entreprise, setEntreprise] = useState<Partial<Entreprise> | null>(null);
   useEffect(() => {
     supabase.from("entreprise").select("*").limit(1).maybeSingle().then(({ data }) => setEntreprise((data as Entreprise) || null));
@@ -174,6 +178,19 @@ export default function TransfertGarantiePanel({
                     <>
                       <button onClick={() => apercuContratPretPdf(t, dossier)} className="text-accent-teal hover:underline">PDF</button>
                       <button onClick={() => envoyerContrat(t)} className="text-accent-teal hover:underline">Envoyer</button>
+                      {!t.signe_le && (
+                        <>
+                          <button onClick={() => setSigner(t)} className="text-accent-violet hover:underline" title="Le client signe à l'écran, maintenant">
+                            Signer en direct
+                          </button>
+                          {t.sign_token && (
+                            <button onClick={() => setEmailSign(t)} className="text-accent-violet hover:underline" title="Envoie un lien sécurisé : le client signe depuis son téléphone">
+                              Signer à distance
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {t.signe_le && <span className="text-emerald-300">✓ Signé</span>}
                     </>
                   )}
                   {t.statut !== "accorde" && (
@@ -223,12 +240,49 @@ export default function TransfertGarantiePanel({
           piecesJointes={[
             {
               label: "Contrat de prêt (PDF)",
-              filename: `contrat-pret-${emailContrat.t.vehicule_immat || "vehicule"}.pdf`,
+              filename: nomFichierSur(`Contrat de prêt ${emailContrat.t.vehicule_immat || "véhicule"}`),
               getBase64: async () => emailContrat.pdf,
               coche: true,
             },
           ]}
           onClose={() => setEmailContrat(null)}
+        />
+      )}
+      {signer && (
+        <SignerPretModal
+          transfert={signer}
+          dossier={dossier}
+          onClose={() => setSigner(null)}
+          onSaved={() => { setSigner(null); refresh(); }}
+        />
+      )}
+      {emailSign && (
+        <EmailComposer
+          dossier={dossier}
+          defaultTo={dossier.client_email || ""}
+          defaultSubject={`Signature requise — contrat de prêt ${emailSign.vehicule_modele || ""} ${emailSign.vehicule_immat || ""}`.trim()}
+          defaultBody={`Bonjour${dossier.client_nom ? ` ${dossier.client_nom}` : ""},
+
+Merci de signer le contrat de mise à disposition du véhicule de prêt ${
+            emailSign.vehicule_modele || ""
+          }${emailSign.vehicule_immat ? ` (${emailSign.vehicule_immat})` : ""} en cliquant sur ce lien sécurisé :
+
+${
+            typeof window !== "undefined" ? window.location.origin : ""
+          }/signer/${emailSign.sign_token}
+
+La signature se fait en 30 secondes, directement depuis votre téléphone. Le contrat est joint pour lecture.
+
+Cordialement.`}
+          piecesJointes={[
+            {
+              label: "Contrat de prêt (PDF)",
+              filename: nomFichierSur(`Contrat de prêt ${emailSign.vehicule_immat || "véhicule"}`),
+              getBase64: () => contratPretPdfBase64(emailSign, dossier),
+              coche: true,
+            },
+          ]}
+          onClose={() => setEmailSign(null)}
         />
       )}
       {emailTransfert && (
@@ -572,6 +626,72 @@ function ContratPretModal({
         <button onClick={() => enregistrer("pdf")} disabled={saving} className="btn-ghost">Enregistrer + aperçu PDF</button>
         <button onClick={() => enregistrer("telecharger")} disabled={saving} className="btn-ghost">Enregistrer + télécharger</button>
         <button onClick={() => enregistrer()} disabled={saving} className="btn-primary">{saving ? "…" : "Enregistrer"}</button>
+      </div>
+    </ModalShell>
+  );
+}
+
+/* ---------------------- Signature en direct (v12.7) ---------------------- */
+
+function SignerPretModal({
+  transfert,
+  dossier,
+  onClose,
+  onSaved,
+}: {
+  transfert: TransfertGarantie;
+  dossier: Dossier;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [signataire, setSignataire] = useState(transfert.signataire_nom || dossier.client_nom || "");
+  const [signature, setSignature] = useState<string | null>(null);
+  const [lu, setLu] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    if (!lu) { setError("Coche la case « lu et approuvé » avec le signataire."); return; }
+    if (!signature) { setError("Fais signer dans le cadre."); return; }
+    setSaving(true);
+    setError(null);
+    const { error: e1 } = await supabase
+      .from("transferts_garantie")
+      .update({ signataire_nom: signataire || null, signature, signe_le: new Date().toISOString() })
+      .eq("id", transfert.id);
+    setSaving(false);
+    if (e1) { setError(messageErreur(e1)); return; }
+    await supabase.from("evenements").insert({
+      dossier_id: dossier.id,
+      titre: "Contrat de prêt signé",
+      description: `Signé à l'écran par ${signataire || "le client"}.`,
+      date_evenement: new Date().toISOString(),
+      categorie: "autre",
+    });
+    onSaved();
+  }
+
+  return (
+    <ModalShell title={`Signature du contrat de prêt — ${transfert.vehicule_immat || ""}`} onClose={onClose}>
+      <p className="text-xs text-white/60">
+        Le client signe à l&apos;écran après lecture du contrat (bouton « PDF »). La signature, horodatée, figure en bas du contrat.
+      </p>
+      <div>
+        <label className="field-label">Nom du signataire</label>
+        <input className="field-input" value={signataire} onChange={(e) => setSignataire(e.target.value)} />
+      </div>
+      <label className="flex items-start gap-2 text-sm text-white/80">
+        <input type="checkbox" className="mt-1" checked={lu} onChange={(e) => setLu(e.target.checked)} />
+        <span>Le client déclare avoir lu et approuvé les conditions du prêt et l&apos;état du véhicule au départ.</span>
+      </label>
+      <div>
+        <label className="field-label">Signature</label>
+        <SignaturePad onChange={setSignature} />
+      </div>
+      {error && <div className="rounded-lg border border-rose-400/30 bg-rose-500/15 px-3 py-2 text-sm text-rose-200">{error}</div>}
+      <div className="flex justify-end gap-3">
+        <button onClick={onClose} className="btn-ghost">Annuler</button>
+        <button onClick={save} disabled={saving} className="btn-primary">{saving ? "…" : "Enregistrer la signature"}</button>
       </div>
     </ModalShell>
   );

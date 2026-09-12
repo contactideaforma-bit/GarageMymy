@@ -13,6 +13,7 @@ import { estAdmin } from "@/lib/support";
 import { aFlotteHorsGarage } from "@/lib/flotte";
 import { VERSION_LABEL } from "@/lib/version";
 import { compterNonLus, lireRole } from "@/lib/conversation";
+import Salutation from "@/components/Salutation";
 
 const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
   {
@@ -158,7 +159,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           />
         </button>
         <div className="min-w-0">
-          <div className="marque">My Easy Auto</div>
+          <Salutation className="block" />
           <div className="truncate text-xs text-white/45">{sousTitre}</div>
         </div>
       </div>

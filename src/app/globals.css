@@ -256,8 +256,9 @@ input[type="time"] {
     backdrop-filter: var(--mea-flou);
   }
 
-  /* MY-MY (v12.7) : fenêtre de discussion OPAQUE — sur téléphone elle
-     couvre tout l'écran et la page derrière la rendait illisible. */
+  /* MY-MY (v12.7) : fenêtre de discussion façon messagerie, OPAQUE —
+     sur téléphone elle occupe l'écran (avec une marge) et la page derrière
+     ne transparaît plus. Hauteur calée sur la zone visible (clavier). */
   .mymy-fenetre {
     background-color: var(--mea-fond);
     border: 1px solid var(--mea-bordure-2);
@@ -266,31 +267,88 @@ input[type="time"] {
   }
   .mymy-entete {
     background-color: var(--mea-neon-fond);
+    border-bottom: 1px solid var(--mea-bordure);
   }
-  .mymy-saisie {
-    background-color: var(--mea-surface-3);
+  .mymy-icone {
+    @apply flex h-8 w-8 items-center justify-center rounded-full transition;
+    color: var(--mea-texte-2);
   }
+  .mymy-icone:hover { background-color: var(--mea-halo); color: var(--mea-texte); }
+  .mymy-fil { background-color: var(--mea-surface); }
+  .mymy-jour, .mymy-heure {
+    @apply text-center text-[10px] uppercase tracking-wide;
+    color: var(--mea-texte-3);
+  }
+  .mymy-heure { @apply normal-case tracking-normal; }
   .mymy-bulle {
-    background-color: var(--mea-surface-2);
+    background-color: var(--mea-surface-opaque);
     border: 1px solid var(--mea-bordure);
     color: var(--mea-texte);
   }
   .mymy-bulle-user {
-    background-color: var(--mea-neon);
+    background: linear-gradient(135deg, var(--mea-violet), var(--mea-neon));
     color: #fff;
   }
-  .mymy-suggestion {
-    background-color: var(--mea-surface-2);
-    border: 1px solid var(--mea-bordure-2);
-    color: var(--mea-texte-2);
-  }
-  .mymy-suggestion:hover {
+  .mymy-action {
+    background-color: var(--mea-neon-fond);
+    border: 1px solid var(--mea-neon-bordure);
     color: var(--mea-texte);
+  }
+  .mymy-lien {
+    background-color: var(--mea-neon-fond);
+    border: 1px solid var(--mea-neon-bordure);
+    color: var(--mea-neon-texte);
+  }
+  .mymy-suggestion {
+    background-color: var(--mea-surface-opaque);
+    border: 1px solid var(--mea-neon-bordure);
+    color: var(--mea-neon-texte);
+    white-space: nowrap;
+  }
+  .mymy-suggestion:hover { box-shadow: var(--mea-lueur); }
+  .mymy-saisie {
+    background-color: var(--mea-fond);
+    border-top: 1px solid var(--mea-bordure);
+  }
+  .mymy-champ {
+    background-color: var(--mea-surface-opaque);
+    border: 1px solid var(--mea-bordure-2);
+    color: var(--mea-texte);
+  }
+  .mymy-champ::placeholder { color: var(--mea-texte-3); }
+  .mymy-champ:focus { border-color: var(--mea-neon-bordure); box-shadow: var(--mea-lueur); }
+  .mymy-envoyer {
+    background: linear-gradient(135deg, var(--mea-violet), var(--mea-neon));
+    color: #fff;
     box-shadow: var(--mea-lueur);
   }
+  .mymy-bouton {
+    border: 2px solid var(--mea-neon);
+    box-shadow: var(--mea-lueur-forte);
+  }
+  .mymy-points { @apply inline-flex items-center gap-1; }
+  .mymy-points i {
+    @apply inline-block h-1.5 w-1.5 rounded-full;
+    background-color: var(--mea-texte-3);
+    animation: mymy-rebond 1.2s infinite ease-in-out;
+  }
+  .mymy-points i:nth-child(2) { animation-delay: 0.15s; }
+  .mymy-points i:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes mymy-rebond {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-3px); opacity: 1; }
+  }
   html.light .mymy-fenetre { background-color: #ffffff; }
-  html.light .mymy-bulle { background-color: #f3f4fa; }
-  html.light .mymy-saisie { background-color: #f7f8fc; }
+  html.light .mymy-fil { background-color: #f3f4fa; }
+  html.light .mymy-saisie { background-color: #ffffff; }
+  html.light .mymy-bulle { background-color: #ffffff; }
+
+  .bouton-haut {
+    background-color: var(--mea-surface-opaque);
+    border: 1px solid var(--mea-neon-bordure);
+    color: var(--mea-neon-texte);
+    box-shadow: var(--mea-lueur);
+  }
 
   /* Barre du haut mobile : translucide floutée, le contenu passe dessous */
   .topbar-mobile {

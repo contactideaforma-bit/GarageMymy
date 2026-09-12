@@ -39,6 +39,20 @@ const ACCUEIL: MessageMyMy = {
 // change de page (un dossier vient peut-être d'être modifié).
 const FRAICHEUR_MS = 2 * 60 * 1000;
 
+/** 3 suggestions au hasard (jamais celle qu'on vient de poser). */
+function tirerSuggestions(exclure?: string): string[] {
+  const pool = SUGGESTIONS_MYMY.filter((s) => s !== exclure);
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, 3);
+}
+
+function heureCourte(): string {
+  return new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+}
+
 export default function MyMyChat() {
   const router = useRouter();
   const pathname = usePathname();
@@ -49,6 +63,12 @@ export default function MyMyChat() {
   const [saisie, setSaisie] = useState("");
   const [occupe, setOccupe] = useState(false);
   const [coucou, setCoucou] = useState(false);
+  // v12.7 — 3 suggestions tirées au sort, renouvelées à chaque réponse.
+  const [suggestions, setSuggestions] = useState<string[]>(() => tirerSuggestions());
+  // v12.7 — hauteur de la fenêtre calée sur la zone VISIBLE (clavier ouvert
+  // sur iPhone : le viewport de mise en page ne bouge pas, seul
+  // visualViewport rétrécit — sans ça, l'accueil de MY-MY disparaissait).
+  const [cadre, setCadre] = useState<{ top: number; height: number } | null>(null);
 
   const ctxRef = useRef<{ ctx: ContexteMyMy; le: number } | null>(null);
   const chargementRef = useRef<Promise<ContexteMyMy> | null>(null);
@@ -76,9 +96,30 @@ export default function MyMyChat() {
   useEffect(() => {
     if (ouvert) {
       listeRef.current?.scrollTo({ top: listeRef.current.scrollHeight, behavior: "smooth" });
-      inputRef.current?.focus();
     }
   }, [messages, ouvert, occupe]);
+
+  useEffect(() => {
+    if (!ouvert || typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    const mobile = () => window.innerWidth < 640;
+    const caler = () => {
+      if (!mobile() || !vv) {
+        setCadre(null);
+        return;
+      }
+      setCadre({ top: Math.max(0, vv.offsetTop), height: vv.height });
+    };
+    caler();
+    vv?.addEventListener("resize", caler);
+    vv?.addEventListener("scroll", caler);
+    window.addEventListener("resize", caler);
+    return () => {
+      vv?.removeEventListener("resize", caler);
+      vv?.removeEventListener("scroll", caler);
+      window.removeEventListener("resize", caler);
+    };
+  }, [ouvert]);
 
   const contexte = useCallback(async (): Promise<ContexteMyMy> => {
     const c = ctxRef.current;
@@ -106,6 +147,9 @@ export default function MyMyChat() {
     }
     // Préchargement discret pour que la première réponse soit instantanée.
     contexte().catch(() => undefined);
+    // Sur ordinateur seulement : au téléphone, le clavier s'ouvrirait
+    // aussitôt et masquerait l'accueil de MY-MY.
+    if (typeof window !== "undefined" && window.innerWidth >= 640) setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const suivre = (lien: LienMyMy) => {
@@ -127,6 +171,7 @@ export default function MyMyChat() {
       const locale = repondreLocalement(ctx, question);
       if (locale) {
         setMessages((prev) => [...prev, locale]);
+        setSuggestions(tirerSuggestions(question));
         return;
       }
       const res = await fetchAuth("/api/mymy", {
@@ -150,6 +195,7 @@ export default function MyMyChat() {
       // existant), puis affichée avec Confirmer / Annuler. Rien n'est écrit ici.
       const action = validerAction(ctx, lu.data.action) || undefined;
       setMessages((prev) => [...prev, { role: "assistant", texte: lu.data!.reponse, liens: lu.data!.liens || [], action }]);
+      setSuggestions(tirerSuggestions(question));
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       setMessages((prev) => [
@@ -201,102 +247,110 @@ export default function MyMyChat() {
 
   return (
     <>
-      {/* ---------- Fenêtre de discussion ---------- */}
+      {/* ---------- Fenêtre de discussion (façon messagerie, v12.7) ---------- */}
       {ouvert && (
         <div
-          className="mymy-fenetre fixed z-40 inset-0 sm:inset-auto sm:bottom-24 sm:right-5 sm:h-[min(600px,calc(100vh-7.5rem))] sm:w-[380px] flex flex-col overflow-hidden sm:rounded-2xl"
+          className="mymy-fenetre fixed z-40 flex flex-col overflow-hidden rounded-2xl inset-x-2 top-2 bottom-2 sm:inset-auto sm:bottom-24 sm:right-5 sm:h-[min(620px,calc(100vh-7.5rem))] sm:w-[390px]"
+          style={cadre ? { top: cadre.top + 8, height: cadre.height - 16, bottom: "auto" } : undefined}
           role="dialog"
           aria-label="Assistant MY-MY"
         >
           {/* En-tête */}
-          <div className="mymy-entete flex items-center gap-3 border-b border-white/10 px-3 py-2">
-            <Image src="/mymy-avatar.png" alt="" width={36} height={36} className="shrink-0" />
+          <div className="mymy-entete flex items-center gap-3 px-3 py-2.5">
+            <div className="relative shrink-0">
+              <Image src="/mymy-avatar.png" alt="" width={40} height={40} className="rounded-full bg-white p-0.5" />
+              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400" />
+            </div>
             <div className="min-w-0 flex-1">
-              <div className="font-pixel text-[0.6rem] text-white">MY-MY</div>
-              <div className="truncate text-[11px] text-white/60">Ton assistant du garage</div>
+              <div className="truncate text-sm font-semibold">MY-MY</div>
+              <div className="truncate text-[11px] opacity-60">{occupe ? "écrit…" : "En ligne · ton assistant du garage"}</div>
             </div>
             <button
-              onClick={() => setMessages([ACCUEIL])}
+              onClick={() => {
+                setMessages([ACCUEIL]);
+                setSuggestions(tirerSuggestions());
+              }}
               title="Nouvelle conversation"
-              className="rounded-md px-2 py-1 text-xs text-white/60 hover:bg-white/10"
+              className="mymy-icone"
+              aria-label="Nouvelle conversation"
             >
               ↺
             </button>
-            <button
-              onClick={() => setOuvert(false)}
-              aria-label="Fermer"
-              className="rounded-md px-2 py-1 text-xl leading-none text-white/70 hover:bg-white/10"
-            >
+            <button onClick={() => setOuvert(false)} aria-label="Fermer" className="mymy-icone text-lg">
               ×
             </button>
           </div>
 
-          {/* Messages */}
-          <div ref={listeRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
-            {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                {m.role === "assistant" && (
-                  <Image src="/mymy-avatar.png" alt="" width={26} height={26} className="mr-2 mt-1 shrink-0 self-start" />
-                )}
-                <div
-                  className={`max-w-[85%] rounded-xl px-3 py-2 text-sm whitespace-pre-wrap break-words ${
-                    m.role === "user" ? "mymy-bulle-user" : "mymy-bulle"
-                  }`}
-                >
-                  {m.texte}
-                  {m.action && (
-                    <div className="mt-2 rounded-md border-2 border-accent-pink/70 bg-accent-pink/10 p-2">
-                      <div className="text-[11px] font-bold uppercase tracking-wide text-accent-pink">
-                        {m.etatAction === "confirmee" ? "✔ Confirmé" : m.etatAction === "annulee" ? "✖ Annulé" : "J'ai compris — je confirme ?"}
-                      </div>
-                      <div className="mt-1 text-xs text-white/90">
-                        {ctxPourDescription ? decrireAction(ctxPourDescription, m.action) : "…"}
-                      </div>
-                      {!m.etatAction && (
-                        <div className="mt-2 flex gap-2">
-                          <button onClick={() => confirmer(i, m.action!)} disabled={occupe} className="btn-primary !px-3 !py-1.5 !text-xs">
-                            Confirmer
-                          </button>
-                          <button onClick={() => annuler(i)} disabled={occupe} className="rounded-md border-2 border-white/30 px-3 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/10">
-                            Annuler
-                          </button>
+          {/* Fil */}
+          <div ref={listeRef} className="mymy-fil flex-1 space-y-2 overflow-y-auto px-3 py-3">
+            <div className="mymy-jour">Aujourd&apos;hui</div>
+            {messages.map((m, i) => {
+              const moi = m.role === "user";
+              const suivantMeme = messages[i + 1]?.role === m.role;
+              return (
+                <div key={i} className={`flex items-end gap-2 ${moi ? "justify-end" : "justify-start"}`}>
+                  {!moi && (
+                    <div className="w-7 shrink-0">
+                      {!suivantMeme && <Image src="/mymy-avatar.png" alt="" width={28} height={28} className="rounded-full bg-white p-0.5" />}
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[80%] px-3 py-2 text-[14px] leading-snug whitespace-pre-wrap break-words ${
+                      moi ? "mymy-bulle-user" : "mymy-bulle"
+                    } ${suivantMeme ? (moi ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-bl-md") : moi ? "rounded-2xl rounded-br-sm" : "rounded-2xl rounded-bl-sm"}`}
+                  >
+                    {m.texte}
+                    {m.action && (
+                      <div className="mymy-action mt-2 rounded-xl p-2">
+                        <div className="text-[11px] font-bold uppercase tracking-wide">
+                          {m.etatAction === "confirmee" ? "✔ Confirmé" : m.etatAction === "annulee" ? "✖ Annulé" : "J'ai compris — je confirme ?"}
                         </div>
-                      )}
-                    </div>
-                  )}
-                  {m.liens && m.liens.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {m.liens.map((l, j) => (
-                        <button
-                          key={j}
-                          onClick={() => suivre(l)}
-                          className="rounded-md border-2 border-accent-teal/60 bg-accent-teal/15 px-2 py-1 text-xs font-semibold text-white hover:bg-accent-teal/30"
-                        >
-                          {l.label} →
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                        <div className="mt-1 text-xs opacity-90">{ctxPourDescription ? decrireAction(ctxPourDescription, m.action) : "…"}</div>
+                        {!m.etatAction && (
+                          <div className="mt-2 flex gap-2">
+                            <button onClick={() => confirmer(i, m.action!)} disabled={occupe} className="btn-primary !px-3 !py-1.5 !text-xs">
+                              Confirmer
+                            </button>
+                            <button onClick={() => annuler(i)} disabled={occupe} className="btn-ghost !px-3 !py-1.5 !text-xs">
+                              Annuler
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {m.liens && m.liens.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {m.liens.map((l, j) => (
+                          <button key={j} onClick={() => suivre(l)} className="mymy-lien rounded-full px-2.5 py-1 text-xs font-semibold">
+                            {l.label} →
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            {occupe && (
+              <div className="flex items-end gap-2">
+                <Image src="/mymy-avatar.png" alt="" width={28} height={28} className="rounded-full bg-white p-0.5" />
+                <div className="mymy-bulle rounded-2xl rounded-bl-sm px-3 py-2">
+                  <span className="mymy-points">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
                 </div>
               </div>
-            ))}
-            {occupe && (
-              <div className="flex items-center gap-2 text-xs text-white/60">
-                <Image src="/mymy-avatar.png" alt="" width={26} height={26} className="animate-bounce" />
-                MY-MY réfléchit…
-              </div>
             )}
+            <div className="mymy-heure">{heureCourte()}</div>
           </div>
 
-          {/* Suggestions (au début seulement) */}
-          {messages.length <= 1 && (
-            <div className="flex flex-wrap gap-1.5 px-3 pb-2">
-              {SUGGESTIONS_MYMY.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => envoyer(s)}
-                  className="mymy-suggestion rounded-full px-2.5 py-1 text-[11px]"
-                >
+          {/* Suggestions : 3 au hasard, renouvelées à chaque réponse */}
+          {!occupe && (
+            <div className="flex gap-1.5 overflow-x-auto px-3 pb-2 pt-1 [scrollbar-width:none]">
+              {suggestions.map((s) => (
+                <button key={s} onClick={() => envoyer(s)} className="mymy-suggestion shrink-0 rounded-full px-3 py-1.5 text-[12px]">
                   {s}
                 </button>
               ))}
@@ -309,17 +363,25 @@ export default function MyMyChat() {
               e.preventDefault();
               envoyer();
             }}
-            className="mymy-saisie flex items-center gap-2 border-t border-white/10 p-2"
+            className="mymy-saisie flex items-center gap-2 px-2.5 py-2"
+            style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
           >
             <input
               ref={inputRef}
               value={saisie}
               onChange={(e) => setSaisie(e.target.value)}
-              placeholder="Immat, client, ou une question sur l’appli…"
-              className="field-input flex-1 !py-2 text-sm"
+              placeholder="Écris à MY-MY…"
+              className="mymy-champ min-w-0 flex-1 rounded-full px-4 py-2.5 text-[15px] outline-none"
               disabled={occupe}
+              autoComplete="off"
+              enterKeyHint="send"
             />
-            <button type="submit" disabled={occupe || !saisie.trim()} className="btn-primary !px-3 !py-2">
+            <button
+              type="submit"
+              disabled={occupe || !saisie.trim()}
+              aria-label="Envoyer"
+              className="mymy-envoyer flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg disabled:opacity-40"
+            >
               ➤
             </button>
           </form>
@@ -330,7 +392,7 @@ export default function MyMyChat() {
       {!ouvert && (
         <div className="fixed bottom-4 right-4 z-40 flex items-end gap-2 sm:bottom-5 sm:right-5">
           {coucou && (
-            <div className="glass-soft mb-3 max-w-[180px] rounded-lg px-3 py-2 text-xs text-white/90 shadow-lg">
+            <div className="mymy-bulle mb-3 max-w-[180px] rounded-2xl rounded-br-sm px-3 py-2 text-xs shadow-lg">
               Coucou, je suis MY-MY ! Une question sur un dossier ?
             </div>
           )}
@@ -338,10 +400,10 @@ export default function MyMyChat() {
             onClick={ouvrir}
             aria-label="Ouvrir l'assistant MY-MY"
             title="MY-MY — ton assistant"
-            className="group relative h-16 w-16 rounded-full border-[3px] border-accent-pink bg-white shadow-[4px_4px_0_rgba(0,0,0,0.45)] transition hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none"
+            className="mymy-bouton group relative h-14 w-14 rounded-full bg-white transition hover:-translate-y-0.5 active:translate-y-0.5"
           >
-            <Image src="/mymy-avatar.png" alt="MY-MY" width={64} height={64} className="rounded-full p-1 transition group-hover:scale-105" />
-            <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-accent-teal" />
+            <Image src="/mymy-avatar.png" alt="MY-MY" width={56} height={56} className="rounded-full p-1 transition group-hover:scale-105" />
+            <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400" />
           </button>
         </div>
       )}

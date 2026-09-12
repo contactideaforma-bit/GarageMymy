@@ -71,3 +71,15 @@ begin
     execute 'create trigger corbeille_courriers_recouvrement before delete on public.courriers_recouvrement for each row execute function public.corbeille_capture()';
   end if;
 end $$;
+
+-- ---------- 4. Signature À DISTANCE des contrats de prêt / location ----------
+-- Même mécanisme que les OR / cessions / devis (v20) : un jeton public unique
+-- donne accès à la page /signer/<jeton>, servie par /api/signature.
+alter table public.transferts_garantie
+  add column if not exists sign_token uuid default gen_random_uuid();
+alter table public.flotte_mises_a_dispo
+  add column if not exists sign_token uuid default gen_random_uuid();
+update public.transferts_garantie set sign_token = gen_random_uuid() where sign_token is null;
+update public.flotte_mises_a_dispo set sign_token = gen_random_uuid() where sign_token is null;
+create unique index if not exists transferts_garantie_sign_token_uniq on public.transferts_garantie(sign_token);
+create unique index if not exists flotte_mises_a_dispo_sign_token_uniq on public.flotte_mises_a_dispo(sign_token);

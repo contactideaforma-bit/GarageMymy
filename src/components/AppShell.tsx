@@ -8,6 +8,9 @@ import BandeauService from "@/components/BandeauService";
 import BandeauHorsLigne from "@/components/BandeauHorsLigne";
 import MyMyChat from "@/components/MyMyChat";
 import TableauxFluides from "@/components/TableauxFluides";
+import BoutonHaut from "@/components/BoutonHaut";
+import Salutation from "@/components/Salutation";
+import Link from "next/link";
 import BandeauCompte from "@/components/BandeauCompte";
 import { estRoutePublique } from "@/lib/routesPubliques";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
@@ -66,8 +69,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           >
             ☰
           </button>
-          <Image src="/logo.png" alt="" width={28} height={28} />
-          <span className="marque">My Easy Auto</span>
+          <Link href="/" aria-label="Tableau de bord" title="Retour au tableau de bord" className="flex min-w-0 items-center gap-2">
+            <Image src="/logo.png" alt="" width={28} height={28} className="shrink-0" />
+            <Salutation />
+          </Link>
         </div>
       </div>
 
@@ -108,6 +113,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <MyMyChat />
       {/* v12.6 : tous les tableaux tiennent dans l'écran, colonnes réglables au doigt. */}
       <TableauxFluides />
+      {/* v12.7 : remonter en haut dès qu'on a défilé. */}
+      <BoutonHaut />
     </div>
   );
 }

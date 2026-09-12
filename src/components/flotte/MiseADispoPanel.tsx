@@ -16,7 +16,8 @@ import {
   urlFichierFlotte,
 } from "@/lib/flotte";
 import { ANGLES, labelAngle, preparerImage } from "@/lib/photosEtat";
-import { apercuContratMiseADispoPdf, generateContratMiseADispoPdf } from "@/lib/pdf";
+import { apercuContratMiseADispoPdf, contratMiseADispoPdfBase64, generateContratMiseADispoPdf, nomFichierSur } from "@/lib/pdf";
+import EmailComposer from "@/components/EmailComposer";
 import { usePliage } from "@/lib/pliage";
 import ModalShell from "@/components/ModalShell";
 import SignaturePad from "@/components/SignaturePad";
@@ -51,6 +52,7 @@ export default function MiseADispoPanel({
   const [nouveau, setNouveau] = useState<string | null>(null); // pret | location
   const [edition, setEdition] = useState<FlotteMiseADispo | null>(null);
   const [signer, setSigner] = useState<FlotteMiseADispo | null>(null);
+  const [emailSign, setEmailSign] = useState<FlotteMiseADispo | null>(null); // v12.7 — signature à distance
   const [photosDe, setPhotosDe] = useState<FlotteMiseADispo | null>(null);
   const [retour, setRetour] = useState<FlotteMiseADispo | null>(null);
   const [dateQui, setDateQui] = useState("");
@@ -117,7 +119,12 @@ export default function MiseADispoPanel({
             <button onClick={() => setEdition(m)} className="text-accent-pink hover:underline">Contrat</button>
             <button onClick={() => apercuContratMiseADispoPdf(m, vehicule, d)} className="text-accent-teal hover:underline">PDF</button>
             <button onClick={() => generateContratMiseADispoPdf(m, vehicule, d)} className="text-accent-teal hover:underline">Télécharger</button>
-            {!m.signature && <button onClick={() => setSigner(m)} className="text-accent-violet hover:underline">Faire signer</button>}
+            {!m.signature && <button onClick={() => setSigner(m)} className="text-accent-violet hover:underline" title="Le conducteur signe à l'écran, maintenant">Signer en direct</button>}
+            {!m.signature && m.sign_token && (
+              <button onClick={() => setEmailSign(m)} className="text-accent-violet hover:underline" title="Envoie un lien sécurisé : le conducteur signe depuis son téléphone">
+                Signer à distance
+              </button>
+            )}
             <button onClick={() => setPhotosDe(m)} className="text-accent-violet hover:underline">Photos</button>
             {actif && <button onClick={() => setRetour(m)} className="font-semibold text-emerald-300 hover:underline">Retour du véhicule</button>}
             {actif && <button onClick={() => annuler(m)} className="text-white/40 hover:underline">Annuler</button>}
@@ -178,6 +185,27 @@ export default function MiseADispoPanel({
       )}
       {edition && (
         <MiseADispoModal vehicule={vehicule} type={edition.type} mad={edition} onClose={() => setEdition(null)} onSaved={() => { setEdition(null); onChanged(); }} />
+      )}
+      {emailSign && (
+        <EmailComposer
+          dossier={emailSign.dossier_id ? dossiers.find((d) => d.id === emailSign.dossier_id) || null : null}
+          defaultTo={emailSign.conducteur_email || ""}
+          defaultSubject={`Signature requise — contrat de ${emailSign.type === "location" ? "location" : "prêt"} ${vehicule.marque_modele || ""} (${vehicule.immatriculation})`}
+          defaultBody={`Bonjour${emailSign.conducteur_nom ? ` ${emailSign.conducteur_nom}` : ""},\n\nMerci de signer le contrat de ${
+            emailSign.type === "location" ? "location" : "prêt"
+          } du véhicule ${vehicule.marque_modele || ""} (${vehicule.immatriculation}) en cliquant sur ce lien sécurisé :\n\n${
+            typeof window !== "undefined" ? window.location.origin : ""
+          }/signer/${emailSign.sign_token}\n\nLa signature se fait en 30 secondes, directement depuis votre téléphone. Le contrat est joint pour lecture.\n\nCordialement.`}
+          piecesJointes={[
+            {
+              label: "Contrat (PDF)",
+              filename: nomFichierSur(`Contrat ${emailSign.type} ${vehicule.immatriculation}`),
+              getBase64: () => contratMiseADispoPdfBase64(emailSign, vehicule, emailSign.dossier_id ? dossiers.find((d) => d.id === emailSign.dossier_id) : null),
+              coche: true,
+            },
+          ]}
+          onClose={() => setEmailSign(null)}
+        />
       )}
       {signer && (
         <SignerModal mad={signer} vehicule={vehicule} onClose={() => setSigner(null)} onSaved={() => { setSigner(null); onChanged(); }} />

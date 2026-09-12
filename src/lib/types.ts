@@ -400,6 +400,7 @@ export type TransfertGarantie = {
   signataire_nom?: string | null;
   signature?: string | null;
   signe_le?: string | null;
+  sign_token?: string | null; // v12.7 — signature à distance
 };
 
 export type CommandePiece = {
@@ -564,6 +565,7 @@ export type FlotteMiseADispo = {
   signe_le: string | null;
   cg_acceptees: boolean;
   notes: string | null;
+  sign_token?: string | null; // v12.7 — signature à distance
 };
 
 export type FlottePhoto = {
