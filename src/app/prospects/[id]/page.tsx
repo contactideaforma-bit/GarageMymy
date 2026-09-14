@@ -11,6 +11,7 @@ import { useParams, useRouter } from "next/navigation";
 import ModalShell from "@/components/ModalShell";
 import SignaturePad from "@/components/SignaturePad";
 import EmailComposer from "@/components/EmailComposer";
+import EmailPresentationModal, { TypeEmailProspect } from "@/components/EmailPresentationModal";
 import { formatDate, formatDateTime, formatEuros, messageErreur } from "@/lib/format";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -39,6 +40,7 @@ export default function ProspectPage() {
   const [offre, setOffre] = useState<ParametresOffre>(OFFRE_DEFAUT);
   const [signer, setSigner] = useState<ProspectDocument | null>(null);
   const [envoyer, setEnvoyer] = useState<ProspectDocument[] | null>(null);
+  const [presentation, setPresentation] = useState<TypeEmailProspect | null>(null); // v12.8 — emails prospect
   const [venteModal, setVenteModal] = useState(false);
 
   const load = useCallback(async () => {
@@ -131,6 +133,8 @@ export default function ProspectPage() {
           <p className="text-sm text-white/50">{[p.adresse, `${p.cp || ""} ${p.ville || ""}`.trim(), p.siren ? `SIREN ${p.siren}` : ""].filter(Boolean).join(" · ")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button onClick={() => setPresentation("presentation")} className="btn-ghost btn-compact">✉️ Présentation</button>
+          <button onClick={() => setPresentation("rdv")} className="btn-ghost btn-compact">📅 Confirmer un RDV</button>
           <select className="field-input field-compact" value={p.statut} onChange={(e) => sauver({ statut: e.target.value as ProspectStatut })}>
             {(Object.keys(STATUTS_PROSPECT) as ProspectStatut[]).map((s) => <option key={s} value={s}>{STATUTS_PROSPECT[s].label}</option>)}
           </select>
@@ -247,6 +251,24 @@ export default function ProspectPage() {
         </div>
       )}
 
+      {presentation && ctx && (
+        <EmailPresentationModal
+          type={presentation}
+          parametres={ctx.parametres}
+          commercialNom={nomCommercial(ctx.collaborateur)}
+          codeApporteur={ctx.collaborateur?.code_apporteur || null}
+          garageNom={p.nom}
+          contactNom={p.contact_nom || p.gerant || ""}
+          email={p.email || ""}
+          onClose={() => setPresentation(null)}
+          onSent={async (i) => {
+            const ligne = `${formatDate(new Date().toISOString())} — ${i.type === "rdv" ? `confirmation de RDV (${i.date} ${i.heure})` : "email de présentation"} envoyé à ${i.to}`;
+            const notes = `${p.notes ? `${p.notes}\n` : ""}${ligne}`;
+            if (i.type === "rdv" && i.date) await sauver({ notes, statut: p.statut === "prospect" ? "rdv" : p.statut, prochaine_action: `Rendez-vous ${i.heure || ""}`.trim(), prochaine_date: i.date });
+            else await sauver({ notes });
+          }}
+        />
+      )}
       {signer && <SignatureModal doc={signer} ctx={ctx} onClose={() => setSigner(null)} onSigned={async () => { setSigner(null); await load(); if (signer.type === "contrat") await sauver({ statut: "signe" }); }} />}
       {envoyer && (
         <EmailComposer

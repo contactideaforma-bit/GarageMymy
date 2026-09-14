@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import StatCard from "@/components/StatCard";
 import ModalShell from "@/components/ModalShell";
+import EmailPresentationModal from "@/components/EmailPresentationModal";
 import { rechercherSiren, type ResultatSiren } from "@/components/RechercheSiren";
 import { formatDate, messageErreur } from "@/lib/format";
 import { ORIGINES_PROSPECT, Prospect, ProspectOrigine, ProspectStatut, STATUTS_PROSPECT, chargerProspects, dateDansJours, enregistrerProspect, etatRappel } from "@/lib/prospects";
@@ -23,6 +24,7 @@ export default function ProspectsPage() {
   const [q, setQ] = useState("");
   const [filtre, setFiltre] = useState<"actifs" | ProspectStatut | "tous">("actifs");
   const [nouveau, setNouveau] = useState(false);
+  const [presentation, setPresentation] = useState(false); // v12.8
 
   useEffect(() => {
     chargerContexteCommercial().then(setCtx).catch((e) => setErreur(messageErreur(e, "Espace commercial indisponible.")));
@@ -62,7 +64,10 @@ export default function ProspectsPage() {
             {ctx ? (ctx.collaborateur ? `${nomCommercial(ctx.collaborateur)} · code ${ctx.collaborateur.code_apporteur || "—"}${ctx.collaborateur.zone ? ` · zone : ${ctx.collaborateur.zone}` : ""}` : "Espace éditeur — ventes directes") : ""}
           </p>
         </div>
-        <button onClick={() => setNouveau(true)} className="btn-primary">+ Nouveau client</button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setPresentation(true)} className="btn-ghost">✉️ Email présentation / RDV</button>
+          <button onClick={() => setNouveau(true)} className="btn-primary">+ Nouveau client</button>
+        </div>
       </div>
       {erreur && <p className="badge badge-danger mb-3">{erreur}</p>}
 
@@ -147,6 +152,14 @@ export default function ProspectsPage() {
         </div>
       )}
 
+      {presentation && ctx && (
+        <EmailPresentationModal
+          parametres={ctx.parametres}
+          commercialNom={nomCommercial(ctx.collaborateur)}
+          codeApporteur={ctx.collaborateur?.code_apporteur || null}
+          onClose={() => setPresentation(false)}
+        />
+      )}
       {nouveau && (
         <NouveauClientModal
           onClose={() => setNouveau(false)}
