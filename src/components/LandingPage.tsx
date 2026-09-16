@@ -239,7 +239,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
 
       <div className="mx-auto max-w-6xl px-4">
         {/* ============================== Héros ============================== */}
-        <header className="grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-2">
+        <header className="grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-[1.25fr_1fr] lg:gap-16">
           <div>
             <span className="lp-chip">Carrosserie · Vitrage · Gestion des sinistres</span>
             <h1 className="mt-4">
@@ -264,14 +264,15 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               Conçu avec des carrossiers, pour le travail réel de l&apos;atelier — sur ordinateur, tablette et téléphone.
             </p>
           </div>
-          <div className="relative overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-violet-900/25">
+          <div className="mx-auto w-full max-w-md lg:max-w-[440px] xl:max-w-[480px] overflow-hidden rounded-2xl border border-black/5 shadow-2xl shadow-violet-900/20">
             <Image
               src="/hero-atelier.jpeg"
               alt="My Easy Auto en situation dans l'atelier"
               width={1122}
               height={1402}
               priority
-              className="h-auto w-full object-cover"
+              sizes="(min-width: 1280px) 480px, (min-width: 1024px) 440px, 90vw"
+              className="h-auto w-full"
             />
           </div>
         </header>
