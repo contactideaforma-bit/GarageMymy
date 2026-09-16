@@ -264,7 +264,16 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               Conçu avec des carrossiers, pour le travail réel de l&apos;atelier — sur ordinateur, tablette et téléphone.
             </p>
           </div>
-          <ApercuFicheDossier />
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 shadow-2xl shadow-violet-900/25">
+            <Image
+              src="/hero-atelier.jpeg"
+              alt="My Easy Auto en situation dans l'atelier"
+              width={1122}
+              height={1402}
+              priority
+              className="h-auto w-full object-cover"
+            />
+          </div>
         </header>
 
         {/* ============================ Vidéo (v12.7) ============================
