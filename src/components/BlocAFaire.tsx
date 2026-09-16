@@ -33,7 +33,7 @@ import ChampEcheance from "./ChampEcheance";
  *
  * Désormais UNE seule liste : les tâches écrites — à la main (ici ou dans
  * la Conversation) ou PROGRAMMÉES en un clic depuis les suggestions de la
- * fiche dossier. Chaque tâche peut viser quelqu'un (« pour la secrétaire »
+ * fiche dossier. Chaque tâche peut viser quelqu'un (« pour le chargé de mission »
  * / « pour le garage ») : les onglets filtrent par destinataire.
  *
  * Règles conservées : SEULE la case coche (clic texte = modifier),
@@ -63,7 +63,7 @@ function rang(it: Item): number {
   return it.ligne.echeance ? 2 : 3;
 }
 
-const LIBELLE_POUR: Record<string, string> = { secretaire: "Pour la secrétaire", garage: "Pour le garage" };
+const LIBELLE_POUR: Record<string, string> = { secretaire: "Pour le chargé de mission", garage: "Pour le garage" };
 
 export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[]; loading: boolean }) {
   const [rappels, setRappels] = useState<LigneArdoise[]>([]);
@@ -106,7 +106,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
   useEffect(() => {
     charger();
     // Le rôle mémorisé sur l'appareil (bascule de la page Conversation)
-    // pré-filtre la liste : le poste de la secrétaire ouvre sur SES tâches.
+    // pré-filtre la liste : le poste du chargé de mission ouvre sur SES tâches.
     const r = lireRole();
     setRole(r);
     setFiltre(r === "secretaire" ? "secretaire" : "tout");
@@ -370,7 +370,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
                       ligne.pour === "secretaire" ? "bg-teal-100 text-teal-700" : "bg-violet-100 text-violet-700"
                     }`}
                   >
-                    {ligne.pour === "secretaire" ? "Secrétaire" : "Garage"}
+                    {ligne.pour === "secretaire" ? "Chargé de mission" : "Garage"}
                   </span>
                 )}
                 {ligne.origine?.startsWith("suggestion:") && (
@@ -423,7 +423,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
                 title="Qui doit s'en occuper ?"
               >
                 <option value="">Pour tout le monde</option>
-                <option value="secretaire">Pour la secrétaire</option>
+                <option value="secretaire">Pour le chargé de mission</option>
                 <option value="garage">Pour le garage</option>
               </select>
               <button
@@ -477,7 +477,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
           )}
           <div className="segment">
             {onglet("tout", "Tout", compte("tout"))}
-            {onglet("secretaire", "Secrétaire", compte("secretaire"))}
+            {onglet("secretaire", "Chargé de mission", compte("secretaire"))}
             {onglet("garage", "Garage", compte("garage"))}
           </div>
           {dispo && (
@@ -574,7 +574,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
           <div>
             <span className="field-label !mb-0.5 text-[11px]">Pour qui ?</span>
             <div className="segment">
-              {([["", "Tous"], ["secretaire", "🗂️ Secrétaire"], ["garage", "🔧 Garage"]] as const).map(([v, l]) => (
+              {([["", "Tous"], ["secretaire", "🗂️ Chargé de mission"], ["garage", "🔧 Garage"]] as const).map(([v, l]) => (
                 <button key={v} type="button" className={`segment-btn ${pour === v ? "actif" : ""}`} onClick={() => setPour(v)}>
                   {l}
                 </button>

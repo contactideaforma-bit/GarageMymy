@@ -53,8 +53,8 @@ export default function AdminAccueil() {
       {loading ? <p className="text-sm text-white/40">Chargement…</p> : (
         <>
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Kpi titre="Garages actifs" valeur={String(k.actifs)} sous={`${collabs.filter((c) => c.statut === "actif" && c.type === "commercial").length} commerciaux · ${collabs.filter((c) => c.statut === "actif" && c.type === "secretaire").length} secrétaires actifs`} />
-            <Kpi titre="CA mensuel récurrent" valeur={euros(k.ca)} sous={`secrétaires ${euros(k.retro)} · technique ${euros(k.tech)}`} />
+            <Kpi titre="Garages actifs" valeur={String(k.actifs)} sous={`${collabs.filter((c) => c.statut === "actif" && c.type === "commercial").length} commerciaux · ${collabs.filter((c) => c.statut === "actif" && c.type === "secretaire").length} chargés de mission actifs`} />
+            <Kpi titre="CA mensuel récurrent" valeur={euros(k.ca)} sous={`chargés de mission ${euros(k.retro)} · technique ${euros(k.tech)}`} />
             <Kpi titre="Résultat mensuel théorique" valeur={euros(k.margeMensuelle)} sous={`après coûts fixes ${euros(p.coutsFixes)}, hors commissions`} accent />
             <Kpi titre="Encaissé depuis le début" valeur={euros(k.encaisse)} sous={`marge nette cumulée ${euros(k.margeCumulee)} (commissions déduites)`} />
           </section>
@@ -80,8 +80,8 @@ export default function AdminAccueil() {
           <section className="glass-card p-4">
             <h2 className="titre-section mb-2">Pour commencer</h2>
             <ol className="list-decimal space-y-1 pl-5 text-sm text-white/70">
-              <li>Créez vos <Link href="/admin/collaborateurs" className="text-accent-pink hover:underline">collaborateurs</Link> (commerciaux et secrétaires).</li>
-              <li>Saisissez chaque <Link href="/admin/abonnements" className="text-accent-pink hover:underline">abonnement</Link> de garage en le rattachant à son commercial et sa secrétaire ; pointez les mensualités quand elles sont encaissées.</li>
+              <li>Créez vos <Link href="/admin/collaborateurs" className="text-accent-pink hover:underline">collaborateurs</Link> (commerciaux et chargés de mission).</li>
+              <li>Saisissez chaque <Link href="/admin/abonnements" className="text-accent-pink hover:underline">abonnement</Link> de garage en le rattachant à son commercial et son chargé de mission ; pointez les mensualités quand elles sont encaissées.</li>
               <li>Chaque début de mois, <Link href="/admin/reglements" className="text-accent-pink hover:underline">générez le relevé</Link> : primes et rétrocessions dues apparaissent, vous les marquez payées après virement.</li>
               <li>Testez vos hypothèses dans le <Link href="/admin/simulateur" className="text-accent-pink hover:underline">simulateur</Link> — ses paramètres sont ceux des relevés.</li>
             </ol>

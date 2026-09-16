@@ -4,7 +4,7 @@
 //    · bienvenue du COMMERCIAL : compte créé depuis la fiche
 //      collaborateur (identifiants + premiers pas) ;
 //    · envoi de la DOCUMENTATION (contrat signé + documents
-//      d'information) — utilisé surtout pour la secrétaire, qui n'a
+//      d'information) — utilisé surtout pour le chargé de mission, qui n'a
 //      pas de compte dédié.
 // ============================================================
 
@@ -153,7 +153,7 @@ export function sujetDocsCollaborateur(i: DocsCollaborateurInput): string {
 }
 
 export function emailDocsCollaborateurHtml(i: DocsCollaborateurInput): string {
-  const role = i.type === "commercial" ? "apporteur d'affaires" : "secrétariat externalisé";
+  const role = i.type === "commercial" ? "apporteur d'affaires" : "Adhésion Service";
   const items = [
     ...(i.contratJoint ? ["<b>Contrat de collaboration</b> (exemplaire PDF)"] : []),
     ...i.titres.map(esc),

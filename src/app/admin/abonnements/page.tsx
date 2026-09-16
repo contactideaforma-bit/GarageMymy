@@ -1,6 +1,6 @@
 "use client";
 
-// ABONNEMENTS DES GARAGES (v53) : formule, commercial et secrétaire
+// ABONNEMENTS DES GARAGES (v53) : formule, commercial et chargé de mission
 // rattachés, mensualités à pointer. C'est la source des relevés.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -203,7 +203,7 @@ export default function AbonnementsPage() {
                   <div className="mt-2 text-xs text-white/60">
                     Signé le {dateFr(a.date_signature)} · {payees} mensualité{payees > 1 ? "s" : ""} payée{payees > 1 ? "s" : ""}
                     {a.commercial_id && <> · Commercial : {nomCollab(parCollab.get(a.commercial_id))}</>}
-                    {a.secretaire_id && <> · Secrétaire : {nomCollab(parCollab.get(a.secretaire_id))}</>}
+                    {a.secretaire_id && <> · Chargé de mission : {nomCollab(parCollab.get(a.secretaire_id))}</>}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
@@ -272,7 +272,7 @@ export default function AbonnementsPage() {
             <ChampAdmin label="Date de signature"><input className="field-input" type="date" value={form.date_signature || ""} onChange={(e) => set("date_signature", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="1re mensualité"><input className="field-input" type="date" value={form.date_debut || ""} onChange={(e) => set("date_debut", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="Commercial"><select className="field-input" value={form.commercial_id || ""} onChange={(e) => set("commercial_id", e.target.value || null)}><option value="">— sans commercial —</option>{commerciaux.map((c) => <option key={c.id} value={c.id}>{nomCollab(c)}</option>)}</select></ChampAdmin>
-            <ChampAdmin label="Secrétaire"><select className="field-input" value={form.secretaire_id || ""} onChange={(e) => set("secretaire_id", e.target.value || null)}><option value="">— aucune —</option>{secretaires.map((c) => <option key={c.id} value={c.id}>{nomCollab(c)}</option>)}</select></ChampAdmin>
+            <ChampAdmin label="Chargé de mission"><select className="field-input" value={form.secretaire_id || ""} onChange={(e) => set("secretaire_id", e.target.value || null)}><option value="">— aucune —</option>{secretaires.map((c) => <option key={c.id} value={c.id}>{nomCollab(c)}</option>)}</select></ChampAdmin>
             <ChampAdmin label="Statut"><select className="field-input" value={form.statut} onChange={(e) => set("statut", e.target.value as Abonnement["statut"])}><option value="actif">Actif</option><option value="suspendu">Suspendu</option><option value="resilie">Résilié</option></select></ChampAdmin>
             <ChampAdmin label="Date de fin (si résilié)"><input className="field-input" type="date" value={form.date_fin || ""} onChange={(e) => set("date_fin", e.target.value)} /></ChampAdmin>
           </div>
@@ -284,7 +284,7 @@ export default function AbonnementsPage() {
           {Number(form.remise_pct) > 0 && (
             <p className="mt-2 text-xs text-amber-200/80">
               Avec {Number(form.remise_pct)} % de remise, la prime du commercial est réduite dans la même proportion
-              (plancher ESSENTIEL conservé) ; la secrétaire est payée aux heures du forfait × son taux horaire, la remise ne la concerne pas.
+              (plancher ESSENTIEL conservé) ; le chargé de mission est payé aux heures du forfait × son taux horaire, la remise ne la concerne pas.
             </p>
           )}
           <label className="mt-3 flex items-center gap-2 text-sm text-white/80"><input type="checkbox" checked={Boolean(form.engagement_12)} onChange={(e) => set("engagement_12", e.target.checked)} />Engagement 12 mois (mise en service offerte, bonus commercial)</label>

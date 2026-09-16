@@ -112,7 +112,7 @@ export default function DocumentsAdminPage() {
   const textes: { titre: string; version: string; href: string; aide: string }[] = [
     { titre: "Conditions générales d'utilisation (CGU)", version: VERSION_CGU, href: "/cgu", aide: "Acceptées par le garage à la vente depuis la v11.7." },
     { titre: "Conditions générales de vente (CGV)", version: VERSION_CGV, href: "/vente", aide: "Affichées et signées sur la page de vente." },
-    { titre: "Accord de traitement des données (annexe RGPD)", version: VERSION_DPA, href: "/vente", aide: "Annexe au contrat d'abonnement : porte l'autorisation d'intervention des secrétaires indépendantes." },
+    { titre: "Accord de traitement des données (annexe RGPD)", version: VERSION_DPA, href: "/vente", aide: "Annexe au contrat d'abonnement : porte l'autorisation d'intervention des chargés de mission indépendants." },
     { titre: "Mentions légales", version: "—", href: "/mentions-legales", aide: "Page publique." },
     { titre: "Politique de confidentialité", version: "—", href: "/confidentialite", aide: "Page publique." },
   ];
@@ -131,7 +131,7 @@ export default function DocumentsAdminPage() {
           </p>
           <div className="flex flex-wrap gap-2">
             <button className="btn-ghost btn-compact" disabled={!params} onClick={() => modeleABlanc("secretaire")}>
-              📄 Contrat de prestation (secrétaire) — {VERSION_CONTRAT_PRESTATION}
+              📄 Contrat de prestation (chargé de mission) — {VERSION_CONTRAT_PRESTATION}
             </button>
             <button className="btn-ghost btn-compact" disabled={!params} onClick={() => modeleABlanc("commercial")}>
               📄 Contrat d&apos;apporteur d&apos;affaires — {VERSION_CONTRAT_APPORTEUR}
@@ -150,8 +150,8 @@ export default function DocumentsAdminPage() {
           onErreur={setErreur}
         />
         <Famille
-          titre="Pack secrétaire"
-          aide="Envoyés par email à la signature (la secrétaire n'a pas de compte dédié)."
+          titre="Pack chargé de mission"
+          aide="Envoyés par email à la signature (le chargé de mission n'a pas de compte dédié)."
           docs={DOCS_SECRETAIRE}
           onErreur={setErreur}
         />

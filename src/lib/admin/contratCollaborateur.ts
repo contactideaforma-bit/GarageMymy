@@ -2,7 +2,7 @@
 //  CONTRATS DE COLLABORATION (v10.6) — modèles préremplis depuis la
 //  fiche du collaborateur, MODIFIABLES avant signature :
 //    · commercial  → contrat d'apporteur d'affaires (pack v1.3) ;
-//    · secrétaire  → contrat de prestation de services (pack).
+//    · chargé de mission  → contrat de prestation de services (pack).
 //  Le texte reprend mot pour mot les modèles du pack commercial
 //  (docs/pack-commercial) ; les champs [entre crochets] sont remplis
 //  avec la fiche (nom, adresse, SIRET, zone, portefeuille, taux…).
@@ -88,7 +88,7 @@ export function contratApporteurDefaut(c: Collaborateur, p: Parametres): Contenu
       {
         titre: "Article 1 — Objet",
         texte:
-          "IDEAFORMA édite l'application My Easy Auto et propose aux professionnels de la réparation automobile un service de secrétariat à distance (ensemble, « les Services »). L'Apporteur s'engage, de manière indépendante, à rechercher et présenter à IDEAFORMA des garages susceptibles de souscrire aux Services, à les qualifier et à les accompagner jusqu'à la signature du devis. L'Apporteur n'a aucun pouvoir de conclure un contrat, de consentir une remise ou d'encaisser un paiement au nom d'IDEAFORMA.",
+          "IDEAFORMA édite l'application My Easy Auto et propose aux professionnels de la réparation automobile un service de déblocage de dossiers (Adhésion Service) à distance (ensemble, « les Services »). L'Apporteur s'engage, de manière indépendante, à rechercher et présenter à IDEAFORMA des garages susceptibles de souscrire aux Services, à les qualifier et à les accompagner jusqu'à la signature du devis. L'Apporteur n'a aucun pouvoir de conclure un contrat, de consentir une remise ou d'encaisser un paiement au nom d'IDEAFORMA.",
       },
       {
         titre: "Article 2 — Indépendance",
@@ -137,7 +137,7 @@ Ce retrait ne met pas fin au contrat, qui se poursuit ; il n'emporte aucune sanc
       {
         titre: "Article 8 — Non-concurrence limitée et non-sollicitation",
         texte:
-          "Pendant la durée du contrat et douze (12) mois après sa fin, l'Apporteur s'interdit de proposer aux garages qu'il a rencontrés ou déclarés dans le cadre du présent contrat un logiciel de gestion de sinistres ou un service de secrétariat concurrent des Services, et de solliciter les collaborateurs d'IDEAFORMA. Cette clause est limitée aux prospects et clients identifiés dans le cadre du contrat ; elle n'interdit pas à l'Apporteur d'exercer toute autre activité commerciale.",
+          "Pendant la durée du contrat et douze (12) mois après sa fin, l'Apporteur s'interdit de proposer aux garages qu'il a rencontrés ou déclarés dans le cadre du présent contrat un logiciel de gestion de sinistres ou un service de déblocage de dossiers (Adhésion Service) concurrent des Services, et de solliciter les collaborateurs d'IDEAFORMA. Cette clause est limitée aux prospects et clients identifiés dans le cadre du contrat ; elle n'interdit pas à l'Apporteur d'exercer toute autre activité commerciale.",
       },
       {
         titre: "Article 9 — Confidentialité",
@@ -200,7 +200,7 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
     version: VERSION_CONTRAT_PRESTATION,
     lieu: "Neuilly-sur-Seine",
     date: dateJourIso(),
-    sousTitre: "Contrat de prestation de services — secrétariat externalisé À DISTANCE, gestion de dossiers de sinistres automobiles",
+    sousTitre: "Contrat de prestation de services — Adhésion Service À DISTANCE, gestion de dossiers de sinistres automobiles",
     blocEditeur: blocEditeurDefaut(),
     blocCollaborateur: blocCollaborateurDefaut(c, "entrepreneur individuel indépendant, ci-après « le Prestataire »"),
     intro:
@@ -209,7 +209,7 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
       {
         titre: "Article 1 — Objet du contrat",
         texte: [
-          "Le Donneur d'ordre confie au Prestataire, qui l'accepte, des prestations de SECRÉTARIAT EXTERNALISÉ RÉALISÉES INTÉGRALEMENT À DISTANCE, portant sur la gestion administrative de dossiers de sinistres automobiles, au moyen de la plateforme My Easy Auto éditée par le Donneur d'ordre, au bénéfice des garages de carrosserie clients de ce dernier.",
+          "Le Donneur d'ordre confie au Prestataire, qui l'accepte, des prestations de DÉBLOCAGE DE DOSSIERS (ADHÉSION SERVICE) RÉALISÉES INTÉGRALEMENT À DISTANCE, portant sur la gestion administrative de dossiers de sinistres automobiles, au moyen de la plateforme My Easy Auto éditée par le Donneur d'ordre, au bénéfice des garages de carrosserie clients de ce dernier.",
           "Les prestations sont exécutées depuis le lieu de travail du Prestataire, qu'il choisit librement. AUCUNE présence dans les locaux d'un garage ou du Donneur d'ordre n'est requise, attendue ni organisée. Aucun déplacement n'entre dans le champ du contrat.",
           "Les prestations effectivement confiées sont limitativement énumérées à l'ANNEXE 2 (périmètre convenu). Toute prestation qui n'y figure pas est hors du présent contrat.",
         ].join("\n"),
@@ -255,7 +255,7 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
         titre: "Article 6 — Rémunération",
         texte: [
           `La rémunération du Prestataire résulte d'une NÉGOCIATION entre les parties, actée à l'ANNEXE 1. À la signature, le taux horaire convenu est de ${taux.toLocaleString("fr-FR")} euros hors taxes par heure. Il ne peut être modifié que par avenant signé des deux parties.`,
-          `Le Prestataire est rémunéré, pour chaque garage affecté, sur la base du nombre d'heures du forfait de secrétariat souscrit par ce garage, multiplié par le taux horaire convenu. Le prix de vente pratiqué par le Donneur d'ordre auprès du garage, et les remises qu'il consent, sont sans incidence sur la rémunération du Prestataire.`,
+          `Le Prestataire est rémunéré, pour chaque garage affecté, sur la base du nombre d'heures du forfait d'Adhésion Service souscrit par ce garage, multiplié par le taux horaire convenu. Le prix de vente pratiqué par le Donneur d'ordre auprès du garage, et les remises qu'il consent, sont sans incidence sur la rémunération du Prestataire.`,
           `À titre indicatif à la date de signature, et sous réserve des affectations effectives : ${exemples}.`,
           "⚠️ NATURE DE CETTE SOMME — " + phraseBrutNet(taux, regime),
           `Le Prestataire fait son affaire de sa situation au regard de la TVA. ${SEUILS.tvaFranchise.toLocaleString("fr-FR")} euros de chiffre d'affaires annuel constituent le seuil de la franchise en base : en deçà, la facture est établie sans TVA avec la mention « TVA non applicable, article 293 B du CGI » ; au-delà, la TVA s'ajoute au taux hors taxes convenu.`,
@@ -513,7 +513,7 @@ export function avenantAffectationDefaut(
             titre: "Article 1 — Garage affecté",
             texte: [
               `Le Donneur d'ordre propose au Prestataire, qui l'accepte expressément par sa signature, l'affectation du garage suivant : ${garage}.`,
-              opts?.formule ? `Formule de secrétariat souscrite par ce garage : ${opts.formule}.` : "",
+              opts?.formule ? `Formule de Adhésion Service souscrite par ce garage : ${opts.formule}.` : "",
               heures ? `Volume indicatif : ${heures} h / mois, correspondant au forfait souscrit par ce garage.` : "Volume indicatif : selon le forfait souscrit par ce garage.",
               `Date d'effet : ${dateContratFr(effet)}.`,
             ].filter(Boolean).join("\n"),

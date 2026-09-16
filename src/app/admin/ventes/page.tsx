@@ -242,7 +242,7 @@ function VenteModal({ vente: v, collabs, p, onClose, onChanged }: { vente: Vente
           <div className="text-sm font-semibold text-white">Valider la vente → crée l&apos;abonnement</div>
           <div className="mt-2 grid gap-3 sm:grid-cols-2">
             <ChampAdmin label="Début de l'abonnement (1re mensualité)"><input type="date" className="field-input" value={dateDebut} onChange={(e) => setDateDebut(e.target.value)} /></ChampAdmin>
-            <ChampAdmin label="Secrétaire affectée (formules avec heures)">
+            <ChampAdmin label="Chargé de mission affectée (formules avec heures)">
               <select className="field-input" value={secretaire} onChange={(e) => setSecretaire(e.target.value)}>
                 <option value="">— plus tard —</option>
                 {secretaires.map((s) => <option key={s.id} value={s.id}>{nomCollab(s)}</option>)}

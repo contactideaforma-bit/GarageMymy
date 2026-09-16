@@ -12,7 +12,7 @@ export const FORMULES: Formule[] = ["essentiel", "starter", "confort", "serenite
 export type ParamsFormule = {
   libelle: string;
   prix: number;            // € HT / mois
-  heures: number;          // heures de secrétariat incluses
+  heures: number;          // heures d'Adhésion Service incluses
   primeSignature: number;  // commission commerciale à M2
   primeFidelite: number;   // à M6
   bonusEngagement: number; // si engagement 12 mois
@@ -20,8 +20,8 @@ export type ParamsFormule = {
 
 export type Parametres = {
   formules: Record<Formule, ParamsFormule>;
-  tauxHoraireSecretaire: number; // € HT versés à la secrétaire par heure de forfait (v53 : 17 €, négociable)
-  tauxRetrocession: number;      // ANCIEN modèle (% du CA secrétariat) — conservé pour compatibilité, plus utilisé
+  tauxHoraireSecretaire: number; // € HT versés au chargé de mission par heure de forfait (v53 : 17 €, négociable)
+  tauxRetrocession: number;      // ANCIEN modèle (% du CA Adhésion Service) — conservé pour compatibilité, plus utilisé
   coutTechnique: number;         // € / garage / mois
   coutsFixes: number;            // € / mois (hébergement, outils, assurance…)
   tauxEngagement: number;        // part des devis signés avec engagement 12 mois (simulateur)
@@ -48,9 +48,9 @@ export const PARAMETRES_DEFAUT: Parametres = {
     // mensualité), PLUS de prime de fidélité (primeFidelite = 0, conservé pour
     // compatibilité et pour pouvoir la réactiver dans les paramètres).
     essentiel: { libelle: "ESSENTIEL", prix: 79, heures: 0, primeSignature: 130, primeFidelite: 0, bonusEngagement: 40 },
-    starter: { libelle: "STARTER", prix: 490, heures: 10, primeSignature: 415, primeFidelite: 0, bonusEngagement: 85 },
-    confort: { libelle: "CONFORT", prix: 860, heures: 20, primeSignature: 730, primeFidelite: 0, bonusEngagement: 85 },
-    serenite: { libelle: "SÉRÉNITÉ", prix: 1570, heures: 40, primeSignature: 1335, primeFidelite: 0, bonusEngagement: 85 },
+    starter: { libelle: "ADHÉSION SERVICE PLUS", prix: 490, heures: 10, primeSignature: 415, primeFidelite: 0, bonusEngagement: 85 },
+    confort: { libelle: "ADHÉSION SERVICE PREMIUM", prix: 860, heures: 20, primeSignature: 730, primeFidelite: 0, bonusEngagement: 85 },
+    serenite: { libelle: "ADHÉSION SERVICE ULTIMATE", prix: 1570, heures: 40, primeSignature: 1335, primeFidelite: 0, bonusEngagement: 85 },
   },
   tauxHoraireSecretaire: 17,
   tauxRetrocession: 0.65,
@@ -76,7 +76,8 @@ export const PARAMETRES_DEFAUT: Parametres = {
 export function fusionnerParametres(p?: Partial<Parametres> | null): Parametres {
   if (!p) return PARAMETRES_DEFAUT;
   const formules = { ...PARAMETRES_DEFAUT.formules } as Record<Formule, ParamsFormule>;
-  for (const f of FORMULES) formules[f] = { ...PARAMETRES_DEFAUT.formules[f], ...(p.formules?.[f] || {}) };
+  // Le libellé commercial vient toujours du code (repositionnement « Adhésion Service », sept. 2026) : une grille enregistrée avant ce changement ne doit pas réafficher les anciens noms.
+  for (const f of FORMULES) formules[f] = { ...PARAMETRES_DEFAUT.formules[f], ...(p.formules?.[f] || {}), libelle: PARAMETRES_DEFAUT.formules[f].libelle };
   return {
     ...PARAMETRES_DEFAUT,
     ...p,
@@ -210,22 +211,22 @@ export function primeVente(
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
-/** CA secrétariat d'une formule = prix − prix de l'appli seule. */
+/** CA Adhésion Service d'une formule = prix − prix de l'appli seule. */
 export function caSecretariat(prix: number, p: Parametres): number {
   return Math.max(0, prix - p.formules.essentiel.prix);
 }
 
 /**
- * Rémunération mensuelle de la secrétaire pour une mensualité payée :
- * HEURES du forfait × TAUX HORAIRE (celui de la secrétaire, sinon le taux
+ * Rémunération mensuelle du chargé de mission pour une mensualité payée :
+ * HEURES du forfait × TAUX HORAIRE (celui du chargé de mission, sinon le taux
  * par défaut des paramètres). Indépendant du prix vendu : une remise
- * commerciale ne pèse pas sur la secrétaire.
+ * commerciale ne pèse pas sur le chargé de mission.
  */
 export function retrocessionMensuelle(heures: number, tauxHoraire: number | null | undefined, p: Parametres): number {
   return r2(Math.max(0, heures) * (tauxHoraire ?? p.tauxHoraireSecretaire));
 }
 
-/** Rémunération mensuelle de la secrétaire pour une formule de la grille. */
+/** Rémunération mensuelle du chargé de mission pour une formule de la grille. */
 export function retrocessionFormule(f: Formule, p: Parametres, tauxHoraire?: number | null): number {
   return retrocessionMensuelle(p.formules[f].heures, tauxHoraire, p);
 }
@@ -325,9 +326,9 @@ export type LigneDue = {
  *  · commercial : prime de signature à la 2e mensualité payée, bonus
  *    engagement avec elle, fidélité à la 6e, reprise si résiliation avant
  *    la 3e mensualité payée ;
- *  · secrétaire : rémunération pour chaque mensualité payée d'une formule
+ *  · chargé de mission : rémunération pour chaque mensualité payée d'une formule
  *    avec heures = heures × taux horaire (17 € par défaut, ou le taux
- *    propre à la secrétaire) — indépendante du prix vendu.
+ *    propre au chargé de mission) — indépendante du prix vendu.
  *  REMISE : si le commercial a vendu moins cher que la grille, ses primes
  *  (signature, fidélité) suivent la même proportion — le plancher de la
  *  formule ESSENTIEL est conservé. Le bonus engagement est fixe.

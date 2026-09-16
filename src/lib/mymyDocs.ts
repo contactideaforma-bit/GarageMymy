@@ -8,7 +8,7 @@
 //      conditions (CGU, CGV, RGPD, tarifs publics, aide, réglementation) ;
 //    · un compte COMMERCIAL y ajoute son contrat d'apporteur et les
 //      documents commerciaux ;
-//    · rien d'INTERNE (marges, coûts, taux versés aux secrétaires,
+//    · rien d'INTERNE (marges, coûts, taux versés aux chargés de mission,
 //      stratégie tarifaire, contrats des autres collaborateurs, audits)
 //      n'entre dans cette base — même pour l'éditeur, ces sujets se
 //      consultent dans l'espace admin, pas via le chatbot.
@@ -54,7 +54,7 @@ function ficheTarifs(p: Parametres): FicheDoc {
   const lignes = FORMULES.map((f: Formule) => {
     const pf = p.formules[f];
     const t = tarifFormule(f, p);
-    const heures = pf.heures > 0 ? `${pf.heures} h de secrétariat par mois` : "application seule";
+    const heures = pf.heures > 0 ? `${pf.heures} h de déblocage de dossiers par mois` : "application seule";
     return `· ${pf.libelle} — ${heures} : ${eur(pf.prix)} par mois sans engagement ; ${eur(t.mensuelEngage)} par mois avec engagement de 12 mois ; ${eur(t.annuelUnique)} pour l'année payée en une fois.`;
   }).join("\n");
   return {
@@ -66,7 +66,7 @@ function ficheTarifs(p: Parametres): FicheDoc {
 ${lignes}
 
 Mise en service (paramétrage du compte, reprise des dossiers en cours, formation à distance) : ${eur(p.miseEnService)}, OFFERTE avec un engagement de 12 mois ou l'année payée en une fois.
-Heure de secrétariat au-delà du forfait : ${eur(p.heureHorsForfait)}.
+Heure de Adhésion Service au-delà du forfait : ${eur(p.heureHorsForfait)}.
 Heures non consommées : reportables à hauteur de 50 % sur le mois suivant seulement.
 Utilisateurs, dossiers, documents et stockage : illimités. Pas de jetons, pas d'option payante cachée.
 Changement de formule : montée en gamme à tout moment ; descente en gamme avec préavis d'un mois sans engagement, ou au terme (ou après 6 mensualités réglées) si engagé. Un avenant est signé dans tous les cas.`,
@@ -76,20 +76,20 @@ Changement de formule : montée en gamme à tout moment ; descente en gamme avec
 function ficheSecretariat(): FicheDoc {
   return {
     cle: "secretariat",
-    titre: "Comment fonctionne le service de secrétariat",
+    titre: "Comment fonctionne l'Adhésion Service (déblocage des dossiers)",
     portee: "public",
-    motsCles: ["secretaire", "secrétaire", "secretariat", "secrétariat", "heures", "forfait", "deleguer", "déléguer", "taches", "tâches", "supplementaires", "supplémentaires", "changer", "absence"],
-    contenu: `Le secrétariat est assuré À DISTANCE par des collaboratrices indépendantes, spécialisées dans les dossiers de sinistres. Ce sont des PRESTATAIRES INDÉPENDANTES, pas des salariées de l'éditeur, et pas des salariées du garage.
+    motsCles: ["adhesion", "adhésion", "service plus", "premium", "ultimate", "litige", "impayé", "impaye", "bloqué", "bloque", "chargé de mission", "secretaire", "chargé de mission", "secretariat", "Adhésion Service", "heures", "forfait", "deleguer", "déléguer", "taches", "tâches", "supplementaires", "supplémentaires", "changer", "absence"],
+    contenu: `L'Adhésion Service (Plus, Premium ou Ultimate : 10, 20 ou 40 h par mois) est un RENFORT pour les dossiers compliqués, les litiges et les impayés. Il est assuré À DISTANCE par des chargés de mission indépendants, spécialisés dans la gestion des litiges sur dossiers de sinistres. Ce sont des PRESTATAIRES INDÉPENDANTS, pas des salariés de l'éditeur, et pas des salariés du garage.
 
-Ce qu'elles font, selon le périmètre convenu : création et suivi des dossiers à partir du rapport d'expertise, contrôle du chiffrage, devis et factures, envoi en signature, relances des experts, des assurances et des clients, suivi des encaissements, prise de rendez-vous, tri de la boîte mail du garage, commandes de pièces, planning.
+Ce qu'ils font, selon le périmètre convenu : reprise des dossiers qui traînent depuis des mois, appels aux assurances, aux experts et aux clients jusqu'au déblocage, suivi des litiges et des impayés, relances jusqu'à l'encaissement, et, si le garage le souhaite, création et suivi des dossiers à partir du rapport d'expertise, contrôle du chiffrage, devis et factures, envoi en signature.
 
-Ce qui n'est JAMAIS confié, et qu'elles peuvent refuser sans que ce soit une faute : la comptabilité, le bilan, les déclarations fiscales ou de TVA, la paie et la gestion du personnel, toute signature ou engagement juridique au nom du garage, la négociation d'une responsabilité avec un assureur, le maniement de fonds ou d'espèces, le démarchage commercial, et toute tâche sans lien avec la plateforme ou le métier de la carrosserie.
+Ce qui n'est JAMAIS confié, et qu'ils peuvent refuser sans que ce soit une faute : la comptabilité, le bilan, les déclarations fiscales ou de TVA, la paie et la gestion du personnel, toute signature ou engagement juridique au nom du garage, la négociation d'une responsabilité avec un assureur, le maniement de fonds ou d'espèces, le démarchage commercial, et toute tâche sans lien avec la plateforme ou le métier de la carrosserie.
 
 Délai de traitement des demandes courantes : un jour ouvré.
 
-HEURES AU-DELÀ DU FORFAIT : la demande se fait AUPRÈS DE L'ÉDITEUR (jamais directement auprès de la collaboratrice), qui la lui soumet ; elle est libre d'accepter ou de refuser. L'accord est confirmé PAR ÉCRIT avant l'exécution. Aucune heure hors forfait exécutée sans cet accord écrit n'est facturable.
+HEURES AU-DELÀ DU FORFAIT : la demande se fait AUPRÈS DE L'ÉDITEUR (jamais directement auprès du chargé de mission), qui la lui soumet ; il est libre d'accepter ou de refuser. L'accord est confirmé PAR ÉCRIT avant l'exécution. Aucune heure hors forfait exécutée sans cet accord écrit n'est facturable.
 
-CHANGER DE COLLABORATRICE : le garage peut en faire la demande à l'éditeur, pour n'importe quel motif, même de simple convenance. L'éditeur organise le changement avec un préavis de 15 jours ; cela n'implique aucune faute de la collaboratrice.
+CHANGER DE CHARGÉ DE MISSION : le garage peut en faire la demande à l'éditeur, pour n'importe quel motif, même de simple convenance. L'éditeur organise le changement avec un préavis de 15 jours ; cela n'implique aucune faute du chargé de mission.
 
 Le temps passé et son objet sont enregistrés dans l'application : le garage voit à quoi part son forfait.`,
   };

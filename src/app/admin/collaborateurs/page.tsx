@@ -1,6 +1,6 @@
 "use client";
 
-// COLLABORATEURS (v53 → v10.6) : commerciaux et secrétaires — fiches,
+// COLLABORATEURS (v53 → v10.6) : commerciaux et chargés de mission — fiches,
 // garages rattachés, solde dû / payé, demandes ouvertes. Chaque carte
 // OUVRE LA FICHE (/admin/collaborateurs/[id]) : compte commercial,
 // contrat de collaboration à signer, documents d'information.
@@ -68,7 +68,7 @@ export default function CollaborateursPage() {
     <AdminShell titre="Collaborateurs" actions={<button className="btn-primary" onClick={() => setForm({ ...VIDE })}>+ Collaborateur</button>}>
       {erreur && <p className="badge badge-danger">{erreur}</p>}
       <div className="segment">
-        {([["tous", "Tous"], ["commercial", "Commerciaux"], ["secretaire", "Secrétaires"]] as const).map(([v, l]) => (
+        {([["tous", "Tous"], ["commercial", "Commerciaux"], ["secretaire", "Chargés de mission"]] as const).map(([v, l]) => (
           <button key={v} className={`segment-btn ${filtre === v ? "actif" : ""}`} onClick={() => setFiltre(v)}>{l}</button>
         ))}
       </div>
@@ -86,7 +86,7 @@ export default function CollaborateursPage() {
                     {nomCollab(c)}
                   </Link>
                   <div className="mt-1 flex flex-wrap gap-1.5">
-                    <span className={`badge ${c.type === "commercial" ? "badge-info" : "badge-ok"}`}>{c.type === "commercial" ? "Commercial" : "Secrétaire"}</span>
+                    <span className={`badge ${c.type === "commercial" ? "badge-info" : "badge-ok"}`}>{c.type === "commercial" ? "Commercial" : "Chargé de mission"}</span>
                     <span className={`badge ${c.statut === "actif" ? "badge-ok" : c.statut === "pause" ? "badge-warn" : "badge-neutral"}`}>{c.statut === "actif" ? "Actif" : c.statut === "pause" ? "En pause" : "Terminé"}</span>
                     {s.demandes > 0 && <span className="badge badge-warn">{s.demandes} demande{s.demandes > 1 ? "s" : ""}</span>}
                   </div>

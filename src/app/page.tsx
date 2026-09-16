@@ -322,7 +322,7 @@ export default function DashboardPage() {
       {/* BLOC « À FAIRE » (v10.7) — PLUS de tâches automatiques (parasites
           sur le terrain : rien ne part sans le feu vert du chef d'atelier).
           Une seule liste : les tâches écrites ou programmées depuis les
-          suggestions de la fiche dossier, filtrables garage / secrétaire,
+          suggestions de la fiche dossier, filtrables garage / chargé de mission,
           synchronisées avec l'onglet Conversation. */}
       <BlocAFaire dossiers={dossiers} loading={loading} />
 

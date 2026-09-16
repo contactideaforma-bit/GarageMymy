@@ -400,7 +400,7 @@ export default function VentePage() {
                 </div>
               ))}
               {/* Accord de traitement des données (v11.8) — c'est LUI qui porte
-                  l'autorisation d'intervention des secrétaires indépendantes.
+                  l'autorisation d'intervention des chargés de mission indépendants.
                   Sans elle, chaque dossier traité était une sous-traitance non
                   autorisée (art. 28.2 RGPD) — audit du 31/08/2026, §2. */}
               <div className="mt-5 font-semibold text-slate-800">Accord de traitement des données (annexe RGPD)</div>

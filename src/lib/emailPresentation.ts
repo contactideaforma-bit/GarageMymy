@@ -189,7 +189,7 @@ const POINTS: { icone: string; texte: string }[] = [
   { icone: "📄", texte: "<b>Le rapport d'expertise est lu pour vous</b> : déposez le PDF, le chiffrage se remplit." },
   { icone: "🧾", texte: "<b>Devis, facture et cession en un clic</b>, conformes au rapport et à la facturation électronique." },
   { icone: "📊", texte: "<b>Tous vos dossiers au même endroit</b>, avec les relances assurances et experts qui partent seules." },
-  { icone: "🎧", texte: "<b>Une secrétaire dédiée, à distance, si vous le souhaitez</b> : 10, 20 ou 40 h par mois, vous restez à l'atelier." },
+  { icone: "🎧", texte: "<b>Les dossiers compliqués débloqués pour vous, si vous le souhaitez</b> : litiges, impayés, dossiers qui traînent — des chargés de mission spécialisés appellent assurances, experts et clients. 10, 20 ou 40 h par mois." },
 ];
 
 export function emailPresentationHtml(b: PresentationInput): string {
@@ -204,7 +204,7 @@ export function emailPresentationHtml(b: PresentationInput): string {
     const star = t.formule === b.formuleSuggeree;
     const fond = star ? ROSE_PALE : "transparent";
     return `<tr>
-      <td style="padding:7px 10px;border-top:1px solid ${BORDURE};background:${fond};font-family:${POLICE};font-size:13px;color:${TEXTE}"><b>${esc(t.libelle)}</b> <span style="color:${TEXTE_DOUX}">— ${t.heures > 0 ? `appli + ${t.heures} h de secrétariat / mois` : "application seule"}</span>${star ? ` <span style="display:inline-block;background:${FUCHSIA};color:#fff;font-size:10px;font-weight:bold;letter-spacing:1px;border-radius:999px;padding:1px 7px;margin-left:4px;vertical-align:middle">CONSEILLÉE</span>` : ""}</td>
+      <td style="padding:7px 10px;border-top:1px solid ${BORDURE};background:${fond};font-family:${POLICE};font-size:13px;color:${TEXTE}"><b>${esc(t.libelle)}</b> <span style="color:${TEXTE_DOUX}">— ${t.heures > 0 ? `appli + ${t.heures} h de déblocage de dossiers / mois` : "application seule"}</span>${star ? ` <span style="display:inline-block;background:${FUCHSIA};color:#fff;font-size:10px;font-weight:bold;letter-spacing:1px;border-radius:999px;padding:1px 7px;margin-left:4px;vertical-align:middle">CONSEILLÉE</span>` : ""}</td>
       <td align="right" style="padding:7px 10px;border-top:1px solid ${BORDURE};background:${fond};font-family:${POLICE};font-size:13px;color:${VIOLET};font-weight:bold;white-space:nowrap">dès ${eur(t.mensuelEngage)} HT / mois</td>
     </tr>`;
   };
@@ -227,7 +227,7 @@ export function emailPresentationHtml(b: PresentationInput): string {
   `)}
   ${signature(b.expediteur)}
   ${pied()}`;
-  return page(sujetPresentation(b.garageNom), "Le rapport d'expertise lu pour vous, devis et factures en un clic, une secrétaire dédiée si vous le souhaitez.", contenu);
+  return page(sujetPresentation(b.garageNom), "Le rapport d'expertise lu pour vous, devis et factures en un clic, vos dossiers bloqués débloqués si vous le souhaitez.", contenu);
 }
 
 export function emailPresentationTexte(b: PresentationInput): string {
@@ -244,7 +244,7 @@ export function emailPresentationTexte(b: PresentationInput): string {
     `Vidéo de présentation (1 min 30) : ${SOCIETE.site}/#video`,
     "",
     "LES FORMULES (engagé 12 mois, € HT / mois)",
-    ...b.tarifs.map((t) => `- ${t.libelle}${t.heures ? ` (appli + ${t.heures} h de secrétariat)` : " (application seule)"} : dès ${eur(t.mensuelEngage)}${t.formule === b.formuleSuggeree ? "  ← conseillée" : ""}`),
+    ...b.tarifs.map((t) => `- ${t.libelle}${t.heures ? ` (appli + ${t.heures} h de déblocage de dossiers)` : " (application seule)"} : dès ${eur(t.mensuelEngage)}${t.formule === b.formuleSuggeree ? "  ← conseillée" : ""}`),
     "",
     `POUR FIXER UN RENDEZ-VOUS : appelez-moi${e.tel ? ` au ${e.tel}` : " (répondez à cet email)"}.`,
     "",
@@ -295,7 +295,7 @@ export function emailConfirmationRdvHtml(b: ConfirmationRdvInput): string {
     <div style="font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:${FUCHSIA};margin:16px 0 4px">Ce que nous verrons ensemble</div>
     <table role="presentation" cellpadding="0" cellspacing="0">
       ${etape(1, "L'application en direct sur un vrai dossier : dépôt du rapport d'expertise, chiffrage, devis, facture.")}
-      ${etape(2, "Le suivi des dossiers, les relances et, si cela vous intéresse, le secrétariat à distance.")}
+      ${etape(2, "Le suivi des dossiers, les relances et, si cela vous intéresse, l'Adhésion Service pour débloquer les dossiers compliqués.")}
       ${etape(3, "La formule adaptée à votre atelier et les prochaines étapes, sans engagement de votre part.")}
     </table>
     <div style="font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:${FUCHSIA};margin:14px 0 4px">Pour en profiter au maximum</div>
@@ -322,7 +322,7 @@ export function emailConfirmationRdvTexte(b: ConfirmationRdvInput): string {
     `Où : ${ou}`,
     `Avec : ${e.nom}${e.tel ? ` · ${e.tel}` : ""}`,
     "",
-    "Ce que nous verrons : l'application sur un vrai dossier (rapport d'expertise → chiffrage → devis → facture), le suivi et les relances, le secrétariat à distance si cela vous intéresse, la formule adaptée à votre atelier.",
+    "Ce que nous verrons : l'application sur un vrai dossier (rapport d'expertise → chiffrage → devis → facture), le suivi et les relances, l'Adhésion Service (déblocage des litiges et impayés) si cela vous intéresse, la formule adaptée à votre atelier.",
     "Si vous avez un rapport d'expertise récent sous la main, nous ferons la démonstration dessus.",
     "",
     `Vidéo de présentation (1 min 30) : ${SOCIETE.site}/#video`,

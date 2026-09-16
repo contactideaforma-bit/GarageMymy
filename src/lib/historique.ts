@@ -118,7 +118,7 @@ export async function chargerHistorique(): Promise<{ actions: ActionHistorique[]
   for (const t of ardoise) {
     actions.push({
       id: `tac-${t.id}`, quand: s(t.created_at), famille: "tache",
-      titre: `Tâche ajoutée${t.pour ? ` pour ${t.pour === "garage" ? "le garage" : "la secrétaire"}` : ""}`,
+      titre: `Tâche ajoutée${t.pour ? ` pour ${t.pour === "garage" ? "le garage" : "le chargé de mission"}` : ""}`,
       detail: s(t.texte) || null, dossier_id: s(t.dossier_id) || null, auteur: s(t.auteur) || null,
     });
     if (t.fait && t.fait_le && s(t.fait_le) >= depuis) {
@@ -209,7 +209,7 @@ const LABELS_TABLE: Record<string, string> = {
   cessions_creance: "Cession de créance",
   restitutions: "PV de restitution",
   demandes_assurance: "Demande assurance",
-  heures_secretariat: "Heures de secrétariat",
+  heures_secretariat: "Heures d'Adhésion Service",
   clients: "Client",
   vehicules: "Véhicule",
   conversation_messages: "Message de conversation",

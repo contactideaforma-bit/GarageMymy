@@ -51,7 +51,7 @@ export const REGIMES: Record<CleRegime, Regime> = {
     cfp: 0.1,
     versementLiberatoire: 1.7,
     abattement: 50,
-    aide: "Cas le plus fréquent pour du secrétariat facturé à une société (code APE 8211Z, services administratifs de bureau).",
+    aide: "Cas le plus fréquent pour de l'Adhésion Service facturé à une société (code APE 8211Z, services administratifs de bureau).",
   },
   bnc: {
     cle: "bnc",
@@ -69,7 +69,7 @@ export const REGIMES: Record<CleRegime, Regime> = {
     cfp: 0.2,
     versementLiberatoire: 2.2,
     abattement: 34,
-    aide: "Uniquement pour les professions listées relevant de la Cipav — rare pour du secrétariat.",
+    aide: "Uniquement pour les professions listées relevant de la Cipav — rare pour de l'Adhésion Service.",
   },
 };
 

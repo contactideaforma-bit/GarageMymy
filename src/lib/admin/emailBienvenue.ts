@@ -77,7 +77,7 @@ export function emailBienvenueHtml(b: BienvenueInput): string {
     <p style="color:${TEXTE};font-size:14px;line-height:1.6;margin:0 0 12px">${bonjour}</p>
     <p style="color:${TEXTE};font-size:14px;line-height:1.6;margin:0 0 18px">
       Le compte de <b>${esc(b.garageNom)}</b> vient d'être créé sur ${esc(SOCIETE.produit)},
-      votre plateforme de gestion des dossiers de sinistres${b.formule ? ` (formule <b>${esc(b.formule)}</b>${b.heures ? `, ${b.heures} h de secrétariat par mois` : ""})` : ""}.
+      votre plateforme de gestion des dossiers de sinistres${b.formule ? ` (formule <b>${esc(b.formule)}</b>${b.heures ? `, ${b.heures} h de déblocage de dossiers par mois` : ""})` : ""}.
     </p>
 
     <!-- identifiants : encadré violet pâle, barre de couleur à gauche (charte PDF) -->
@@ -120,7 +120,7 @@ export function emailBienvenueHtml(b: BienvenueInput): string {
       ${etape(2, "Complétez votre fiche entreprise (logo, RIB, SIRET) : elle alimente vos devis et factures.")}
       ${etape(3, "Créez votre premier dossier de sinistre — ou déposez le rapport d'expertise, l'analyse remplit le chiffrage.")}
       ${etape(4, "Sur mobile, ajoutez l'application à l'écran d'accueil pour recevoir les notifications.")}
-      ${b.secretaireNom ? etape(5, `Votre secrétaire dédiée, <b>${esc(b.secretaireNom)}</b>, vous contacte pour la mise en service.`) : ""}
+      ${b.secretaireNom ? etape(5, `Votre chargé de mission dédié, <b>${esc(b.secretaireNom)}</b>, vous contacte pour la mise en service.`) : ""}
     </table>
 
     <p style="color:${TEXTE_DOUX};font-size:13px;line-height:1.6;margin:18px 0 0">
@@ -157,7 +157,7 @@ export function emailBienvenueTexte(b: BienvenueInput): string {
     `Découvrez l'application en 1 min 30 (vidéo) : ${SOCIETE.site}/#video`,
     "",
     "Premiers pas : 1) changer le mot de passe, 2) compléter la fiche entreprise (logo, RIB), 3) créer un premier dossier ou déposer un rapport d'expertise, 4) sur mobile, ajouter l'application à l'écran d'accueil.",
-    ...(b.secretaireNom ? [`Votre secrétaire dédiée, ${b.secretaireNom}, vous contacte pour la mise en service.`] : []),
+    ...(b.secretaireNom ? [`Votre chargé de mission dédié, ${b.secretaireNom}, vous contacte pour la mise en service.`] : []),
     "",
     `Une question ? ${SOCIETE.email}${b.commercialNom ? ` — votre interlocuteur commercial : ${b.commercialNom}` : ""}`,
     `${SOCIETE.editeur} — ${ADRESSE_COMPLETE}`,

@@ -2,7 +2,7 @@
 //  ACCORD DE TRAITEMENT DES DONNÉES — annexe RGPD (v11.8)
 //
 //  Pourquoi ce fichier : l'audit du 31/08/2026 a relevé que
-//  (a) la sous-traitance vers les secrétaires indépendantes n'était
+//  (a) la sous-traitance vers les chargés de mission indépendants n'était
 //      autorisée par personne — violation de l'article 28.2 du RGPD ;
 //  (b) deux documents commerciaux promettaient au garage « l'accord de
 //      traitement des données », qui n'existait pas.
@@ -24,7 +24,7 @@ export const VERSION_DPA = "v1.0 — août 2026";
 
 /** Texte de la case à cocher, signée par le garage à la vente. */
 export const AUTORISATION_SOUS_TRAITANCE =
-  "J'ai reçu l'accord de traitement des données et j'AUTORISE IDEA FORMA à faire intervenir sur mon compte des collaborateurs indépendants externes — secrétaires prestataires, non salariées d'IDEA FORMA — tenus des mêmes obligations de confidentialité et de protection des données. Je sais que je peux demander à tout moment l'identité du collaborateur affecté à mon compte et m'opposer, pour un motif légitime, à une intervention.";
+  "J'ai reçu l'accord de traitement des données et j'AUTORISE IDEA FORMA à faire intervenir sur mon compte des collaborateurs indépendants externes — chargés de mission prestataires, non salariés d'IDEA FORMA — tenus des mêmes obligations de confidentialité et de protection des données. Je sais que je peux demander à tout moment l'identité du collaborateur affecté à mon compte et m'opposer, pour un motif légitime, à une intervention.";
 
 export type LigneDpa = { titre: string; texte: string };
 
@@ -51,7 +51,7 @@ Personnes concernées : les clients du Garage, ses interlocuteurs chez les assur
       titre: "4. Qui intervient — sous-traitants ultérieurs autorisés",
       texte: `Le Garage autorise expressément, par autorisation générale écrite (article 28.2 du RGPD), l'intervention des catégories suivantes :
 · HÉBERGEUR ET PRESTATAIRES TECHNIQUES situés dans l'Union européenne (hébergement applicatif, base de données, stockage des documents, envoi des emails).
-· COLLABORATEURS INDÉPENDANTS EXTERNES : secrétaires spécialisées dans les dossiers de sinistres, PRESTATAIRES INDÉPENDANTES ET NON SALARIÉES d'${ed}, intervenant À DISTANCE depuis leurs propres moyens, uniquement lorsque le Garage a souscrit une formule incluant du secrétariat.
+· COLLABORATEURS INDÉPENDANTS EXTERNES : chargés de mission spécialisés dans les dossiers de sinistres, PRESTATAIRES INDÉPENDANTS ET NON SALARIÉS d'${ed}, intervenant À DISTANCE depuis leurs propres moyens, uniquement lorsque le Garage a souscrit une formule incluant de l'Adhésion Service.
 · PRESTATAIRE D'ANALYSE AUTOMATISÉE des documents (lecture des rapports d'expertise et des cartes grises), aux seules fins d'aide à la saisie.
 Chacun est lié par un contrat imposant les mêmes obligations que le présent accord. ${ed} demeure PLEINEMENT RESPONSABLE envers le Garage de leur exécution. La liste nominative et l'identité du collaborateur affecté au compte sont communiquées sur simple demande ; tout changement est notifié et le Garage peut s'y opposer pour un motif légitime, un autre collaborateur lui étant alors proposé.`,
     },

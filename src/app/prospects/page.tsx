@@ -1,7 +1,9 @@
 "use client";
 
-// ESPACE CLIENTS DU COMMERCIAL (v10.2 → v10.5) — liste des garages démarchés
-// + alertes de rappel (clients à recontacter, échus ou sous 7 jours).
+// ESPACE CLIENTS DU COMMERCIAL (v10.2 → v12.9) — liste des garages démarchés
+// + alertes de rappel (clients à recontacter, échus ou sous 7 jours)
+// + pipeline du démarchage (v12.9) : à appeler → contactés → RDV → devis →
+//   signés → clients, refus et leurs motifs, session d'appels.
 // « + Nouveau client » : SIREN / SIRET / nom → l'annuaire officiel des
 // entreprises pré-remplit l'identité ; le reste se complète sur la fiche.
 
@@ -12,7 +14,8 @@ import ModalShell from "@/components/ModalShell";
 import EmailPresentationModal from "@/components/EmailPresentationModal";
 import { rechercherSiren, type ResultatSiren } from "@/components/RechercheSiren";
 import { formatDate, messageErreur } from "@/lib/format";
-import { ORIGINES_PROSPECT, Prospect, ProspectOrigine, ProspectStatut, STATUTS_PROSPECT, chargerProspects, dateDansJours, enregistrerProspect, etatRappel } from "@/lib/prospects";
+import InteractionModal from "@/components/InteractionModal";
+import { ETAPES_PIPELINE, EtapePipeline, MOTIFS_REFUS, ORIGINES_PROSPECT, Prospect, ProspectOrigine, ProspectStatut, RESULTATS_CONTACT, STATUTS_PROSPECT, chargerProspects, dateDansJours, enregistrerProspect, etapeDe, etatRappel, fileAppels, jamaisContacte, statsPipeline } from "@/lib/prospects";
 import { ContexteCommercial, chargerContexteCommercial, nomCommercial } from "@/lib/commercialClient";
 
 export default function ProspectsPage() {
@@ -22,7 +25,8 @@ export default function ProspectsPage() {
   const [liste, setListe] = useState<Prospect[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
-  const [filtre, setFiltre] = useState<"actifs" | ProspectStatut | "tous">("actifs");
+  const [filtre, setFiltre] = useState<"actifs" | "a_appeler" | "a_rappeler" | ProspectStatut | "tous">("actifs");
+  const [contact, setContact] = useState<Prospect | null>(null); // v12.9 — noter un appel depuis la liste
   const [nouveau, setNouveau] = useState(false);
   const [presentation, setPresentation] = useState(false); // v12.8
 
@@ -34,7 +38,10 @@ export default function ProspectsPage() {
   const visibles = useMemo(() => {
     const n = q.trim().toLowerCase();
     return liste.filter((p) => {
-      if (filtre === "actifs" ? p.statut === "perdu" : filtre !== "tous" && p.statut !== filtre) return false;
+      if (filtre === "actifs") { if (p.statut === "perdu") return false; }
+      else if (filtre === "a_appeler") { if (!jamaisContacte(p)) return false; }
+      else if (filtre === "a_rappeler") { if (!p.prochaine_date || p.statut === "perdu") return false; }
+      else if (filtre !== "tous" && p.statut !== filtre) return false;
       if (!n) return true;
       return [p.nom, p.ville, p.contact_nom, p.gerant, p.siren, p.email, p.tel].some((v) => (v || "").toLowerCase().includes(n));
     });
@@ -42,6 +49,8 @@ export default function ProspectsPage() {
 
   const compte = (s: ProspectStatut) => liste.filter((p) => p.statut === s).length;
   const relances = liste.filter((p) => ["echu", "aujourdhui"].includes(etatRappel(p) || ""));
+  const stats = useMemo(() => statsPipeline(liste), [liste]);
+  const file = useMemo(() => fileAppels(liste), [liste]);
   // ALERTES : rappels échus / du jour + ceux qui tombent sous 7 jours.
   const alertes = liste
     .filter((p) => ["echu", "aujourdhui", "bientot"].includes(etatRappel(p) || ""))
@@ -65,18 +74,47 @@ export default function ProspectsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button onClick={() => router.push("/prospects/demarchage")} className="btn-ghost">📞 Session d&apos;appels{file.length ? ` (${file.length})` : ""}</button>
           <button onClick={() => setPresentation(true)} className="btn-ghost">✉️ Email présentation / RDV</button>
           <button onClick={() => setNouveau(true)} className="btn-primary">+ Nouveau client</button>
         </div>
       </div>
       {erreur && <p className="badge badge-danger mb-3">{erreur}</p>}
 
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Prospects & RDV" value={String(compte("prospect") + compte("rdv"))} hint="à travailler" accent="violet" />
-        <StatCard label="Devis envoyés" value={String(compte("devis"))} hint="en attente de réponse" accent="amber" />
-        <StatCard label="Signés / clients" value={String(compte("signe") + compte("client"))} hint="ventes réalisées" accent="teal" />
-        <StatCard label="À relancer" value={String(relances.length)} hint="prochaine action échue" accent="pink" />
+      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="À appeler" value={String(stats.parEtape.a_appeler)} hint="jamais contactés" accent="violet" />
+        <StatCard label="À relancer" value={String(relances.length)} hint="rappel échu ou aujourd'hui" accent="pink" />
+        <StatCard label="RDV pris" value={String(compte("rdv"))} hint={stats.tauxRdv != null ? `${stats.tauxRdv} % des contactés vont en RDV` : "sur les garages contactés"} accent="amber" />
+        <StatCard label="Signés / clients" value={String(compte("signe") + compte("client"))} hint={stats.tauxSignature != null ? `${stats.tauxSignature} % des RDV signent` : "ventes réalisées"} accent="teal" />
       </div>
+
+      {/* PIPELINE (v12.9) : d'un coup d'œil, où en est mon travail. */}
+      {liste.length > 0 && (
+        <div className="glass-card mb-4 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="titre-bloc">Mon pipeline</h2>
+            <span className="text-xs text-white/50">{liste.length} garages · {stats.contactes} contactés</span>
+          </div>
+          <div className="mt-3 flex h-3 w-full overflow-hidden rounded-full bg-white/10">
+            {(Object.keys(ETAPES_PIPELINE) as EtapePipeline[]).map((e) => stats.parEtape[e] > 0 && (
+              <div key={e} className={`${ETAPES_PIPELINE[e].couleur} h-full`} style={{ width: `${(stats.parEtape[e] / liste.length) * 100}%` }} title={`${ETAPES_PIPELINE[e].label} : ${stats.parEtape[e]}`} />
+            ))}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            {(Object.keys(ETAPES_PIPELINE) as EtapePipeline[]).map((e) => (
+              <button key={e} className="flex items-center gap-1.5 text-white/70 hover:text-white" onClick={() => setFiltre(e === "a_appeler" ? "a_appeler" : e === "en_cours" ? "prospect" : e)}>
+                <span className={`inline-block h-2.5 w-2.5 rounded-full ${ETAPES_PIPELINE[e].couleur}`} />
+                {ETAPES_PIPELINE[e].label} <b className="text-white">{stats.parEtape[e]}</b>
+              </button>
+            ))}
+          </div>
+          {stats.motifs.length > 0 && (
+            <p className="mt-3 text-xs text-white/50">
+              Pourquoi ils disent non : {stats.motifs.map((m) => `${MOTIFS_REFUS[m.motif]} (${m.n})`).join(" · ")}
+            </p>
+          )}
+        </div>
+      )}
 
       {alertes.length > 0 && (
         <div className="glass-card mb-4 border border-accent-pink/40 p-4">
@@ -108,9 +146,9 @@ export default function ProspectsPage() {
       <div className="glass-card mb-4 flex flex-wrap items-center gap-2 p-3">
         <input className="field-input field-compact min-w-[12rem] flex-1 sm:max-w-sm" placeholder="Garage, ville, contact, SIREN…" value={q} onChange={(e) => setQ(e.target.value)} />
         <div className="segment flex-wrap">
-          {(["actifs", "prospect", "rdv", "devis", "signe", "client", "perdu", "tous"] as const).map((f) => (
+          {(["actifs", "a_appeler", "a_rappeler", "prospect", "rdv", "devis", "signe", "client", "perdu", "tous"] as const).map((f) => (
             <button key={f} className={`segment-btn ${filtre === f ? "actif" : ""}`} onClick={() => setFiltre(f)}>
-              {f === "actifs" ? "En cours" : f === "tous" ? "Tous" : STATUTS_PROSPECT[f].label}
+              {f === "actifs" ? "En cours" : f === "a_appeler" ? "À appeler" : f === "a_rappeler" ? "À rappeler" : f === "tous" ? "Tous" : STATUTS_PROSPECT[f].label}
             </button>
           ))}
         </div>
@@ -127,8 +165,10 @@ export default function ProspectsPage() {
           {visibles.map((p) => {
             const st = STATUTS_PROSPECT[p.statut];
             const echue = p.prochaine_date && p.prochaine_date <= new Date().toISOString().slice(0, 10);
+            const et = etapeDe(p);
             return (
-              <button key={p.id} onClick={() => router.push(`/prospects/${p.id}`)} className="glass-card block w-full p-3 text-left hover:brightness-110 sm:p-4">
+              <div key={p.id} className="glass-card flex w-full items-stretch gap-2 p-3 hover:brightness-110 sm:p-4">
+              <button onClick={() => router.push(`/prospects/${p.id}`)} className="min-w-0 flex-1 text-left">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -136,9 +176,15 @@ export default function ProspectsPage() {
                       <span className="font-semibold text-white">{p.nom}</span>
                       <span className="text-xs text-white/40">{[p.cp, p.ville].filter(Boolean).join(" ")}</span>
                       {p.origine !== "portefeuille" && <span className="badge badge-neutral">{ORIGINES_PROSPECT[p.origine].label}</span>}
+                      {et === "a_appeler" && <span className="badge badge-info">Jamais appelé</span>}
                     </div>
                     <div className="mt-1 text-xs text-white/60">
                       {[p.contact_nom || p.gerant, p.tel, p.email].filter(Boolean).join(" · ") || "Contact à compléter"}
+                    </div>
+                    <div className="mt-1 text-xs text-white/45">
+                      {p.nb_appels ? `${p.nb_appels} appel${p.nb_appels > 1 ? "s" : ""}` : ""}
+                      {p.dernier_resultat ? `${p.nb_appels ? " · " : ""}dernier : ${RESULTATS_CONTACT[p.dernier_resultat].label}${p.dernier_contact ? ` le ${formatDate(p.dernier_contact)}` : ""}` : ""}
+                      {p.statut === "perdu" && p.motif_refus ? ` · ✕ ${MOTIFS_REFUS[p.motif_refus]}` : ""}
                     </div>
                   </div>
                   <div className="text-right text-xs text-white/50">
@@ -147,6 +193,10 @@ export default function ProspectsPage() {
                   </div>
                 </div>
               </button>
+              {p.statut !== "client" && p.statut !== "signe" && (
+                <button className="btn-ghost btn-compact shrink-0 self-center" title="Noter un appel" onClick={() => setContact(p)}>📞</button>
+              )}
+              </div>
             );
           })}
         </div>
@@ -159,6 +209,9 @@ export default function ProspectsPage() {
           codeApporteur={ctx.collaborateur?.code_apporteur || null}
           onClose={() => setPresentation(false)}
         />
+      )}
+      {contact && (
+        <InteractionModal prospect={contact} onClose={() => setContact(null)} onSaved={(n) => { setContact(null); setListe((l) => l.map((x) => (x.id === n.id ? n : x))); }} />
       )}
       {nouveau && (
         <NouveauClientModal

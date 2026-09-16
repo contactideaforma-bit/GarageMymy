@@ -99,7 +99,7 @@ export const creerCompteGarage = (vente_id: string) => post<ResultatCompteGarage
 export type ResultatCompteCollaborateur = ResultatCompteGarage & { owner_id?: string | null };
 export const creerCompteCollaborateur = (collaborateur_id: string, email?: string) =>
   post<ResultatCompteCollaborateur>({ action: "creer_compte_collaborateur", collaborateur_id, email });
-/** Envoie par email la documentation (pack + contrat PDF en base64) au collaborateur — pensé pour la secrétaire. */
+/** Envoie par email la documentation (pack + contrat PDF en base64) au collaborateur — pensé pour le chargé de mission. */
 export const envoyerDocsCollaborateur = (args: { collaborateur_id: string; cles: string[]; contrat_pdf?: string | null; contrat_nom?: string | null; email?: string }) =>
   post<{ envoyes: number; a: string }>({ action: "envoyer_docs_collaborateur", ...args });
 export const validerVente = (vente_id: string, opts: { date_debut: string; secretaire_id?: string | null; remise_acceptee?: boolean }) =>

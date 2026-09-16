@@ -3,7 +3,7 @@
 // FICHE COLLABORATEUR (v10.6) — /admin/collaborateurs/[id]
 //   · identité + statut (modifiable via le formulaire partagé) ;
 //   · COMPTE : création directe du compte commercial depuis l'email
-//     perso (la secrétaire, elle, utilise le compte du garage de son
+//     perso (le chargé de mission, elle, utilise le compte du garage de son
 //     portefeuille : pas de compte dédié) ;
 //   · CONTRAT DE COLLABORATION : prérempli depuis la fiche (modèles du
 //     pack — apporteur d'affaires / prestation de services), MODIFIABLE
@@ -276,7 +276,7 @@ export default function FicheCollaborateurPage() {
           {/* ------- identité ------- */}
           <div className="glass-card p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`badge ${c.type === "commercial" ? "badge-info" : "badge-ok"}`}>{c.type === "commercial" ? "Commercial (apporteur d'affaires)" : "Secrétaire"}</span>
+              <span className={`badge ${c.type === "commercial" ? "badge-info" : "badge-ok"}`}>{c.type === "commercial" ? "Commercial (apporteur d'affaires)" : "Chargé de mission"}</span>
               <span className={`badge ${c.statut === "actif" ? "badge-ok" : c.statut === "pause" ? "badge-warn" : "badge-neutral"}`}>{c.statut === "actif" ? "Actif" : c.statut === "pause" ? "En pause" : "Terminé"}</span>
               {c.type === "commercial" && c.code_apporteur && <span className="badge badge-neutral">Code <b className="font-mono">{c.code_apporteur}</b></span>}
             </div>
@@ -303,7 +303,7 @@ export default function FicheCollaborateurPage() {
             <h2 className="mb-2 font-semibold text-white">Compte My Easy Auto</h2>
             {c.type === "secretaire" ? (
               <p className="text-sm text-white/60">
-                La secrétaire n&apos;a <b>pas de compte dédié</b> : elle travaille sur le compte du garage de son portefeuille.
+                Le chargé de mission n&apos;a <b>pas de compte dédié</b> : elle travaille sur le compte du garage de son portefeuille.
                 Son contrat et ses documents d&apos;information lui sont <b>envoyés par email</b> (ci-dessous).
               </p>
             ) : c.owner_id ? (
@@ -324,7 +324,7 @@ export default function FicheCollaborateurPage() {
             )}
           </div>
 
-          {/* ------- profil de prestation (secrétaire, v11.3) ------- */}
+          {/* ------- profil de prestation (chargé de mission, v11.3) ------- */}
           {c.type === "secretaire" && (() => {
             const profil = lireProfil(c.profil_prestation);
             const nb = (profil.taches || []).length;
@@ -427,7 +427,7 @@ export default function FicheCollaborateurPage() {
             <p className="mb-3 text-xs text-white/45">
               {c.type === "commercial"
                 ? "Le commercial retrouve aussi tous ces documents dans son espace « Mes documents »."
-                : "La secrétaire n'ayant pas de compte, coche les documents à lui envoyer par email (le contrat signé peut être joint)."}
+                : "Le chargé de mission n'ayant pas de compte, coche les documents à lui envoyer par email (le contrat signé peut être joint)."}
             </p>
             <div className="space-y-1.5">
               {packDocs.map((d) => (

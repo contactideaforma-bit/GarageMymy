@@ -5,7 +5,7 @@
 //
 //  Façon MESSAGERIE INSTANTANÉE : avatars, bulles alignées gauche/droite,
 //  séparateurs de jour, composer d'une ligne avec bouton d'envoi rond.
-//  Le garagiste et sa secrétaire partagent le MÊME compte : la bascule
+//  Le garagiste et son chargé de mission partagent le MÊME compte : la bascule
 //  « Qui écrit ? » est mémorisée PAR APPAREIL.
 //
 //  Colonne Tâches = LA MÊME liste que le bloc « À faire » du tableau de
@@ -59,7 +59,7 @@ function libelleJour(iso: string): string {
   return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 }
 
-/** Avatar rond d'un auteur (🔧 garage / 🗂️ secrétaire). */
+/** Avatar rond d'un auteur (🔧 garage / 🗂️ chargé de mission). */
 function Avatar({ auteur }: { auteur: "garage" | "secretaire" }) {
   return (
     <span
@@ -68,7 +68,7 @@ function Avatar({ auteur }: { auteur: "garage" | "secretaire" }) {
           ? "border-accent-teal/40 bg-accent-teal/15"
           : "border-accent-violet/40 bg-accent-violet/20"
       }`}
-      title={auteur === "secretaire" ? "Secrétaire" : "Garage"}
+      title={auteur === "secretaire" ? "Chargé de mission" : "Garage"}
       aria-hidden
     >
       {auteur === "secretaire" ? "🗂️" : "🔧"}
@@ -283,7 +283,7 @@ export default function ConversationPage() {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="titre-page">Conversation</h1>
-          <p className="text-sm text-white/50">Le fil garage ↔ secrétaire, et la liste de tâches partagée avec « À faire ».</p>
+          <p className="text-sm text-white/50">Le fil garage ↔ chargé de mission, et la liste de tâches partagée avec « À faire ».</p>
         </div>
         {/* QUI ÉCRIT ? — même session pour tout le monde : on ruse avec une
             bascule mémorisée par appareil. */}
@@ -471,7 +471,7 @@ export default function ConversationPage() {
                 onChange={(e) => setTachePour(e.target.value as "" | "garage" | "secretaire")}
                 title="Qui doit s'en occuper ?"
               >
-                <option value="secretaire">→ Secrétaire</option>
+                <option value="secretaire">→ Chargé de mission</option>
                 <option value="garage">→ Garage</option>
                 <option value="">→ Tous</option>
               </select>
@@ -538,7 +538,7 @@ export default function ConversationPage() {
                                 ligne.pour === "secretaire" ? "bg-teal-100 text-teal-700" : "bg-violet-100 text-violet-700"
                               }`}
                             >
-                              {ligne.pour === "secretaire" ? "Secrétaire" : "Garage"}
+                              {ligne.pour === "secretaire" ? "Chargé de mission" : "Garage"}
                             </span>
                           )}
                           {chipDossier(ligne.dossier_id)}
@@ -583,7 +583,7 @@ export default function ConversationPage() {
         </section>
       </div>
 
-      {/* Compteur d'heures de secrétariat (v11.6) — en bas, pleine largeur. */}
+      {/* Compteur d'heures d'Adhésion Service (v11.6) — en bas, pleine largeur. */}
       <div className="mt-4">
         <CompteurHeures dossiers={dossiers} auteur={role} />
       </div>

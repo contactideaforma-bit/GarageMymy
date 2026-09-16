@@ -82,7 +82,7 @@ export const SUGGESTIONS_MYMY = [
   // v12.0 — MY-MY fait aussi office de support : on montre d'emblée qu'on
   // peut l'interroger sur l'abonnement, nos conditions et la réglementation.
   "Que veut dire « sursis à travaux » ?",
-  "Que comprend mon forfait de secrétariat ?",
+  "Que comprend mon forfait d'Adhésion Service ?",
   "Comment résilier mon abonnement ?",
   "Quels sont les délais de paiement entre pros ?",
   "Rappelle-moi d'appeler un client demain",

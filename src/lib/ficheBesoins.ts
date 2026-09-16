@@ -93,7 +93,7 @@ export const SECTIONS_BESOINS: SectionBesoins[] = [
   },
   {
     cle: "taches",
-    titre: "Tâches à déléguer au secrétariat IDEAFORMA",
+    titre: "Dossiers à confier à l'Adhésion Service IDEAFORMA",
     intro: "Cocher les tâches souhaitées — elles définissent le contenu du forfait.",
     questions: [
       { cle: "taches", label: "Tâches souhaitées", type: "multi", options: TACHES_SECRETARIAT },
@@ -117,9 +117,9 @@ export const SECTIONS_BESOINS: SectionBesoins[] = [
     titre: "Synthèse IDEAFORMA (après l'entretien)",
     interne: true,
     questions: [
-      { cle: "formule_recommandee", label: "Formule recommandée", type: "choix", options: ["Essentiel", "Starter", "Confort", "Sérénité"] },
+      { cle: "formule_recommandee", label: "Formule recommandée", type: "choix", options: ["Essentiel", "Adhésion Service Plus", "Adhésion Service Premium", "Adhésion Service Ultimate"] },
       { cle: "volume_retenu", label: "Volume horaire retenu / tâches prioritaires", type: "long" },
-      { cle: "collaborateur_pressenti", label: "Collaborateur pressenti (secrétaire)", type: "texte" },
+      { cle: "collaborateur_pressenti", label: "Chargé(e) de mission pressenti(e)", type: "texte" },
       { cle: "prochaine_etape", label: "Prochaine étape (démo, devis, relance…) et échéance", type: "texte" },
     ],
   },

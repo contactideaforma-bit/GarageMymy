@@ -71,7 +71,7 @@ export default function CollaborateurFormModal({
   return (
     <ModalShell title={form.id ? "Modifier le collaborateur" : "Nouveau collaborateur"} onClose={onClose} maxWidth="max-w-2xl">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <ChampAdmin label="Type"><select className="field-input" value={form.type} onChange={(e) => set("type", e.target.value as Collaborateur["type"])}><option value="commercial">Commercial (apporteur d&apos;affaires)</option><option value="secretaire">Secrétaire</option></select></ChampAdmin>
+        <ChampAdmin label="Type"><select className="field-input" value={form.type} onChange={(e) => set("type", e.target.value as Collaborateur["type"])}><option value="commercial">Commercial (apporteur d&apos;affaires)</option><option value="secretaire">Chargé de mission</option></select></ChampAdmin>
         <ChampAdmin label="Statut"><select className="field-input" value={form.statut} onChange={(e) => set("statut", e.target.value as Collaborateur["statut"])}><option value="actif">Actif</option><option value="pause">En pause</option><option value="termine">Terminé</option></select></ChampAdmin>
         <ChampAdmin label="Nom *"><input className="field-input" value={form.nom || ""} onChange={(e) => set("nom", e.target.value)} /></ChampAdmin>
         <ChampAdmin label="Prénom"><input className="field-input" value={form.prenom || ""} onChange={(e) => set("prenom", e.target.value)} /></ChampAdmin>

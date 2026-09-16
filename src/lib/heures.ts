@@ -1,7 +1,7 @@
 // ====================================================================
 //  COMPTEUR D'HEURES DE SECRÉTARIAT (v11.6)
 //
-//  La secrétaire déclare son temps ET ce qu'elle a fait. Deux usages :
+//  Le chargé de mission déclare son temps ET ce qu'elle a fait. Deux usages :
 //   · le garage voit à quoi part son forfait (fin des « vous avez fait
 //     quoi de mes 20 heures ? ») ;
 //   · l'éditeur a un relevé daté et détaillé, opposable en cas de

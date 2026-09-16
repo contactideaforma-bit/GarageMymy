@@ -223,7 +223,7 @@ export default function LitigePanel({
             onChange={(e) => setPour(e.target.value as "" | "garage" | "secretaire")}
             title="Qui doit s'en occuper ?"
           >
-            <option value="secretaire">Pour la secrétaire</option>
+            <option value="secretaire">Pour le chargé de mission</option>
             <option value="garage">Pour le garage</option>
             <option value="">Pour tout le monde</option>
           </select>
@@ -252,7 +252,7 @@ export default function LitigePanel({
                             ligne.pour === "secretaire" ? "bg-teal-100 text-teal-700" : "bg-violet-100 text-violet-700"
                           }`}
                         >
-                          {ligne.pour === "secretaire" ? "Secrétaire" : "Garage"}
+                          {ligne.pour === "secretaire" ? "Chargé de mission" : "Garage"}
                         </span>
                       )}
                       {ligne.echeance && (

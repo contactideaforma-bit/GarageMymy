@@ -299,7 +299,7 @@ export async function POST(req: Request) {
     const { data: collab } = await admin.from("collaborateurs").select("*").eq("id", body.collaborateur_id || "").maybeSingle();
     if (!collab) return NextResponse.json({ error: "Collaborateur introuvable." }, { status: 404 });
     if (collab.type !== "commercial") {
-      return NextResponse.json({ error: "Seuls les commerciaux ont un compte dédié : la secrétaire utilise le compte du garage de son portefeuille." }, { status: 400 });
+      return NextResponse.json({ error: "Seuls les commerciaux ont un compte dédié : le chargé de mission utilise le compte du garage de son portefeuille." }, { status: 400 });
     }
     if (collab.owner_id) return NextResponse.json({ error: "Un compte est déjà rattaché à cette fiche." }, { status: 409 });
     const email = String(body.email || collab.email || "").trim().toLowerCase();
@@ -371,7 +371,7 @@ export async function POST(req: Request) {
   // ---- ENVOI DE LA DOCUMENTATION PAR EMAIL (v10.6) ----
   // Depuis la fiche collaborateur : documents d'information du pack
   // (liste blanche packDocs) + éventuel contrat de collaboration PDF
-  // généré côté navigateur (base64). Pensé pour la secrétaire (pas de
+  // généré côté navigateur (base64). Pensé pour le chargé de mission (pas de
   // compte dédié), utilisable aussi pour un commercial.
   if (body.action === "envoyer_docs_collaborateur") {
     const { data: collab } = await admin.from("collaborateurs").select("*").eq("id", body.collaborateur_id || "").maybeSingle();

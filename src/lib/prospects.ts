@@ -38,6 +38,13 @@ export type Prospect = {
   prochaine_action: string | null;
   prochaine_date: string | null;
   notes: string | null;
+  // v12.9 — suivi du démarchage (dérivé du journal des contacts)
+  nb_appels?: number;
+  dernier_contact?: string | null;
+  dernier_resultat?: ResultatContact | null;
+  motif_refus?: MotifRefus | null;
+  motif_refus_detail?: string | null;
+  rdv_le?: string | null;
 };
 
 export type ParametresOffre = {
@@ -122,6 +129,164 @@ export function etatRappel(p: Prospect): EtatRappel | null {
   if (p.prochaine_date === auj) return "aujourdhui";
   if (p.prochaine_date <= dateDansJours(7)) return "bientot";
   return "planifie";
+}
+
+/* ------------------------ Démarchage (v12.9) ------------------------ */
+// Le JOURNAL des contacts : chaque appel / SMS / email / visite est noté avec
+// son résultat. La fiche prospect en dérive : nb d'appels, dernier contact,
+// statut, rappel programmé, motif du refus.
+
+export type CanalContact = "appel" | "sms" | "email" | "visite" | "note";
+export type ResultatContact = "pas_repondu" | "messagerie" | "rappeler" | "interesse" | "rdv" | "refus" | "injoignable" | "autre";
+export type MotifRefus = "deja_equipe" | "pas_besoin" | "trop_cher" | "reseau" | "mefiance" | "concurrent" | "ferme" | "autre";
+
+export type ProspectInteraction = {
+  id: string;
+  created_at: string;
+  owner_id: string;
+  prospect_id: string;
+  canal: CanalContact;
+  resultat: ResultatContact;
+  motif_refus: MotifRefus | null;
+  commentaire: string | null;
+  prochaine_date: string | null;
+  rdv_le: string | null;
+};
+
+export const CANAUX_CONTACT: Record<CanalContact, { label: string; icone: string }> = {
+  appel: { label: "Appel", icone: "📞" },
+  sms: { label: "SMS", icone: "💬" },
+  email: { label: "Email", icone: "✉️" },
+  visite: { label: "Visite", icone: "🚗" },
+  note: { label: "Note", icone: "📝" },
+};
+
+/** Résultats possibles d'un contact, avec l'effet automatique sur la fiche. */
+export const RESULTATS_CONTACT: Record<ResultatContact, { label: string; aide: string; badge: string; rappelJours: number | null; action: string | null }> = {
+  pas_repondu: { label: "Pas de réponse", aide: "Rappel automatique dans 2 jours.", badge: "badge badge-neutral", rappelJours: 2, action: "Rappeler (pas de réponse)" },
+  messagerie: { label: "Message laissé", aide: "Rappel automatique dans 3 jours.", badge: "badge badge-neutral", rappelJours: 3, action: "Rappeler (message laissé)" },
+  rappeler: { label: "À rappeler", aide: "Il demande à être rappelé : choisissez la date.", badge: "badge badge-warn", rappelJours: 7, action: "Rappeler à sa demande" },
+  interesse: { label: "Intéressé", aide: "Envoyez la présentation, rappel dans 3 jours pour fixer le RDV.", badge: "badge badge-info", rappelJours: 3, action: "Fixer le RDV (présentation envoyée)" },
+  rdv: { label: "RDV pris", aide: "La fiche passe en « RDV pris ». Notez la date et l'heure.", badge: "badge badge-ok", rappelJours: null, action: null },
+  refus: { label: "Non", aide: "Notez le motif : c'est ce qui fait progresser le discours.", badge: "badge badge-danger", rappelJours: null, action: null },
+  injoignable: { label: "Injoignable", aide: "Numéro faux, garage fermé… la fiche passe en perdu.", badge: "badge badge-danger", rappelJours: null, action: null },
+  autre: { label: "Autre", aide: "Simple note, sans effet sur le statut.", badge: "badge badge-neutral", rappelJours: null, action: null },
+};
+
+export const MOTIFS_REFUS: Record<MotifRefus, string> = {
+  deja_equipe: "Déjà équipé d'un logiciel",
+  pas_besoin: "Pas de besoin / gère lui-même",
+  trop_cher: "Trop cher",
+  reseau: "Réseau intégré / décision au siège",
+  mefiance: "Méfiance / mauvaise expérience passée",
+  concurrent: "Parti chez un concurrent",
+  ferme: "Cesse ou vend l'activité",
+  autre: "Autre motif",
+};
+
+/** Le prospect n'a jamais été contacté. */
+export function jamaisContacte(p: Prospect): boolean {
+  return (p.nb_appels || 0) === 0 && !p.dernier_contact && p.statut === "prospect";
+}
+
+/** Ce que le contact change sur la fiche (statut, rappel, compteurs). */
+export function patchApresInteraction(p: Prospect, i: { canal: CanalContact; resultat: ResultatContact; motif_refus?: MotifRefus | null; commentaire?: string | null; prochaine_date?: string | null; rdv_le?: string | null }): Partial<Prospect> {
+  const r = RESULTATS_CONTACT[i.resultat];
+  const patch: Partial<Prospect> = {
+    nb_appels: (p.nb_appels || 0) + (i.canal === "appel" ? 1 : 0),
+    dernier_contact: new Date().toISOString(),
+    dernier_resultat: i.resultat,
+  };
+  if (i.resultat === "rdv") {
+    Object.assign(patch, { statut: p.statut === "prospect" || p.statut === "perdu" ? "rdv" : p.statut, rdv_le: i.rdv_le || null, prochaine_action: "RDV à l'atelier", prochaine_date: i.rdv_le ? i.rdv_le.slice(0, 10) : p.prochaine_date, motif_refus: null, motif_refus_detail: null });
+  } else if (i.resultat === "refus" || i.resultat === "injoignable") {
+    Object.assign(patch, { statut: "perdu", motif_refus: i.resultat === "injoignable" ? "autre" : i.motif_refus || "autre", motif_refus_detail: i.resultat === "injoignable" ? "Injoignable" : i.commentaire || null, prochaine_action: null, prochaine_date: null });
+  } else if (r.rappelJours != null) {
+    const d = i.prochaine_date || dateDansJours(r.rappelJours);
+    Object.assign(patch, { prochaine_action: i.commentaire ? `${r.action} — ${i.commentaire}` : r.action, prochaine_date: d });
+    if (p.statut === "perdu") patch.statut = "prospect";
+  }
+  return patch;
+}
+
+export async function chargerInteractions(prospectId: string): Promise<ProspectInteraction[]> {
+  const { data, error } = await supabase.from("prospect_interactions").select("*").eq("prospect_id", prospectId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as ProspectInteraction[]) || [];
+}
+
+/** Journal du commercial (tous prospects) sur N jours — pour les statistiques d'activité. */
+export async function chargerInteractionsRecentes(jours = 30): Promise<ProspectInteraction[]> {
+  const depuis = new Date();
+  depuis.setDate(depuis.getDate() - jours);
+  const { data, error } = await supabase.from("prospect_interactions").select("*").gte("created_at", depuis.toISOString()).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as ProspectInteraction[]) || [];
+}
+
+/** Note un contact ET met la fiche à jour (compteurs, statut, rappel). Retourne la fiche à jour. */
+export async function enregistrerInteraction(p: Prospect, i: { canal: CanalContact; resultat: ResultatContact; motif_refus?: MotifRefus | null; commentaire?: string | null; prochaine_date?: string | null; rdv_le?: string | null }): Promise<{ prospect: Prospect; interaction: ProspectInteraction }> {
+  const { data, error } = await supabase
+    .from("prospect_interactions")
+    .insert({ prospect_id: p.id, canal: i.canal, resultat: i.resultat, motif_refus: i.resultat === "refus" ? i.motif_refus || "autre" : null, commentaire: i.commentaire || null, prochaine_date: i.prochaine_date || null, rdv_le: i.rdv_le || null })
+    .select("*")
+    .single();
+  if (error) throw error;
+  const prospect = await enregistrerProspect({ ...p, ...patchApresInteraction(p, i) });
+  return { prospect, interaction: data as ProspectInteraction };
+}
+
+export async function supprimerInteraction(id: string): Promise<void> {
+  const { error } = await supabase.from("prospect_interactions").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/* ---------------- Pipeline : où en est mon travail ? ---------------- */
+
+export type EtapePipeline = "a_appeler" | "en_cours" | "rdv" | "devis" | "signe" | "client" | "perdu";
+export const ETAPES_PIPELINE: Record<EtapePipeline, { label: string; couleur: string }> = {
+  a_appeler: { label: "À appeler", couleur: "bg-white/25" },
+  en_cours: { label: "Contactés", couleur: "bg-accent-violet" },
+  rdv: { label: "RDV", couleur: "bg-sky-400" },
+  devis: { label: "Devis", couleur: "bg-amber-300" },
+  signe: { label: "Signés", couleur: "bg-accent-teal" },
+  client: { label: "Clients", couleur: "bg-emerald-400" },
+  perdu: { label: "Perdus", couleur: "bg-rose-400" },
+};
+
+export function etapeDe(p: Prospect): EtapePipeline {
+  if (p.statut === "prospect") return jamaisContacte(p) ? "a_appeler" : "en_cours";
+  return p.statut;
+}
+
+export type StatsPipeline = { parEtape: Record<EtapePipeline, number>; contactes: number; tauxRdv: number | null; tauxSignature: number | null; motifs: { motif: MotifRefus; n: number }[] };
+
+export function statsPipeline(liste: Prospect[]): StatsPipeline {
+  const parEtape = { a_appeler: 0, en_cours: 0, rdv: 0, devis: 0, signe: 0, client: 0, perdu: 0 } as Record<EtapePipeline, number>;
+  for (const p of liste) parEtape[etapeDe(p)]++;
+  const contactes = liste.length - parEtape.a_appeler;
+  const rdvPlus = parEtape.rdv + parEtape.devis + parEtape.signe + parEtape.client;
+  const signes = parEtape.signe + parEtape.client;
+  const motifsMap = new Map<MotifRefus, number>();
+  for (const p of liste) if (p.statut === "perdu" && p.motif_refus) motifsMap.set(p.motif_refus, (motifsMap.get(p.motif_refus) || 0) + 1);
+  const motifs = Array.from(motifsMap.entries()).map(([motif, n]) => ({ motif, n })).sort((a, b) => b.n - a.n);
+  return { parEtape, contactes, tauxRdv: contactes ? Math.round((rdvPlus / contactes) * 100) : null, tauxSignature: rdvPlus ? Math.round((signes / rdvPlus) * 100) : null, motifs };
+}
+
+/** File d'appels du jour : rappels en retard / du jour, puis jamais contactés, puis rappels à venir. */
+export function fileAppels(liste: Prospect[]): Prospect[] {
+  const poids = (p: Prospect): number => {
+    const e = etatRappel(p);
+    if (e === "echu") return 0;
+    if (e === "aujourdhui") return 1;
+    if (jamaisContacte(p)) return 2;
+    if (e === "bientot") return 3;
+    return 9;
+  };
+  return liste
+    .filter((p) => p.statut === "prospect" || (p.statut === "rdv" && etatRappel(p) === "echu"))
+    .filter((p) => poids(p) < 9)
+    .sort((a, b) => poids(a) - poids(b) || (a.prochaine_date || "9").localeCompare(b.prochaine_date || "9"));
 }
 
 /* ------------------------------ CRUD ------------------------------ */

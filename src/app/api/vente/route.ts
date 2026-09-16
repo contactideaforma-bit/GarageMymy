@@ -125,7 +125,7 @@ export async function POST(req: Request) {
   // v11.7 — les CGU sont désormais un contrat à part entière, accepté à la
   // vente au même titre que les CGV (audit juridique du 31/08/2026, §6.5).
   if (!body.cgu_acceptees) return NextResponse.json({ error: "Le garage doit accepter les conditions d'utilisation." }, { status: 400 });
-  // Sans cette autorisation, faire intervenir une secrétaire indépendante sur
+  // Sans cette autorisation, faire intervenir un chargé de mission indépendante sur
   // le compte constitue une sous-traitance non autorisée (art. 28.2 RGPD).
   if (!body.autorisation_sous_traitance) return NextResponse.json({ error: "Le garage doit autoriser l'intervention d'un collaborateur externe (RGPD)." }, { status: 400 });
   const signature = typeof body.signature === "string" && body.signature.startsWith("data:image/png;base64,") ? body.signature.slice(0, 400_000) : null;

@@ -12,7 +12,7 @@
 //  RÈGLE MÉTIER : toutes les tâches sont liées à la plateforme My Easy
 //  Auto ET au métier de la carrosserie. La liste HORS_PERIMETRE est
 //  aussi importante que le reste : elle protège la collaboratrice ET
-//  l\'éditeur (une secrétaire qui tient la comptabilité d\'un garage ou
+//  l\'éditeur (un chargé de mission qui tient la comptabilité d\'un garage ou
 //  engage sa signature sort du cadre et crée un risque pour tous).
 // ====================================================================
 

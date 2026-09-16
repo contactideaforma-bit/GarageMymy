@@ -2,7 +2,7 @@
 
 // FICHE CLIENT DU COMMERCIAL (v10.2 → v10.4) — identité, questionnaire
 // (fiche d'identification des besoins + demandes particulières, fiche client
-// PDF interne pour la secrétaire), offre,
+// PDF interne pour le chargé de mission), offre,
 // documents (simulation, devis, contrat) signés sur place, vente et
 // paiement. Tout est modifiable à tout moment, rien n'est bloquant.
 
@@ -12,6 +12,7 @@ import ModalShell from "@/components/ModalShell";
 import SignaturePad from "@/components/SignaturePad";
 import EmailComposer from "@/components/EmailComposer";
 import EmailPresentationModal, { TypeEmailProspect } from "@/components/EmailPresentationModal";
+import JournalProspect from "@/components/JournalProspect";
 import { formatDate, formatDateTime, formatEuros, messageErreur } from "@/lib/format";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -26,7 +27,7 @@ import { construireContratPdf, construireDevisPdf, construireFichePdf, construir
 import type { Vente } from "@/lib/admin/client";
 import type { PieceJointeOption } from "@/components/EmailComposer";
 
-type Onglet = "fiche" | "besoins" | "offre" | "vente";
+type Onglet = "suivi" | "fiche" | "besoins" | "offre" | "vente";
 
 export default function ProspectPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,7 +36,7 @@ export default function ProspectPage() {
   const [p, setP] = useState<Prospect | null>(null);
   const [docs, setDocs] = useState<ProspectDocument[]>([]);
   const [ventes, setVentes] = useState<Vente[]>([]);
-  const [onglet, setOnglet] = useState<Onglet>("fiche");
+  const [onglet, setOnglet] = useState<Onglet>("suivi");
   const [msg, setMsg] = useState<string | null>(null);
   const [offre, setOffre] = useState<ParametresOffre>(OFFRE_DEFAUT);
   const [signer, setSigner] = useState<ProspectDocument | null>(null);
@@ -146,10 +147,13 @@ export default function ProspectPage() {
       <RappelProspect p={p} onSave={sauver} />
 
       <div className="segment mb-4 flex-wrap">
-        {([["fiche", "Fiche"], ["besoins", "Questionnaire"], ["offre", "Offre & documents"], ["vente", "Vente & paiement"]] as [Onglet, string][]).map(([k, l]) => (
+        {([["suivi", "Suivi & appels"], ["fiche", "Fiche"], ["besoins", "Questionnaire"], ["offre", "Offre & documents"], ["vente", "Vente & paiement"]] as [Onglet, string][]).map(([k, l]) => (
           <button key={k} className={`segment-btn ${onglet === k ? "actif" : ""}`} onClick={() => setOnglet(k)}>{l}{k === "offre" && docs.length ? ` (${docs.length})` : ""}</button>
         ))}
       </div>
+
+      {/* ---------------- SUIVI DU DÉMARCHAGE (v12.9) ---------------- */}
+      {onglet === "suivi" && <JournalProspect prospect={p} onProspectChange={setP} />}
 
       {/* ---------------- FICHE ---------------- */}
       {onglet === "fiche" && <FicheForm p={p} onSave={sauver} estAdmin={Boolean(ctx?.estAdmin)} zone={ctx?.collaborateur?.zone || null} />}
@@ -529,7 +533,7 @@ function BesoinsForm({ p, onSave, docs, onGenerer, onApercu, onEnvoyer }: {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="titre-bloc">Fiche d&apos;identification des besoins</h2>
-            <p className="text-sm text-white/50">Les questions de l&apos;entretien de découverte (pack commercial). Aucune n&apos;est obligatoire, tout se modifie à tout moment ; les réponses sont jointes au contrat et servent à la fiche client remise à la secrétaire.</p>
+            <p className="text-sm text-white/50">Les questions de l&apos;entretien de découverte (pack commercial). Aucune n&apos;est obligatoire, tout se modifie à tout moment ; les réponses sont jointes au contrat et servent à la fiche client remise au chargé de mission.</p>
           </div>
           <div className="text-right text-xs text-white/50">
             Rempli à <b className="text-white/80">{tauxRemplissage({ ...b, demandes })} %</b>
@@ -580,13 +584,13 @@ function BesoinsForm({ p, onSave, docs, onGenerer, onApercu, onEnvoyer }: {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-semibold text-white">Fiche client (PDF interne)</h3>
-            <p className="text-xs text-white/50">À la charte IDEAFORMA avec le logo. À garder en interne et à transmettre à la secrétaire qui prendra le garage en charge — elle reflète toujours la dernière version du questionnaire.</p>
+            <p className="text-xs text-white/50">À la charte IDEAFORMA avec le logo. À garder en interne et à transmettre au chargé de mission qui prendra le garage en charge — il reflète toujours la dernière version du questionnaire.</p>
             {derniere && <p className="mt-1 text-xs text-white/60">Dernière fiche : {derniere.numero} · {formatDateTime(derniere.created_at)}{derniere.envoye_le ? ` · transmise le ${formatDate(derniere.envoye_le)}` : ""}</p>}
           </div>
           <div className="flex flex-wrap gap-2">
             <button className="btn-ghost" onClick={enregistrer} disabled={sauvegarde}>{sauvegarde ? "Enregistrement…" : "Enregistrer le questionnaire"}</button>
             {derniere && <button className="btn-ghost" onClick={() => onApercu(derniere)}>Voir la fiche</button>}
-            {derniere && <button className="btn-ghost" onClick={() => onEnvoyer(derniere)}>✉️ Transmettre à la secrétaire</button>}
+            {derniere && <button className="btn-ghost" onClick={() => onEnvoyer(derniere)}>✉️ Transmettre au chargé de mission</button>}
             <button className="btn-primary" onClick={genererFiche}>{derniere ? "Régénérer la fiche client" : "Générer la fiche client"}</button>
           </div>
         </div>

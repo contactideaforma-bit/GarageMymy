@@ -274,7 +274,7 @@ export default function HistoriquePage() {
                           </span>
                           {a.auteur && (
                             <span className="inline-flex shrink-0 items-center rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/60">
-                              {a.auteur === "secretaire" ? "🗂️ Secrétaire" : "🔧 Garage"}
+                              {a.auteur === "secretaire" ? "🗂️ Chargé de mission" : "🔧 Garage"}
                             </span>
                           )}
                           <ChipDossier id={a.dossier_id} />

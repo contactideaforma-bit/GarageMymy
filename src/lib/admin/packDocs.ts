@@ -34,16 +34,16 @@ export const DOCS_COMMERCIAL: DocPack[] = [
 /** Documentation remise à la SECRÉTAIRE (envoyée par email : pas de compte dédié). */
 export const DOCS_SECRETAIRE: DocPack[] = [
   { cle: "entretien-secretaire", titre: "Entretien de collaboration (support)", fichier: "ENTRETIEN-COLLABORATION_secretaire.pdf" },
-  // v11.3 — documents propres à la secrétaire (dossier secretaires/).
+  // v11.3 — documents propres au chargé de mission (dossier secretaires/).
   { cle: "charte-perimetre", titre: "Périmètre des missions — ce qui est confié, ce qui ne l'est pas", fichier: "secretaires/CHARTE-PERIMETRE-MISSIONS_secretaire.pdf" },
   { cle: "guide-revenus", titre: "Déclarer mes revenus — guide du collaborateur indépendant", fichier: "secretaires/GUIDE-DECLARATION-REVENUS_collaborateur.pdf" },
-  { cle: "formation-secretaire", titre: "Formation — Secrétaire (support)", fichier: "FORMATION_secretaire.pdf" },
+  { cle: "formation-secretaire", titre: "Formation — Chargé de mission (support)", fichier: "FORMATION_secretaire.pdf" },
   { cle: "guide-collaborateur", titre: "Guide du collaborateur", fichier: "GUIDE-COLLABORATEUR.pdf" },
   { cle: "tuto-email", titre: "Tuto — régler l'envoi d'emails du garage", fichier: "TUTO-EMAIL_profil-garage.pdf" },
   { cle: "procedure-changement", titre: "Procédure interne — changement de formule", fichier: "PROCEDURE-CHANGEMENT-DE-FORMULE_interne.pdf" },
   { cle: "procedure-resiliation", titre: "Procédure interne — résiliation", fichier: "PROCEDURE-RESILIATION_interne.pdf" },
   { cle: "fiche-besoins", titre: "Fiche de besoins garage (papier)", fichier: "FICHE-BESOINS_garage.pdf" },
-  { cle: "devis-type", titre: "Devis type — application et secrétariat", fichier: "DEVIS-TYPE_appli-et-secretariat.pdf" },
+  { cle: "devis-type", titre: "Devis type — application et Adhésion Service", fichier: "DEVIS-TYPE_appli-et-secretariat.pdf" },
 ];
 
 export function docsPour(type: "commercial" | "secretaire"): DocPack[] {

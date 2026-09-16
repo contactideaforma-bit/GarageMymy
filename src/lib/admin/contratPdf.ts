@@ -370,7 +370,7 @@ function blocsSignature(c: Ctx, gauche: { titre: string; image?: string | null; 
 /*  Données communes                                                   */
 /* ------------------------------------------------------------------ */
 function libelleFormule(t: { libelle: string; heures: number }) {
-  return `${t.libelle}${t.heures ? ` - application + ${t.heures} h de secrétariat / mois` : " - application seule"}`;
+  return `${t.libelle}${t.heures ? ` - application + ${t.heures} h de déblocage de dossiers / mois` : " - application seule"}`;
 }
 function identifiantEntreprise(siret: string | null | undefined) {
   const brut = String(siret || "").replace(/\D/g, "");
@@ -493,7 +493,7 @@ export function construireDevisPdf(
       ? ["Année payée en une fois (12 mois d'abonnement)", gras(`${eurPdf(v.montant_annuel_ht)} HT  (${t.bonusAnnuelLibelle})`)]
       : ["Mensualité retenue", gras(`${eurPdf(v.prix_mensuel_ht)} HT / mois`)],
     ["Mise en service (paramétrage, import des données, formation)", engage ? "Offerte" : `${eurPdf(v.mise_en_service_ht ?? p.miseEnService)} HT, facturée une fois`],
-    ["Heure de secrétariat hors forfait", `${eurPdf(p.heureHorsForfait)} HT`],
+    ["Heure de Adhésion Service hors forfait", `${eurPdf(p.heureHorsForfait)} HT`],
     ["TVA", "En sus, au taux en vigueur"],
     ["Engagement", engage ? "12 mois fermes (CGV art. 2), puis mois par mois" : "Aucun - préavis d'un mois (fin de mois)"],
     [gras("Total sur 12 mois"), gras(`${eurPdf(total12)} HT`)],
@@ -512,7 +512,7 @@ export function construireDevisPdf(
   encadre(c, "Ce que comprend la formule", [
     "Application My Easy Auto : dossiers sinistres illimités, lecture des rapports d'expertise, devis et factures conformes au rapport, relances, cession de créance, planning, véhicules de prêt, gardiennage, portail client, assistant MY-MY, sauvegardes et assistance.",
     ...(t.heures
-      ? [`Secrétariat externalisé : ${t.heures} h / mois (saisie des dossiers, envoi des devis et factures, relances, appels aux assurances et aux experts). Les heures non consommées sont reportables à 50 % sur le mois suivant.`]
+      ? [`Adhésion Service externalisé : ${t.heures} h / mois (saisie des dossiers, envoi des devis et factures, relances, appels aux assurances et aux experts). Les heures non consommées sont reportables à 50 % sur le mois suivant.`]
       : []),
   ]);
   para(
@@ -599,7 +599,7 @@ export function construireSimulationPdf(garageNom: string, formuleRetenue: Formu
     ["Élément", "Règle"],
     [
       ["Mise en service", `Paramétrage, import des données, formation à distance : ${eurPdf(p.miseEnService)} HT, facturée une fois. Offerte avec engagement 12 mois ou année payée en une fois.`],
-      ["Heures de secrétariat", `Incluses dans la formule ; heure supplémentaire ${eurPdf(p.heureHorsForfait)} HT ; heures non consommées reportables à 50 % sur le mois suivant.`],
+      ["Heures d'Adhésion Service", `Incluses dans la formule ; heure supplémentaire ${eurPdf(p.heureHorsForfait)} HT ; heures non consommées reportables à 50 % sur le mois suivant.`],
       ["Utilisateurs, dossiers, documents, stockage", "Illimités. Analyses IA (rapports d'expertise, cartes grises) incluses dans un usage raisonnable."],
       ["Changement de formule", "Montée en gamme à tout moment, engagement conservé. Descente en gamme : préavis d'un mois sans engagement ; avec engagement, au terme ou après 6 mensualités réglées (CGV art. 12)."],
       ["Résiliation", "Sans engagement : préavis d'un mois (fin de mois). Engagé 12 mois : les mensualités restantes sont dues. Données exportables 90 jours après la fin du contrat."],
@@ -613,7 +613,7 @@ export function construireSimulationPdf(garageNom: string, formuleRetenue: Formu
 /* ====================================================================
    FICHE CLIENT — document interne : identité du garage, réponses de la
    fiche d'identification des besoins, demandes particulières, synthèse.
-   Destinée à la secrétaire qui prendra le garage en charge.
+   Destinée au chargé de mission qui prendra le garage en charge.
 ==================================================================== */
 export function construireFichePdf(
   p: Prospect,
@@ -623,7 +623,7 @@ export function construireFichePdf(
   const c = creer("Fiche client", `${SOCIETE.produit} by ${SOCIETE.editeur} - document interne`);
   entete(c, [extra.numero ? `Fiche n° ${extra.numero}` : "", `Établie le ${dateFr(extra.date)}`, extra.commercialNom ? `Par ${extra.commercialNom}` : ""].filter(Boolean));
 
-  para(c, "Document interne IDEAFORMA - ne pas transmettre au garage. Il reprend l'entretien de découverte et les demandes particulières du client afin que la secrétaire en charge dispose de tout le contexte avant la mise en service.", { taille: 8.6, couleur: GRIS_CLAIR, apres: 4 });
+  para(c, "Document interne IDEAFORMA - ne pas transmettre au garage. Il reprend l'entretien de découverte et les demandes particulières du client afin que le chargé de mission en charge dispose de tout le contexte avant la mise en service.", { taille: 8.6, couleur: GRIS_CLAIR, apres: 4 });
 
   h2(c, "1. Identité du garage");
   const contact = [p.contact_nom, p.contact_fonction].filter(Boolean).join(", ");
@@ -706,7 +706,7 @@ export function telechargerContratPdf(v: VenteContrat, p: Parametres, extra: Par
 
 /* ====================================================================
    CONTRAT DE COLLABORATION (v10.6) — apporteur d'affaires (commercial)
-   ou prestation de services (secrétaire). Le contenu vient de
+   ou prestation de services (chargé de mission). Le contenu vient de
    collaborateur_documents.contenu : tout est régénérable à l'identique.
 ==================================================================== */
 export function construireContratCollaborateurPdf(

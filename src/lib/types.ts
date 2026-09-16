@@ -619,13 +619,13 @@ export type LigneArdoise = {
   dossier_id?: string | null;
   echeance?: string | null;
   evenement_id?: string | null;
-  // v59 (v10.7) — conversation garage ↔ secrétaire
+  // v59 (v10.7) — conversation garage ↔ chargé de mission
   auteur?: "garage" | "secretaire" | null;   // qui a créé la tâche
   pour?: "garage" | "secretaire" | null;     // destinataire (null = tous)
   origine?: string | null;                   // 'suggestion:<code>' si programmée depuis la fiche
 };
 
-/** Message du fil interne garage ↔ secrétaire (v59, v10.7). */
+/** Message du fil interne garage ↔ chargé de mission (v59, v10.7). */
 export type MessageConversation = {
   id: string;
   created_at: string;

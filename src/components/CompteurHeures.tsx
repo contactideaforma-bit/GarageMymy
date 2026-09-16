@@ -3,7 +3,7 @@
 // ====================================================================
 //  COMPTEUR D'HEURES DE SECRÉTARIAT (v11.6) — bas de /conversation
 //
-//  Demande de l'éditeur : « un compteur d'heures pour la secrétaire avec
+//  Demande de l'éditeur : « un compteur d'heures pour le chargé de mission avec
 //  un champ libre pour qu'elle décrive ce qu'elle a fait pendant ces
 //  heures ». La description est OBLIGATOIRE : un compteur sans détail ne
 //  règle aucun désaccord.
@@ -116,7 +116,7 @@ export default function CompteurHeures({
   return (
     <section className="glass-card p-3 sm:p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-        <h2 className="titre-bloc">Heures de secrétariat</h2>
+        <h2 className="titre-bloc">Heures d'Adhésion Service</h2>
         <span className="text-xs text-white/45">{libelleMois(mois)}</span>
       </div>
 

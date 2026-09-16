@@ -20,7 +20,7 @@ import ChampEcheance from "./ChampEcheance";
  * parasites. Le moteur `calculeProchaineAction` reste, mais il ne fait plus
  * que SUGGÉRER ici, dans la fiche :
  *   · « Programmer »  → crée une vraie tâche (échéance facultative, pour la
- *     secrétaire ou le garage) visible dans « À faire » et la Conversation ;
+ *     chargé de mission ou le garage) visible dans « À faire » et la Conversation ;
  *   · « Ignorer »     → la suggestion se replie (elle se réaffiche d'un clic,
  *     et revient d'elle-même quand le dossier avance : marque actions_faites).
  * Rien n'apparaît au tableau de bord tant qu'on n'a pas cliqué « Programmer ».
@@ -156,7 +156,7 @@ export default function SuggestionAction({
           {action.detail && <div className="break-words text-sm text-white/60">{action.detail}</div>}
           {tacheProgrammee && (
             <div className="mt-1 text-xs text-white/45">
-              Dans le bloc « À faire »{tacheProgrammee.pour ? ` (${tacheProgrammee.pour === "secretaire" ? "pour la secrétaire" : "pour le garage"})` : ""} et la 💬 Conversation.
+              Dans le bloc « À faire »{tacheProgrammee.pour ? ` (${tacheProgrammee.pour === "secretaire" ? "pour le chargé de mission" : "pour le garage"})` : ""} et la 💬 Conversation.
             </div>
           )}
         </div>
@@ -191,7 +191,7 @@ export default function SuggestionAction({
             onChange={(e) => setPour(e.target.value as "" | "garage" | "secretaire")}
             title="Qui doit s'en occuper ?"
           >
-            <option value="secretaire">Pour la secrétaire</option>
+            <option value="secretaire">Pour le chargé de mission</option>
             <option value="garage">Pour le garage</option>
             <option value="">Pour tout le monde</option>
           </select>

@@ -121,7 +121,7 @@ export async function ajouterRappel(args: {
   return res.data as LigneArdoise;
 }
 
-/** Change le destinataire d'une tâche (« pour la secrétaire » / « pour le garage » / tous). */
+/** Change le destinataire d'une tâche (« pour le chargé de mission » / « pour le garage » / tous). */
 export async function definirPour(ligne: LigneArdoise, pour: "garage" | "secretaire" | null): Promise<LigneArdoise> {
   const { data, error } = await supabase.from("ardoise").update({ pour }).eq("id", ligne.id).select("*").single();
   if (error) throw error;

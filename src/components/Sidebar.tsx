@@ -101,7 +101,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const estOuverte = (titre: string) => (ouvertes[titre] ?? false) || titre === sectionCourante;
 
   const [email, setEmail] = useState<string | null>(null);
-  // Messages de la conversation garage ↔ secrétaire pas encore lus par le
+  // Messages de la conversation garage ↔ chargé de mission pas encore lus par le
   // rôle de CET appareil (v10.7). Best-effort : table absente → 0.
   const [nonLus, setNonLus] = useState(0);
   useEffect(() => {
@@ -176,9 +176,16 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             <Link
               href="/prospects"
               onClick={onNavigate}
-              className={`nav-lien ${isActive("/prospects") && !isActive("/prospects/documents") ? "actif" : ""}`}
+              className={`nav-lien ${isActive("/prospects") && !isActive("/prospects/documents") && !isActive("/prospects/demarchage") ? "actif" : ""}`}
             >
               👥 Mes clients
+            </Link>
+            <Link
+              href="/prospects/demarchage"
+              onClick={onNavigate}
+              className={`nav-lien ${isActive("/prospects/demarchage") ? "actif" : ""}`}
+            >
+              📞 Session d&apos;appels
             </Link>
             <Link
               href="/prospects/documents"
