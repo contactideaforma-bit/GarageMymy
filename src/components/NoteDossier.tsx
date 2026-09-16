@@ -309,14 +309,14 @@ export default function NoteDossier({
   return createPortal(
     <>
       {/* Voile transparent : un clic n'importe où en dehors réduit la note. */}
-      <div className="fixed inset-0 z-40" onMouseDown={fermer} aria-hidden />
+      <div className={`fixed inset-0 z-40 ${mobile ? "bg-black/40" : ""}`} onMouseDown={fermer} aria-hidden />
 
       {/* Mobile : feuille PLEIN ÉCRAN sur la zone visible (clavier compris).
           PC : carte ancrée en bas à droite, largeur fixe. */}
       <div
-        className={`glass-card fixed z-50 flex flex-col overflow-hidden ${
+        className={`mymy-fenetre fixed z-50 flex flex-col overflow-hidden rounded-2xl ${
           mobile
-            ? "inset-0 rounded-none border-x-0"
+            ? "inset-x-2 top-2 bottom-2"
             : "bottom-6 right-6 max-h-[80vh] w-[26rem]"
         }`}
         style={
@@ -325,12 +325,14 @@ export default function NoteDossier({
                 // L'ombre portée « cartouche » n'a pas de sens en plein écran
                 // et est écrite en CSS non utilitaire : on la coupe ici.
                 boxShadow: "none",
+                // Marge de 8 px tout autour de la zone visible (clavier compris),
+                // comme la fenêtre MY-MY.
                 ...(zone
                   ? {
-                      top: zone.top,
-                      left: zone.left,
-                      width: zone.w,
-                      height: zone.h,
+                      top: zone.top + 8,
+                      left: zone.left + 8,
+                      width: zone.w - 16,
+                      height: zone.h - 16,
                       right: "auto",
                       bottom: "auto",
                     }
@@ -339,28 +341,26 @@ export default function NoteDossier({
             : undefined
         }
       >
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
-          <span className="titre-bloc min-w-0 truncate">Note du dossier</span>
+        <div className="mymy-entete flex shrink-0 items-center justify-between gap-3 px-4 py-3">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold">📝 Note du dossier</div>
+            <div className="truncate text-[11px] opacity-60">Commentaire et rappels de ce dossier</div>
+          </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="text-[11px] text-white/40">
+            <span className="text-[11px] opacity-60">
               {etat === "encours" && "Enregistrement…"}
               {etat === "ok" && "Enregistré"}
               {etat === "erreur" && "Échec"}
             </span>
-            <button
-              onClick={fermer}
-              className="rounded-md px-2 text-xl leading-none text-white/50 hover:text-white"
-              title="Réduire la note"
-              aria-label="Réduire"
-            >
+            <button onClick={fermer} className="mymy-icone text-lg" title="Réduire la note" aria-label="Réduire">
               ×
             </button>
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="mymy-fil min-h-0 flex-1 overflow-y-auto px-4 py-3">
           {/* 1. Commentaire libre du dossier */}
-          <div className="px-3 pt-2 text-[11px] uppercase tracking-wider text-white/40">
+          <div className="note-titre">
             Commentaire · reste sur ce dossier
           </div>
           <textarea
@@ -369,14 +369,14 @@ export default function NoteDossier({
             onChange={(e) => saisir(e.target.value)}
             rows={6}
             placeholder="Rappels, échanges téléphoniques, points de vigilance… Tout ce qui compte sur ce dossier."
-            className="field-input mx-3 my-2 block w-[calc(100%-1.5rem)] min-h-[7rem] resize-none text-sm"
+            className="mymy-champ mt-2 block w-full min-h-[8rem] resize-none rounded-xl px-3 py-2.5 text-[15px] leading-relaxed outline-none"
           />
 
           {/* 2. Rappels remontés au tableau de bord */}
           {rappelsDispo && (
-            <div className="border-t border-white/10 px-3 py-2">
+            <div className="note-bloc mt-4">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[11px] uppercase tracking-wider text-white/40">
+                <span className="note-titre">
                   Rappels · tableau de bord
                 </span>
                 {remplie && (
@@ -391,12 +391,12 @@ export default function NoteDossier({
               </div>
 
               {actifs.length === 0 && rappels.length === 0 && (
-                <p className="mb-2 text-xs text-white/40">
+                <p className="note-aide mb-2">
                   Aucun rappel. Ce que tu écris ici apparaît dans « À faire » sur le tableau de bord.
                 </p>
               )}
 
-              <ul className="divide-y divide-white/5">
+              <ul className="note-liste">
                 {rappels.map((r) => {
                   const retard = !r.fait && estEnRetard(r.echeance);
                   const auj = !r.fait && estAujourdhui(r.echeance);
@@ -409,7 +409,7 @@ export default function NoteDossier({
                         className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-500"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className={`block break-words text-white/85 ${r.fait ? "line-through" : ""}`}>
+                        <span className={`block break-words ${r.fait ? "line-through" : ""}`}>
                           {r.texte}
                         </span>
                         {r.echeance && (
@@ -419,7 +419,7 @@ export default function NoteDossier({
                                 ? "bg-rose-100 text-rose-700"
                                 : auj
                                   ? "bg-amber-100 text-amber-700"
-                                  : "bg-white/10 text-white/70"
+                                  : "note-etiquette"
                             }`}
                           >
                             📅 {retard ? "En retard · " : ""}
@@ -429,7 +429,7 @@ export default function NoteDossier({
                       </span>
                       <button
                         onClick={() => retirer(r)}
-                        className="shrink-0 text-white/30 hover:text-rose-300"
+                        className="note-x shrink-0"
                         title="Supprimer ce rappel"
                       >
                         ×
@@ -443,7 +443,7 @@ export default function NoteDossier({
               <div className="mt-2 space-y-2">
                 <div className="flex gap-2">
                   <input
-                    className="field-input field-compact flex-1"
+                    className="mymy-champ flex-1 rounded-xl px-3 py-2 text-[15px] outline-none"
                     placeholder="Nouveau rappel…"
                     value={nouveau}
                     onChange={(e) => setNouveau(e.target.value)}
@@ -457,7 +457,7 @@ export default function NoteDossier({
                   <button
                     onClick={ajouter}
                     disabled={busy || !nouveau.trim()}
-                    className="btn-ghost btn-compact shrink-0"
+                    className="mymy-envoyer shrink-0 rounded-xl px-4 text-sm font-semibold disabled:opacity-40"
                   >
                     Ajouter
                   </button>
@@ -465,12 +465,12 @@ export default function NoteDossier({
                 {/* Date et heure SÉPARÉES (v9.9) : le champ « date + heure » du
                     navigateur était illisible ; on affiche en clair ce qui
                     sera créé dans l'agenda. */}
-                <div className="text-[11px] text-white/45">
+                <div className="note-aide">
                   <span className="mb-1 block">📅 Mettre dans l&apos;agenda (optionnel)</span>
                   <div className="flex gap-2">
                     <input
                       type="date"
-                      className="field-input field-compact flex-1"
+                      className="mymy-champ flex-1 rounded-xl px-3 py-2 text-sm outline-none"
                       value={echDate}
                       onChange={(e) => setEchDate(e.target.value)}
                       aria-label="Date"
@@ -478,7 +478,7 @@ export default function NoteDossier({
                     <input
                       type="time"
                       step={900}
-                      className="field-input field-compact w-28"
+                      className="mymy-champ w-28 rounded-xl px-3 py-2 text-sm outline-none"
                       value={echHeure}
                       onChange={(e) => setEchHeure(e.target.value)}
                       aria-label="Heure"
@@ -501,12 +501,12 @@ export default function NoteDossier({
             {erreur}
           </div>
         )}
-        <div className="flex shrink-0 items-center justify-between gap-2 border-t border-white/10 px-3 py-1.5 text-[11px] text-white/30">
+        <div className="mymy-saisie flex shrink-0 items-center justify-between gap-2 px-4 py-2.5 text-[11px] opacity-70">
           <span className="min-w-0 truncate">
             Commentaire enregistré automatiquement{mobile ? "." : " — clique en dehors pour réduire."}
           </span>
           {mobile && (
-            <button onClick={fermer} className="btn-ghost btn-compact shrink-0">
+            <button onClick={fermer} className="mymy-envoyer shrink-0 rounded-xl px-4 py-1.5 text-sm font-semibold">
               Fermer
             </button>
           )}

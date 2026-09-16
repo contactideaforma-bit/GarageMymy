@@ -338,6 +338,23 @@ input[type="time"] {
     0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
     40% { transform: translateY(-3px); opacity: 1; }
   }
+  /* NOTE DU DOSSIER (v12.9) : même fenêtre opaque que MY-MY, textes lisibles
+     dans les deux thèmes (plus de blanc translucide sur fond clair). */
+  .note-titre {
+    @apply text-[11px] font-semibold uppercase tracking-wider;
+    color: var(--mea-neon-texte);
+  }
+  .note-aide { @apply text-xs leading-relaxed; color: var(--mea-texte-2); }
+  .note-bloc {
+    background-color: var(--mea-surface-opaque);
+    border: 1px solid var(--mea-bordure);
+    @apply rounded-2xl p-3;
+  }
+  .note-liste > li + li { border-top: 1px solid var(--mea-bordure); }
+  .note-liste li span { color: var(--mea-texte); }
+  .note-etiquette { background-color: var(--mea-neon-fond); color: var(--mea-texte-2); }
+  .note-x { color: var(--mea-texte-3); }
+  .note-x:hover { color: #e11d48; }
   html.light .mymy-fenetre { background-color: #ffffff; }
   html.light .mymy-fil { background-color: #f3f4fa; }
   html.light .mymy-saisie { background-color: #ffffff; }
