@@ -45,6 +45,10 @@ export type Prospect = {
   motif_refus?: MotifRefus | null;
   motif_refus_detail?: string | null;
   rdv_le?: string | null;
+  // v13.1 — attribution par l'éditeur (migration v73)
+  attribue_par?: string | null;
+  attribue_le?: string | null;
+  source?: string | null; // 'annuaire' = trouvé par l'éditeur dans l'annuaire des entreprises
 };
 
 export type ParametresOffre = {

@@ -50,7 +50,7 @@ export type CollaborateurDocument = {
   signe_le: string | null; envoye_le: string | null; envoye_a: string | null; notes: string | null;
 };
 
-export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "collaborateur_documents" | "ventes" | "comptes_etat" | "comptes_purges" | "prospects" | "prospect_documents";
+export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "collaborateur_documents" | "ventes" | "comptes_etat" | "comptes_purges" | "prospects" | "prospect_documents" | "prospect_interactions";
 export type CompteAuth = { id: string; email: string };
 export type EtatCompteAdmin = {
   owner_id: string; etat: "actif" | "suspendu" | "lecture_seule" | "ferme"; motif: string | null; message: string | null;

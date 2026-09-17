@@ -65,6 +65,16 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Page Import** : bilan après création (« Ouvrir le dossier » / « Dossier suivant → ») ; un rangement raté (facture ou pièce) n'annule pas le dossier, il est listé « à reprendre ».
 - **Étape 2 possible** : import en série (plusieurs dossiers déposés en vrac, regroupés par immatriculation / n° de sinistre).
 
+### Ajouté v13.1 — Prospection éditeur : recherche de garages, attribution aux commerciaux, suivi global
+- **Migration** `supabase/migration_v73.sql` : `prospects.attribue_par`, `attribue_le`, `source` ('annuaire') + index `siret`, `siren`, `cp`.
+- **Page** `/admin/prospection` (onglet « Prospection » d'`AdminShell`), deux onglets :
+  - **Rechercher & attribuer** : zone (`13014`, `13014, 13015`, `13`, `Marseille 14e`, `Aubagne`), nom du garage, SIRET/SIREN, activité (NAF 45.20A/B par défaut). Résultats au niveau ÉTABLISSEMENT (enseigne, adresse, dirigeant, SIRET), « Libre » / « Déjà attribué · X ». Cases à cocher, « cocher les N premiers libres », « Charger la suite » (25 entreprises par page, sélection conservée), barre « Attribuer à » (commerciaux ayant un compte + « Moi (éditeur) », avec leur nombre de fiches à appeler). Après attribution les lignes passent en « déjà attribué » → on enchaîne avec le lot suivant pour un autre commercial.
+  - **Suivi** : synthèse par commercial (fiches, à appeler, contactés, RDV, devis, signés, perdus, taux RDV, rappels en retard, dernier contact — un clic filtre), filtres (commercial, étape du pipeline / rappel en retard, zone CP-ville, recherche, origine attribué/créé par lui, sans activité depuis 7/14/30 j), liste avec nb de contacts, dernier résultat, prochaine action ; « Détail » = fiche + journal des contacts + documents. Actions en lot : **Réattribuer** (journal et documents suivent la fiche ; fiches signées/clientes bloquées) et **Retirer** (uniquement les fiches jamais travaillées).
+- **API** `/api/admin/prospection` (ADMIN_EMAILS + service role) : GET recherche (annuaire `recherche-entreprises.api.gouv.fr` + `geo.api.gouv.fr` pour ville → codes postaux), GET `?vue=suivi` (lecture par tranches de 1000), GET `?vue=journal&prospect_id=`, POST `attribuer` / `reattribuer` / `retirer` (lots de 200 max, doublons revérifiés par SIRET à l'écriture).
+- **Libs** : `lib/admin/zones.ts` (pur : `interpreterZone`, `tvaDepuisSiren`, `ACTIVITES_RECHERCHE`), `lib/admin/prospection.ts` (client). `Prospect` + `attribue_par/attribue_le/source`. `prospect_interactions` ajouté à la liste blanche de `/api/admin/donnees`.
+- **Côté commercial** : rien à faire, la fiche attribuée lui appartient (owner_id) → « Mes clients », pipeline « À appeler », session d'appels ; badge « Attribué le … » tant qu'elle n'a pas été appelée. Origine = `portefeuille`.
+- ⚠️ L'annuaire ne fournit PAS les téléphones : le commercial les complète. Pistes : enrichissement téléphone, contrôle de doublon quand un commercial crée lui-même une fiche déjà attribuée à un autre, notification push au commercial à l'attribution.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

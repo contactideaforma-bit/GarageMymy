@@ -177,6 +177,12 @@ export default function ProspectsPage() {
                       <span className="text-xs text-white/40">{[p.cp, p.ville].filter(Boolean).join(" ")}</span>
                       {p.origine !== "portefeuille" && <span className="badge badge-neutral">{ORIGINES_PROSPECT[p.origine].label}</span>}
                       {et === "a_appeler" && <span className="badge badge-info">Jamais appelé</span>}
+                      {/* v13.1 — garage donné par l'éditeur (liste à démarcher) */}
+                      {p.attribue_le && et === "a_appeler" && (
+                        <span className="badge badge-warn" title="Garage attribué par IDEAFORMA : il fait partie de votre liste à démarcher.">
+                          Attribué le {formatDate(p.attribue_le)}
+                        </span>
+                      )}
                     </div>
                     <div className="mt-1 text-xs text-white/60">
                       {[p.contact_nom || p.gerant, p.tel, p.email].filter(Boolean).join(" · ") || "Contact à compléter"}
