@@ -54,6 +54,17 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **MY-MY** : contexte enrichi (flotte + mises à dispo), réponse locale « qui avait la AB-123-CD le 12/08 ? » / « PV du 3 septembre » (`reponseFlotte`, `dateDansPhrase`, `vehiculeDansPhrase`) et résumé IA avec l'historique par véhicule.
 - Le prêt créé depuis la fiche dossier (`TransfertGarantiePanel`) crée aussi la mise à disposition dans la fiche véhicule (et la clôture à la suppression).
 
+### Ajouté v13.0 — Reprise des dossiers en cours : import multi-documents & facture extérieure
+- **Besoin** : un garage qui démarre a des dossiers déjà en route, avec des factures faites AILLEURS. `/import` accepte désormais **plusieurs fichiers d'un coup** (rapport + facture + carte grise + constat + PEC…) et crée UN dossier ; un rapport seul se comporte comme avant.
+- **Migration** `supabase/migration_v72.sql` : `documents.fichier_path` + `documents.fichier_nom` ; `documents.origine = 'externe'` (colonne de la v54). Fichier d'origine dans le bucket privé `pieces` (`<owner>/<dossier>/facture-externe-…pdf`, image convertie en PDF).
+- **Tri automatique corrigeable** : `devinerTypeParNom` (instantané) puis `/api/trier-document` (IA ; PDF avec calque texte → seul le TEXTE est envoyé, début + fin ; scan/photo → image). La route lit aussi l'en-tête et les totaux d'une facture (PAS les lignes). Un type choisi à la main n'est jamais écrasé.
+- **Facture extérieure** (`lib/reprise.ts`, `components/FactureExterne.tsx`) : numéro, dates et totaux D'ORIGINE ; jamais renumérotée ni régénérée ; statut « Envoyé » par défaut ; échéance par défaut = date + 30 j (sinon pas de relances auto) ; **déjà encaissé** à l'import → ligne `paiements` + statut payé / dossier « Payé » via `majDossierSiSolde` ; doublon de numéro refusé sur un même dossier. Écart avec le rapport SIGNALÉ, jamais bloquant.
+- **`DossierForm` prop `sansDocumentsAuto`** : quand une facture extérieure est dans le lot, le chiffrage du rapport est conservé sur le dossier mais l'appli ne génère NI devis, NI facture, NI OR, NI cession, NI rappel « envoyer la facture » (doublons). Statut pré-réglé sur « Facture envoyée ».
+- **Interception À LA SOURCE dans `lib/pdf.ts`** (`generateDocumentPdf`, `apercuDocumentPdf`, `documentPdfBase64`) : une facture `externe` renvoie son fichier d'origine → fiche dossier, liste des factures, emails (pièce principale et pièces jointes), retard de paiement, archive ZIP et sauvegarde suivent sans modification. `facturxBase64` refuse (facture non émise par l'appli → l'email part avec le PDF d'origine).
+- **Fiche dossier** : bouton « + Facture extérieure », badge « Extérieure », « PDF » ouvre l'original sans demander le mode de règlement, « Modifier » ouvre `FactureExterneModal` (en-tête, totaux, remplacement du fichier), pas de « Signer » / « Factur-X » / « Acquittée » ; la suppression efface aussi le fichier. `archive.ts` purge le fichier d'origine s'il est bien entré dans le ZIP.
+- **Page Import** : bilan après création (« Ouvrir le dossier » / « Dossier suivant → ») ; un rangement raté (facture ou pièce) n'annule pas le dossier, il est listé « à reprendre ».
+- **Étape 2 possible** : import en série (plusieurs dossiers déposés en vrac, regroupés par immatriculation / n° de sinistre).
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

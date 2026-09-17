@@ -13,6 +13,7 @@ import {
 } from "./documents";
 import { AUTORISATION_OR, CESSION_OBJET, CESSION_NOTIFICATION, DECHARGE_RESTITUTION } from "./atelier";
 import { supabase } from "./supabaseClient";
+import { fichierBase64 } from "./storage";
 import { fetchAuth, lireReponse } from "./apiClient";
 import { construireXmlFacturx, libelleNature, natureOperation, sirenDepuis, verifierFacturx } from "./facturx";
 import { ajouterPlanchesPhotos, photosDuDossier } from "./photosEtatPdf";
@@ -698,12 +699,39 @@ function drawColonnes(
   return y + h;
 }
 
+/* ==================================================================
+ *  FACTURE EXTÉRIEURE (v13.0 / migration v72)
+ *
+ *  Une facture émise HORS appli (reprise d'un dossier en cours) n'est
+ *  JAMAIS reconstruite : on ouvre / joint le FICHIER D'ORIGINE déposé par
+ *  le garage. L'interception est faite ICI, à la source, pour que tous les
+ *  appelants (fiche dossier, liste des factures, emails, retard de
+ *  paiement, archive ZIP, sauvegarde) en profitent sans rien changer.
+ * ================================================================== */
+function estExterne(doc: Pick<Document, "origine">): boolean {
+  return doc.origine === "externe";
+}
+
+async function factureExterneBase64(doc: Document): Promise<string> {
+  if (!doc.fichier_path) {
+    throw new Error(
+      `La facture ${doc.numero || ""} a été émise hors de l'appli et son fichier d'origine est introuvable : ` +
+        "redépose-le depuis la fiche dossier (« Modifier »)."
+    );
+  }
+  return fichierBase64("pieces", doc.fichier_path);
+}
+
 export async function generateDocumentPdf(
   doc: Document,
   lignes: DocumentLigne[],
   dossier: Dossier,
   modePaiement?: string | null
 ) {
+  if (estExterne(doc)) {
+    ouvrirFichierBase64(await factureExterneBase64(doc), nomFichierDocument(doc), "application/pdf");
+    return;
+  }
   const pdf = await buildDocumentPdf(doc, lignes, dossier, modePaiement);
   pdf.save(nomFichierDocument(doc));
 }
@@ -715,6 +743,10 @@ export async function apercuDocumentPdf(
   dossier: Dossier,
   modePaiement?: string | null
 ) {
+  if (estExterne(doc)) {
+    ouvrirFichierBase64(await factureExterneBase64(doc), nomFichierDocument(doc), "application/pdf");
+    return;
+  }
   ouvrirPdf(await buildDocumentPdf(doc, lignes, dossier, modePaiement), nomFichierDocument(doc));
 }
 
@@ -725,6 +757,7 @@ export async function documentPdfBase64(
   dossier: Dossier,
   modePaiement?: string | null
 ): Promise<string> {
+  if (estExterne(doc)) return factureExterneBase64(doc);
   const pdf = await buildDocumentPdf(doc, lignes, dossier, modePaiement);
   const uri = pdf.output("datauristring"); // data:application/pdf;...;base64,XXXX
   return uri.substring(uri.indexOf(",") + 1);
@@ -745,6 +778,15 @@ export async function facturxBase64(
   dossier: Dossier,
   modePaiement?: string | null
 ): Promise<ResultatFacturx> {
+  // Une facture émise hors appli ne peut pas devenir un Factur-X : le XML
+  // doit décrire CE que le PDF imprime, et ce PDF n'est pas le nôtre.
+  if (estExterne(doc)) {
+    return {
+      ok: false,
+      manques: [],
+      erreur: "cette facture a été émise hors de l'appli (facture extérieure) : elle reste dans son format d'origine.",
+    };
+  }
   const ent = await getEntreprise();
   const manques = verifierFacturx(doc, dossier, ent);
   if (manques.length) return { ok: false, manques };

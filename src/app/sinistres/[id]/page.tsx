@@ -41,6 +41,8 @@ import { archiverDossier } from "@/lib/archive";
 import { marquerFactureEnvoyee } from "@/lib/dossierSync";
 import { fichierBase64, ouvrirFichier } from "@/lib/storage";
 import { labelPiece } from "@/lib/pieces";
+import { estFactureExterne } from "@/lib/reprise";
+import { FactureExterneModal } from "@/components/FactureExterne";
 import { fermerOnglet, libelleOnglet, ouvrirOnglet } from "@/lib/onglets";
 import { formatEuros, formatDate, formatDateTime, messageErreur } from "@/lib/format";
 import { montantTtc, tauxTva } from "@/lib/tva";
@@ -159,6 +161,8 @@ export default function DossierDetailPage() {
 
   // composer email (devis/facture)
   const [emailDoc, setEmailDoc] = useState<Document | null>(null);
+  // FACTURE EXTÉRIEURE (v13.0) : "nouveau" = ajout ; un Document = correction.
+  const [factureExterne, setFactureExterne] = useState<Document | "nouveau" | null>(null);
   // facture en attente du choix du mode de paiement (avant génération du PDF)
   const [pdfDoc, setPdfDoc] = useState<Document | null>(null);
   // document d'atelier à créer (OR / cession / restitution), demandé depuis la
@@ -460,6 +464,12 @@ export default function DossierDetailPage() {
   }
 
   async function ouvrirEdition(doc: Document) {
+    // Facture émise hors appli : pas de lignes à éditer, seulement son
+    // en-tête et ses totaux (et son fichier).
+    if (estFactureExterne(doc)) {
+      setFactureExterne(doc);
+      return;
+    }
     const { data } = await supabase
       .from("document_lignes").select("*").eq("document_id", doc.id).order("ordre", { ascending: true });
     setEditor({ type: doc.type, document: doc, lignes: (data as DocumentLigne[]) || [] });
@@ -470,6 +480,16 @@ export default function DossierDetailPage() {
   // FACTURE : on demande d'abord le mode de paiement à imprimer (v34).
   async function exporterPdf(doc: Document) {
     if (!dossier) return;
+    // Facture extérieure : on ouvre le document D'ORIGINE, tel quel — pas de
+    // mode de règlement à choisir, rien n'est régénéré.
+    if (estFactureExterne(doc)) {
+      try {
+        await apercuDocumentPdf(doc, [], dossier);
+      } catch (err) {
+        alert(messageErreur(err, "Impossible d'ouvrir la facture d'origine."));
+      }
+      return;
+    }
     if (doc.type === "facture") {
       setPdfDoc(doc);
       return;
@@ -509,7 +529,14 @@ export default function DossierDetailPage() {
   }
 
   async function supprimerDoc(doc: Document) {
-    if (!confirm("Supprimer ce document ?")) return;
+    if (
+      !confirm(
+        estFactureExterne(doc)
+          ? "Supprimer cette facture extérieure ? Son fichier d'origine et ses encaissements seront effacés de l'appli."
+          : "Supprimer ce document ?"
+      )
+    )
+      return;
     // L'erreur était AVALÉE : une suppression refusée (contrainte, RLS)
     // laissait le document en place sans rien dire, et le garage croyait que
     // c'était la création suivante qui échouait.
@@ -518,6 +545,8 @@ export default function DossierDetailPage() {
       alert(messageErreur(error, "Suppression impossible — le document n'a PAS été supprimé."));
       return;
     }
+    // Facture extérieure : son fichier d'origine part avec elle.
+    if (doc.fichier_path) await supabase.storage.from("pieces").remove([doc.fichier_path]);
     load();
   }
 
@@ -1049,6 +1078,13 @@ export default function DossierDetailPage() {
           <button onClick={() => ouvrirNouveauDocument("facture")} className="btn-primary py-1.5 px-3 text-xs">
             + Facture
           </button>
+          <button
+            onClick={() => setFactureExterne("nouveau")}
+            className="btn-ghost py-1.5 px-3 text-xs"
+            title="Facture déjà faite avec un autre outil (dossier repris en cours de route) : elle est rangée ici avec son numéro et son PDF d'origine, et se suit comme les autres"
+          >
+            + Facture extérieure
+          </button>
           <button onClick={() => setGardiennage(true)} className="btn-ghost py-1.5 px-3 text-xs" title="Entrée / sortie de parc, enlèvement, frais de gardiennage">
             + Gardiennage
           </button>
@@ -1105,6 +1141,7 @@ export default function DossierDetailPage() {
           )}
           {documentsTries.map((doc) => {
             const fem = doc.type === "facture"; // accords : émise / signée
+            const externe = estFactureExterne(doc); // émise hors appli (v13.0)
             return (
               <div key={doc.id} className="glass-soft p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1116,12 +1153,20 @@ export default function DossierDetailPage() {
                       <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeStatutDoc(doc.statut)}`}>
                         {labelStatutDoc(doc.statut)}
                       </span>
+                      {externe && (
+                        <span
+                          className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-violet-100 text-violet-700"
+                          title="Facture émise hors de l'appli : numéro, montants et PDF d'origine conservés. L'appli ne la régénère pas."
+                        >
+                          Extérieure
+                        </span>
+                      )}
                       {doc.signature && (
                         <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">
                           Signé{fem ? "e" : ""}
                         </span>
                       )}
-                      {fem && (
+                      {fem && !externe && (
                         <label
                           className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-0.5 text-xs text-white/70 cursor-pointer select-none hover:border-emerald-400/50"
                           title="Coche pour apposer la mention « Acquittée » sur le PDF de la facture"
@@ -1140,14 +1185,16 @@ export default function DossierDetailPage() {
                       {fem ? "Émise" : "Émis"} le {formatDate(doc.date_document)}
                       {doc.total_ht != null ? ` · ${formatEuros(doc.total_ht)} HT` : ""}
                       {doc.total_ttc != null ? ` · ${formatEuros(doc.total_ttc)} TTC` : ""}
-                      {doc.signe_le
-                        ? ` · signé${fem ? "e" : ""} le ${formatDate(doc.signe_le)} par ${doc.signataire_nom || "le client"}`
-                        : " · en attente de signature"}
+                      {externe
+                        ? ` · document d'origine${doc.fichier_nom ? ` : ${doc.fichier_nom}` : doc.fichier_path ? "" : " MANQUANT — « Modifier » pour le redéposer"}`
+                        : doc.signe_le
+                          ? ` · signé${fem ? "e" : ""} le ${formatDate(doc.signe_le)} par ${doc.signataire_nom || "le client"}`
+                          : " · en attente de signature"}
                     </div>
                   </div>
                   <div className="flex flex-wrap justify-end gap-x-3 gap-y-1 text-sm">
                     <button onClick={() => exporterPdf(doc)} className="text-accent-teal hover:underline">PDF</button>
-                    {doc.type === "facture" && (
+                    {doc.type === "facture" && !externe && (
                       <button
                         onClick={() => exporterFacturx(doc)}
                         className="text-accent-teal hover:underline"
@@ -1157,7 +1204,7 @@ export default function DossierDetailPage() {
                       </button>
                     )}
                     <button onClick={() => setEmailDoc(doc)} className="text-accent-teal hover:underline">Envoyer</button>
-                    {!doc.signature && (
+                    {!doc.signature && !externe && (
                       <button onClick={() => setSignDoc(doc)} className="text-accent-teal hover:underline">Signer</button>
                     )}
                     <button onClick={() => ouvrirEdition(doc)} className="text-accent-pink hover:underline">Modifier</button>
@@ -1297,6 +1344,15 @@ export default function DossierDetailPage() {
           }}
         />
       )}
+      {factureExterne && (
+        <FactureExterneModal
+          dossier={dossier}
+          document={factureExterne === "nouveau" ? null : factureExterne}
+          onClose={() => setFactureExterne(null)}
+          onSaved={load}
+        />
+      )}
+
       {emailDoc && (
         <EmailComposer
           dossier={dossier}

@@ -54,10 +54,15 @@ export async function archiverDossier(
 
   // 1) PDF des documents (devis, factures)
   onProgress?.("Génération des PDF…");
+  // v13.0 — factures EXTÉRIEURES : leur fichier d'origine (bucket « pieces »)
+  // est embarqué par documentPdfBase64Auto ; on note son chemin pour le
+  // purger avec le reste, UNIQUEMENT s'il est bien entré dans le ZIP.
+  const facturesExternesDansZip: string[] = [];
   for (const d of (docs.data as Document[]) || []) {
     try {
       const b64 = await documentPdfBase64Auto(d, dossier);
       zip.file(`documents/${nomSur(`${d.type}-${d.numero || d.id.slice(0, 6)}`)}.pdf`, b64, { base64: true });
+      if (d.origine === "externe" && d.fichier_path) facturesExternesDansZip.push(d.fichier_path);
     } catch { /* document illisible : on continue */ }
   }
   for (const o of (ors.data as OrdreReparation[]) || []) {
@@ -173,6 +178,12 @@ export async function archiverDossier(
   if (piecesDansZip.length) {
     const { error } = await supabase.storage.from("pieces").remove(piecesDansZip);
     if (error) throw new Error(`Purge des pièces impossible : ${error.message}`);
+  }
+  if (facturesExternesDansZip.length) {
+    const { error } = await supabase.storage.from("pieces").remove(facturesExternesDansZip);
+    if (error) throw new Error(`Purge des factures extérieures impossible : ${error.message}`);
+    // La ligne comptable reste (numéro, totaux) ; seul le fichier est parti.
+    await supabase.from("documents").update({ fichier_path: null }).in("fichier_path", facturesExternesDansZip);
   }
   if (dossier.rapport_path && rapportDansZip) {
     const { error } = await supabase.storage.from("rapports").remove([dossier.rapport_path]);

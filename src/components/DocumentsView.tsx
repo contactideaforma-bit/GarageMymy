@@ -50,6 +50,15 @@ export default function DocumentsView({ type }: { type: DocumentType }) {
   // FACTURE : le mode de paiement imprimé est choisi à la génération (v34).
   async function exportPdf(doc: DocWithDossier) {
     if (!doc.dossier) return;
+    // Facture émise hors appli (v13.0) : on ouvre le document d'origine.
+    if (doc.origine === "externe") {
+      try {
+        await apercuDocumentPdf(doc, [], doc.dossier);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Impossible d'ouvrir la facture d'origine.");
+      }
+      return;
+    }
     if (doc.type === "facture") {
       setPdfDoc(doc);
       return;
@@ -188,7 +197,17 @@ export default function DocumentsView({ type }: { type: DocumentType }) {
                     {d.favori ? "★" : "☆"}
                   </button>
                 </td>
-                <td className="px-4 py-3 font-medium text-white">{d.numero || "—"}</td>
+                <td className="px-4 py-3 font-medium text-white">
+                  {d.numero || "—"}
+                  {d.origine === "externe" && (
+                    <span
+                      className="ml-2 inline-block rounded-full bg-violet-100 px-2 py-0.5 align-middle text-[10px] font-medium text-violet-700"
+                      title="Facture émise hors de l'appli (dossier repris en cours de route)"
+                    >
+                      Extérieure
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-white/80 whitespace-nowrap">{formatDate(d.date_document)}</td>
                 <td className="px-4 py-3 text-white/80">{d.dossier?.client_nom || "—"}</td>
                 <td className="px-4 py-3 text-white/80 hidden md:table-cell">{d.dossier?.marque_modele || "—"}</td>

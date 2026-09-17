@@ -184,7 +184,13 @@ export type Document = {
   jours_reparation?: number | null;
   // ORIGINE (v54) : null = facture de réparation ; 'gardiennage' = frais de
   // parc — le contrôle « conforme au rapport d'expertise » ne s'applique pas.
+  // 'externe' (v72) = facture émise HORS appli (reprise d'un dossier en
+  // cours) : numéro et totaux d'origine, jamais régénérée ni renumérotée.
   origine?: string | null;
+  // FACTURE EXTÉRIEURE (v72) : le fichier d'origine (bucket « pieces »).
+  // C'est LUI qui est ouvert et joint aux emails, pas un PDF reconstruit.
+  fichier_path?: string | null;
+  fichier_nom?: string | null;
   // FACTURATION ÉLECTRONIQUE (v52) — cycle de vie renvoyé par la plateforme
   // agréée (étape 2) : deposee | rejetee | recue | acceptee | refusee | payee
   fe_statut?: string | null;

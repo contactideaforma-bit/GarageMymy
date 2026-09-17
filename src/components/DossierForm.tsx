@@ -142,6 +142,7 @@ export default function DossierForm({
   prefillLignes,
   prefillMentions,
   prefillTva,
+  sansDocumentsAuto = false,
 }: {
   onClose: () => void;
   // Reçoit l'id du dossier créé/modifié (pour ouvrir sa fiche directement)
@@ -153,6 +154,13 @@ export default function DossierForm({
   /** Mentions particulières lues par l'analyse de la page /import (v11.2). */
   prefillMentions?: MentionRapport[] | null;
   prefillTva?: number | null;
+  /**
+   * REPRISE D'UN DOSSIER EN COURS (v13.0) : une facture a déjà été émise hors
+   * appli. On conserve le chiffrage sur le dossier, mais on ne génère NI
+   * devis, NI facture, NI ordre de réparation, NI cession, NI rappel
+   * « envoyer la facture » — ils feraient doublon avec l'existant.
+   */
+  sansDocumentsAuto?: boolean;
 }) {
   const isEdit = Boolean(dossier);
   const { metier } = useMetier();
@@ -525,6 +533,14 @@ export default function DossierForm({
             // encore passée, le dossier et ses documents doivent quand même
             // être créés. On perd seulement la régénération.
             if (eChiff) console.warn("Chiffrage non conservé :", eChiff.message);
+            // REPRISE (v13.0) : la facture existe déjà ailleurs → on s'arrête
+            // au chiffrage conservé. Chaque document reste créable à la main
+            // depuis la fiche dossier.
+            if (sansDocumentsAuto) {
+              onSaved(idFinal);
+              onClose();
+              return;
+            }
             const travaux =
               "Conforme au chiffrage du rapport d'expertise :\n" +
               lignes
@@ -620,8 +636,9 @@ export default function DossierForm({
             {analyzeMsg && <p className="text-xs text-emerald-300 mt-2">{analyzeMsg}</p>}
             {analysed && !analyzeMsg && (
               <p className="text-xs text-emerald-300 mt-2">
-                Devis, facture, ordre de réparation et cession de créance seront générés
-                automatiquement à l&apos;enregistrement, conformes au chiffrage.
+                {sansDocumentsAuto
+                  ? "Dossier repris en cours de route : le chiffrage du rapport est conservé, mais aucun devis ni facture ne sera généré — la facture déjà faite sera rangée dans le dossier."
+                  : "Devis, facture, ordre de réparation et cession de créance seront générés automatiquement à l'enregistrement, conformes au chiffrage."}
               </p>
             )}
 
