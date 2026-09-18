@@ -18,6 +18,7 @@ import {
 import { apercuContratMiseADispoPdf } from "@/lib/pdf";
 import ModalShell from "@/components/ModalShell";
 import DossierPicker, { libelleDossier } from "@/components/DossierPicker";
+import ConditionsAssureurPret from "@/components/flotte/ConditionsAssureurPret";
 
 type Form = {
   conducteur_nom: string; conducteur_tel: string; conducteur_email: string; conducteur_adresse: string;
@@ -229,6 +230,9 @@ export default function MiseADispoModal({
         </div>
         <p className="mt-1 text-xs text-white/40">Les coordonnées ci-dessous sont pré-remplies depuis le dossier ou la fiche client, puis modifiables.</p>
       </div>
+
+      {/* v13.2 : conditions de prise en charge de l'assurance du client (dossier lié). */}
+      {dossier && <ConditionsAssureurPret assureur={dossier.assureur} compact />}
 
       {/* Conducteur */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

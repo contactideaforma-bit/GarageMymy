@@ -533,6 +533,41 @@ export type FlotteEntretien = {
 };
 
 /** Prêt OU location d'un véhicule de la flotte (v67). */
+/** Guide véhicule de prêt (v13.2 / migration v74) : conditions de prise en charge par assureur. */
+export type GuidePretAssureur = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  owner_id: string | null; // null = fiche commune de l'éditeur
+  base_id: string | null; // copie personnalisée d'une fiche commune
+  nom: string;
+  alias: string | null;
+  contrat: string | null;
+  inclusion: string; // inclus | option | selon_formule | inconnu
+  formules: string | null;
+  prix_option: string | null;
+  duree_panne: number | null;
+  duree_accident: number | null;
+  duree_vol: number | null;
+  duree_incendie: number | null;
+  duree_max: number | null;
+  categorie: string | null;
+  plafond_jour: number | null;
+  plafond_detail: string | null;
+  immobilisation_min: string | null;
+  garage_agree: string; // obligatoire | avantage | non | inconnu
+  conditions: string | null;
+  exclusions: string | null;
+  facturation_garage: string | null;
+  assisteur: string | null;
+  assisteur_tel: string | null;
+  sources: string | null;
+  fiabilite: string; // cg | site | comparateur
+  verifie_le: string | null;
+  notes: string | null;
+  actif: boolean;
+};
+
 export type FlotteMiseADispo = {
   id: string;
   created_at: string;

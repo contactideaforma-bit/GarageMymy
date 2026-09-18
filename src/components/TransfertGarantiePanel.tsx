@@ -9,6 +9,7 @@ import { formatDate, formatEuros, messageErreur, ymd } from "@/lib/format";
 import ModalShell from "@/components/ModalShell";
 import EmailComposer from "@/components/EmailComposer";
 import SignaturePad from "@/components/SignaturePad";
+import ConditionsAssureurPret from "@/components/flotte/ConditionsAssureurPret";
 import { PRISES_EN_CHARGE, clausesParDefaut, coutPretHt, defautsContrat, joursPret } from "@/lib/pret";
 import { apercuContratPretPdf, contratPretPdfBase64, generateContratPretPdf, nomFichierSur } from "@/lib/pdf";
 
@@ -430,6 +431,8 @@ function TransfertModal({
 
   return (
     <ModalShell title="Véhicule de prêt" onClose={onClose}>
+      {/* v13.2 : ce que l'assurance du client prend en charge, avant d'attribuer. */}
+      <ConditionsAssureurPret assureur={dossier.assureur} compact />
       <div>
         <label className="field-label">Véhicule de la flotte (disponibles)</label>
         <select className="field-input" value={vehiculeId} onChange={(e) => choisirVehicule(e.target.value)}>

@@ -29,6 +29,7 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
     items: [
       { href: "/vehicules", label: "Véhicules" },
       { href: "/flotte", label: "Flotte du garage" },
+      { href: "/flotte/guide-assureurs", label: "Guide véhicule de prêt" },
       { href: "/extranets", label: "Espaces experts" },
       { href: "/annuaire", label: "Base de données" },
       { href: "/archives", label: "Archives" },
@@ -215,7 +216,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                     : [item]
                 )
                 .map((item) => {
-                const active = item.href === "/flotte" ? pathname.startsWith("/flotte") && !pathname.startsWith("/flotte/hors-garage") : isActive(item.href);
+                const active = item.href === "/flotte" ? pathname.startsWith("/flotte") && !pathname.startsWith("/flotte/hors-garage") && !pathname.startsWith("/flotte/guide-assureurs") : isActive(item.href);
                 return (
                   <Link
                     key={item.href}
