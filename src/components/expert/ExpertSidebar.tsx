@@ -10,7 +10,7 @@ const LIENS: { href: string; label: string; icone: string; exact?: boolean }[] =
   { href: "/expert/dossiers", label: "Dossiers d'expertise", icone: "🗂" },
   { href: "/expert/rapports", label: "Rapports émis", icone: "📄" },
   { href: "/expert/pieces", label: "Recherche de pièces", icone: "🔎" },
-  { href: "/expert/garages", label: "Réparateurs", icone: "🔧" },
+  { href: "/expert/annuaire", label: "Base de données", icone: "📇" },
   { href: "/expert/cabinet", label: "Le cabinet", icone: "🏢" },
 ];
 

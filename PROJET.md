@@ -88,6 +88,15 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Pièces** `PiecesRecherche` + `/api/expert/pieces` : estimation IA (réf. OEM probable, fourchettes origine / neuf adaptable / réemploi, temps de pose, peinture) + liens pré-remplis vers les catalogues (`lib/expertise/fournisseurs.ts` : Oscaro, Autodoc, Mister Auto, Opisto, Reparcar, GPA, eBay, Leboncoin, PartsLink24, Distrigo, Renault, Mercedes, 7zap…, filtrés par marque) ; « Retenir » mémorise dans `expertise_pieces`, « → Chiffrage » ajoute l'opération E au rapport.
 - ⚠️ Pas de compte fournisseur / API constructeur : les prix IA sont indicatifs. Pistes : accès PartsLink24 / catalogues pro, export du rapport par email au mandant, portail de suivi pour le réparateur, saisie par immatriculation (SIV) si un fournisseur de données est retenu.
 
+
+### Ajouté v13.6 — Mode expert : base de données (assurances · clients · réparateurs), SIRET, imports
+- **Migration** `supabase/migration_v76.sql` : `expertise_assurances`, `expertise_clients` (type particulier/société), RLS owner_id. Les réparateurs restent dans `expertise_garages`.
+- **Page** `/expert/annuaire` (entrée « Base de données » de la barre expert ; `/expert/garages` redirige) : trois onglets, cartes (mise en page corrigée : boutons `shrink-0` / `whitespace-nowrap`, règle `html.alliance .btn-compact`), recherche, `FicheAnnuaireModal` (bouton « 🔍 SIREN » = `RechercheSiren` : nom OU SIRET → auto-remplissage nom/adresse/CP/ville/SIREN/SIRET), suppression.
+- **Import** `ImportAnnuaireModal` + `lib/expertise/importAnnuaire.ts` : Excel/CSV lus dans le navigateur (`lireFichierListe` de `lib/admin/importListe.ts`, colonnes reconnues : nom, adresse, CP, ville, SIRET/SIREN, tél, email, contact, notes) ; PDF/image → `/api/expert/importer-liste` (IA, texte seul si calque). Aperçu avec cases, doublons sur le nom décochés.
+- **`/api/siren`** : `siret` ajouté au résultat (siège ou établissement trouvé) et recherche par SIRET à 14 chiffres dans `q`.
+- **Formulaire de mission** : mandant et lésé choisis dans la base (listes déroulantes) ou via « 🔍 SIREN » ; réparateur : liste + « 🔍 SIREN » qui **crée la fiche garage** (taux par défaut) et la sélectionne. À l'enregistrement, `completerAnnuaireDepuisDossier` ajoute un mandant / un lésé inconnus à la base (best-effort).
+- **Démo** : les assurances et clients des 7 missions sont ajoutés à la base.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

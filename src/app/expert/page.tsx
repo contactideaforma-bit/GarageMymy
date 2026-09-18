@@ -152,7 +152,7 @@ export default function TableauDeBordExpert() {
           <Bloc titre="Raccourcis">
             <div className="grid grid-cols-2 gap-2 text-sm">
               <Link href="/expert/pieces" className="btn-ghost btn-compact text-center">🔎 Pièces & prix</Link>
-              <Link href="/expert/garages" className="btn-ghost btn-compact text-center">🔧 Réparateurs</Link>
+              <Link href="/expert/annuaire" className="btn-ghost btn-compact text-center">📇 Base de données</Link>
               <Link href="/expert/rapports" className="btn-ghost btn-compact text-center">📄 Rapports</Link>
               <Link href="/expert/cabinet" className="btn-ghost btn-compact text-center">🏢 Cabinet</Link>
             </div>

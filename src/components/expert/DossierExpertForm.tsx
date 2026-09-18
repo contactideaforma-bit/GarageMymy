@@ -10,8 +10,9 @@ import ModalShell from "@/components/ModalShell";
 import { Champ, Erreur } from "@/components/expert/ui";
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import { messageErreur } from "@/lib/format";
-import { chargerGarages, creerDossier, majDossier } from "@/lib/expertise/data";
-import { DossierExpert, GarageExpert, STATUTS_EXPERTISE } from "@/lib/expertise/types";
+import RechercheSiren, { ResultatSiren } from "@/components/RechercheSiren";
+import { chargerAssurances, chargerClients, chargerGarages, completerAnnuaireDepuisDossier, creerDossier, enregistrerGarage, majDossier } from "@/lib/expertise/data";
+import { AssuranceExpert, ClientExpert, DossierExpert, GarageExpert, STATUTS_EXPERTISE, adresseFiche } from "@/lib/expertise/types";
 
 const LIEUX = ["Autre lieu", "Chez le réparateur", "Au cabinet", "Chez l'assuré", "Expertise à distance (EAD)"];
 const TYPES = ["Avant travaux", "En cours de travaux", "Après travaux", "Contradictoire", "Valeur vénale", "Contre-expertise"];
@@ -48,6 +49,10 @@ export default function DossierExpertForm({
 }) {
   const [d, setD] = useState<Partial<DossierExpert>>(initial ? { ...initial } : { ...VIDE, date_mission: new Date().toISOString().slice(0, 10) });
   const [garages, setGarages] = useState<GarageExpert[]>([]);
+  // v13.6 : base de données du cabinet → mandant / lésé choisis dans une liste.
+  const [assurances, setAssurances] = useState<AssuranceExpert[]>([]);
+  const [clients, setClients] = useState<ClientExpert[]>([]);
+  const [creationGarage, setCreationGarage] = useState(false);
   const [ouvert, setOuvert] = useState<Record<Section, boolean>>({ mission: true, mandant: true, lese: !initial, reparateur: !initial, vehicule: true, dommage: !initial });
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
@@ -56,7 +61,46 @@ export default function DossierExpertForm({
 
   useEffect(() => {
     chargerGarages().then(setGarages);
+    chargerAssurances().then(setAssurances).catch(() => undefined);
+    chargerClients().then(setClients).catch(() => undefined);
   }, []);
+
+  function choisirAssurance(id: string) {
+    const a = assurances.find((x) => x.id === id);
+    if (!a) return;
+    setD((prev) => ({ ...prev, mandant_nom: a.nom, mandant_adresse: adresseFiche(a) || prev.mandant_adresse, mandant_email: a.email || prev.mandant_email }));
+  }
+  function choisirClient(id: string) {
+    const c = clients.find((x) => x.id === id);
+    if (!c) return;
+    setD((prev) => ({
+      ...prev,
+      lese_nom: c.nom,
+      lese_adresse: [c.adresse, [c.code_postal, c.ville].filter(Boolean).join(" ")].filter(Boolean).join("\n") || prev.lese_adresse,
+      lese_email: c.email || prev.lese_email,
+      lese_tel: c.tel || prev.lese_tel,
+    }));
+  }
+  /** « 🔍 SIRET » côté réparateur : la fiche est créée dans la base et sélectionnée. */
+  async function garageDepuisSiren(r: ResultatSiren) {
+    setCreationGarage(true);
+    try {
+      const deja = garages.find((g) => (g.siret && g.siret === r.siret) || g.nom.toLowerCase() === r.nom.toLowerCase());
+      const g = deja || (await enregistrerGarage({ nom: r.nom, adresse: r.adresse || null, code_postal: r.codePostal || null, ville: r.ville || null, siret: r.siret || null, taux_t1: 65, taux_t2: 70, taux_t3: 75, taux_peinture: 70 }));
+      if (!deja) setGarages((prev) => [...prev, g].sort((a, b) => a.nom.localeCompare(b.nom)));
+      setD((prev) => ({
+        ...prev,
+        garage_id: g.id,
+        reparateur_nom: g.nom,
+        reparateur_adresse: [g.adresse, [g.code_postal, g.ville].filter(Boolean).join(" ")].filter(Boolean).join("\n"),
+        reparateur_siret: g.siret,
+      }));
+    } catch (e) {
+      setErreur(messageErreur(e, "Création du réparateur impossible."));
+    } finally {
+      setCreationGarage(false);
+    }
+  }
 
   const set = (k: keyof DossierExpert, v: unknown) => setD((prev) => ({ ...prev, [k]: v }));
   const basculer = (s: Section) => setOuvert((o) => ({ ...o, [s]: !o[s] }));
@@ -122,6 +166,8 @@ export default function DossierExpertForm({
       if (nettoye.kilometrage !== null && nettoye.kilometrage !== undefined && !Number.isFinite(Number(nettoye.kilometrage))) nettoye.kilometrage = null;
       if (nettoye.immatriculation) nettoye.immatriculation = nettoye.immatriculation.toUpperCase().trim();
       const saved = initial ? await majDossier(initial.id, nettoye) : await creerDossier(nettoye);
+      // Base de données : un mandant / un lésé inconnus y entrent automatiquement.
+      await completerAnnuaireDepuisDossier(saved);
       onSaved(saved);
     } catch (err) {
       setErreur(messageErreur(err));
@@ -181,7 +227,18 @@ export default function DossierExpertForm({
           <Titre s="mandant" label="Mandant (compagnie / donneur d'ordre)" resume={d.mandant_nom} />
           {ouvert.mandant && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Champ label="Nom société" className="sm:col-span-2">{texte("mandant_nom", { placeholder: "GROUPAMA D OC" })}</Champ>
+              <Champ label="Depuis la base de données" className="sm:col-span-3">
+                <select className="field-input" value={assurances.find((a) => a.nom === d.mandant_nom)?.id || ""} onChange={(e) => choisirAssurance(e.target.value)}>
+                  <option value="">— choisir une assurance enregistrée —</option>
+                  {assurances.map((a) => <option key={a.id} value={a.id}>{a.nom}{a.ville ? ` · ${a.ville}` : ""}</option>)}
+                </select>
+              </Champ>
+              <Champ label="Nom société" className="sm:col-span-2">
+                <div className="flex gap-2">
+                  {texte("mandant_nom", { placeholder: "GROUPAMA D OC" })}
+                  <RechercheSiren nom={d.mandant_nom || ""} compact onChoisir={(r) => setD((prev) => ({ ...prev, mandant_nom: r.nom, mandant_adresse: prev.mandant_adresse || [r.adresse, [r.codePostal, r.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") }))} />
+                </div>
+              </Champ>
               <Champ label="Email du mandant">{texte("mandant_email", { type: "email" })}</Champ>
               <Champ label="Adresse" className="sm:col-span-3">{texte("mandant_adresse")}</Champ>
               <Champ label="N° de sinistre">{texte("numero_sinistre")}</Champ>
@@ -197,12 +254,19 @@ export default function DossierExpertForm({
           <Titre s="lese" label="Lésé (propriétaire du véhicule)" resume={d.lese_nom} />
           {ouvert.lese && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <Champ label="Depuis la base de données" className="sm:col-span-3">
+                <select className="field-input" value={clients.find((c) => c.nom === d.lese_nom)?.id || ""} onChange={(e) => choisirClient(e.target.value)}>
+                  <option value="">— choisir un client enregistré —</option>
+                  {clients.map((c) => <option key={c.id} value={c.id}>{c.nom}{c.ville ? ` · ${c.ville}` : ""}</option>)}
+                </select>
+              </Champ>
               <Champ label="Nom" className="sm:col-span-2">
                 <div className="flex gap-2">
                   {texte("lese_nom")}
                   {d.assure_nom && !d.lese_nom && (
-                    <button type="button" className="btn-ghost btn-compact shrink-0" onClick={() => set("lese_nom", d.assure_nom)}>= assuré</button>
+                    <button type="button" className="btn-ghost btn-compact shrink-0 whitespace-nowrap" onClick={() => set("lese_nom", d.assure_nom)}>= assuré</button>
                   )}
+                  <RechercheSiren nom={d.lese_nom || ""} compact onChoisir={(r) => setD((prev) => ({ ...prev, lese_nom: r.nom, lese_adresse: prev.lese_adresse || [r.adresse, [r.codePostal, r.ville].filter(Boolean).join(" ")].filter(Boolean).join("\n") }))} />
                 </div>
               </Champ>
               <Champ label="Téléphone">{texte("lese_tel", { type: "tel" })}</Champ>
@@ -217,11 +281,14 @@ export default function DossierExpertForm({
           <Titre s="reparateur" label="Réparateur" resume={d.reparateur_nom} />
           {ouvert.reparateur && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Champ label="Garage enregistré" className="sm:col-span-3" aide="Choisir un réparateur remplit les champs ci-dessous (modifiables).">
-                <select className="field-input" value={d.garage_id || ""} onChange={(e) => choisirGarage(e.target.value)}>
-                  <option value="">— saisie libre —</option>
-                  {garages.map((g) => <option key={g.id} value={g.id}>{g.nom} · {g.ville || ""}</option>)}
-                </select>
+              <Champ label="Réparateur de la base de données" className="sm:col-span-3" aide="Choisir un réparateur remplit les champs ci-dessous (modifiables). « 🔍 SIREN » : tape un nom ou un SIRET dans le champ Nom, la fiche est créée dans la base et sélectionnée.">
+                <div className="flex gap-2">
+                  <select className="field-input" value={d.garage_id || ""} onChange={(e) => choisirGarage(e.target.value)}>
+                    <option value="">— saisie libre —</option>
+                    {garages.map((g) => <option key={g.id} value={g.id}>{g.nom} · {g.ville || ""}</option>)}
+                  </select>
+                  {creationGarage ? <span className="btn-ghost btn-compact whitespace-nowrap">Création…</span> : <RechercheSiren nom={d.reparateur_nom || ""} compact onChoisir={garageDepuisSiren} />}
+                </div>
               </Champ>
               <Champ label="Nom" className="sm:col-span-2">{texte("reparateur_nom")}</Champ>
               <Champ label="SIRET">{texte("reparateur_siret")}</Champ>

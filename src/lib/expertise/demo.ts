@@ -4,7 +4,7 @@
 // Idempotent : un dossier / garage déjà présent n'est pas recréé.
 
 import { supabase } from "@/lib/supabaseClient";
-import { chargerDossiers, chargerGarages, creerDossier, enregistrerGarage } from "./data";
+import { chargerDossiers, chargerGarages, completerAnnuaireDepuisDossier, creerDossier, enregistrerGarage } from "./data";
 import { Choc, DossierExpert, GarageExpert, Operation } from "./types";
 
 export const CHOCS_DEMO: Choc[] = [
@@ -70,7 +70,7 @@ const DOSSIERS_DEMO: DossierDemo[] = [
     garage: "AB MOTORS",
     dossier: {
       numero: "AE00034914", statut: "emis", date_mission: "2026-06-16", date_visite: "2026-06-18", lieu_expertise: "Autre lieu", type_expertise: "Avant travaux",
-      mandant_nom: "GROUPAMA D OC", numero_sinistre: "2026534269", date_sinistre: "2026-05-18", numero_police: "C421410200002", assure_nom: "MONSIEUR BEN-HIDA SEDAM",
+      mandant_nom: "GROUPAMA D OC", mandant_adresse: "MAISON DE L'AGRICULTURE, 10 PLACE DU MARÉCHAL JUIN, 31000 TOULOUSE", numero_sinistre: "2026534269", date_sinistre: "2026-05-18", numero_police: "C421410200002", assure_nom: "MONSIEUR BEN-HIDA SEDAM",
       lese_nom: "MONSIEUR BEN-HIDA SEDAM", lese_adresse: "31830 PLAISANCE DU TOUCH", lese_email: "semabvtc@gmail.com",
       immatriculation: "GV-277-WR", marque: "Mercedes", modele: "CLASSE C", finition: "C 300/350 e", energie: "Essence Electricité (Rechargeable)", places: 5, couleur: "Noir", vin: "W1KAF5EB6RR163146", date_mec: "2024-03-21", date_certificat: "2024-03-21", kilometrage: 105729,
       dommage_type: "Circulation", dommage_imputable: "intensité", vehicule_reparable: true,
@@ -110,7 +110,7 @@ const DOSSIERS_DEMO: DossierDemo[] = [
     garage: "GARAGE DU ROUCAS",
     dossier: {
       numero: "AE00034916", statut: "chiffrage", date_mission: ilYA(6), date_visite: ilYA(2), lieu_expertise: "Chez le réparateur", type_expertise: "Avant travaux",
-      mandant_nom: "MAIF", numero_sinistre: "26-0987-4412", date_sinistre: ilYA(11), numero_police: "M7781203", assure_nom: "MONSIEUR KARIM HADDAD",
+      mandant_nom: "MAIF", mandant_adresse: "200 AVENUE SALVADOR ALLENDE, 79000 NIORT", numero_sinistre: "26-0987-4412", date_sinistre: ilYA(11), numero_police: "M7781203", assure_nom: "MONSIEUR KARIM HADDAD",
       lese_nom: "MONSIEUR KARIM HADDAD", lese_adresse: "5 BOULEVARD MICHELET\n13008 MARSEILLE", lese_tel: "07 61 20 33 48",
       immatriculation: "FS-846-LM", marque: "Renault", modele: "CLIO V", finition: "TCe 90 Intens", energie: "Essence", places: 5, couleur: "Rouge Flamme", vin: "VF1RJA00X68123789", date_mec: "2021-03-02", kilometrage: 61300,
       dommage_type: "Stationnement", dommage_imputable: "Oui", dommage_intensite: "faible", dommage_description: "Rayures profondes et enfoncement porte AVG + rétroviseur gauche cassé.", vehicule_reparable: true,
@@ -132,7 +132,7 @@ const DOSSIERS_DEMO: DossierDemo[] = [
     garage: "CARROSSERIE DE L'ÉTANG",
     dossier: {
       numero: "AE00034917", statut: "visite", date_mission: ilYA(2), date_visite: ilYA(-2), lieu_expertise: "Chez le réparateur", type_expertise: "Avant travaux",
-      mandant_nom: "ALLIANZ IARD", numero_sinistre: "AZ2026-778-1140", date_sinistre: ilYA(5), numero_police: "056781234", assure_nom: "SAS TRANSPORTS RIVIÈRE",
+      mandant_nom: "ALLIANZ IARD", mandant_adresse: "1 COURS MICHELET, 92800 PUTEAUX", numero_sinistre: "AZ2026-778-1140", date_sinistre: ilYA(5), numero_police: "056781234", assure_nom: "SAS TRANSPORTS RIVIÈRE",
       lese_nom: "SAS TRANSPORTS RIVIÈRE", lese_adresse: "ZI LES PALUDS, 220 AVENUE DES CAILLOLS\n13400 AUBAGNE", lese_email: "compta@transports-riviere.fr", lese_tel: "04 42 03 88 11",
       immatriculation: "HB-203-TR", marque: "Volkswagen", modele: "TRANSPORTER T6.1", finition: "2.0 TDI 150 Fourgon", genre: "Camionnette", carrosserie: "Fourgon", energie: "Diesel", places: 3, couleur: "Blanc Candy", vin: "WV1ZZZ7HZNH045678", date_mec: "2023-01-19", kilometrage: 88540,
       dommage_type: "Circulation", dommage_imputable: "Oui", dommage_intensite: "forte", dommage_description: "Collision frontale à faible vitesse : bouclier AV, calandre, capot, optiques, radiateur à contrôler.", vehicule_reparable: true,
@@ -143,7 +143,7 @@ const DOSSIERS_DEMO: DossierDemo[] = [
     garage: "AUTO PRESTIGE AIX",
     dossier: {
       numero: "AE00034918", statut: "mission", date_mission: ilYA(1), date_visite: ilYA(-4), lieu_expertise: "Chez le réparateur", type_expertise: "Avant travaux",
-      mandant_nom: "MACIF", numero_sinistre: "2026-MC-331902", date_sinistre: ilYA(3), numero_police: "MC5540921", assure_nom: "MADAME SOPHIE DURAND",
+      mandant_nom: "MACIF", mandant_adresse: "1 RUE JACQUES VANDIER, 79000 NIORT", numero_sinistre: "2026-MC-331902", date_sinistre: ilYA(3), numero_police: "MC5540921", assure_nom: "MADAME SOPHIE DURAND",
       lese_nom: "MADAME SOPHIE DURAND", lese_adresse: "18 COURS MIRABEAU\n13100 AIX-EN-PROVENCE", lese_email: "s.durand@outlook.fr", lese_tel: "06 84 11 27 65",
       immatriculation: "GT-119-PX", marque: "BMW", modele: "SERIE 1", finition: "118i M Sport", energie: "Essence", places: 5, couleur: "Bleu Portimao", vin: "WBA7K310X0AB12345", date_mec: "2023-07-05", kilometrage: 27900,
       dommage_type: "Grêle", dommage_imputable: "Oui", dommage_intensite: "moyenne", dommage_description: "Impacts de grêle sur capot, toit et coffre (déclaration après épisode du 12/09).", vehicule_reparable: true,
@@ -154,7 +154,7 @@ const DOSSIERS_DEMO: DossierDemo[] = [
     garage: "CARROSSERIE MARIGNANE SERVICES",
     dossier: {
       numero: "AE00034919", statut: "chiffrage", date_mission: ilYA(12), date_visite: ilYA(7), lieu_expertise: "Chez le réparateur", type_expertise: "Valeur vénale",
-      mandant_nom: "GMF ASSURANCES", numero_sinistre: "GMF-26-0112877", date_sinistre: ilYA(20), numero_police: "G09912345", assure_nom: "MONSIEUR JEAN-PIERRE LOMBARD",
+      mandant_nom: "GMF ASSURANCES", mandant_adresse: "1 RUE RAOUL DAUTRY, 95120 ERMONT", numero_sinistre: "GMF-26-0112877", date_sinistre: ilYA(20), numero_police: "G09912345", assure_nom: "MONSIEUR JEAN-PIERRE LOMBARD",
       lese_nom: "MONSIEUR JEAN-PIERRE LOMBARD", lese_adresse: "3 IMPASSE DES OLIVIERS\n13700 MARIGNANE", lese_tel: "06 33 90 14 22",
       immatriculation: "DV-624-KJ", marque: "Citroën", modele: "C3", finition: "1.2 PureTech 82 Feel", energie: "Essence", places: 5, couleur: "Blanc Banquise", vin: "VF7SXHMZ6FT456123", date_mec: "2015-11-23", kilometrage: 142600,
       dommage_type: "Circulation", dommage_imputable: "Oui", dommage_intensite: "forte", dommage_description: "Choc avant important : longeron AVG touché, airbags déployés. Réparabilité économique à évaluer (VEI probable).", vehicule_reparable: false,
@@ -186,7 +186,7 @@ const DOSSIERS_DEMO: DossierDemo[] = [
     garage: "CARROSSERIE BY SAM",
     dossier: {
       numero: "AE00034920", statut: "emis", date_mission: ilYA(30), date_visite: ilYA(26), lieu_expertise: "Chez le réparateur", type_expertise: "Après travaux",
-      mandant_nom: "GROUPAMA MEDITERRANEE", numero_sinistre: "2026511077", date_sinistre: ilYA(40), numero_police: "C421488001177", assure_nom: "MONSIEUR YANIS BOUZID",
+      mandant_nom: "GROUPAMA MEDITERRANEE", mandant_adresse: "24 PARC DU GOLF, 13290 AIX-EN-PROVENCE", numero_sinistre: "2026511077", date_sinistre: ilYA(40), numero_police: "C421488001177", assure_nom: "MONSIEUR YANIS BOUZID",
       lese_nom: "MONSIEUR YANIS BOUZID", lese_adresse: "44 AVENUE DE SAINT-ANTOINE\n13015 MARSEILLE", lese_tel: "06 58 77 41 09",
       immatriculation: "GA-771-NC", marque: "Toyota", modele: "YARIS", finition: "1.5 Hybrid 116h Design", energie: "Essence Electricité (Non rechargeable)", places: 5, couleur: "Gris Atlas", vin: "VNKKD3D330A987654", date_mec: "2021-10-08", kilometrage: 53120,
       dommage_type: "Circulation", dommage_imputable: "Oui", dommage_intensite: "faible", dommage_description: "Accrochage latéral droit : porte AVD et bas de caisse.", vehicule_reparable: true,
@@ -246,5 +246,7 @@ export async function creerDossierDemo(): Promise<{ garages: number; dossiers: n
       if (pieces.length) await supabase.from("expertise_pieces").insert(pieces);
     }
   }
+  // Base de données (v13.6) : assurances et clients des missions de démo.
+  for (const dd of DOSSIERS_DEMO) await completerAnnuaireDepuisDossier(dd.dossier);
   return { garages: nbGarages, dossiers: nbDossiers };
 }

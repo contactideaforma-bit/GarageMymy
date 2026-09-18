@@ -17,6 +17,8 @@ export const maxDuration = 15;
 
 export type ResultatSiren = {
   siren: string;
+  /** SIRET du siège (v13.6, mode expert : fiche réparateur par SIRET). */
+  siret: string;
   nom: string;
   adresse: string;
   codePostal: string;
@@ -33,7 +35,8 @@ type Brut = {
   etat_administratif?: string;
   activite_principale?: string;
   tva?: string[];
-  siege?: { adresse?: string; code_postal?: string; libelle_commune?: string };
+  siege?: { adresse?: string; code_postal?: string; libelle_commune?: string; siret?: string };
+  matching_etablissements?: { siret?: string; adresse?: string; code_postal?: string; libelle_commune?: string }[];
 };
 
 function normalise(r: Brut): ResultatSiren {
@@ -44,6 +47,7 @@ function normalise(r: Brut): ResultatSiren {
   const voie = cp && adresseComplete.includes(cp) ? adresseComplete.slice(0, adresseComplete.indexOf(cp)).trim() : adresseComplete;
   return {
     siren: r.siren || "",
+    siret: r.siege?.siret || "",
     nom: r.nom_raison_sociale || r.nom_complet || "",
     adresse: voie,
     codePostal: cp,
@@ -61,12 +65,16 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const q = (url.searchParams.get("q") || "").trim().slice(0, 120);
   const siren = (url.searchParams.get("siren") || "").replace(/\D/g, "");
+  // v13.6 : un SIRET (14 chiffres) tapé dans « q » est accepté tel quel — l'annuaire
+  // le reconnaît et renvoie l'établissement correspondant.
+  const qNum = q.replace(/\D/g, "");
+  const parSiret = qNum.length === 14 && qNum === q.replace(/\s/g, "");
   if (!q && siren.length !== 9) {
-    return NextResponse.json({ error: "Indiquez un nom (q) ou un SIREN à 9 chiffres." }, { status: 400 });
+    return NextResponse.json({ error: "Indiquez un nom (q), un SIREN à 9 chiffres ou un SIRET à 14 chiffres." }, { status: 400 });
   }
 
   const cible = new URL("https://recherche-entreprises.api.gouv.fr/search");
-  cible.searchParams.set("q", siren.length === 9 ? siren : q);
+  cible.searchParams.set("q", siren.length === 9 ? siren : parSiret ? qNum : q);
   cible.searchParams.set("per_page", "8");
   cible.searchParams.set("page", "1");
 
@@ -80,7 +88,20 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: `Annuaire des entreprises indisponible (HTTP ${res.status}).` }, { status: 502 });
     }
     const data = (await res.json()) as { results?: Brut[]; total_results?: number };
-    const resultats = (data.results || []).map(normalise).filter((r) => r.siren);
+    const resultats = (data.results || []).map((r) => {
+      const n = normalise(r);
+      // Recherche par SIRET : on privilégie l'établissement trouvé (pas forcément le siège).
+      const et = parSiret ? (r.matching_etablissements || []).find((e) => e.siret === qNum) : undefined;
+      if (et) {
+        const adr = et.adresse || "";
+        const cp = et.code_postal || "";
+        n.siret = et.siret || n.siret;
+        n.codePostal = cp || n.codePostal;
+        n.ville = et.libelle_commune || n.ville;
+        n.adresse = cp && adr.includes(cp) ? adr.slice(0, adr.indexOf(cp)).trim() : adr || n.adresse;
+      }
+      return n;
+    }).filter((r) => r.siren);
     return NextResponse.json({ resultats, total: data.total_results || resultats.length });
   } catch (err) {
     return NextResponse.json(

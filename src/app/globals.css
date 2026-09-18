@@ -1105,3 +1105,6 @@ html.alliance .hud-icone { border-color: rgba(11, 63, 196, 0.35) !important; col
 .al-zone { aspect-ratio: 4 / 3; border-radius: 0.9rem; border: 1px dashed var(--mea-bordure-2); background: var(--mea-surface-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem; overflow: hidden; position: relative; }
 .al-zone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .al-zone .al-zone-nom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0.3rem 0.5rem; font-size: 0.7rem; font-weight: 600; color: #fff; background: linear-gradient(180deg, transparent, rgba(4, 30, 127, 0.85)); }
+/* v13.6 : les boutons compacts ne se compressent jamais en colonne de lettres
+   (la règle générale « .flex > * { min-width: 0 } » les laissait rétrécir). */
+html.alliance .btn-compact { white-space: nowrap; flex-shrink: 0; }

@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { deposerFichier } from "@/lib/storage";
 import { preparerImage } from "@/lib/photosEtat";
 import {
-  Cabinet, Choc, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, PieceExpert, RapportExpert,
+  AssuranceExpert, Cabinet, Choc, ClientExpert, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, PieceExpert, RapportExpert,
   StatutExpertise, TypeDocExpert, ZonePhoto,
 } from "./types";
 import { chocParDefaut } from "./chiffrage";
@@ -316,4 +316,70 @@ export async function enregistrerPiece(p: Partial<PieceExpert>): Promise<PieceEx
 export async function supprimerPiece(id: string): Promise<void> {
   const { error } = await supabase.from("expertise_pieces").delete().eq("id", id);
   if (error) throw error;
+}
+
+/* ---------------------- Base de données (v13.6) ---------------------- */
+
+export async function chargerAssurances(): Promise<AssuranceExpert[]> {
+  const { data } = await supabase.from("expertise_assurances").select("*").order("nom");
+  return (data as AssuranceExpert[]) || [];
+}
+export async function enregistrerAssurance(a: Partial<AssuranceExpert>): Promise<AssuranceExpert> {
+  const { id, owner_id: _o, created_at: _c, ...reste } = a as AssuranceExpert;
+  const req = id ? supabase.from("expertise_assurances").update(reste).eq("id", id) : supabase.from("expertise_assurances").insert(reste);
+  const { data, error } = await req.select("*").single();
+  if (error) throw error;
+  return data as AssuranceExpert;
+}
+export async function supprimerAssurance(id: string): Promise<void> {
+  const { error } = await supabase.from("expertise_assurances").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function chargerClients(): Promise<ClientExpert[]> {
+  const { data } = await supabase.from("expertise_clients").select("*").order("nom");
+  return (data as ClientExpert[]) || [];
+}
+export async function enregistrerClient(c: Partial<ClientExpert>): Promise<ClientExpert> {
+  const { id, owner_id: _o, created_at: _c, ...reste } = c as ClientExpert;
+  const req = id ? supabase.from("expertise_clients").update(reste).eq("id", id) : supabase.from("expertise_clients").insert(reste);
+  const { data, error } = await req.select("*").single();
+  if (error) throw error;
+  return data as ClientExpert;
+}
+export async function supprimerClient(id: string): Promise<void> {
+  const { error } = await supabase.from("expertise_clients").delete().eq("id", id);
+  if (error) throw error;
+}
+
+const cleNom = (s: string | null | undefined) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+
+/** Ajoute à l'annuaire une fiche absente (comparaison sur le nom normalisé). Best-effort, jamais bloquant. */
+export async function completerAnnuaireDepuisDossier(d: Partial<DossierExpert>): Promise<void> {
+  try {
+    if (d.mandant_nom) {
+      const liste = await chargerAssurances();
+      if (!liste.some((a) => cleNom(a.nom) === cleNom(d.mandant_nom))) {
+        await enregistrerAssurance({ nom: d.mandant_nom.trim(), adresse: d.mandant_adresse || null, email: d.mandant_email || null });
+      }
+    }
+    if (d.lese_nom) {
+      const liste = await chargerClients();
+      if (!liste.some((c) => cleNom(c.nom) === cleNom(d.lese_nom))) {
+        const lignes = (d.lese_adresse || "").split("\n").map((l) => l.trim()).filter(Boolean);
+        const m = lignes.join(" ").match(/^(.*?)\s*(\d{5})\s+(.+)$/);
+        await enregistrerClient({
+          nom: d.lese_nom.trim(),
+          type: /\b(sas|sarl|sa|eurl|sci|sasu|societe|société|transports|garage|auto)\b/i.test(d.lese_nom) ? "societe" : "particulier",
+          adresse: m ? m[1] || null : lignes[0] || null,
+          code_postal: m ? m[2] : null,
+          ville: m ? m[3] : null,
+          tel: d.lese_tel || null,
+          email: d.lese_email || null,
+        });
+      }
+    }
+  } catch {
+    /* annuaire indisponible (migration v76 absente) : on n'empêche pas la création du dossier */
+  }
 }

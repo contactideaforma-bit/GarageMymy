@@ -267,3 +267,56 @@ export type PieceExpert = {
   notes: string | null;
   created_at: string;
 };
+
+/* ---------------------- Base de données (v13.6) ---------------------- */
+
+export type AssuranceExpert = {
+  id: string;
+  owner_id: string;
+  nom: string;
+  adresse: string | null;
+  code_postal: string | null;
+  ville: string | null;
+  siren: string | null;
+  tel: string | null;
+  email: string | null;
+  contact: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+export type ClientExpert = {
+  id: string;
+  owner_id: string;
+  nom: string;
+  type: "particulier" | "societe";
+  adresse: string | null;
+  code_postal: string | null;
+  ville: string | null;
+  siren: string | null;
+  tel: string | null;
+  email: string | null;
+  contact: string | null;
+  notes: string | null;
+  created_at: string;
+};
+
+/** Ligne générique d'une fiche de l'annuaire (assurance, client, réparateur). */
+export type FicheAnnuaire = {
+  nom: string;
+  adresse?: string | null;
+  code_postal?: string | null;
+  ville?: string | null;
+  siren?: string | null;
+  siret?: string | null;
+  tel?: string | null;
+  email?: string | null;
+  contact?: string | null;
+  notes?: string | null;
+  type?: "particulier" | "societe" | null;
+};
+
+/** Adresse sur une ligne à partir d'une fiche. */
+export function adresseFiche(f: { adresse?: string | null; code_postal?: string | null; ville?: string | null }): string {
+  return [f.adresse, [f.code_postal, f.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+}
