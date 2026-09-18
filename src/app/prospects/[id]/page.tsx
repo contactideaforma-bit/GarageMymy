@@ -13,6 +13,7 @@ import SignaturePad from "@/components/SignaturePad";
 import EmailComposer from "@/components/EmailComposer";
 import EmailPresentationModal, { TypeEmailProspect } from "@/components/EmailPresentationModal";
 import JournalProspect from "@/components/JournalProspect";
+import ContactRapideProspect from "@/components/ContactRapideProspect";
 import { formatDate, formatDateTime, formatEuros, messageErreur } from "@/lib/format";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -143,6 +144,9 @@ export default function ProspectPage() {
         </div>
       </div>
       {msg && <p className="mb-3 text-xs text-accent-teal">{msg}</p>}
+
+      {/* v13.3 : téléphone en grand + liens Google / Maps / PagesJaunes pour compléter la fiche */}
+      <ContactRapideProspect p={p} onSave={sauver} />
 
       <RappelProspect p={p} onSave={sauver} />
 

@@ -13,6 +13,7 @@ export type GarageTrouve = {
   activite: string;
   dirigeant: string;
   est_siege: boolean;
+  type: "carrosserie" | "garage" | "autre";
   deja: { prospect_id: string; owner_id: string; proprietaire: string; statut: string } | null;
 };
 

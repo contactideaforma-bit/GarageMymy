@@ -15,7 +15,7 @@ import EmailPresentationModal from "@/components/EmailPresentationModal";
 import { rechercherSiren, type ResultatSiren } from "@/components/RechercheSiren";
 import { formatDate, messageErreur } from "@/lib/format";
 import InteractionModal from "@/components/InteractionModal";
-import { ETAPES_PIPELINE, EtapePipeline, MOTIFS_REFUS, ORIGINES_PROSPECT, Prospect, ProspectOrigine, ProspectStatut, RESULTATS_CONTACT, STATUTS_PROSPECT, chargerProspects, dateDansJours, enregistrerProspect, etapeDe, etatRappel, fileAppels, jamaisContacte, statsPipeline } from "@/lib/prospects";
+import { ETAPES_PIPELINE, EtapePipeline, MOTIFS_REFUS, ORIGINES_PROSPECT, Prospect, ProspectOrigine, ProspectStatut, RESULTATS_CONTACT, STATUTS_PROSPECT, chargerProspects, dateDansJours, enregistrerProspect, etapeDe, etatRappel, fileAppels, jamaisContacte, liensRecherche, statsPipeline, telHref } from "@/lib/prospects";
 import { ContexteCommercial, chargerContexteCommercial, nomCommercial } from "@/lib/commercialClient";
 
 export default function ProspectsPage() {
@@ -185,7 +185,9 @@ export default function ProspectsPage() {
                       )}
                     </div>
                     <div className="mt-1 text-xs text-white/60">
-                      {[p.contact_nom || p.gerant, p.tel, p.email].filter(Boolean).join(" · ") || "Contact à compléter"}
+                      {p.contact_nom || p.gerant ? <span>{p.contact_nom || p.gerant} · </span> : null}
+                      {p.tel ? <span className="font-semibold text-white/85 tabular-nums">📞 {p.tel}</span> : <span className="text-amber-200">📞 numéro à trouver</span>}
+                      {p.email ? <span> · {p.email}</span> : null}
                     </div>
                     <div className="mt-1 text-xs text-white/45">
                       {p.nb_appels ? `${p.nb_appels} appel${p.nb_appels > 1 ? "s" : ""}` : ""}
@@ -199,9 +201,16 @@ export default function ProspectsPage() {
                   </div>
                 </div>
               </button>
-              {p.statut !== "client" && p.statut !== "signe" && (
-                <button className="btn-ghost btn-compact shrink-0 self-center" title="Noter un appel" onClick={() => setContact(p)}>📞</button>
-              )}
+              <div className="flex shrink-0 flex-col items-center justify-center gap-1">
+                {p.tel ? (
+                  <a href={telHref(p.tel)} className="btn-primary btn-compact" title={`Appeler ${p.tel}`}>📞 Appeler</a>
+                ) : (
+                  <a href={liensRecherche(p).find((l) => l.key === "google")?.url} target="_blank" rel="noreferrer" className="btn-ghost btn-compact" title="Trouver le numéro sur la fiche Google">🔎 Numéro</a>
+                )}
+                {p.statut !== "client" && p.statut !== "signe" && (
+                  <button className="btn-ghost btn-compact" title="Noter le résultat d'un contact" onClick={() => setContact(p)}>✅ Noter</button>
+                )}
+              </div>
               </div>
             );
           })}

@@ -3,7 +3,7 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 import { estAdminServeur } from "@/lib/supportServeur";
-import { ACTIVITES_RECHERCHE, interpreterZone, tvaDepuisSiren } from "@/lib/admin/zones";
+import { ACTIVITES_RECHERCHE, TypeEtablissement, interpreterZone, tvaDepuisSiren, typeEtablissement } from "@/lib/admin/zones";
 
 // ============================================================
 //  PROSPECTION — ESPACE ÉDITEUR (v13.1)
@@ -43,6 +43,8 @@ export type GarageTrouve = {
   activite: string;
   dirigeant: string;
   est_siege: boolean;
+  /** v13.3 : carrosserie / garage / autre, déduit du nom et des enseignes. */
+  type: TypeEtablissement;
   /** Déjà une fiche prospect quelque part ? */
   deja: { prospect_id: string; owner_id: string; proprietaire: string; statut: string } | null;
 };
@@ -184,7 +186,11 @@ export async function GET(req: Request) {
     const cible = new URL("https://recherche-entreprises.api.gouv.fr/search");
     if (siret) cible.searchParams.set("q", siret);
     else {
+      // v13.3 : « carrosseries uniquement » sans nom → on cherche le mot dans
+      // l'annuaire (le NAF 45.20A mélange garages et carrosseries), puis on
+      // filtre encore sur le nom / les enseignes.
       if (nom) cible.searchParams.set("q", nom);
+      else if (activite.carrosseriesSeulement) cible.searchParams.set("q", "carrosserie");
       if (cps.length) cible.searchParams.set("code_postal", cps.join(","));
       if (departement) cible.searchParams.set("departement", departement);
       if (activite.naf.length) cible.searchParams.set("activite_principale", activite.naf.join(","));
@@ -222,6 +228,8 @@ export async function GET(req: Request) {
         vus.add(e.siret);
         const cp = e.code_postal || "";
         const enseigne = titre((e.liste_enseignes || [])[0] || e.nom_commercial || "");
+        const type = typeEtablissement(enseigne, raison, r.nom_complet, ...(e.liste_enseignes || []), e.nom_commercial);
+        if (activite.carrosseriesSeulement && type !== "carrosserie") continue;
         garages.push({
           siren: r.siren,
           siret: e.siret,
@@ -233,6 +241,7 @@ export async function GET(req: Request) {
           activite: e.activite_principale || r.activite_principale || "",
           dirigeant: dirigeantDe(r),
           est_siege: Boolean(e.est_siege),
+          type,
           deja: null,
         });
       }

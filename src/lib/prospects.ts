@@ -384,3 +384,39 @@ export function prospectVersContrat(p: Prospect, offre: ParametresOffre, prix: {
     code_apporteur: code || null,
   };
 }
+
+/* ------------------------------------------------------------------
+   TROUVER LES COORDONNÉES D'UN GARAGE (v13.3)
+
+   L'annuaire des entreprises ne donne ni téléphone, ni email, ni site :
+   le commercial les trouve en un clic sur la fiche Google (Maps), les
+   PagesJaunes ou l'annuaire officiel, puis les enregistre sur la fiche.
+------------------------------------------------------------------ */
+export type LienRecherche = { key: string; label: string; icone: string; url: string; aide: string };
+
+export function liensRecherche(p: Pick<Prospect, "nom" | "adresse" | "cp" | "ville" | "siren" | "siret" | "site">): LienRecherche[] {
+  const enc = encodeURIComponent;
+  const lieu = [p.cp, p.ville].filter(Boolean).join(" ");
+  const adresse = [p.nom, p.adresse, lieu].filter(Boolean).join(" ");
+  const liens: LienRecherche[] = [
+    { key: "google", label: "Fiche Google", icone: "🔎", url: `https://www.google.com/search?q=${enc(`${p.nom} ${lieu}`)}`, aide: "Téléphone, horaires, avis et site dans l'encart Google à droite." },
+    { key: "maps", label: "Google Maps", icone: "🗺️", url: `https://www.google.com/maps/search/?api=1&query=${enc(adresse)}`, aide: "Fiche de l'établissement, photos, téléphone, itinéraire." },
+    { key: "pj", label: "PagesJaunes", icone: "📒", url: `https://www.pagesjaunes.fr/annuaire/chercherlespros?quoiqui=${enc(p.nom)}&ou=${enc(p.ville || p.cp || "")}`, aide: "Souvent le fixe du garage et le nom du gérant." },
+  ];
+  if (p.siren) {
+    liens.push({ key: "annuaire", label: "Annuaire officiel", icone: "🏛️", url: `https://annuaire-entreprises.data.gouv.fr/entreprise/${enc(p.siren)}`, aide: "Dirigeants, établissements, données INSEE." });
+  }
+  if (p.site) {
+    const url = /^https?:\/\//i.test(p.site) ? p.site : `https://${p.site}`;
+    liens.push({ key: "site", label: "Site web", icone: "🌐", url, aide: "Le site du garage." });
+  } else {
+    liens.push({ key: "site", label: "Chercher le site", icone: "🌐", url: `https://www.google.com/search?q=${enc(`${p.nom} ${p.ville || ""} site officiel`)}`, aide: "Recherche du site web du garage." });
+  }
+  return liens;
+}
+
+/** « 04 91 00 00 00 » → « +33491000000 » pour un lien tel:, sinon tel quel. */
+export function telHref(tel: string): string {
+  const brut = tel.replace(/[^\d+]/g, "");
+  return `tel:${brut.startsWith("0") && brut.length === 10 ? `+33${brut.slice(1)}` : brut}`;
+}

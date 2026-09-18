@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import InteractionModal from "@/components/InteractionModal";
 import StatCard from "@/components/StatCard";
 import { formatDate, messageErreur } from "@/lib/format";
-import { Prospect, ProspectInteraction, RESULTATS_CONTACT, chargerInteractionsRecentes, chargerProspects, etatRappel, fileAppels, jamaisContacte } from "@/lib/prospects";
+import { Prospect, ProspectInteraction, RESULTATS_CONTACT, chargerInteractionsRecentes, chargerProspects, etatRappel, fileAppels, jamaisContacte, liensRecherche } from "@/lib/prospects";
 
 const SCRIPT: { t: string; d: string }[] = [
   { t: "1 · Qui je suis", d: "Nom, société, le sujet en 6 mots : « au sujet des dossiers d'assurance de la carrosserie »." },
@@ -105,7 +105,14 @@ export default function DemarchagePage() {
               {p.tel ? (
                 <a href={`tel:${p.tel.replace(/\s/g, "")}`} className="btn-primary mt-4 block w-full py-4 text-center text-xl">📞 {p.tel}</a>
               ) : (
-                <p className="mt-4 rounded-xl border border-amber-300/40 bg-amber-300/10 p-3 text-sm">Pas de numéro sur la fiche : ouvrez-la pour le compléter.</p>
+                <div className="mt-4 rounded-xl border border-amber-300/40 bg-amber-300/10 p-3 text-sm">
+                  <div>Pas de numéro sur la fiche : trouve-le ici puis enregistre-le depuis la fiche.</div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {liensRecherche(p).slice(0, 3).map((l) => (
+                      <a key={l.key} href={l.url} target="_blank" rel="noreferrer" className="btn-ghost btn-compact" title={l.aide}>{l.icone} {l.label}</a>
+                    ))}
+                  </div>
+                </div>
               )}
 
               {p.prochaine_action && (

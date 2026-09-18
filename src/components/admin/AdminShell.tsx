@@ -14,6 +14,7 @@ const ONGLETS: [string, string][] = [
   ["/admin/simulateur", "Simulateur"],
   ["/admin/ventes", "Ventes"],
   ["/admin/prospection", "Prospection"],
+  ["/admin/prospection/suivi", "Suivi prospects"],
   ["/admin/portefeuilles", "Portefeuilles"],
   ["/admin/abonnements", "Abonnements"],
   ["/admin/collaborateurs", "Collaborateurs"],

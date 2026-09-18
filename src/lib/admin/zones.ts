@@ -66,7 +66,8 @@ export function tvaDepuisSiren(siren: string): string {
 }
 
 /** Activités proposées dans la recherche (codes NAF de l'annuaire). */
-export const ACTIVITES_RECHERCHE: Record<string, { label: string; naf: string[] }> = {
+export const ACTIVITES_RECHERCHE: Record<string, { label: string; naf: string[]; carrosseriesSeulement?: boolean }> = {
+  carrosseries: { label: "Carrosseries uniquement (nom : carrosserie, tôlerie, peinture, débosselage)", naf: ["45.20A", "45.20B"], carrosseriesSeulement: true },
   garages: { label: "Garages & carrosseries (45.20A, 45.20B)", naf: ["45.20A", "45.20B"] },
   garages_vente: { label: "Garages + vente de véhicules (45.11Z, 45.19Z)", naf: ["45.20A", "45.20B", "45.11Z", "45.19Z"] },
   toutes: { label: "Toutes activités", naf: [] },
@@ -78,4 +79,27 @@ export const LIBELLES_NAF: Record<string, string> = {
   "45.11Z": "Commerce de voitures et véhicules légers",
   "45.19Z": "Commerce d'autres véhicules",
   "45.32Z": "Commerce de détail d'équipements automobiles",
+};
+
+/* ------------------------------------------------------------------
+   TYPE D'ÉTABLISSEMENT (v13.3) — le code NAF 45.20A ne distingue pas un
+   garage mécanique d'une carrosserie : on lit le nom, la raison sociale et
+   les enseignes. Heuristique volontairement large côté carrosserie.
+------------------------------------------------------------------ */
+export type TypeEtablissement = "carrosserie" | "garage" | "autre";
+
+const RE_CARROSSERIE = /carros|karros|tolerie|toleri|peinture|debossel|carross|body\s?shop|bodyshop|pare[- ]?choc|redressage|marbre/;
+const RE_GARAGE = /garage|mecani|auto|centre|pneu|vidange|entretien|controle|depann|motor|car\b|cars\b|service|repar/;
+
+export function typeEtablissement(...libelles: (string | null | undefined)[]): TypeEtablissement {
+  const t = sansAccents(libelles.filter(Boolean).join(" ")).toLowerCase();
+  if (RE_CARROSSERIE.test(t)) return "carrosserie";
+  if (RE_GARAGE.test(t)) return "garage";
+  return "autre";
+}
+
+export const TYPES_ETABLISSEMENT: Record<TypeEtablissement, { label: string; badge: string }> = {
+  carrosserie: { label: "Carrosserie", badge: "badge-ok" },
+  garage: { label: "Garage / centre auto", badge: "badge-neutral" },
+  autre: { label: "Autre", badge: "badge-neutral" },
 };
