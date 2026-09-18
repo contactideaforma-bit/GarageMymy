@@ -1015,3 +1015,93 @@ html.light .bg-black\/20 { background-color: rgba(30,34,51,0.08); }
 html.light .bg-black\/30 { background-color: rgba(30,34,51,0.1); }
 html.light .bg-black\/40 { background-color: rgba(30,34,51,0.14); }
 
+
+/* ====================================================================
+   MODE EXPERT — charte ALLIANCE EXPERTS (v13.5)
+   L'espace caché /alliance → /expert reprend le bleu profond du logo
+   (#041E7F) et son dégradé bleu roi. Toujours en thème CLAIR (documents
+   et écrans à fond clair) : la classe `alliance` s'ajoute à `light`.
+   Tout passe par les jetons --mea-* : les composants existants
+   (boutons, cartes, navigation, champs) suivent sans modification.
+==================================================================== */
+html.alliance {
+  --al-bleu: #041e7f;
+  --al-bleu-2: #0b3fc4;
+  --al-bleu-3: #1f6ff0;
+  --mea-fond: #f3f5fb;
+  --mea-texte: #0f1a3d;
+  --mea-texte-2: rgba(15, 26, 61, 0.72);
+  --mea-texte-3: rgba(15, 26, 61, 0.5);
+  --mea-bordure: rgba(4, 30, 127, 0.1);
+  --mea-bordure-2: rgba(4, 30, 127, 0.18);
+  --mea-halo: rgba(4, 30, 127, 0.05);
+  --mea-violet: #0b3fc4;
+  --mea-rose: #041e7f;
+  --mea-teal: #1f6ff0;
+  --mea-neon: #0b3fc4;
+  --mea-neon-texte: #041e7f;
+  --mea-neon-fond: rgba(11, 63, 196, 0.1);
+  --mea-neon-fond-2: rgba(11, 63, 196, 0.18);
+  --mea-neon-bordure: rgba(11, 63, 196, 0.42);
+  --mea-lueur: 0 0 0 1px rgba(11, 63, 196, 0.14), 0 0 10px rgba(11, 63, 196, 0.16);
+  --mea-lueur-forte: 0 0 0 1px rgba(11, 63, 196, 0.26), 0 0 16px rgba(11, 63, 196, 0.24);
+  --mea-ombre-carte: 0 1px 3px rgba(4, 30, 127, 0.05), 0 10px 30px rgba(4, 30, 127, 0.06);
+}
+html.alliance body {
+  background-image:
+    radial-gradient(60rem 40rem at 78% -12%, rgba(11, 63, 196, 0.12), transparent 62%),
+    radial-gradient(48rem 34rem at -8% 108%, rgba(31, 111, 240, 0.1), transparent 62%),
+    linear-gradient(rgba(4, 30, 127, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(4, 30, 127, 0.035) 1px, transparent 1px);
+}
+html.alliance :focus-visible { box-shadow: 0 0 8px rgba(11, 63, 196, 0.25); }
+html.alliance .btn-primary {
+  color: #ffffff;
+  background-color: var(--al-bleu-2);
+  background-image: linear-gradient(135deg, var(--al-bleu), var(--al-bleu-2) 60%, var(--al-bleu-3));
+  border-color: rgba(4, 30, 127, 0.6);
+  box-shadow: 0 6px 16px rgba(11, 63, 196, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+html.alliance .btn-primary:hover { background-image: linear-gradient(135deg, #062694, #1049d6 60%, #2a7cf5); }
+html.alliance .titre-section::before { background: linear-gradient(180deg, var(--al-bleu-3), var(--al-bleu)); box-shadow: 0 0 6px rgba(11, 63, 196, 0.4); }
+html.alliance .pastille-neuve { background: var(--al-bleu-2); box-shadow: 0 0 0 3px rgba(11, 63, 196, 0.2), 0 0 10px rgba(11, 63, 196, 0.6); }
+html.alliance .badge-info  { background: #dbe6ff; color: #041e7f; border-color: #b7cbff; }
+html.alliance .alerte-info { background: #e6edff; border-color: #b7cbff; color: #041e7f; }
+html.alliance .text-accent-pink, html.alliance .text-accent-violet, html.alliance .text-accent-teal { color: var(--al-bleu-2); }
+html.alliance .hud-barre { background-image: linear-gradient(90deg, var(--al-bleu), var(--al-bleu-3)) !important; }
+html.alliance .hud-icone { border-color: rgba(11, 63, 196, 0.35) !important; color: var(--al-bleu) !important; background: rgba(11, 63, 196, 0.1) !important; }
+
+/* Bandeau de marque de la barre latérale expert */
+.al-marque {
+  font-family: var(--font-titre), var(--font-sans), sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--al-bleu, #041e7f);
+}
+.al-entete {
+  background: linear-gradient(135deg, #041e7f, #0b3fc4 65%, #1f6ff0);
+  color: #fff;
+}
+/* Onglets de la fiche dossier expert */
+.al-onglet {
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--mea-texte-2);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.al-onglet:hover { background: var(--mea-halo); color: var(--mea-texte); }
+.al-onglet.actif { background: var(--mea-neon-fond); color: var(--mea-neon-texte); border-color: var(--mea-neon-bordure); box-shadow: var(--mea-lueur); }
+/* Tableau du chiffrage : lignes fines, chiffres alignés à droite */
+.al-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+.al-table th { text-align: left; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mea-texte-3); padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--mea-bordure-2); }
+.al-table td { padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--mea-bordure); vertical-align: middle; }
+.al-table td.num, .al-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.al-table input.field-input, .al-table select.field-input { padding: 0.3rem 0.5rem; border-radius: 0.5rem; font-size: 0.8rem; }
+/* Zones de prise de vue : grille type « tour du véhicule » */
+.al-zone { aspect-ratio: 4 / 3; border-radius: 0.9rem; border: 1px dashed var(--mea-bordure-2); background: var(--mea-surface-2); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.25rem; overflow: hidden; position: relative; }
+.al-zone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.al-zone .al-zone-nom { position: absolute; left: 0; right: 0; bottom: 0; padding: 0.3rem 0.5rem; font-size: 0.7rem; font-weight: 600; color: #fff; background: linear-gradient(180deg, transparent, rgba(4, 30, 127, 0.85)); }

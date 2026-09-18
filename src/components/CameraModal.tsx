@@ -13,10 +13,15 @@ export default function CameraModal({
   titre = "Prendre une photo",
   onCapture,
   onClose,
+  libelleValider = "Valider — enregistrer en PDF",
+  conseil = "Cadre bien le document, lumière au-dessus, puis Capturer.",
 }: {
   titre?: string;
   onCapture: (dataUrl: string) => void;
   onClose: () => void;
+  /** v13.5 : libellé du bouton de validation (mode expert : photo simple). */
+  libelleValider?: string;
+  conseil?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -96,7 +101,7 @@ export default function CameraModal({
             </button>
           </div>
           <p className="text-center text-xs text-white/40">
-            Cadre bien le document, lumière au-dessus, puis Capturer.
+            {conseil}
           </p>
         </>
       ) : (
@@ -114,7 +119,7 @@ export default function CameraModal({
               }}
               className="btn-primary"
             >
-              Valider — enregistrer en PDF
+              {libelleValider}
             </button>
           </div>
         </>

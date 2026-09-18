@@ -23,6 +23,10 @@ export function estRoutePublique(pathname?: string | null): boolean {
     pathname === "/contact" ||
     pathname === "/facturation-electronique" ||
     // Déclaration de vente par les commerciaux (v10.0) : code apporteur, pas de compte.
-    pathname === "/vente"
+    pathname === "/vente" ||
+    // MODE EXPERT (v13.5) : l'espace caché /alliance → /expert gère LUI-MÊME sa
+    // connexion (comptes autorisés, charte Alliance Experts) — hors AuthGate.
+    pathname === "/alliance" ||
+    pathname.startsWith("/expert")
   );
 }

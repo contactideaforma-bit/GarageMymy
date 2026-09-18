@@ -13,6 +13,7 @@ import Salutation from "@/components/Salutation";
 import Link from "next/link";
 import BandeauCompte from "@/components/BandeauCompte";
 import { estRoutePublique } from "@/lib/routesPubliques";
+import { estRouteExpert } from "@/lib/expertise/acces";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -39,6 +40,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (publique || typeof window === "undefined" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js").catch(() => undefined);
   }, [publique]);
+
+  // MODE EXPERT (v13.5) : coque dédiée (ExpertShell dans app/expert/layout.tsx).
+  if (estRouteExpert(pathname)) {
+    return <>{children}</>;
+  }
 
   // Pages publiques (signature à distance, mentions légales) : pas de barre
   // latérale ni de menu.
