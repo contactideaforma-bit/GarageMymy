@@ -60,6 +60,23 @@ type Brut = {
 };
 
 type Garde = { erreur: NextResponse; admin: null; userId: null } | { erreur: null; admin: SupabaseClient; userId: string };
+
+/** Ligne d'une liste importée (Excel / CSV d'une collaboratrice) — v13.4. */
+type LigneImportee = {
+  nom: string; adresse?: string | null; cp?: string | null; ville?: string | null; tel?: string | null; email?: string | null;
+  gerant?: string | null; commentaire?: string | null;
+  date_appel?: string | null; repondu?: boolean; pas_interesse?: boolean; date_rappel?: string | null; rdv?: boolean; date_rdv?: string | null;
+};
+
+function cleTel(t: string | null | undefined): string {
+  const d = (t || "").replace(/\D/g, "");
+  return d.length >= 9 ? d.slice(-9) : "";
+}
+function cleNom(nom: string | null | undefined, cp: string | null | undefined): string {
+  const n = (nom || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(sarl|sas|sasu|eurl|carrosserie|garage|auto|automobile|automobiles|de|du|des|la|le|les|l|d)\b/g, " ").replace(/\s+/g, " ").trim();
+  return n ? `${n}|${cp || ""}` : "";
+}
 async function garde(req: Request): Promise<Garde> {
   const user = await utilisateurDepuisRequete(req);
   if (!user) return { erreur: NextResponse.json(REPONSE_401, { status: 401 }), admin: null, userId: null };
@@ -304,7 +321,7 @@ export async function POST(req: Request) {
   if (g.erreur) return g.erreur;
   const { admin, userId } = g;
 
-  let body: { action?: string; owner_id?: string; garages?: Partial<GarageTrouve>[]; prospect_ids?: string[] };
+  let body: { action?: string; owner_id?: string; garages?: Partial<GarageTrouve>[]; prospect_ids?: string[]; lignes?: LigneImportee[]; fichier?: string };
   try {
     body = await req.json();
   } catch {
@@ -413,6 +430,108 @@ export async function POST(req: Request) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
     return NextResponse.json({ ok: true, retires: supprimables.length, conserves: ids.length - supprimables.length });
+  }
+
+  /* ---------------- IMPORT D'UNE LISTE (v13.4) ----------------
+     Fiches créées chez le commercial choisi, source « import ». Doublons
+     écartés par téléphone, sinon par nom + code postal, contre TOUTES les
+     fiches existantes (tous commerciaux). Si la liste porte déjà un suivi
+     (répondu / pas intéressé / rappel / RDV), on crée le contact dans le
+     journal et on pose le statut correspondant. */
+  if (body.action === "importer") {
+    const ownerId = body.owner_id || "";
+    const lot = (body.lignes || []).filter((x) => x && typeof x.nom === "string" && x.nom.trim()).slice(0, 2000);
+    if (!ownerId || !lot.length) return NextResponse.json({ error: "Choisissez un commercial et un fichier contenant au moins un garage." }, { status: 400 });
+    if (!(await cibleValide(admin, ownerId, userId))) {
+      return NextResponse.json({ error: "Ce compte n'est pas celui d'un commercial (fiche collaborateur rattachée à un compte)." }, { status: 400 });
+    }
+
+    // Toutes les fiches existantes (tel + nom/cp), par tranches de 1000.
+    const existants = new Set<string>();
+    for (let debut = 0; debut < 20_000; debut += 1000) {
+      const { data, error } = await admin.from("prospects").select("nom,tel,cp").range(debut, debut + 999);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      for (const p of (data as { nom: string; tel: string | null; cp: string | null }[]) || []) {
+        const t = cleTel(p.tel); if (t) existants.add(`tel:${t}`);
+        const n = cleNom(p.nom, p.cp); if (n) existants.add(`nom:${n}`);
+      }
+      if (!data || data.length < 1000) break;
+    }
+
+    const maintenant = new Date().toISOString();
+    const fichier = (body.fichier || "").slice(0, 120);
+    const ignores: string[] = [];
+    const lignes: Record<string, unknown>[] = [];
+    const suivis: { index: number; l: LigneImportee }[] = [];
+    for (const x of lot) {
+      const t = cleTel(x.tel);
+      const n = cleNom(x.nom, x.cp);
+      const cles = [t ? `tel:${t}` : "", n ? `nom:${n}` : ""].filter(Boolean);
+      if (cles.some((c) => existants.has(c))) { ignores.push(x.nom.trim()); continue; }
+      cles.forEach((c) => existants.add(c));
+
+      // Suivi déjà noté dans le fichier → statut / rappel / RDV
+      let statut = "prospect";
+      let prochaine_action: string | null = null;
+      let prochaine_date: string | null = null;
+      let rdv_le: string | null = null;
+      let motif_refus: string | null = null;
+      let dernier_resultat: string | null = null;
+      if (x.rdv || x.date_rdv) { statut = "rdv"; rdv_le = x.date_rdv || null; prochaine_action = "RDV à l'atelier"; prochaine_date = x.date_rdv || null; dernier_resultat = "rdv"; }
+      else if (x.pas_interesse) { statut = "perdu"; motif_refus = "autre"; dernier_resultat = "refus"; }
+      else if (x.date_rappel) { prochaine_action = "Rappeler (liste importée)"; prochaine_date = x.date_rappel; dernier_resultat = "rappeler"; }
+      else if (x.repondu || x.date_appel) { dernier_resultat = "autre"; }
+      const contacte = Boolean(x.repondu || x.pas_interesse || x.date_rappel || x.rdv || x.date_rdv || x.date_appel);
+
+      const notes = [x.commentaire?.trim() || "", fichier ? `Importé de « ${fichier} »` : "Liste importée"].filter(Boolean).join("\n");
+      lignes.push({
+        owner_id: ownerId,
+        nom: x.nom.trim().slice(0, 200),
+        adresse: x.adresse || null,
+        cp: x.cp || null,
+        ville: x.ville || null,
+        tel: x.tel || null,
+        email: x.email || null,
+        gerant: x.gerant || null,
+        statut,
+        origine: "portefeuille",
+        notes,
+        prochaine_action,
+        prochaine_date,
+        rdv_le,
+        motif_refus,
+        motif_refus_detail: x.pas_interesse ? "Pas intéressé (liste importée)" : null,
+        nb_appels: contacte ? 1 : 0,
+        dernier_contact: contacte ? (x.date_appel ? `${x.date_appel}T12:00:00.000Z` : maintenant) : null,
+        dernier_resultat,
+        attribue_par: userId,
+        attribue_le: maintenant,
+        source: "import",
+      });
+      if (contacte) suivis.push({ index: lignes.length - 1, l: x });
+    }
+
+    let crees = 0;
+    if (lignes.length) {
+      const { data, error } = await admin.from("prospects").insert(lignes).select("id");
+      if (error) return NextResponse.json({ error: messageColonne(error.message) }, { status: 500 });
+      crees = data?.length || 0;
+      // Journal des contacts pour les lignes déjà travaillées (même ordre que l'insert).
+      const ids = ((data as { id: string }[]) || []).map((d) => d.id);
+      const inter = suivis.filter((s) => ids[s.index]).map((s) => ({
+        owner_id: ownerId,
+        prospect_id: ids[s.index],
+        canal: "appel",
+        resultat: lignes[s.index].dernier_resultat || "autre",
+        motif_refus: lignes[s.index].motif_refus || null,
+        commentaire: s.l.commentaire || "Contact noté dans la liste importée",
+        prochaine_date: lignes[s.index].prochaine_date || null,
+        rdv_le: lignes[s.index].rdv_le || null,
+        created_at: lignes[s.index].dernier_contact || maintenant,
+      }));
+      if (inter.length) await admin.from("prospect_interactions").insert(inter); // best-effort
+    }
+    return NextResponse.json({ ok: true, crees, ignores, sansTel: lignes.filter((l) => !l.tel).length });
   }
 
   return NextResponse.json({ error: "Action inconnue." }, { status: 400 });

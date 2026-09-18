@@ -19,6 +19,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminShell, { dateFr } from "@/components/admin/AdminShell";
+import ImportListeProspects from "@/components/admin/ImportListeProspects";
 import { Collaborateur, lireTable, nomCollab } from "@/lib/admin/client";
 import {
   CriteresRecherche,
@@ -111,7 +112,11 @@ export default function ProspectionEditeur({ ongletInitial = "recherche" }: { on
         </p>
       )}
       {onglet === "recherche" ? (
-        <Recherche cibles={cibles} prospects={prospects} onAttribue={charger} />
+        <>
+          <Recherche cibles={cibles} prospects={prospects} onAttribue={charger} />
+          {/* v13.4 : liste préparée hors appli (Excel / CSV) */}
+          <ImportListeProspects cibles={cibles} prospects={prospects} onImporte={charger} />
+        </>
       ) : (
         <Suivi prospects={prospects} cibles={cibles} nomDe={nomDe} chargement={chargement} onChange={charger} />
       )}

@@ -1,6 +1,7 @@
 // Accès CLIENT à la prospection éditeur (v13.1) : tout passe par /api/admin/prospection.
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import type { Prospect, ProspectDocument, ProspectInteraction } from "@/lib/prospects";
+import type { LigneImport } from "@/lib/admin/importListe";
 
 export type GarageTrouve = {
   siren: string;
@@ -59,3 +60,7 @@ export async function lireJournal(prospect_id: string): Promise<JournalFiche> {
   if (!r.ok || !r.data) throw new Error(r.error || "Journal illisible.");
   return r.data;
 }
+
+/** Import d'une liste préparée dans Excel / Sheets (v13.4). */
+export const importerListe = (owner_id: string, lignes: LigneImport[], fichier: string) =>
+  post<{ crees: number; ignores: string[]; sansTel: number }>({ action: "importer", owner_id, lignes, fichier });
