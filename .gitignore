@@ -42,3 +42,4 @@ next-env.d.ts
 
 # dossier de sorties de Claude (aperçus, captures)
 Claude outputs/
+.env*

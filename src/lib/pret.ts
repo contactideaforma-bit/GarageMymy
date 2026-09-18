@@ -17,6 +17,7 @@
 // ============================================================
 
 import { Client, Dossier, Entreprise, FlotteMiseADispo, FlotteVehicule, TransfertGarantie } from "./types";
+import { supabase } from "./supabaseClient";
 import { formatDate, formatEuros } from "./format";
 
 export const PRISES_EN_CHARGE: Record<string, string> = {
@@ -212,4 +213,85 @@ export function clausesMiseADispo(
     `Article 10 — Données personnelles\nLes informations recueillies (identité, permis, coordonnées) sont nécessaires à l'exécution du contrat et à la désignation du conducteur en cas d'infraction. Elles sont conservées par ${garage} pendant la durée légale et le ${role} dispose d'un droit d'accès, de rectification et d'effacement (RGPD).`,
     `Article 11 — Litiges\nLe présent contrat est soumis au droit français. En cas de litige, les parties recherchent une solution amiable ; le ${role} consommateur peut recourir gratuitement au médiateur de la consommation dont relève ${garage}. À défaut, les tribunaux compétents sont ceux du ressort du siège de ${garage}.`,
   ].join("\n\n");
+}
+
+/* ====================================================================
+   LIEN FICHE VÉHICULE ↔ DOSSIER SINISTRE (v13.2)
+
+   Un prêt fait depuis la FICHE VÉHICULE et lié à un dossier doit aussi
+   apparaître dans le bloc « Véhicule de prêt — transfert de garantie » du
+   dossier (qui lit `transferts_garantie`). On crée / met à jour la ligne
+   miroir et on la relie par `transfert_id` — symétrique du prêt créé
+   depuis le dossier, qui insère déjà sa mise à disposition.
+==================================================================== */
+
+/** Colonnes de `transferts_garantie` recopiées depuis une mise à disposition. */
+function miroirTransfert(m: FlotteMiseADispo, v: Pick<FlotteVehicule, "immatriculation" | "marque_modele">, dossierId: string) {
+  return {
+    dossier_id: dossierId,
+    vehicule_immat: (v.immatriculation || "").toUpperCase(),
+    vehicule_modele: v.marque_modele || null,
+    date_debut: m.date_debut,
+    date_fin: m.date_fin,
+    notes: m.notes,
+    tarif_jour: m.tarif_jour,
+    tarif_horaire: m.tarif_horaire,
+    franchise: m.franchise,
+    km_jour: m.km_jour,
+    prix_km: m.prix_km,
+    conducteur_nom: m.conducteur_nom,
+    prise_en_charge: m.prise_en_charge || "assurance",
+  };
+}
+
+/**
+ * Crée (ou met à jour) la ligne `transferts_garantie` d'une mise à
+ * disposition liée à un dossier, et enregistre `transfert_id` sur la mise à
+ * disposition. Best-effort : renvoie l'id du transfert, ou null en cas d'échec.
+ */
+export async function synchroniserTransfertGarantie(
+  m: FlotteMiseADispo,
+  v: Pick<FlotteVehicule, "immatriculation" | "marque_modele">,
+  dossierId: string
+): Promise<string | null> {
+  const champs = miroirTransfert(m, v, dossierId);
+  if (m.transfert_id) {
+    await supabase.from("transferts_garantie").update(champs).eq("id", m.transfert_id);
+    return m.transfert_id;
+  }
+  let { data, error } = await supabase.from("transferts_garantie").insert(champs).select("id").single();
+  if (error && /column|colonne/i.test(error.message || "")) {
+    // Migration v54 absente : colonnes du contrat inconnues → champs de base.
+    const { dossier_id, vehicule_immat, vehicule_modele, date_debut, date_fin, notes } = champs;
+    ({ data, error } = await supabase
+      .from("transferts_garantie")
+      .insert({ dossier_id, vehicule_immat, vehicule_modele, date_debut, date_fin, notes })
+      .select("id")
+      .single());
+  }
+  if (error || !data) return null;
+  const id = (data as { id: string }).id;
+  await supabase.from("flotte_mises_a_dispo").update({ transfert_id: id }).eq("id", m.id);
+  return id;
+}
+
+/**
+ * Rattrapage côté dossier : les mises à disposition liées au dossier mais
+ * sans transfert (prêts faits depuis la fiche véhicule avant la v13.2)
+ * reçoivent leur ligne miroir. Renvoie le nombre de lignes créées.
+ */
+export async function rattraperTransfertsDossier(dossierId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("flotte_mises_a_dispo")
+    .select("*")
+    .eq("dossier_id", dossierId)
+    .is("transfert_id", null);
+  if (error || !data?.length) return 0;
+  let n = 0;
+  for (const m of data as FlotteMiseADispo[]) {
+    const { data: v } = await supabase.from("flotte_vehicules").select("immatriculation, marque_modele").eq("id", m.vehicule_id).maybeSingle();
+    if (!v) continue;
+    if (await synchroniserTransfertGarantie(m, v as Pick<FlotteVehicule, "immatriculation" | "marque_modele">, dossierId)) n++;
+  }
+  return n;
 }

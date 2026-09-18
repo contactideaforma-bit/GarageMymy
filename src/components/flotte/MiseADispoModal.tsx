@@ -14,6 +14,7 @@ import {
   coutMiseADispoHt,
   defautsMiseADispo,
   joursPret,
+  synchroniserTransfertGarantie,
 } from "@/lib/pret";
 import { apercuContratMiseADispoPdf } from "@/lib/pdf";
 import ModalShell from "@/components/ModalShell";
@@ -192,6 +193,12 @@ export default function MiseADispoModal({
             categorie: "autre",
           });
         }
+      }
+      // v13.2 : le prêt lié à un dossier apparaît aussi dans le bloc
+      // « Véhicule de prêt » du dossier (ligne miroir transferts_garantie).
+      if (dossier) {
+        const tid = await synchroniserTransfertGarantie(sauve, vehicule, dossier.id);
+        if (tid) sauve = { ...sauve, transfert_id: tid };
       }
       await synchroniserStatutVehicule(vehicule.id);
       if (puis === "pdf") await apercuContratMiseADispoPdf(sauve, vehicule, dossier);

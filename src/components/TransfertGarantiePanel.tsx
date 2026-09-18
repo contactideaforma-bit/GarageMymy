@@ -10,7 +10,7 @@ import ModalShell from "@/components/ModalShell";
 import EmailComposer from "@/components/EmailComposer";
 import SignaturePad from "@/components/SignaturePad";
 import ConditionsAssureurPret from "@/components/flotte/ConditionsAssureurPret";
-import { PRISES_EN_CHARGE, clausesParDefaut, coutPretHt, defautsContrat, joursPret } from "@/lib/pret";
+import { PRISES_EN_CHARGE, clausesParDefaut, coutPretHt, defautsContrat, joursPret, rattraperTransfertsDossier } from "@/lib/pret";
 import { apercuContratPretPdf, contratPretPdfBase64, generateContratPretPdf, nomFichierSur } from "@/lib/pdf";
 
 const STATUTS_TRANSFERT: Record<string, { label: string; badge: string }> = {
@@ -58,6 +58,9 @@ export default function TransfertGarantiePanel({
 
   const load = useCallback(async () => {
     setLoading(true);
+    // v13.2 : prêts faits depuis la fiche véhicule et liés à ce dossier sans
+    // ligne miroir → on la crée avant de lire (best-effort).
+    await rattraperTransfertsDossier(dossier.id);
     const { data } = await supabase
       .from("transferts_garantie")
       .select("*")
