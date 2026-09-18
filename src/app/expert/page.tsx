@@ -48,8 +48,9 @@ export default function TableauDeBordExpert() {
     setCreation(true);
     setErreur(null);
     try {
-      await creerDossierDemo();
+      const n = await creerDossierDemo();
       await charger();
+      if (!n.dossiers && !n.garages) setErreur("Les données de démonstration sont déjà en place.");
     } catch (e) {
       setErreur(messageErreur(e, "Création du dossier de démonstration impossible (migration v75 exécutée ?)."));
     } finally {
@@ -68,7 +69,12 @@ export default function TableauDeBordExpert() {
       <EnTete
         titre="Tableau de bord"
         sousTitre="Missions en cours, visites à venir et rapports à émettre."
-        actions={<Link href="/expert/dossiers?nouveau=1" className="btn-primary">+ Nouvelle mission</Link>}
+        actions={
+          <>
+            <button type="button" className="btn-ghost btn-compact" disabled={creation} onClick={demo} title="Ajoute des réparateurs et des missions fictives (idempotent)">{creation ? "Création…" : "Données de démo"}</button>
+            <Link href="/expert/dossiers?nouveau=1" className="btn-primary">+ Nouvelle mission</Link>
+          </>
+        }
       />
 
       {!dispo && (
@@ -92,7 +98,7 @@ export default function TableauDeBordExpert() {
           ) : recents.length === 0 ? (
             <Vide
               titre="Aucune mission pour l'instant"
-              texte="Crée ta première mission, ou charge le dossier de démonstration (Mercedes Classe C, rapport AE00034914) pour voir l'outil en situation."
+              texte="Crée ta première mission, ou charge les données de démonstration : 6 réparateurs et 7 missions à chaque étape (dont le rapport AE00034914 du modèle)."
               action={
                 <div className="flex flex-wrap gap-2">
                   <Link href="/expert/dossiers?nouveau=1" className="btn-primary">+ Nouvelle mission</Link>
