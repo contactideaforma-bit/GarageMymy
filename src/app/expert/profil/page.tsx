@@ -12,7 +12,7 @@ import ModalShell from "@/components/ModalShell";
 import SignaturePad from "@/components/SignaturePad";
 import Icone from "@/components/expert/Icone";
 import { Bloc, Champ, EnTete, Erreur } from "@/components/expert/ui";
-import { BUCKET_EXPERT, chargerProfilExpert, enregistrerProfilExpert, urlFichierExpert } from "@/lib/expertise/data";
+import { BUCKET_EXPERT, chargerProfilExpert, enregistrerProfilExpert, urlFichierExpert, dataUrlVersBlob } from "@/lib/expertise/data";
 import { ProfilExpert } from "@/lib/expertise/types";
 import { deposerFichier } from "@/lib/storage";
 import { supabase } from "@/lib/supabaseClient";
@@ -55,7 +55,7 @@ export default function PageProfilExpert() {
 
   async function enregistrerSignature(dataUrl: string) {
     try {
-      const blob = await (await fetch(dataUrl)).blob();
+      const blob = dataUrlVersBlob(dataUrl);
       const path = await deposerFichier(BUCKET_EXPERT, `expertise/experts/signature-${Date.now()}.png`, blob, { contentType: "image/png", upsert: true });
       await enregistrerProfilExpert({ ...(p as ProfilExpert), signature_path: path });
       set("signature_path", path);

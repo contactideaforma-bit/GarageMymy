@@ -430,3 +430,13 @@ export async function supprimerRdv(id: string): Promise<void> {
   const { error } = await supabase.from("expertise_rdv").delete().eq("id", id);
   if (error) throw error;
 }
+
+/** dataURL (signature PNG) → Blob, sans `fetch("data:…")` que la CSP de l'appli bloque (v13.7). */
+export function dataUrlVersBlob(dataUrl: string): Blob {
+  const [entete, base64] = dataUrl.split(",");
+  const type = /data:([^;]+)/.exec(entete)?.[1] || "image/png";
+  const bin = atob(base64 || "");
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type });
+}

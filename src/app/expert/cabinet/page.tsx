@@ -8,7 +8,7 @@ import Icone from "@/components/expert/Icone";
 import SignaturePad from "@/components/SignaturePad";
 import ModalShell from "@/components/ModalShell";
 import { Bloc, Champ, EnTete, Erreur } from "@/components/expert/ui";
-import { BUCKET_EXPERT, chargerCabinet, enregistrerCabinet, urlFichierExpert } from "@/lib/expertise/data";
+import { BUCKET_EXPERT, chargerCabinet, enregistrerCabinet, urlFichierExpert, dataUrlVersBlob } from "@/lib/expertise/data";
 import { Cabinet } from "@/lib/expertise/types";
 import { deposerFichier } from "@/lib/storage";
 import { messageErreur } from "@/lib/format";
@@ -48,7 +48,7 @@ export default function PageCabinet() {
 
   async function enregistrerSignature(dataUrl: string) {
     try {
-      const blob = await (await fetch(dataUrl)).blob();
+      const blob = dataUrlVersBlob(dataUrl);
       const path = await deposerFichier(BUCKET_EXPERT, `expertise/cabinet/signature-${Date.now()}.png`, blob, { contentType: "image/png", upsert: true });
       await enregistrerCabinet({ signature_path: path });
       set("signature_path", path);
