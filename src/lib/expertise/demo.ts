@@ -48,9 +48,15 @@ export const OPERATIONS_DEMO: Operation[] = [
 
 const GARAGES_DEMO: Partial<GarageExpert>[] = [
   { nom: "AB MOTORS", adresse: "32 BOULEVARD PASTEUR", code_postal: "95210", ville: "SAINT-GRATIEN", siret: "98072608700029", tel: "01 39 89 12 40", contact: "M. Aziz Benali", taux_t1: 125, taux_t2: 125, taux_t3: 125, taux_peinture: 125 },
-  { nom: "CARROSSERIE BY SAM", adresse: "14 CHEMIN DE LA MADRAGUE-VILLE", code_postal: "13015", ville: "MARSEILLE", siret: "84512396700018", tel: "04 91 63 22 18", email: "contact@carrosseriebysam.fr", contact: "Sam", taux_t1: 68, taux_t2: 72, taux_t3: 78, taux_peinture: 74, notes: "Agréé toutes compagnies, véhicule de courtoisie." },
+  { nom: "CARROSSERIE BY SAM", adresse: "14 CHEMIN DE LA MADRAGUE-VILLE", code_postal: "13015", ville: "MARSEILLE", siret: "84512396700018", tel: "04 91 63 22 18", email: "contact@carrosseriebysam.fr", contact: "Sam", taux_t1: 68, taux_t2: 72, taux_t3: 78, taux_peinture: 74, notes: "Véhicule de courtoisie.", agree: true, agrements: [
+    { assurance: "AXA FRANCE IARD", tarif_preferentiel: true, taux_t1: 62, taux_t2: 66, taux_t3: 70, taux_peinture: 68, remise_pieces: 10, conditions: "Franchise offerte, véhicule de courtoisie, délai de prise en charge 48 h" },
+    { assurance: "GROUPAMA MEDITERRANEE", tarif_preferentiel: false, conditions: "Agrément n° GM-13-0457" },
+  ] },
   { nom: "GARAGE DU ROUCAS", adresse: "112 AVENUE DE LA CORSE", code_postal: "13007", ville: "MARSEILLE", siret: "53298114500027", tel: "04 91 52 10 77", contact: "Mme Karine Roux", taux_t1: 65, taux_t2: 70, taux_t3: 75, taux_peinture: 70 },
-  { nom: "CARROSSERIE DE L'ÉTANG", adresse: "ZA LES ESTROUBLANS, 8 RUE DE BERLIN", code_postal: "13127", ville: "VITROLLES", siret: "79934682100031", tel: "04 42 89 34 61", contact: "M. Thierry Pons", taux_t1: 62, taux_t2: 66, taux_t3: 70, taux_peinture: 68, notes: "Spécialiste aluminium et véhicules premium." },
+  { nom: "CARROSSERIE DE L'ÉTANG", adresse: "ZA LES ESTROUBLANS, 8 RUE DE BERLIN", code_postal: "13127", ville: "VITROLLES", siret: "79934682100031", tel: "04 42 89 34 61", contact: "M. Thierry Pons", taux_t1: 62, taux_t2: 66, taux_t3: 70, taux_peinture: 68, notes: "Spécialiste aluminium et véhicules premium.", agree: true, agrements: [
+    { assurance: "ALLIANZ IARD", tarif_preferentiel: true, taux_t1: 58, taux_t2: 62, taux_t3: 66, taux_peinture: 64, remise_pieces: 8, conditions: "Réseau Allianz Carrosserie Partenaire" },
+    { assurance: "MAIF", tarif_preferentiel: false, conditions: null },
+  ] },
   { nom: "AUTO PRESTIGE AIX", adresse: "410 ROUTE DES MILLES", code_postal: "13290", ville: "AIX-EN-PROVENCE", siret: "88123776500012", tel: "04 42 20 55 09", contact: "M. Nicolas Ferrer", taux_t1: 72, taux_t2: 78, taux_t3: 85, taux_peinture: 80 },
   { nom: "CARROSSERIE MARIGNANE SERVICES", adresse: "25 AVENUE DU 8 MAI 1945", code_postal: "13700", ville: "MARIGNANE", siret: "43121987600044", tel: "04 42 09 71 30", contact: "M. Rachid Lounis", taux_t1: 60, taux_t2: 64, taux_t3: 68, taux_peinture: 66 },
 ];

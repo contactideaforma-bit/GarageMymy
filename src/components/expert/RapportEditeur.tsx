@@ -24,6 +24,7 @@ import {
 } from "@/lib/expertise/data";
 import {
   CODES_OPERATION, Cabinet, Choc, Conclusions, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, PosteChoc, ProfilExpert, RapportExpert,
+  agrementPour,
 } from "@/lib/expertise/types";
 import { POSTES_STANDARD, chocParDefaut, immobilisationEstimee, montantOperation, montantPoste, operationVide, synthese } from "@/lib/expertise/chiffrage";
 import { apercuRapportPdf, blobRapportPdf, telechargerRapportPdf } from "@/lib/expertise/rapportPdf";
@@ -101,7 +102,16 @@ export default function RapportEditeur({
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
   const derniereDemande = useRef<number>(0);
 
-  const taux = useMemo(() => ({ t1: Number(garage?.taux_t1) || 65, t2: Number(garage?.taux_t2) || 70, peinture: Number(garage?.taux_peinture) || 70 }), [garage]);
+  // v13.9 : tarif préférentiel de l'agrément (garage × assurance mandante) prioritaire sur les taux du garage.
+  const agrement = useMemo(() => agrementPour(garage, dossier.mandant_nom), [garage, dossier.mandant_nom]);
+  const taux = useMemo(() => {
+    const pref = agrement?.tarif_preferentiel ? agrement : null;
+    return {
+      t1: Number(pref?.taux_t1) || Number(garage?.taux_t1) || 65,
+      t2: Number(pref?.taux_t2) || Number(garage?.taux_t2) || 70,
+      peinture: Number(pref?.taux_peinture) || Number(garage?.taux_peinture) || 70,
+    };
+  }, [garage, agrement]);
 
   const recharger = useCallback(async () => {
     const liste = await chargerRapports(dossier.id);
@@ -329,6 +339,11 @@ export default function RapportEditeur({
           )}
           {courant && <span className={`badge ${courant.statut === "emis" ? "badge-ok" : "badge-warn"}`}>{courant.statut === "emis" ? "Émis" : "Brouillon"}</span>}
           <span className="text-xs text-white/45">{sauvegarde === "ok" ? "Enregistré" : sauvegarde === "attente" ? "Modifications en attente…" : "Enregistrement…"}</span>
+          {agrement && (
+            <span className={`badge ${agrement.tarif_preferentiel ? "badge-ok" : "badge-info"}`} title={agrement.conditions || ""}>
+              {garage?.nom} agréé {agrement.assurance}{agrement.tarif_preferentiel ? ` · tarif préf. T1 ${taux.t1} € / T2 ${taux.t2} € / peint. ${taux.peinture} €${agrement.remise_pieces ? ` / pièces -${agrement.remise_pieces} %` : ""}` : ""}
+            </span>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn-primary btn-compact" onClick={() => setChoixSource(true)}><Icone nom="ia" /> {courant ? "Générer automatiquement" : "Créer le rapport"}</button>

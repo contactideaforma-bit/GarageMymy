@@ -108,6 +108,16 @@ function Annuaire() {
                   <button className="btn-danger btn-compact" onClick={() => supprimer(f)} aria-label="Supprimer">×</button>
                 </div>
               </div>
+              {onglet === "garages" && (f.agree || (f.agrements && f.agrements.length > 0)) && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {(f.agrements || []).map((a, i) => (
+                    <span key={i} className={`badge ${a.tarif_preferentiel ? "badge-ok" : "badge-info"}`} title={[a.tarif_preferentiel ? "Tarif préférentiel" : "Agréé", a.conditions].filter(Boolean).join(" · ")}>
+                      Agréé {a.assurance}{a.tarif_preferentiel ? " · tarif préf." : ""}
+                    </span>
+                  ))}
+                  {(!f.agrements || f.agrements.length === 0) && <span className="badge badge-info">Garage agréé</span>}
+                </div>
+              )}
               {onglet === "garages" && (
                 <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
                   {[["T1", f.taux_t1], ["T2", f.taux_t2], ["T3", f.taux_t3], ["Peint.", f.taux_peinture]].map(([l, v]) => (

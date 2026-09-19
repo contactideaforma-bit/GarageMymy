@@ -19,7 +19,7 @@ import PiecesRecherche from "@/components/expert/PiecesRecherche";
 import RdvModal from "@/components/expert/RdvModal";
 import { BadgeStatutExpert, Bloc, EnTete, Info } from "@/components/expert/ui";
 import { chargerCabinet, chargerDossier, chargerGarages, chargerRdv, changerStatut, supprimerDossier } from "@/lib/expertise/data";
-import { Cabinet, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, RdvExpert, STATUTS_EXPERTISE, labelTypeRdv } from "@/lib/expertise/types";
+import { Cabinet, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, RdvExpert, STATUTS_EXPERTISE, agrementPour, labelTypeRdv } from "@/lib/expertise/types";
 import { formatDate } from "@/lib/format";
 
 type Onglet = "dossier" | "photos" | "documents" | "rapport" | "pieces";
@@ -152,6 +152,23 @@ export default function FicheDossierExpert() {
               <Info label="Adresse" valeur={dossier.reparateur_adresse?.replace(/\n/g, ", ")} className="col-span-2" />
               <Info label="SIRET" valeur={dossier.reparateur_siret} />
               <Info label="Taux T1 / T2 / peinture" valeur={garage ? `${garage.taux_t1 ?? "—"} / ${garage.taux_t2 ?? "—"} / ${garage.taux_peinture ?? "—"} €/h` : "—"} />
+              {garage && (garage.agree || (garage.agrements && garage.agrements.length > 0)) && (() => {
+                const a = agrementPour(garage, dossier.mandant_nom);
+                return (
+                  <div className="col-span-2">
+                    <div className="text-[11px] uppercase tracking-wider text-white/45">Agrément</div>
+                    {a ? (
+                      <div className="text-sm">
+                        <span className={`badge ${a.tarif_preferentiel ? "badge-ok" : "badge-info"}`}>Agréé {a.assurance}{a.tarif_preferentiel ? " · tarif préférentiel" : ""}</span>
+                        {a.tarif_preferentiel && <span className="ml-2 text-white/70">T1 {a.taux_t1 ?? garage.taux_t1} · T2 {a.taux_t2 ?? garage.taux_t2} · peint. {a.taux_peinture ?? garage.taux_peinture} €/h{a.remise_pieces ? ` · pièces -${a.remise_pieces} %` : ""}</span>}
+                        {a.conditions && <div className="text-xs text-white/55">{a.conditions}</div>}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-white/60">Agréé {(garage.agrements || []).map((x) => x.assurance).join(", ") || "(assurances non précisées)"} — pas d&apos;agrément pour {dossier.mandant_nom || "ce mandant"}.</div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </Bloc>
           <Bloc titre="Véhicule" className="lg:col-span-2">

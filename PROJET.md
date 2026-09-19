@@ -111,6 +111,13 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Route** `/api/expert/lire-mission` (socle `lib/expertise/serveur.ts`) : la fiche envoyée par l'assureur / courtier / plateforme (PDF texte → texte seul ; scan / photo → image) est lue quelle que soit sa forme → `{mandant (nom, adresse, email, tél, réf. mission, gestionnaire), sinistre (n°, date, police, nature, circonstances, lieu), assuré, lésé, réparateur, véhicule, mission (dates, type, lieu, garantie, franchise, consignes), dommage, remarques}`.
 - **Formulaire « Nouvelle mission »** : bloc en tête « Créer depuis l'ordre de mission » (`lireOrdreMission`) → tous les champs disponibles sont pré-remplis sans écraser une saisie existante, réparateur relié à la base s'il est connu (SIRET ou nom), sections dépliées, résumé de ce qui a été lu ; réf. mission, gestionnaire, garantie, franchise, circonstances et consignes vont dans `notes`. À la création, le fichier est **joint au dossier** comme document « Ordre de mission » (image → PDF).
 
+
+### Ajouté v13.9 — Mode expert : agréments des réparateurs
+- **Migration** `supabase/migration_v78.sql` : `expertise_garages.agree` (bool) + `agrements` (jsonb : `[{assurance, tarif_preferentiel, taux_t1, taux_t2, taux_t3, taux_peinture, remise_pieces, conditions}]`). Type `Agrement`, helper `agrementPour(garage, mandant)` (comparaison souple des noms : « AXA » ≈ « AXA FRANCE IARD »).
+- **Fiche réparateur** (`FicheAnnuaireModal`) : case « Garage agréé », un bloc par assurance (liste des assurances de la base ou saisie libre), « Tarif préférentiel » → taux T1/T2/T3/peinture et remise pièces négociés, conditions. Cartes de la base : badges « Agréé AXA · tarif préf. » ; recherche sur le nom de l'assurance.
+- **Fiche dossier** (bloc Réparateur) : agrément reconnu pour le mandant du dossier (ou mention « pas d'agrément pour ce mandant »). **Éditeur de rapport** : les taux du tarif préférentiel priment sur ceux du garage pour les nouveaux chocs ; badge dans la barre des versions.
+- Démo : Carrosserie By Sam (AXA tarif préf., Groupama), Carrosserie de l'Étang (Allianz tarif préf., MAIF).
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

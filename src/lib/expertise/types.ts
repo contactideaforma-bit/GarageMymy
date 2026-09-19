@@ -47,6 +47,9 @@ export type GarageExpert = {
   taux_t3: number | null;
   taux_peinture: number | null;
   notes: string | null;
+  /** v13.9 : garage agréé + conditions par assurance. */
+  agree?: boolean | null;
+  agrements?: Agrement[] | null;
   created_at: string;
 };
 
@@ -365,3 +368,25 @@ export type RdvExpert = {
   statut: StatutRdv;
   created_at: string;
 };
+
+/* ---------------------- Agréments (v13.9) ---------------------------- */
+
+export type Agrement = {
+  assurance: string; // nom de la compagnie (tel qu'en base de données)
+  tarif_preferentiel: boolean;
+  taux_t1?: number | null;
+  taux_t2?: number | null;
+  taux_t3?: number | null;
+  taux_peinture?: number | null;
+  remise_pieces?: number | null; // % sur les pièces
+  conditions?: string | null; // franchise offerte, véhicule de courtoisie, délais…
+};
+
+const cleAssurance = (s: string | null | undefined) => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/gi, "").toLowerCase();
+
+/** Agrément du garage pour le mandant du dossier (comparaison souple sur le nom : « AXA » ≈ « AXA FRANCE IARD »). */
+export function agrementPour(garage: { agrements?: Agrement[] | null } | null | undefined, mandant: string | null | undefined): Agrement | null {
+  if (!garage?.agrements?.length || !mandant) return null;
+  const m = cleAssurance(mandant);
+  return garage.agrements.find((a) => { const k = cleAssurance(a.assurance); return k && (m.includes(k) || k.includes(m)); }) || null;
+}

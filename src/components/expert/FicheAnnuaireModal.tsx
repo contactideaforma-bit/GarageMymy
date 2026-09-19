@@ -5,15 +5,15 @@
 // via l'annuaire officiel des entreprises → auto-remplissage (nom, adresse,
 // CP, ville, SIREN, SIRET). Rien n'est écrasé s'il y a déjà une adresse.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Icone from "@/components/expert/Icone";
 import ModalShell from "@/components/ModalShell";
 import RechercheSiren, { ResultatSiren } from "@/components/RechercheSiren";
 import { Champ, Erreur } from "@/components/expert/ui";
 import { messageErreur } from "@/lib/format";
 import { CategorieAnnuaire } from "@/lib/expertise/importAnnuaire";
-import { enregistrerAssurance, enregistrerClient, enregistrerGarage } from "@/lib/expertise/data";
-import { AssuranceExpert, ClientExpert, GarageExpert } from "@/lib/expertise/types";
+import { chargerAssurances, enregistrerAssurance, enregistrerClient, enregistrerGarage } from "@/lib/expertise/data";
+import { Agrement, AssuranceExpert, ClientExpert, GarageExpert } from "@/lib/expertise/types";
 
 export type FicheQuelconque = Partial<AssuranceExpert & ClientExpert & GarageExpert>;
 
@@ -32,8 +32,9 @@ export async function enregistrerFiche(categorie: CategorieAnnuaire, f: FicheQue
     const { nom, type, adresse, code_postal, ville, siren, tel, email, contact, notes, id } = f;
     return enregistrerClient({ id, nom: nom || "", type: type || "particulier", adresse, code_postal, ville, siren, tel, email, contact, notes } as Partial<ClientExpert>);
   }
-  const { nom, adresse, code_postal, ville, siret, tel, email, contact, notes, taux_t1, taux_t2, taux_t3, taux_peinture, id } = f;
-  return enregistrerGarage({ id, nom: nom || "", adresse, code_postal, ville, siret, tel, email, contact, notes, taux_t1: taux_t1 ?? 65, taux_t2: taux_t2 ?? 70, taux_t3: taux_t3 ?? 75, taux_peinture: taux_peinture ?? 70 } as Partial<GarageExpert>);
+  const { nom, adresse, code_postal, ville, siret, tel, email, contact, notes, taux_t1, taux_t2, taux_t3, taux_peinture, id, agree, agrements } = f;
+  const propres = (agrements || []).filter((a) => a.assurance && a.assurance.trim());
+  return enregistrerGarage({ id, nom: nom || "", adresse, code_postal, ville, siret, tel, email, contact, notes, taux_t1: taux_t1 ?? 65, taux_t2: taux_t2 ?? 70, taux_t3: taux_t3 ?? 75, taux_peinture: taux_peinture ?? 70, agree: Boolean(agree) || propres.length > 0, agrements: propres } as Partial<GarageExpert>);
 }
 
 export default function FicheAnnuaireModal({
@@ -50,7 +51,14 @@ export default function FicheAnnuaireModal({
   const [f, setF] = useState<FicheQuelconque>(initial ? { ...initial } : { nom: "", type: "particulier" });
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
+  const [assurances, setAssurances] = useState<AssuranceExpert[]>([]);
+  useEffect(() => { if (categorie === "garages") chargerAssurances().then(setAssurances).catch(() => undefined); }, [categorie]);
   const set = (k: keyof FicheQuelconque, v: unknown) => setF((p) => ({ ...p, [k]: v }));
+  const agrements: Agrement[] = f.agrements || [];
+  const majAgrement = (i: number, patch: Partial<Agrement>) => set("agrements", agrements.map((a, j) => (j === i ? { ...a, ...patch } : a)));
+  const numAgr = (i: number, k: keyof Agrement, placeholder?: string) => (
+    <input type="number" step="0.5" className="field-input field-compact" placeholder={placeholder} value={(agrements[i][k] as number) ?? ""} onChange={(e) => majAgrement(i, { [k]: e.target.value === "" ? null : Number(e.target.value) })} />
+  );
   const txt = (k: keyof FicheQuelconque, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <input className="field-input" value={(f[k] as string) ?? ""} onChange={(e) => set(k, e.target.value)} {...props} />
   );
@@ -120,6 +128,51 @@ export default function FicheAnnuaireModal({
           )}
           <Champ label="Notes" className="sm:col-span-3">{txt("notes")}</Champ>
         </div>
+
+        {categorie === "garages" && (
+          <div className="glass-soft p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                <input type="checkbox" checked={Boolean(f.agree) || agrements.length > 0} onChange={(e) => { set("agree", e.target.checked); if (!e.target.checked) set("agrements", []); }} />
+                Garage agréé par une ou plusieurs assurances
+              </label>
+              {(f.agree || agrements.length > 0) && (
+                <button type="button" className="btn-ghost btn-compact" onClick={() => set("agrements", [...agrements, { assurance: "", tarif_preferentiel: false }])}><Icone nom="plus" /> Agrément</button>
+              )}
+            </div>
+            {(f.agree || agrements.length > 0) && (
+              <div className="mt-3 space-y-3">
+                {agrements.length === 0 && <p className="text-xs text-white/55">Ajoute un agrément par assurance : elle sera reconnue sur les dossiers dont elle est le mandant.</p>}
+                {agrements.map((a, i) => (
+                  <div key={i} className="rounded-xl border border-white/15 p-3">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <Champ label="Assurance" className="sm:col-span-2" aide="Choisis dans la base ou saisis le nom.">
+                        <input className="field-input field-compact" list={`assurances-${i}`} value={a.assurance} onChange={(e) => majAgrement(i, { assurance: e.target.value })} placeholder="AXA, MAIF, Groupama…" />
+                        <datalist id={`assurances-${i}`}>{assurances.map((x) => <option key={x.id} value={x.nom} />)}</datalist>
+                      </Champ>
+                      <div className="flex items-end justify-between gap-2">
+                        <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={a.tarif_preferentiel} onChange={(e) => majAgrement(i, { tarif_preferentiel: e.target.checked })} /> Tarif préférentiel</label>
+                        <button type="button" className="btn-danger btn-compact mb-1" onClick={() => set("agrements", agrements.filter((_, j) => j !== i))} aria-label="Retirer">×</button>
+                      </div>
+                    </div>
+                    {a.tarif_preferentiel && (
+                      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                        <Champ label="T1 €/h">{numAgr(i, "taux_t1", String(f.taux_t1 ?? ""))}</Champ>
+                        <Champ label="T2 €/h">{numAgr(i, "taux_t2", String(f.taux_t2 ?? ""))}</Champ>
+                        <Champ label="T3 €/h">{numAgr(i, "taux_t3", String(f.taux_t3 ?? ""))}</Champ>
+                        <Champ label="Peinture €/h">{numAgr(i, "taux_peinture", String(f.taux_peinture ?? ""))}</Champ>
+                        <Champ label="Remise pièces %">{numAgr(i, "remise_pieces", "0")}</Champ>
+                      </div>
+                    )}
+                    <div className="mt-2">
+                      <input className="field-input field-compact" placeholder="Conditions : véhicule de courtoisie, franchise offerte, délai de prise en charge, n° d'agrément…" value={a.conditions || ""} onChange={(e) => majAgrement(i, { conditions: e.target.value || null })} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <div className="flex justify-end gap-2">
           <button type="button" className="btn-ghost" onClick={onClose}>Annuler</button>
           <button type="submit" className="btn-primary" disabled={envoi}>{envoi ? "Enregistrement…" : "Enregistrer"}</button>
