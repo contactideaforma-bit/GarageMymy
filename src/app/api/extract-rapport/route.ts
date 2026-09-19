@@ -285,11 +285,16 @@ function developperLignes(brut: unknown): LigneExtraite[] {
     // FERMÉE (T1, T2, T3, Peinture, Ingrédients de peinture). Le prompt le dit,
     // mais un modèle peut s'en écarter — on le corrige ici, à la source, plutôt
     // que de laisser une tôlerie ou un forfait polluer le tableau des postes.
-    .map((l) =>
-      l.categorie === "mo" && !estPosteMo(l.designation)
-        ? { ...l, categorie: "autre" }
-        : l
-    );
+    .map((l) => {
+      const poste = estPosteMo(l.designation);
+      // Sens inverse (v13.10) : un T1/T2/T3, une Peinture ou des ingrédients
+      // (« Ingr. », « Ingrédients (MV) »…) rangés par le modèle en pièce ou
+      // en « autre » reviennent dans le tableau des postes. On voyait des
+      // « T1 » et « T2 » dans les pièces à commander.
+      if (poste && l.categorie !== "mo") return { ...l, categorie: "mo" };
+      if (!poste && l.categorie === "mo") return { ...l, categorie: "autre" };
+      return l;
+    });
 }
 
 const centimes = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;

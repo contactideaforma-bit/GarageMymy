@@ -41,14 +41,21 @@ function sansPrefixeMo(designation: string | null | undefined): string {
   return (designation || "").trim().toLowerCase().replace(RE_PREFIXE_MO, "").trim();
 }
 
-const RE_T123 = /^t\s*-?\s*[123]\b/;
+// Variantes réellement rencontrées devant le poste : « Taux T1 », « Tx T2 »,
+// « Temps T1 », « Heures T3 », « H T1 », « Carrosserie T1 », « Tôlerie T2 »,
+// « Mécanique T3 ». Le poste reste ancré au début, hors ce préfixe.
+const RE_T123 =
+  /^(?:(?:taux|tx|temps|heures?|h|carrosserie|t[ôo]lerie|m[ée]canique)\s*[:.\-–]?\s*)?t\s*-?\s*[123]\b/;
 // « Ingr.(MV) » est l'abréviation réellement imprimée par certains cabinets
 // (Adenes/Roadia) : la reconnaissance doit accepter la forme abrégée.
-const RE_INGREDIENTS = /^ingr(?:[ée]d|\.|\s|$)/;
+// Accepte aussi « Ingrédient(s) peinture », « Ingrédients (MV) », « Ingr peinture »,
+// « Produits de peinture ».
+const RE_INGREDIENTS = /^(?:ingr(?:[ée]d|\.|\s|$)|produits?\s+(?:de\s+)?peinture)/;
 // « TP », « T.P. », « T Peinture », « Temps peinture » : c'est la colonne
 // PEINTURE des rapports en GRILLE (BCA, Allianz…). Le libellé normalisé
 // attendu reste « Peinture », mais on accepte la forme brute au cas où.
-const RE_PEINTURE = /^(?:peinture\b|t\.?\s*p\.?(?:$|[\s(\-–])|temps\s+(?:de\s+)?peinture)/;
+const RE_PEINTURE =
+  /^(?:peint(?:ure\b|\.)|t\.?\s*p\.?(?:$|[\s(\-–])|(?:temps|taux|tx|heures?|h)\s*[:.\-–]?\s*(?:de\s+)?peint(?:ure\b|\.))/;
 
 export function estPosteMo(designation: string | null | undefined): boolean {
   const d = sansPrefixeMo(designation);
