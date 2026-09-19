@@ -189,6 +189,11 @@ export default function DossierForm({
   const { style: zoneStyle } = useZoneVisible(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // GARDE-FOU DOUBLON (v13.10) : dossier déjà existant avec le même n° de
+  // sinistre. On bloque l'enregistrement et on montre le dossier en question ;
+  // l'utilisateur peut forcer (« Enregistrer quand même ») en connaissance de cause.
+  const [doublon, setDoublon] = useState<{ id: string; immatriculation: string | null; client_nom: string | null; archive: boolean } | null>(null);
+  const [forcerDoublon, setForcerDoublon] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeMsg, setAnalyzeMsg] = useState<string | null>(null);
 
@@ -266,8 +271,11 @@ export default function DossierForm({
     }
   }
 
-  const set = (name: keyof FormState, value: string) =>
+  const set = (name: keyof FormState, value: string) => {
+    // Nouveau n° de sinistre : le garde-fou doublon repart de zéro.
+    if (name === "numero_sinistre") { setForcerDoublon(false); setDoublon(null); }
     setForm((f) => ({ ...f, [name]: value }));
+  };
 
   // Alimente / complète l'annuaire (clients, experts, assureurs) depuis le
   // dossier — SANS doublon : si la fiche existe, on ne remplit que les champs
@@ -411,11 +419,36 @@ export default function DossierForm({
     }
   }
 
+  /** Cherche un autre dossier du garage portant le même n° de sinistre (insensible à la casse et aux espaces). */
+  async function chercherDoublon(numero: string) {
+    const n = numero.trim();
+    if (!n) return null;
+    let req = supabase
+      .from("dossiers")
+      .select("id, immatriculation, client_nom, archive")
+      .ilike("numero_sinistre", n)
+      .limit(1);
+    if (dossier?.id) req = req.neq("id", dossier.id);
+    const { data } = await req;
+    const d = data?.[0];
+    return d ? { id: d.id as string, immatriculation: d.immatriculation as string | null, client_nom: d.client_nom as string | null, archive: Boolean(d.archive) } : null;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
+      if (!forcerDoublon) {
+        const existant = await chercherDoublon(form.numero_sinistre);
+        if (existant) {
+          setDoublon(existant);
+          setSaving(false);
+          return;
+        }
+      }
+      setDoublon(null);
+
       let rapport_path = dossier?.rapport_path ?? null;
       let rapport_nom = dossier?.rapport_nom ?? null;
 
@@ -922,6 +955,28 @@ export default function DossierForm({
               </span>
             </div>
           </section>
+
+          {doublon && (
+            <div className="rounded-lg bg-amber-500/15 border border-amber-400/30 px-3 py-2 text-sm text-amber-100">
+              <p className="font-medium">Un dossier porte déjà le n° de sinistre « {form.numero_sinistre.trim()} ».</p>
+              <p className="mt-1 text-amber-100/80">
+                {[doublon.immatriculation, doublon.client_nom].filter(Boolean).join(" · ") || "Dossier existant"}
+                {doublon.archive ? " (archivé)" : ""}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a href={`/sinistres/${doublon.id}`} className="btn-ghost text-xs" target="_blank" rel="noreferrer">
+                  Ouvrir le dossier existant
+                </a>
+                <button
+                  type="button"
+                  className="btn-ghost text-xs"
+                  onClick={() => { setForcerDoublon(true); setDoublon(null); }}
+                >
+                  Enregistrer quand même
+                </button>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="rounded-lg bg-rose-500/15 border border-rose-400/30 px-3 py-2 text-sm text-rose-200">
