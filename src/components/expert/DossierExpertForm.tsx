@@ -12,7 +12,8 @@ import { Champ, Erreur } from "@/components/expert/ui";
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import { messageErreur } from "@/lib/format";
 import RechercheSiren, { ResultatSiren } from "@/components/RechercheSiren";
-import { chargerAssurances, chargerClients, chargerGarages, completerAnnuaireDepuisDossier, creerDossier, enregistrerGarage, majDossier } from "@/lib/expertise/data";
+import { ajouterDocument, chargerAssurances, chargerClients, chargerGarages, completerAnnuaireDepuisDossier, creerDossier, enregistrerGarage, majDossier } from "@/lib/expertise/data";
+import { fichierVersPdf } from "@/lib/photoPdf";
 import { AssuranceExpert, ClientExpert, DossierExpert, GarageExpert, STATUTS_EXPERTISE, adresseFiche } from "@/lib/expertise/types";
 
 const LIEUX = ["Autre lieu", "Chez le réparateur", "Au cabinet", "Chez l'assuré", "Expertise à distance (EAD)"];
@@ -59,6 +60,10 @@ export default function DossierExpertForm({
   const [envoi, setEnvoi] = useState(false);
   const [lectureCg, setLectureCg] = useState(false);
   const fichierCg = useRef<HTMLInputElement>(null);
+  // v13.8 : création depuis l'ordre de mission envoyé par le mandant.
+  const [lectureOm, setLectureOm] = useState(false);
+  const [ordreMission, setOrdreMission] = useState<{ file: File; resume: string[]; remarques: string | null } | null>(null);
+  const fichierOm = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     chargerGarages().then(setGarages);
@@ -117,6 +122,95 @@ export default function DossierExpertForm({
     }));
   }
 
+  type LectureMission = {
+    mandant: { nom: string | null; adresse: string | null; email: string | null; tel: string | null; reference_mission: string | null; gestionnaire: string | null };
+    sinistre: { numero: string | null; date: string | null; numero_police: string | null; nature: string | null; circonstances: string | null; lieu: string | null };
+    assure: { nom: string | null };
+    lese: { nom: string | null; adresse: string | null; code_postal: string | null; ville: string | null; email: string | null; tel: string | null };
+    reparateur: { nom: string | null; adresse: string | null; code_postal: string | null; ville: string | null; siret: string | null; tel: string | null };
+    vehicule: { immatriculation: string | null; marque: string | null; modele: string | null; finition: string | null; vin: string | null; energie: string | null; date_mec: string | null; couleur: string | null; kilometrage: number | null; genre: string | null };
+    mission: { date_mission: string | null; date_visite: string | null; type_expertise: string | null; lieu_expertise: string | null; garantie: string | null; franchise: number | null; instructions: string | null };
+    dommage: { type: string | null; description: string | null; zones: string | null };
+    remarques: string | null;
+  };
+
+  /** Ordre de mission (PDF, scan, photo, mail imprimé) → mission pré-remplie. */
+  async function lireOrdreMission(file: File) {
+    setLectureOm(true);
+    setErreur(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetchAuth("/api/expert/lire-mission", { method: "POST", body: form });
+      const r = await lireReponse<{ data: LectureMission }>(res);
+      if (!r.ok || !r.data?.data) throw new Error(r.error || "Ordre de mission illisible.");
+      const x = r.data.data;
+      const ou = <T,>(v: T | null | undefined, actuel: T | null | undefined) => (v !== null && v !== undefined && v !== "" ? v : actuel ?? null);
+      const adresseLese = [x.lese.adresse, [x.lese.code_postal, x.lese.ville].filter(Boolean).join(" ")].filter(Boolean).join("\n") || null;
+      const adresseRep = [x.reparateur.adresse, [x.reparateur.code_postal, x.reparateur.ville].filter(Boolean).join(" ")].filter(Boolean).join("\n") || null;
+      // Réparateur connu dans la base (SIRET ou nom) → on le relie.
+      const g = garages.find((gg) => (x.reparateur.siret && gg.siret === x.reparateur.siret) || (x.reparateur.nom && gg.nom.toLowerCase() === x.reparateur.nom.toLowerCase()));
+      const notes = [
+        x.mandant.reference_mission && `Réf. mission mandant : ${x.mandant.reference_mission}`,
+        x.mandant.gestionnaire && `Gestionnaire : ${x.mandant.gestionnaire}${x.mandant.tel ? ` · ${x.mandant.tel}` : ""}`,
+        x.mission.garantie && `Garantie : ${x.mission.garantie}`,
+        x.mission.franchise !== null && `Franchise : ${x.mission.franchise} €`,
+        x.sinistre.lieu && `Lieu du sinistre : ${x.sinistre.lieu}`,
+        x.sinistre.circonstances && `Circonstances : ${x.sinistre.circonstances}`,
+        x.mission.instructions && `Consignes du mandant : ${x.mission.instructions}`,
+      ].filter(Boolean).join("\n");
+      setD((prev) => ({
+        ...prev,
+        mandant_nom: ou(x.mandant.nom, prev.mandant_nom),
+        mandant_adresse: ou(x.mandant.adresse, prev.mandant_adresse),
+        mandant_email: ou(x.mandant.email, prev.mandant_email),
+        numero_sinistre: ou(x.sinistre.numero, prev.numero_sinistre),
+        date_sinistre: ou(x.sinistre.date, prev.date_sinistre),
+        numero_police: ou(x.sinistre.numero_police, prev.numero_police),
+        dommage_type: ou(x.sinistre.nature || x.dommage.type, prev.dommage_type),
+        dommage_description: ou([x.dommage.description, x.dommage.zones].filter(Boolean).join(" — ") || null, prev.dommage_description),
+        assure_nom: ou(x.assure.nom || x.lese.nom, prev.assure_nom),
+        lese_nom: ou(x.lese.nom || x.assure.nom, prev.lese_nom),
+        lese_adresse: ou(adresseLese, prev.lese_adresse),
+        lese_email: ou(x.lese.email, prev.lese_email),
+        lese_tel: ou(x.lese.tel, prev.lese_tel),
+        garage_id: g ? g.id : prev.garage_id,
+        reparateur_nom: ou(g ? g.nom : x.reparateur.nom, prev.reparateur_nom),
+        reparateur_adresse: ou(g ? [g.adresse, [g.code_postal, g.ville].filter(Boolean).join(" ")].filter(Boolean).join("\n") : adresseRep, prev.reparateur_adresse),
+        reparateur_siret: ou(g ? g.siret : x.reparateur.siret, prev.reparateur_siret),
+        immatriculation: ou(x.vehicule.immatriculation, prev.immatriculation),
+        marque: ou(x.vehicule.marque, prev.marque),
+        modele: ou(x.vehicule.modele, prev.modele),
+        finition: ou(x.vehicule.finition, prev.finition),
+        vin: ou(x.vehicule.vin, prev.vin),
+        energie: ou(x.vehicule.energie, prev.energie),
+        date_mec: ou(x.vehicule.date_mec, prev.date_mec),
+        couleur: ou(x.vehicule.couleur, prev.couleur),
+        kilometrage: ou(x.vehicule.kilometrage, prev.kilometrage),
+        genre: ou(x.vehicule.genre, prev.genre),
+        date_mission: ou(x.mission.date_mission, prev.date_mission),
+        date_visite: ou(x.mission.date_visite, prev.date_visite),
+        type_expertise: ou(x.mission.type_expertise, prev.type_expertise),
+        lieu_expertise: ou(x.mission.lieu_expertise || (x.reparateur.nom ? "Chez le réparateur" : null), prev.lieu_expertise),
+        notes: [prev.notes, notes].filter(Boolean).join("\n") || null,
+      }));
+      const resume = [
+        x.mandant.nom && `Mandant : ${x.mandant.nom}`,
+        x.sinistre.numero && `Sinistre ${x.sinistre.numero}${x.sinistre.date ? ` du ${x.sinistre.date.split("-").reverse().join("/")}` : ""}`,
+        (x.lese.nom || x.assure.nom) && `Lésé : ${x.lese.nom || x.assure.nom}`,
+        x.vehicule.immatriculation && `Véhicule : ${[x.vehicule.immatriculation, x.vehicule.marque, x.vehicule.modele].filter(Boolean).join(" ")}`,
+        x.reparateur.nom && `Réparateur : ${x.reparateur.nom}${g ? " (base de données)" : ""}`,
+        x.mission.type_expertise && `Type : ${x.mission.type_expertise}`,
+      ].filter((v): v is string => Boolean(v));
+      setOrdreMission({ file, resume, remarques: x.remarques });
+      setOuvert({ mission: true, mandant: true, lese: true, reparateur: true, vehicule: true, dommage: true });
+    } catch (e) {
+      setErreur(messageErreur(e, "Lecture de l'ordre de mission impossible."));
+    } finally {
+      setLectureOm(false);
+    }
+  }
+
   async function lireCarteGrise(file: File) {
     setLectureCg(true);
     setErreur(null);
@@ -169,6 +263,15 @@ export default function DossierExpertForm({
       const saved = initial ? await majDossier(initial.id, nettoye) : await creerDossier(nettoye);
       // Base de données : un mandant / un lésé inconnus y entrent automatiquement.
       await completerAnnuaireDepuisDossier(saved);
+      // L'ordre de mission rejoint les documents du dossier.
+      if (!initial && ordreMission) {
+        try {
+          const { blob } = await fichierVersPdf(ordreMission.file);
+          await ajouterDocument({ dossierId: saved.id, type: "ordre_mission", file: blob, nom: ordreMission.file.name.replace(/\.[^.]+$/, "") + ".pdf" });
+        } catch {
+          /* le dossier est créé ; le document pourra être déposé à la main */
+        }
+      }
       onSaved(saved);
     } catch (err) {
       setErreur(messageErreur(err));
@@ -201,6 +304,32 @@ export default function DossierExpertForm({
     <ModalShell title={initial ? `Dossier ${initial.numero}` : "Nouvelle mission d'expertise"} onClose={onClose} maxWidth="max-w-3xl">
       <form onSubmit={enregistrer} className="space-y-3">
         <Erreur message={erreur} />
+
+        {/* ---------------- Depuis l'ordre de mission (v13.8) ---------------- */}
+        {!initial && (
+          <div className="glass-soft border border-dashed border-white/25 p-3">
+            <input ref={fichierOm} type="file" accept="application/pdf,image/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) lireOrdreMission(f); e.target.value = ""; }} />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="font-semibold"><Icone nom="document" /> Créer depuis l&apos;ordre de mission</div>
+                <p className="text-xs text-white/55">Dépose la fiche envoyée par l&apos;assurance (PDF, scan, photo ou mail imprimé, quelle que soit sa forme) : les informations disponibles remplissent la mission, tu complètes le reste.</p>
+              </div>
+              <button type="button" className="btn-primary btn-compact" disabled={lectureOm} onClick={() => fichierOm.current?.click()}>
+                {lectureOm ? "Lecture en cours…" : <><Icone nom="trombone" /> Choisir la fiche</>}
+              </button>
+            </div>
+            {ordreMission && (
+              <div className="mt-2 rounded-lg bg-white/40 px-3 py-2 text-xs">
+                <div className="font-semibold">Lu dans « {ordreMission.file.name} » — joint au dossier comme ordre de mission :</div>
+                <ul className="mt-1 grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+                  {ordreMission.resume.map((l) => <li key={l}>• {l}</li>)}
+                </ul>
+                {ordreMission.remarques && <div className="mt-1 text-white/60">{ordreMission.remarques}</div>}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ---------------- Mission ---------------- */}
         <div className="glass-soft p-3">

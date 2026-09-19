@@ -106,6 +106,11 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Lisibilité** : cartes de liste avec colonne droite fixe (`shrink-0`, largeur fixe, `truncate`), padding `carte-liste` / `al-table` augmenté sous `html.alliance`, badges plus aérés. Formulations : « Générer automatiquement » à la place des mentions « IA ».
 - **Démo** : RDV créés pour les visites à venir si l'agenda est vide.
 
+
+### Ajouté v13.8 — Mode expert : mission créée depuis l'ordre de mission du mandant
+- **Route** `/api/expert/lire-mission` (socle `lib/expertise/serveur.ts`) : la fiche envoyée par l'assureur / courtier / plateforme (PDF texte → texte seul ; scan / photo → image) est lue quelle que soit sa forme → `{mandant (nom, adresse, email, tél, réf. mission, gestionnaire), sinistre (n°, date, police, nature, circonstances, lieu), assuré, lésé, réparateur, véhicule, mission (dates, type, lieu, garantie, franchise, consignes), dommage, remarques}`.
+- **Formulaire « Nouvelle mission »** : bloc en tête « Créer depuis l'ordre de mission » (`lireOrdreMission`) → tous les champs disponibles sont pré-remplis sans écraser une saisie existante, réparateur relié à la base s'il est connu (SIRET ou nom), sections dépliées, résumé de ce qui a été lu ; réf. mission, gestionnaire, garantie, franchise, circonstances et consignes vont dans `notes`. À la création, le fichier est **joint au dossier** comme document « Ordre de mission » (image → PDF).
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.
