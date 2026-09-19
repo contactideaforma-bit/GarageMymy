@@ -6,6 +6,7 @@
 // pré-remplit le véhicule.
 
 import { useEffect, useRef, useState } from "react";
+import Icone from "@/components/expert/Icone";
 import ModalShell from "@/components/ModalShell";
 import { Champ, Erreur } from "@/components/expert/ui";
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
@@ -181,7 +182,7 @@ export default function DossierExpertForm({
       <span className="titre-section">{label}</span>
       <span className="flex items-center gap-2 text-xs text-white/50">
         {!ouvert[s] && resume && <span className="max-w-[12rem] truncate">{resume}</span>}
-        <span className={`chevron transition ${ouvert[s] ? "rotate-90" : ""}`}>▶</span>
+        <Icone nom="chevron" className={`transition ${ouvert[s] ? "rotate-90" : ""}`} />
       </span>
     </button>
   );
@@ -236,7 +237,7 @@ export default function DossierExpertForm({
               <Champ label="Nom société" className="sm:col-span-2">
                 <div className="flex gap-2">
                   {texte("mandant_nom", { placeholder: "GROUPAMA D OC" })}
-                  <RechercheSiren nom={d.mandant_nom || ""} compact onChoisir={(r) => setD((prev) => ({ ...prev, mandant_nom: r.nom, mandant_adresse: prev.mandant_adresse || [r.adresse, [r.codePostal, r.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") }))} />
+                  <RechercheSiren nom={d.mandant_nom || ""} compact libelle={<><Icone nom="recherche" /> SIREN</>} onChoisir={(r) => setD((prev) => ({ ...prev, mandant_nom: r.nom, mandant_adresse: prev.mandant_adresse || [r.adresse, [r.codePostal, r.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") }))} />
                 </div>
               </Champ>
               <Champ label="Email du mandant">{texte("mandant_email", { type: "email" })}</Champ>
@@ -266,7 +267,7 @@ export default function DossierExpertForm({
                   {d.assure_nom && !d.lese_nom && (
                     <button type="button" className="btn-ghost btn-compact shrink-0 whitespace-nowrap" onClick={() => set("lese_nom", d.assure_nom)}>= assuré</button>
                   )}
-                  <RechercheSiren nom={d.lese_nom || ""} compact onChoisir={(r) => setD((prev) => ({ ...prev, lese_nom: r.nom, lese_adresse: prev.lese_adresse || [r.adresse, [r.codePostal, r.ville].filter(Boolean).join(" ")].filter(Boolean).join("\n") }))} />
+                  <RechercheSiren nom={d.lese_nom || ""} compact libelle={<><Icone nom="recherche" /> SIREN</>} onChoisir={(r) => setD((prev) => ({ ...prev, lese_nom: r.nom, lese_adresse: prev.lese_adresse || [r.adresse, [r.codePostal, r.ville].filter(Boolean).join(" ")].filter(Boolean).join("\n") }))} />
                 </div>
               </Champ>
               <Champ label="Téléphone">{texte("lese_tel", { type: "tel" })}</Champ>
@@ -281,13 +282,13 @@ export default function DossierExpertForm({
           <Titre s="reparateur" label="Réparateur" resume={d.reparateur_nom} />
           {ouvert.reparateur && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <Champ label="Réparateur de la base de données" className="sm:col-span-3" aide="Choisir un réparateur remplit les champs ci-dessous (modifiables). « 🔍 SIREN » : tape un nom ou un SIRET dans le champ Nom, la fiche est créée dans la base et sélectionnée.">
+              <Champ label="Réparateur de la base de données" className="sm:col-span-3" aide="Choisir un réparateur remplit les champs ci-dessous (modifiables). « SIREN » : tape un nom ou un SIRET dans le champ Nom, la fiche est créée dans la base et sélectionnée.">
                 <div className="flex gap-2">
                   <select className="field-input" value={d.garage_id || ""} onChange={(e) => choisirGarage(e.target.value)}>
                     <option value="">— saisie libre —</option>
                     {garages.map((g) => <option key={g.id} value={g.id}>{g.nom} · {g.ville || ""}</option>)}
                   </select>
-                  {creationGarage ? <span className="btn-ghost btn-compact whitespace-nowrap">Création…</span> : <RechercheSiren nom={d.reparateur_nom || ""} compact onChoisir={garageDepuisSiren} />}
+                  {creationGarage ? <span className="btn-ghost btn-compact whitespace-nowrap">Création…</span> : <RechercheSiren nom={d.reparateur_nom || ""} compact libelle={<><Icone nom="recherche" /> SIREN</>} onChoisir={garageDepuisSiren} />}
                 </div>
               </Champ>
               <Champ label="Nom" className="sm:col-span-2">{texte("reparateur_nom")}</Champ>
@@ -308,7 +309,7 @@ export default function DossierExpertForm({
                 <input ref={fichierCg} type="file" accept="image/*,application/pdf" capture="environment" className="hidden"
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) lireCarteGrise(f); e.target.value = ""; }} />
                 <button type="button" className="btn-ghost btn-compact" disabled={lectureCg} onClick={() => fichierCg.current?.click()}>
-                  {lectureCg ? "Lecture en cours…" : "📷 Lire la carte grise (IA)"}
+                  {lectureCg ? "Lecture en cours…" : <><Icone nom="photo" /> Lire la carte grise</>}
                 </button>
                 <span className="text-[11px] text-white/45">Photo ou PDF du certificat d&apos;immatriculation → véhicule pré-rempli.</span>
               </div>

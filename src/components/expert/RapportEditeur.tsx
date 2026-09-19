@@ -14,15 +14,16 @@
  * ==================================================================== */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Icone from "@/components/expert/Icone";
 import ModalShell from "@/components/ModalShell";
 import { Bloc, Champ, Erreur, Vide } from "@/components/expert/ui";
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import { formatDate, formatEuros, messageErreur } from "@/lib/format";
 import {
-  chargerRapports, creerRapport, deposerPdfRapport, majDossier, majRapport, supprimerRapport, telechargerBlob,
+  chargerProfilExpert, chargerRapports, creerRapport, deposerPdfRapport, majDossier, majRapport, supprimerRapport, telechargerBlob,
 } from "@/lib/expertise/data";
 import {
-  CODES_OPERATION, Cabinet, Choc, Conclusions, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, PosteChoc, RapportExpert,
+  CODES_OPERATION, Cabinet, Choc, Conclusions, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, PosteChoc, ProfilExpert, RapportExpert,
 } from "@/lib/expertise/types";
 import { POSTES_STANDARD, chocParDefaut, immobilisationEstimee, montantOperation, montantPoste, operationVide, synthese } from "@/lib/expertise/chiffrage";
 import { apercuRapportPdf, blobRapportPdf, telechargerRapportPdf } from "@/lib/expertise/rapportPdf";
@@ -83,6 +84,9 @@ export default function RapportEditeur({
   onOperationExterne?: (recevoir: (op: Operation) => void) => void;
 }) {
   const [rapports, setRapports] = useState<RapportExpert[]>([]);
+  // v13.7 : le PV est signé au nom de l'expert connecté.
+  const [expert, setExpert] = useState<ProfilExpert | null>(null);
+  useEffect(() => { chargerProfilExpert().then(setExpert); }, []);
   const [courant, setCourant] = useState<RapportExpert | null>(null);
   const [conclusions, setConclusions] = useState<Conclusions>(dossier.conclusions || {});
   const [chargement, setChargement] = useState(true);
@@ -277,7 +281,7 @@ export default function RapportEditeur({
     try {
       const r = { ...courant, statut: "emis" as const, date_rapport: courant.date_rapport || new Date().toISOString().slice(0, 10) };
       await majRapport(r.id, { statut: "emis", date_rapport: r.date_rapport, chocs: r.chocs, operations: r.operations });
-      const blob = await blobRapportPdf(dossier, r, cabinet);
+      const blob = await blobRapportPdf(dossier, r, cabinet, expert);
       await deposerPdfRapport(r, blob);
       onDossierChange(await majDossier(dossier.id, { statut: "emis" }));
       await recharger();
@@ -327,13 +331,13 @@ export default function RapportEditeur({
           <span className="text-xs text-white/45">{sauvegarde === "ok" ? "Enregistré" : sauvegarde === "attente" ? "Modifications en attente…" : "Enregistrement…"}</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="btn-primary btn-compact" onClick={() => setChoixSource(true)}>✨ {courant ? "Générer / compléter (IA)" : "Créer le rapport"}</button>
+          <button className="btn-primary btn-compact" onClick={() => setChoixSource(true)}><Icone nom="ia" /> {courant ? "Générer automatiquement" : "Créer le rapport"}</button>
           {courant && (
             <>
-              <button className="btn-ghost btn-compact" disabled={pdfEnCours !== null} onClick={async () => { setPdfEnCours("apercu"); try { await apercuRapportPdf(dossier, courant, cabinet); } catch (e) { setErreur(messageErreur(e, "Aperçu impossible.")); } finally { setPdfEnCours(null); } }}>👁 Aperçu PDF</button>
-              <button className="btn-ghost btn-compact" disabled={pdfEnCours !== null} onClick={async () => { setPdfEnCours("dl"); try { await telechargerRapportPdf(dossier, courant, cabinet); } catch (e) { setErreur(messageErreur(e)); } finally { setPdfEnCours(null); } }}>⬇ Télécharger</button>
+              <button className="btn-ghost btn-compact" disabled={pdfEnCours !== null} onClick={async () => { setPdfEnCours("apercu"); try { await apercuRapportPdf(dossier, courant, cabinet, expert); } catch (e) { setErreur(messageErreur(e, "Aperçu impossible.")); } finally { setPdfEnCours(null); } }}><Icone nom="oeil" /> Aperçu PDF</button>
+              <button className="btn-ghost btn-compact" disabled={pdfEnCours !== null} onClick={async () => { setPdfEnCours("dl"); try { await telechargerRapportPdf(dossier, courant, cabinet, expert); } catch (e) { setErreur(messageErreur(e)); } finally { setPdfEnCours(null); } }}><Icone nom="telecharger" /> Télécharger</button>
               {!lectureSeule ? (
-                <button className="btn-primary btn-compact" disabled={pdfEnCours !== null} onClick={emettre}>{pdfEnCours === "emission" ? "Émission…" : "📤 Émettre le rapport"}</button>
+                <button className="btn-primary btn-compact" disabled={pdfEnCours !== null} onClick={emettre}>{pdfEnCours === "emission" ? "Émission…" : <><Icone nom="envoyer" /> Émettre le rapport</>}</button>
               ) : (
                 <button className="btn-ghost btn-compact" onClick={nouvelleVersion}>+ Nouvelle version</button>
               )}
@@ -347,11 +351,11 @@ export default function RapportEditeur({
         <div className="glass-card p-4">
           <Vide
             titre="Aucun rapport pour ce dossier"
-            texte="Crée le procès-verbal à la main, ou laisse l'IA préparer le chiffrage à partir du devis du garage, de sa facture ou des photos du véhicule."
+            texte="Crée le procès-verbal à la main, ou laisse le chiffrage se générer automatiquement à partir du devis du garage, de sa facture ou des photos du véhicule."
             action={
               <div className="flex flex-wrap justify-center gap-2">
-                <button className="btn-ghost" onClick={() => creer("manuel")}>✍️ Saisie manuelle</button>
-                <button className="btn-primary" onClick={() => setChoixSource(true)}>✨ Générer avec l&apos;IA</button>
+                <button className="btn-ghost" onClick={() => creer("manuel")}><Icone nom="stylo" /> Saisie manuelle</button>
+                <button className="btn-primary" onClick={() => setChoixSource(true)}><Icone nom="ia" /> Générer automatiquement</button>
               </div>
             }
           />
@@ -441,7 +445,7 @@ export default function RapportEditeur({
                         <td className="whitespace-nowrap text-right">
                           {!lectureSeule && (
                             <>
-                              <button className="btn-ghost btn-compact" disabled={oi === 0} onClick={() => { const ops = [...courant.operations]; [ops[oi - 1], ops[oi]] = [ops[oi], ops[oi - 1]]; modifier({ operations: ops }); }} title="Monter">↑</button>
+                              <button className="btn-ghost btn-compact" disabled={oi === 0} onClick={() => { const ops = [...courant.operations]; [ops[oi - 1], ops[oi]] = [ops[oi], ops[oi - 1]]; modifier({ operations: ops }); }} title="Monter"><Icone nom="haut" /></button>
                               <button className="btn-ghost btn-compact ml-1" onClick={() => modifier({ operations: courant.operations.filter((_, i) => i !== oi) })}>×</button>
                             </>
                           )}
@@ -512,30 +516,30 @@ export default function RapportEditeur({
 
       {/* ---------------------- Choix de la source IA --------------------- */}
       {choixSource && (
-        <ModalShell title="Générer le chiffrage" onClose={() => setChoixSource(false)} maxWidth="max-w-xl">
-          <p className="text-sm text-white/60">L&apos;IA lit le document (ou les photos) et prépare les chocs, les opérations et les prix. Tu relis et tu ajustes avant d&apos;émettre.</p>
+        <ModalShell title="Générer le chiffrage automatiquement" onClose={() => setChoixSource(false)} maxWidth="max-w-xl">
+          <p className="text-sm text-white/60">Le document (ou les photos) est analysé automatiquement : chocs, opérations et prix sont préparés. Tu relis et tu ajustes avant d&apos;émettre.</p>
           <div className="space-y-2">
             <div className="glass-soft p-3">
-              <div className="font-semibold">📄 Depuis un devis du garage</div>
+              <div className="font-semibold"><Icone nom="document" /> Depuis un devis du garage</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {devis.map((d) => <button key={d.id} className="btn-ghost btn-compact" onClick={() => lancerAnalyse({ mode: "devis", doc: d })}>{d.nom}</button>)}
-                <button className="btn-primary btn-compact" onClick={() => { modeFichier.current = "devis"; fichierIA.current?.click(); }}>📎 Choisir un fichier</button>
+                <button className="btn-primary btn-compact" onClick={() => { modeFichier.current = "devis"; fichierIA.current?.click(); }}><Icone nom="trombone" /> Choisir un fichier</button>
               </div>
             </div>
             <div className="glass-soft p-3">
-              <div className="font-semibold">🧾 Depuis une facture du garage</div>
+              <div className="font-semibold"><Icone nom="facture" /> Depuis une facture du garage</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {factures.map((d) => <button key={d.id} className="btn-ghost btn-compact" onClick={() => lancerAnalyse({ mode: "facture", doc: d })}>{d.nom}</button>)}
-                <button className="btn-primary btn-compact" onClick={() => { modeFichier.current = "facture"; fichierIA.current?.click(); }}>📎 Choisir un fichier</button>
+                <button className="btn-primary btn-compact" onClick={() => { modeFichier.current = "facture"; fichierIA.current?.click(); }}><Icone nom="trombone" /> Choisir un fichier</button>
               </div>
             </div>
             <div className="glass-soft p-3">
-              <div className="font-semibold">📷 Depuis les photos du véhicule <span className="badge badge-warn ml-1">expérimental</span></div>
-              <p className="mt-1 text-xs text-white/55">{photos.length} photo(s) dans le dossier. L&apos;IA décrit les dommages visibles et propose une ébauche de chiffrage avec les taux du réparateur.</p>
+              <div className="font-semibold"><Icone nom="photo" /> Depuis les photos du véhicule <span className="badge badge-warn ml-1">expérimental</span></div>
+              <p className="mt-1 text-xs text-white/55">{photos.length} photo(s) dans le dossier. Les dommages visibles sont décrits et une ébauche de chiffrage est proposée avec les taux du réparateur.</p>
               <button className="btn-primary btn-compact mt-2" disabled={!photos.length} onClick={() => lancerAnalyse({ mode: "photos" })}>Analyser les photos</button>
             </div>
             <div className="glass-soft p-3">
-              <div className="font-semibold">✍️ Saisie manuelle</div>
+              <div className="font-semibold"><Icone nom="stylo" /> Saisie manuelle</div>
               <button className="btn-ghost btn-compact mt-2" onClick={() => { setChoixSource(false); if (!courant) creer("manuel"); }}>{courant ? "Continuer la saisie" : "Créer un rapport vide"}</button>
             </div>
           </div>

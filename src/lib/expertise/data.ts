@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { deposerFichier } from "@/lib/storage";
 import { preparerImage } from "@/lib/photosEtat";
 import {
-  AssuranceExpert, Cabinet, Choc, ClientExpert, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, PieceExpert, RapportExpert,
+  AssuranceExpert, Cabinet, Choc, ClientExpert, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, PieceExpert, ProfilExpert, RapportExpert, RdvExpert,
   StatutExpertise, TypeDocExpert, ZonePhoto,
 } from "./types";
 import { chocParDefaut } from "./chiffrage";
@@ -382,4 +382,51 @@ export async function completerAnnuaireDepuisDossier(d: Partial<DossierExpert>):
   } catch {
     /* annuaire indisponible (migration v76 absente) : on n'empêche pas la création du dossier */
   }
+}
+
+/* ------------------ Profil expert & agenda (v13.7) ------------------- */
+
+export async function chargerProfilExpert(): Promise<ProfilExpert | null> {
+  const { data, error } = await supabase.from("expertise_experts").select("*").maybeSingle();
+  if (error) return null;
+  return (data as ProfilExpert) || null;
+}
+
+export async function enregistrerProfilExpert(patch: Partial<ProfilExpert>): Promise<void> {
+  const { data: u } = await supabase.auth.getUser();
+  const owner_id = u.user?.id;
+  if (!owner_id) throw new Error("Session expirée.");
+  const { error } = await supabase
+    .from("expertise_experts")
+    .upsert({ ...patch, owner_id, updated_at: new Date().toISOString() }, { onConflict: "owner_id" });
+  if (error) throw error;
+}
+
+export async function chargerRdv(args?: { de?: string; a?: string; dossierId?: string }): Promise<{ rdv: RdvExpert[]; dispo: boolean }> {
+  let req = supabase.from("expertise_rdv").select("*").order("date").order("heure");
+  if (args?.de) req = req.gte("date", args.de);
+  if (args?.a) req = req.lte("date", args.a);
+  if (args?.dossierId) req = req.eq("dossier_id", args.dossierId);
+  const { data, error } = await req;
+  if (error) return { rdv: [], dispo: false };
+  return { rdv: (data as RdvExpert[]) || [], dispo: true };
+}
+
+export async function enregistrerRdv(r: Partial<RdvExpert>): Promise<RdvExpert> {
+  const { id, owner_id: _o, created_at: _c, ...reste } = r as RdvExpert;
+  const req = id ? supabase.from("expertise_rdv").update(reste).eq("id", id) : supabase.from("expertise_rdv").insert(reste);
+  const { data, error } = await req.select("*").single();
+  if (error) throw error;
+  const rdv = data as RdvExpert;
+  // Le dossier suit : date de visite + statut « Visite planifiée » si la mission vient d'arriver.
+  if (rdv.dossier_id && rdv.statut === "planifie" && (rdv.type === "visite" || rdv.type === "contradictoire" || rdv.type === "ead")) {
+    const d = await chargerDossier(rdv.dossier_id);
+    if (d) await majDossier(d.id, { date_visite: rdv.date, statut: d.statut === "mission" ? "visite" : d.statut });
+  }
+  return rdv;
+}
+
+export async function supprimerRdv(id: string): Promise<void> {
+  const { error } = await supabase.from("expertise_rdv").delete().eq("id", id);
+  if (error) throw error;
 }

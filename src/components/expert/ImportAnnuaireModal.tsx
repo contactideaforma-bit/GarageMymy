@@ -5,6 +5,7 @@
 // cases à cocher, doublons détectés sur le nom, puis enregistrement.
 
 import { useRef, useState } from "react";
+import Icone from "@/components/expert/Icone";
 import ModalShell from "@/components/ModalShell";
 import { Erreur } from "@/components/expert/ui";
 import { messageErreur } from "@/lib/format";
@@ -39,7 +40,7 @@ export default function ImportAnnuaireModal({
       if (!r.fiches.length) throw new Error("Aucune ligne exploitable dans ce fichier (il faut au moins une colonne « Nom »).");
       setFiches(r.fiches);
       setCoche(r.fiches.map((f) => !cles.has(cleFiche(f.nom))));
-      setSource(r.source === "ia" ? `${file.name} — lu par l'IA` : `${file.name} — colonnes : ${Object.keys(r.colonnes || {}).join(", ")}`);
+      setSource(r.source === "ia" ? `${file.name} — lu automatiquement` : `${file.name} — colonnes : ${Object.keys(r.colonnes || {}).join(", ")}`);
     } catch (e) { setErreur(messageErreur(e, "Lecture impossible.")); } finally { setLecture(false); }
   }
 
@@ -65,11 +66,11 @@ export default function ImportAnnuaireModal({
   return (
     <ModalShell title={`Importer des ${t.pluriel.toLowerCase()}`} onClose={onClose} maxWidth="max-w-4xl">
       <p className="text-sm text-white/60">
-        Fichier <span className="font-medium">Excel (.xlsx)</span> ou <span className="font-medium">CSV</span> avec une ligne d&apos;en-têtes (Nom, Adresse, CP, Ville, SIRET, Téléphone, Email, Contact…), ou <span className="font-medium">PDF / photo</span> d&apos;une liste : l&apos;IA en extrait les fiches.
+        Fichier <span className="font-medium">Excel (.xlsx)</span> ou <span className="font-medium">CSV</span> avec une ligne d&apos;en-têtes (Nom, Adresse, CP, Ville, SIRET, Téléphone, Email, Contact…), ou <span className="font-medium">PDF / photo</span> d&apos;une liste : les fiches en sont extraites automatiquement.
       </p>
       <input ref={fichier} type="file" accept=".xlsx,.xlsm,.csv,.txt,application/pdf,image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) lire(f); e.target.value = ""; }} />
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="btn-primary" disabled={lecture || Boolean(envoi)} onClick={() => fichier.current?.click()}>{lecture ? "Lecture…" : "📎 Choisir un fichier"}</button>
+        <button type="button" className="btn-primary" disabled={lecture || Boolean(envoi)} onClick={() => fichier.current?.click()}>{lecture ? "Lecture…" : <><Icone nom="trombone" /> Choisir un fichier</>}</button>
         {source && <span className="text-xs text-white/50">{source}</span>}
       </div>
       <Erreur message={erreur} />

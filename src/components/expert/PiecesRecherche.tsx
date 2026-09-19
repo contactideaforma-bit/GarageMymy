@@ -13,6 +13,7 @@
  * ==================================================================== */
 
 import { useEffect, useState } from "react";
+import Icone from "@/components/expert/Icone";
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import { formatEuros, messageErreur } from "@/lib/format";
 import { chargerPieces, enregistrerPiece, supprimerPiece } from "@/lib/expertise/data";
@@ -129,7 +130,7 @@ export default function PiecesRecherche({
         <div className="flex flex-col gap-2 sm:flex-row">
           <input className="field-input flex-1" placeholder="Désignation : aile avant gauche, optique AVD, bouclier arrière…" value={designation} onChange={(e) => setDesignation(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); estimer(); } }} />
           <input className="field-input sm:w-48" placeholder="Référence (si connue)" value={reference} onChange={(e) => setReference(e.target.value)} />
-          <button type="button" className="btn-primary shrink-0" disabled={chargement} onClick={estimer}>{chargement ? "Estimation…" : "✨ Estimer le prix"}</button>
+          <button type="button" className="btn-primary shrink-0" disabled={chargement} onClick={estimer}>{chargement ? "Estimation…" : <><Icone nom="ia" /> Estimer le prix</>}</button>
         </div>
         <Erreur message={erreur} />
         {ok && <div className="alerte alerte-ok mt-2 text-sm">{ok}</div>}
@@ -159,7 +160,7 @@ export default function PiecesRecherche({
             <span>{estimation.peinture_necessaire ? "Pièce à peindre" : "Sans peinture"}</span>
           </div>
           {estimation.remarques && <p className="mt-2 text-sm text-white/60">{estimation.remarques}</p>}
-          <p className="mt-2 text-[11px] text-white/40">Estimation indicative générée par l&apos;IA — à confirmer sur les catalogues ci-dessous avant d&apos;être retenue.</p>
+          <p className="mt-2 text-[11px] text-white/40">Estimation indicative générée automatiquement — à confirmer sur les catalogues ci-dessous avant d&apos;être retenue.</p>
         </Bloc>
       )}
 
@@ -179,7 +180,7 @@ export default function PiecesRecherche({
                   <div className="font-medium">{f.nom}</div>
                   <div className="truncate text-xs text-white/55">{f.description}</div>
                 </div>
-                <span className="shrink-0 text-xs text-white/50">Ouvrir ↗</span>
+                <span className="shrink-0 text-xs text-white/50">Ouvrir <Icone nom="externe" /></span>
               </a>
             ))}
           </div>
@@ -196,9 +197,9 @@ export default function PiecesRecherche({
           </Champ>
           <Champ label="Fournisseur"><input className="field-input" value={fournisseur} onChange={(e) => setFournisseur(e.target.value)} placeholder="Oscaro, GPA, concession…" /></Champ>
           <div className="flex items-end gap-2">
-            <button type="button" className="btn-ghost w-full" disabled={!designation.trim()} onClick={retenir}>💾 Retenir</button>
+            <button type="button" className="btn-ghost w-full" disabled={!designation.trim()} onClick={retenir}><Icone nom="sauvegarder" /> Retenir</button>
             {onAjouterAuChiffrage && (
-              <button type="button" className="btn-primary w-full" disabled={!designation.trim()} onClick={() => versChiffrage({ designation: estimation?.designation_normalisee || designation, prix_ht: prixRetenu ? Number(prixRetenu) : null, reference: reference || null, etat })}>→ Chiffrage</button>
+              <button type="button" className="btn-primary w-full" disabled={!designation.trim()} onClick={() => versChiffrage({ designation: estimation?.designation_normalisee || designation, prix_ht: prixRetenu ? Number(prixRetenu) : null, reference: reference || null, etat })}><Icone nom="droite" /> Chiffrage</button>
             )}
           </div>
         </div>
@@ -214,13 +215,13 @@ export default function PiecesRecherche({
               <tbody>
                 {pieces.map((p) => (
                   <tr key={p.id}>
-                    <td className="font-medium">{p.designation}{p.source === "ia" && <span className="ml-1 text-[10px] text-white/40">IA</span>}</td>
+                    <td className="font-medium">{p.designation}{p.source === "ia" && <span className="ml-1 text-[10px] text-white/40">auto</span>}</td>
                     <td className="font-mono text-xs">{p.reference || "—"}</td>
                     <td>{ETATS.find((e) => e.code === p.etat)?.label || p.etat}</td>
                     <td>{p.fournisseur || "—"}</td>
                     <td className="num">{p.prix_ht !== null ? formatEuros(Number(p.prix_ht)) : "—"}</td>
                     <td className="whitespace-nowrap text-right">
-                      {onAjouterAuChiffrage && <button className="btn-ghost btn-compact mr-1" onClick={() => versChiffrage({ designation: p.designation, prix_ht: p.prix_ht !== null ? Number(p.prix_ht) : null, reference: p.reference, etat: p.etat })}>→ Chiffrage</button>}
+                      {onAjouterAuChiffrage && <button className="btn-ghost btn-compact mr-1" onClick={() => versChiffrage({ designation: p.designation, prix_ht: p.prix_ht !== null ? Number(p.prix_ht) : null, reference: p.reference, etat: p.etat })}><Icone nom="droite" /> Chiffrage</button>}
                       <button className="btn-danger btn-compact" onClick={async () => { await supprimerPiece(p.id); recharger(); }}>×</button>
                     </td>
                   </tr>

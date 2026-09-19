@@ -1108,3 +1108,11 @@ html.alliance .hud-icone { border-color: rgba(11, 63, 196, 0.35) !important; col
 /* v13.6 : les boutons compacts ne se compressent jamais en colonne de lettres
    (la règle générale « .flex > * { min-width: 0 } » les laissait rétrécir). */
 html.alliance .btn-compact { white-space: nowrap; flex-shrink: 0; }
+
+/* v13.7 : respiration des cartes et tableaux de l'espace expert */
+html.alliance .carte-liste { padding: 0.85rem 1.1rem; }
+html.alliance .al-table th { padding: 0.55rem 0.7rem; }
+html.alliance .al-table td { padding: 0.55rem 0.7rem; line-height: 1.35; }
+html.alliance .glass-card > .titre-section { margin-bottom: 0.25rem; }
+html.alliance .field-label { margin-bottom: 0.35rem; }
+html.alliance .badge { padding: 0.2rem 0.6rem; }

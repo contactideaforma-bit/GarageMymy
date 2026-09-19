@@ -320,3 +320,48 @@ export type FicheAnnuaire = {
 export function adresseFiche(f: { adresse?: string | null; code_postal?: string | null; ville?: string | null }): string {
   return [f.adresse, [f.code_postal, f.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ");
 }
+
+/* ------------------ Profil expert & agenda (v13.7) ------------------- */
+
+export type ProfilExpert = {
+  owner_id: string;
+  nom: string | null;
+  prenom: string | null;
+  numero_agrement: string | null;
+  fonction: string | null;
+  tel: string | null;
+  email: string | null;
+  signature_path: string | null;
+};
+
+export function nomExpert(p: ProfilExpert | null | undefined): string {
+  return [p?.prenom, p?.nom].filter(Boolean).join(" ").trim();
+}
+
+export type TypeRdv = "visite" | "contradictoire" | "controle" | "ead" | "autre";
+export const TYPES_RDV: { code: TypeRdv; label: string }[] = [
+  { code: "visite", label: "Visite d'expertise" },
+  { code: "contradictoire", label: "Expertise contradictoire" },
+  { code: "controle", label: "Contrôle des travaux" },
+  { code: "ead", label: "Expertise à distance (EAD)" },
+  { code: "autre", label: "Autre rendez-vous" },
+];
+export const labelTypeRdv = (c: string | null | undefined) => TYPES_RDV.find((t) => t.code === c)?.label || "Rendez-vous";
+
+export type StatutRdv = "planifie" | "fait" | "annule";
+
+export type RdvExpert = {
+  id: string;
+  owner_id: string;
+  dossier_id: string | null;
+  garage_id: string | null;
+  date: string;
+  heure: string | null; // "09:30:00"
+  duree_min: number | null;
+  type: TypeRdv;
+  lieu: string | null;
+  adresse: string | null;
+  notes: string | null;
+  statut: StatutRdv;
+  created_at: string;
+};

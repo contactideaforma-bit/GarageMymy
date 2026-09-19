@@ -12,6 +12,7 @@
  * ==================================================================== */
 
 import { useEffect, useState } from "react";
+import Icone from "@/components/expert/Icone";
 import { useRouter } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
@@ -113,7 +114,7 @@ export default function ExpertShell({ children }: { children: React.ReactNode })
         {/* Barre du haut (mobile) */}
         <div className="lg:hidden sticky top-0 z-30 p-3">
           <div className="glass-card glass-blur flex items-center gap-3 px-3 py-2">
-            <button onClick={() => setOpen(true)} aria-label="Ouvrir le menu" className="btn-ghost btn-compact px-2.5 text-lg leading-none">☰</button>
+            <button onClick={() => setOpen(true)} aria-label="Ouvrir le menu" className="btn-ghost btn-compact px-2.5 leading-none"><Icone nom="menu" /></button>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/alliance/logo.png" alt="Alliance Experts" className="h-8 w-auto" />
           </div>
@@ -125,7 +126,7 @@ export default function ExpertShell({ children }: { children: React.ReactNode })
             ${open ? "translate-x-0" : "-translate-x-full"}`}
         >
           <div className="relative h-full overflow-y-auto lg:h-auto lg:overflow-visible">
-            <button onClick={() => setOpen(false)} aria-label="Fermer le menu" className="lg:hidden absolute right-2 top-2 z-10 btn-ghost btn-compact px-2.5 text-lg leading-none">×</button>
+            <button onClick={() => setOpen(false)} aria-label="Fermer le menu" className="lg:hidden absolute right-2 top-2 z-10 btn-ghost btn-compact px-2.5 leading-none"><Icone nom="croix" /></button>
             <ExpertSidebar email={email} onNavigate={() => setOpen(false)} />
           </div>
         </aside>

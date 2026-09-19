@@ -11,7 +11,7 @@
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Cabinet, DossierExpert, RapportExpert } from "./types";
+import { Cabinet, DossierExpert, ProfilExpert, RapportExpert, nomExpert } from "./types";
 import { LEGENDE_DETAIL, LEGENDE_OPERATIONS, codeImprime, montantOperation, montantPoste, synthese } from "./chiffrage";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -52,10 +52,10 @@ async function dataUrl(url: string): Promise<string | null> {
   }
 }
 
-async function signatureDataUrl(cab: Cabinet | null): Promise<string | null> {
-  if (!cab?.signature_path) return null;
+async function signatureDataUrl(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null;
   try {
-    const { data } = await supabase.storage.from("pieces").download(cab.signature_path);
+    const { data } = await supabase.storage.from("pieces").download(path);
     if (!data) return null;
     return await new Promise((resolve) => {
       const r = new FileReader();
@@ -68,7 +68,7 @@ async function signatureDataUrl(cab: Cabinet | null): Promise<string | null> {
   }
 }
 
-type Ctx = { pdf: jsPDF; logo: string | null; voiture: string | null; cab: Cabinet | null; d: DossierExpert; r: RapportExpert };
+type Ctx = { pdf: jsPDF; logo: string | null; voiture: string | null; cab: Cabinet | null; expert: ProfilExpert | null; d: DossierExpert; r: RapportExpert };
 
 function barre(pdf: jsPDF, x: number, y: number, w: number, titre: string, h = 4.6) {
   pdf.setFillColor(...GRIS_BARRE);
@@ -133,7 +133,11 @@ function pied(pdf: jsPDF, page: number, total: number) {
 }
 
 function page1(c: Ctx, signature: string | null) {
-  const { pdf, d, r, cab } = c;
+  const { pdf, d, r, cab, expert } = c;
+  // v13.7 : le PV est signé au nom de l'expert CONNECTÉ (profil expert), à
+  // défaut au nom de l'expert du cabinet.
+  const expertNom = nomExpert(expert) || cab?.expert_nom || "";
+  const expertNumero = expert?.numero_agrement || cab?.expert_numero || "";
   enTete(c);
   const reparable = d.vehicule_reparable !== false;
 
@@ -319,10 +323,10 @@ function page1(c: Ctx, signature: string | null) {
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(8.5);
   pdf.text("EXPERT :", M + 1.5, yx);
-  pdf.text(txt(cab?.expert_nom || ""), M + 1.5, yx + 4.2);
+  pdf.text(txt(expertNom), M + 1.5, yx + 4.2);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.6);
-  pdf.text(txt(cab?.expert_numero || ""), M + 1.5, yx + 8);
+  pdf.text(txt(expertNumero), M + 1.5, yx + 8);
   if (signature) {
     try {
       pdf.addImage(signature, "PNG", M + 4, yx + 12, 36, 14);
@@ -454,10 +458,14 @@ function pagesDetail(c: Ctx) {
   pdf.text(l2, 105, yl + 3.5 + l1.length * 2.6 + 1.5, { align: "center" });
 }
 
-export async function construireRapportPdf(d: DossierExpert, r: RapportExpert, cab: Cabinet | null): Promise<jsPDF> {
-  const [logo, voiture, signature] = await Promise.all([dataUrl("/alliance/logo.png"), dataUrl("/alliance/vehicule.png"), signatureDataUrl(cab)]);
+export async function construireRapportPdf(d: DossierExpert, r: RapportExpert, cab: Cabinet | null, expert: ProfilExpert | null = null): Promise<jsPDF> {
+  const [logo, voiture, signature] = await Promise.all([
+    dataUrl("/alliance/logo.png"),
+    dataUrl("/alliance/vehicule.png"),
+    signatureDataUrl(expert?.signature_path || cab?.signature_path),
+  ]);
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
-  const ctx: Ctx = { pdf, logo, voiture, cab, d, r };
+  const ctx: Ctx = { pdf, logo, voiture, cab, expert, d, r };
   page1(ctx, signature);
   pagesDetail(ctx);
   const total = pdf.getNumberOfPages();
@@ -469,18 +477,18 @@ export async function construireRapportPdf(d: DossierExpert, r: RapportExpert, c
   return pdf;
 }
 
-export async function blobRapportPdf(d: DossierExpert, r: RapportExpert, cab: Cabinet | null): Promise<Blob> {
-  return (await construireRapportPdf(d, r, cab)).output("blob");
+export async function blobRapportPdf(d: DossierExpert, r: RapportExpert, cab: Cabinet | null, expert: ProfilExpert | null = null): Promise<Blob> {
+  return (await construireRapportPdf(d, r, cab, expert)).output("blob");
 }
 
-export async function apercuRapportPdf(d: DossierExpert, r: RapportExpert, cab: Cabinet | null): Promise<void> {
-  const pdf = await construireRapportPdf(d, r, cab);
+export async function apercuRapportPdf(d: DossierExpert, r: RapportExpert, cab: Cabinet | null, expert: ProfilExpert | null = null): Promise<void> {
+  const pdf = await construireRapportPdf(d, r, cab, expert);
   const url = URL.createObjectURL(pdf.output("blob"));
   window.open(url, "_blank", "noopener,noreferrer");
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
-export async function telechargerRapportPdf(d: DossierExpert, r: RapportExpert, cab: Cabinet | null): Promise<void> {
-  const pdf = await construireRapportPdf(d, r, cab);
+export async function telechargerRapportPdf(d: DossierExpert, r: RapportExpert, cab: Cabinet | null, expert: ProfilExpert | null = null): Promise<void> {
+  const pdf = await construireRapportPdf(d, r, cab, expert);
   pdf.save(`PV-expertise-${r.numero}${r.version > 1 ? `-v${r.version}` : ""}.pdf`);
 }

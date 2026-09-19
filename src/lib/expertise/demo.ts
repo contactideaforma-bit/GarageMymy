@@ -248,5 +248,19 @@ export async function creerDossierDemo(): Promise<{ garages: number; dossiers: n
   }
   // Base de données (v13.6) : assurances et clients des missions de démo.
   for (const dd of DOSSIERS_DEMO) await completerAnnuaireDepuisDossier(dd.dossier);
+  // Agenda (v13.7) : un rendez-vous par visite à venir, si l'agenda est vide.
+  const { data: rdvExistants } = await supabase.from("expertise_rdv").select("id").limit(1);
+  if (rdvExistants && rdvExistants.length === 0) {
+    const { dossiers: tous } = await chargerDossiers();
+    const heures = ["09:00:00", "10:30:00", "14:00:00", "15:30:00"];
+    const aVenir = tous.filter((d) => d.date_visite && d.date_visite >= ilYA(0) && d.statut !== "emis" && d.statut !== "cloture");
+    if (aVenir.length) {
+      await supabase.from("expertise_rdv").insert(aVenir.map((d, i) => ({
+        dossier_id: d.id, garage_id: d.garage_id, date: d.date_visite, heure: heures[i % heures.length], duree_min: 45,
+        type: d.type_expertise === "Contradictoire" ? "contradictoire" : "visite", lieu: d.reparateur_nom,
+        adresse: (d.reparateur_adresse || "").replace(/\n/g, ", ") || null, notes: d.dommage_description ? d.dommage_description.slice(0, 120) : null, statut: "planifie",
+      })));
+    }
+  }
   return { garages: nbGarages, dossiers: nbDossiers };
 }

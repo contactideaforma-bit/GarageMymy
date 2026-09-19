@@ -3,6 +3,7 @@
 // Petits éléments d'interface partagés du mode expert (v13.5).
 
 import Link from "next/link";
+import Icone from "@/components/expert/Icone";
 import type { ReactNode } from "react";
 import { infoStatutExpertise } from "@/lib/expertise/types";
 
@@ -11,7 +12,7 @@ export function EnTete({ titre, sousTitre, actions, retour }: { titre: string; s
     <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
         {retour && (
-          <Link href={retour.href} className="text-xs text-white/50 hover:text-white/80">← {retour.label}</Link>
+          <Link href={retour.href} className="text-xs text-white/50 hover:text-white/80"><Icone nom="gauche" /> {retour.label}</Link>
         )}
         <h1 className="truncate">{titre}</h1>
         {sousTitre && <p className="mt-0.5 text-sm text-white/55">{sousTitre}</p>}

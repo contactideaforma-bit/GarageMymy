@@ -4,14 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { VERSION_LABEL } from "@/lib/version";
+import Icone, { NomIcone } from "@/components/expert/Icone";
 
-const LIENS: { href: string; label: string; icone: string; exact?: boolean }[] = [
-  { href: "/expert", label: "Tableau de bord", icone: "▦", exact: true },
-  { href: "/expert/dossiers", label: "Dossiers d'expertise", icone: "🗂" },
-  { href: "/expert/rapports", label: "Rapports émis", icone: "📄" },
-  { href: "/expert/pieces", label: "Recherche de pièces", icone: "🔎" },
-  { href: "/expert/annuaire", label: "Base de données", icone: "📇" },
-  { href: "/expert/cabinet", label: "Le cabinet", icone: "🏢" },
+const LIENS: { href: string; label: string; icone: NomIcone; exact?: boolean }[] = [
+  { href: "/expert", label: "Tableau de bord", icone: "tableau", exact: true },
+  { href: "/expert/dossiers", label: "Dossiers d'expertise", icone: "dossiers" },
+  { href: "/expert/agenda", label: "RDV expert", icone: "agenda" },
+  { href: "/expert/rapports", label: "Rapports émis", icone: "rapport" },
+  { href: "/expert/pieces", label: "Recherche de pièces", icone: "recherche" },
+  { href: "/expert/annuaire", label: "Base de données", icone: "base" },
+  { href: "/expert/cabinet", label: "Le cabinet", icone: "cabinet" },
 ];
 
 export default function ExpertSidebar({ email, onNavigate }: { email: string | null; onNavigate?: () => void }) {
@@ -32,13 +34,16 @@ export default function ExpertSidebar({ email, onNavigate }: { email: string | n
       <nav className="space-y-0.5">
         {LIENS.map((l) => (
           <Link key={l.href} href={l.href} onClick={onNavigate} className={`nav-lien ${actif(l) ? "actif" : ""}`}>
-            <span className="w-5 text-center" aria-hidden>{l.icone}</span>
+            <Icone nom={l.icone} className="opacity-70" />
             {l.label}
           </Link>
         ))}
       </nav>
 
       <div className="space-y-0 border-t border-white/10 pt-2 mt-4">
+        <Link href="/expert/profil" onClick={onNavigate} className={`nav-lien nav-compact ${pathname.startsWith("/expert/profil") ? "actif" : ""}`}>
+          <Icone nom="profil" className="opacity-70" /> Profil expert
+        </Link>
         {email && (
           <button onClick={() => supabase.auth.signOut()} className="nav-lien nav-compact">
             Se déconnecter

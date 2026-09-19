@@ -9,6 +9,7 @@
  * ==================================================================== */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Icone from "@/components/expert/Icone";
 import CameraModal from "@/components/CameraModal";
 import ModalShell from "@/components/ModalShell";
 import { Bloc, Erreur } from "@/components/expert/ui";
@@ -81,7 +82,7 @@ export default function PhotosExpertPanel({ dossierId, onChange }: { dossierId: 
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={urls[premiere.id]} alt={z.label} />
                   ) : (
-                    <span className="text-2xl opacity-40">📷</span>
+                    <Icone nom="photo" taille={28} className="opacity-40" />
                   )}
                   <span className="al-zone-nom">
                     {z.label}{liste.length > 1 ? ` · ${liste.length}` : ""}
@@ -113,10 +114,10 @@ export default function PhotosExpertPanel({ dossierId, onChange }: { dossierId: 
       {choixSource && (
         <ModalShell title={labelZone(choixSource)} onClose={() => setChoixSource(null)} maxWidth="max-w-sm">
           <div className="grid gap-2">
-            <button type="button" className="btn-primary w-full" onClick={() => { setCameraZone(choixSource); setChoixSource(null); }}>📷 Prendre une photo</button>
-            <button type="button" className="btn-ghost w-full" onClick={() => { setZoneEnCours(choixSource); setChoixSource(null); setTimeout(() => fichier.current?.click(), 50); }}>🖼 Depuis la galerie / un fichier</button>
+            <button type="button" className="btn-primary w-full" onClick={() => { setCameraZone(choixSource); setChoixSource(null); }}><Icone nom="photo" /> Prendre une photo</button>
+            <button type="button" className="btn-ghost w-full" onClick={() => { setZoneEnCours(choixSource); setChoixSource(null); setTimeout(() => fichier.current?.click(), 50); }}><Icone nom="galerie" /> Depuis la galerie / un fichier</button>
             {parZone(choixSource).length > 0 && (
-              <button type="button" className="btn-ghost w-full" onClick={() => { setApercu(parZone(choixSource)[0]); setChoixSource(null); }}>👁 Voir les {parZone(choixSource).length} photo(s)</button>
+              <button type="button" className="btn-ghost w-full" onClick={() => { setApercu(parZone(choixSource)[0]); setChoixSource(null); }}><Icone nom="oeil" /> Voir les {parZone(choixSource).length} photo(s)</button>
             )}
           </div>
         </ModalShell>
@@ -144,8 +145,8 @@ export default function PhotosExpertPanel({ dossierId, onChange }: { dossierId: 
             <div className="flex gap-2">
               {(() => { const liste = photos; const i = liste.findIndex((p) => p.id === apercu.id); return (
                 <>
-                  <button type="button" className="btn-ghost btn-compact" disabled={i <= 0} onClick={() => setApercu(liste[i - 1])}>← Préc.</button>
-                  <button type="button" className="btn-ghost btn-compact" disabled={i >= liste.length - 1} onClick={() => setApercu(liste[i + 1])}>Suiv. →</button>
+                  <button type="button" className="btn-ghost btn-compact" disabled={i <= 0} onClick={() => setApercu(liste[i - 1])}><Icone nom="gauche" /> Préc.</button>
+                  <button type="button" className="btn-ghost btn-compact" disabled={i >= liste.length - 1} onClick={() => setApercu(liste[i + 1])}>Suiv. <Icone nom="droite" /></button>
                 </>
               ); })()}
             </div>

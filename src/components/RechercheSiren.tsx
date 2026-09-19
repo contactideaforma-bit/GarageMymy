@@ -21,11 +21,14 @@ export default function RechercheSiren({
   nom,
   onChoisir,
   compact = false,
+  libelle,
 }: {
   /** Nom de la société à chercher (le champ « Nom » du formulaire). */
   nom: string;
   onChoisir: (r: ResultatSiren) => void;
   compact?: boolean;
+  /** v13.7 : libellé du bouton (le mode expert passe un pictogramme, sans emoji). */
+  libelle?: React.ReactNode;
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -54,7 +57,7 @@ export default function RechercheSiren({
         onClick={() => { setRequete(nom); chercher(nom); }}
         title="Trouver le SIREN dans l'annuaire officiel des entreprises"
       >
-        {busy ? "Recherche…" : "🔍 SIREN"}
+        {busy ? "Recherche…" : libelle ?? "🔍 SIREN"}
       </button>
 
       {ouvert && (

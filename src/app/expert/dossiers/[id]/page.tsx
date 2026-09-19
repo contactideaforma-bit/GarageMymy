@@ -9,15 +9,17 @@
  * ==================================================================== */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Icone from "@/components/expert/Icone";
 import { useParams, useRouter } from "next/navigation";
 import DossierExpertForm from "@/components/expert/DossierExpertForm";
 import PhotosExpertPanel from "@/components/expert/PhotosExpertPanel";
 import DocumentsExpertPanel from "@/components/expert/DocumentsExpertPanel";
 import RapportEditeur from "@/components/expert/RapportEditeur";
 import PiecesRecherche from "@/components/expert/PiecesRecherche";
+import RdvModal from "@/components/expert/RdvModal";
 import { BadgeStatutExpert, Bloc, EnTete, Info } from "@/components/expert/ui";
-import { chargerCabinet, chargerDossier, chargerGarages, changerStatut, supprimerDossier } from "@/lib/expertise/data";
-import { Cabinet, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, STATUTS_EXPERTISE } from "@/lib/expertise/types";
+import { chargerCabinet, chargerDossier, chargerGarages, chargerRdv, changerStatut, supprimerDossier } from "@/lib/expertise/data";
+import { Cabinet, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, RdvExpert, STATUTS_EXPERTISE, labelTypeRdv } from "@/lib/expertise/types";
 import { formatDate } from "@/lib/format";
 
 type Onglet = "dossier" | "photos" | "documents" | "rapport" | "pieces";
@@ -42,6 +44,10 @@ export default function FicheDossierExpert() {
   const [introuvable, setIntrouvable] = useState(false);
   const [demandeSource, setDemandeSource] = useState<{ doc: DocumentExpert; mode: "devis" | "facture"; cle: number } | null>(null);
   const [nbPiecesEnvoyees, setNbPiecesEnvoyees] = useState(0);
+  const [rdvs, setRdvs] = useState<RdvExpert[]>([]);
+  const [rdvModal, setRdvModal] = useState<Partial<RdvExpert> | null | "nouveau">(null);
+  const rechargerRdv = useCallback(() => { if (id) chargerRdv({ dossierId: id }).then(({ rdv }) => setRdvs(rdv)); }, [id]);
+  useEffect(() => { rechargerRdv(); }, [rechargerRdv]);
   const recepteurOperation = useRef<((op: Operation) => void) | null>(null);
 
   useEffect(() => {
@@ -100,6 +106,28 @@ export default function FicheDossierExpert() {
               <Info label="Date de visite" valeur={formatDate(dossier.date_visite)} />
               <Info label="Lieu" valeur={dossier.lieu_expertise} className="col-span-2" />
             </div>
+            <div className="mt-3 border-t border-white/10 pt-3">
+              <div className="mb-1 flex items-center justify-between">
+                <span className="text-[11px] uppercase tracking-wider text-white/45">Rendez-vous</span>
+                <button className="btn-ghost btn-compact" onClick={() => setRdvModal("nouveau")}><Icone nom="calendrier" /> Planifier</button>
+              </div>
+              {rdvs.length === 0 ? (
+                <p className="text-sm text-white/40">Aucun rendez-vous planifié.</p>
+              ) : (
+                <ul className="space-y-1 text-sm">
+                  {rdvs.map((r) => (
+                    <li key={r.id} className={`flex items-center justify-between gap-2 ${r.statut === "annule" ? "opacity-50" : ""}`}>
+                      <span className="min-w-0 truncate">
+                        <span className="font-medium">{r.date.split("-").reverse().join("/")}{r.heure ? ` ${r.heure.slice(0, 5)}` : ""}</span>
+                        <span className="text-white/60"> · {labelTypeRdv(r.type)} · {r.lieu || "—"}</span>
+                        {r.statut === "fait" && <span className="badge badge-ok ml-1">Effectué</span>}
+                      </span>
+                      <button className="btn-ghost btn-compact" onClick={() => setRdvModal(r)}>Modifier</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </Bloc>
           <Bloc titre="Mandant">
             <div className="grid grid-cols-2 gap-3">
@@ -149,15 +177,15 @@ export default function FicheDossierExpert() {
               <Info label="Imputable" valeur={dossier.dommage_imputable} />
               <Info label="Intensité" valeur={dossier.dommage_intensite} />
               <Info label="Véhicule" valeur={dossier.vehicule_reparable === false ? "Économiquement irréparable" : "Réparable"} />
-              <div className="col-span-2 sm:col-span-4 text-sm text-white/75">{dossier.dommage_description || <span className="text-white/35">Aucune description — les photos et l&apos;analyse IA peuvent la compléter.</span>}</div>
+              <div className="col-span-2 sm:col-span-4 text-sm text-white/75">{dossier.dommage_description || <span className="text-white/35">Aucune description — les photos et l&apos;analyse automatique peuvent la compléter.</span>}</div>
             </div>
           </Bloc>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <button className="btn-ghost" onClick={() => setOnglet("photos")}>📷 Photographier</button>
-          <button className="btn-ghost" onClick={() => setOnglet("documents")}>📎 Documents</button>
-          <button className="btn-ghost" onClick={() => setOnglet("pieces")}>🔎 Pièces & prix</button>
-          <button className="btn-primary" onClick={() => setOnglet("rapport")}>📄 Rapport d&apos;expertise</button>
+          <button className="btn-ghost" onClick={() => setOnglet("photos")}><Icone nom="photo" /> Photographier</button>
+          <button className="btn-ghost" onClick={() => setOnglet("documents")}><Icone nom="trombone" /> Documents</button>
+          <button className="btn-ghost" onClick={() => setOnglet("pieces")}><Icone nom="recherche" /> Pièces & prix</button>
+          <button className="btn-primary" onClick={() => setOnglet("rapport")}><Icone nom="rapport" /> Rapport d&apos;expertise</button>
         </div>
       </div>
 
@@ -206,6 +234,14 @@ export default function FicheDossierExpert() {
         />
       </div>
 
+      {rdvModal && (
+        <RdvModal
+          dossier={dossier}
+          initial={rdvModal === "nouveau" ? null : rdvModal}
+          onClose={() => setRdvModal(null)}
+          onSaved={async () => { setRdvModal(null); rechargerRdv(); const d = await chargerDossier(dossier.id); if (d) setDossier(d); }}
+        />
+      )}
       {edition && <DossierExpertForm initial={dossier} onClose={() => setEdition(false)} onSaved={(d) => { setDossier(d); setEdition(false); }} />}
     </div>
   );

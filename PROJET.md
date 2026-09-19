@@ -97,6 +97,15 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Formulaire de mission** : mandant et lésé choisis dans la base (listes déroulantes) ou via « 🔍 SIREN » ; réparateur : liste + « 🔍 SIREN » qui **crée la fiche garage** (taux par défaut) et la sélectionne. À l'enregistrement, `completerAnnuaireDepuisDossier` ajoute un mandant / un lésé inconnus à la base (best-effort).
 - **Démo** : les assurances et clients des 7 missions sont ajoutés à la base.
 
+
+### Ajouté v13.7 — Mode expert : profil expert, pictogrammes, RDV expert, respiration
+- **Migration** `supabase/migration_v77.sql` : `expertise_experts` (un profil par compte connecté : prénom, nom, n° d'agrément, fonction, tél, email, `signature_path`) et `expertise_rdv` (dossier, garage, date, heure, durée, type visite/contradictoire/contrôle/EAD/autre, lieu, adresse, notes, statut planifié/fait/annulé). RLS owner_id.
+- **Profil expert** `/expert/profil` (onglet gris en bas de la barre, `nav-compact`) : identité + signature (pad ou image). `rapportPdf.ts` prend un 4e paramètre `expert` : le PV est signé au nom / n° / signature de l'expert CONNECTÉ, à défaut de l'expert du cabinet. À terme : un compte par expert du cabinet, dossiers partagés.
+- **Pictogrammes** `components/expert/Icone.tsx` (SVG traits, `currentColor`, ~45 noms) : plus aucun emoji dans l'espace expert (barre, boutons, onglets, StatCard sans icône). `RechercheSiren` accepte `libelle` (ReactNode).
+- **RDV expert** `/expert/agenda` : vue Semaine (jour par jour, week-end masqué si vide), Tournée par garage (regroupement par réparateur avec adresse), À venir ; `RdvModal` (dossier → garage + adresse pré-remplis, type, date, heure, durée, notes, statut, suppression). `enregistrerRdv` met à jour `date_visite` du dossier et passe « Mission reçue » → « Visite planifiée ». Fiche dossier : liste des RDV + « Planifier » dans le bloc Mission. Tableau de bord : « Prochains rendez-vous » depuis l'agenda (repli sur `date_visite`), KPI visites de la semaine.
+- **Lisibilité** : cartes de liste avec colonne droite fixe (`shrink-0`, largeur fixe, `truncate`), padding `carte-liste` / `al-table` augmenté sous `html.alliance`, badges plus aérés. Formulations : « Générer automatiquement » à la place des mentions « IA ».
+- **Démo** : RDV créés pour les visites à venir si l'agenda est vide.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

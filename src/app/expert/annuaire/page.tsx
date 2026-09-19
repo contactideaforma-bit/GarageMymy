@@ -8,6 +8,7 @@
  * ==================================================================== */
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import Icone from "@/components/expert/Icone";
 import { useRouter, useSearchParams } from "next/navigation";
 import FicheAnnuaireModal, { FicheQuelconque, TITRES } from "@/components/expert/FicheAnnuaireModal";
 import ImportAnnuaireModal from "@/components/expert/ImportAnnuaireModal";
@@ -17,10 +18,10 @@ import { CategorieAnnuaire } from "@/lib/expertise/importAnnuaire";
 import { adresseFiche } from "@/lib/expertise/types";
 import { formatEuros } from "@/lib/format";
 
-const ONGLETS: { code: CategorieAnnuaire; label: string; icone: string }[] = [
-  { code: "assurances", label: "Assurances", icone: "🛡" },
-  { code: "clients", label: "Clients", icone: "👤" },
-  { code: "garages", label: "Réparateurs", icone: "🔧" },
+const ONGLETS: { code: CategorieAnnuaire; label: string; icone: "bouclier" | "utilisateur" | "outil" }[] = [
+  { code: "assurances", label: "Assurances", icone: "bouclier" as const },
+  { code: "clients", label: "Clients", icone: "utilisateur" as const },
+  { code: "garages", label: "Réparateurs", icone: "outil" as const },
 ];
 
 function Annuaire() {
@@ -64,7 +65,7 @@ function Annuaire() {
         sousTitre="Assurances, clients et réparateurs du cabinet — proposés automatiquement à la création d'une mission."
         actions={
           <>
-            <button className="btn-ghost btn-compact whitespace-nowrap" onClick={() => setImportOuvert(true)}>📥 Importer (Excel, CSV, PDF)</button>
+            <button className="btn-ghost btn-compact whitespace-nowrap" onClick={() => setImportOuvert(true)}><Icone nom="importer" /> Importer (Excel, CSV, PDF)</button>
             <button className="btn-primary whitespace-nowrap" onClick={() => setEdition("nouveau")}>+ {t.un[0].toUpperCase() + t.un.slice(1)}</button>
           </>
         }
@@ -76,7 +77,7 @@ function Annuaire() {
         <div className="flex gap-1">
           {ONGLETS.map((o) => (
             <button key={o.code} className={`al-onglet ${onglet === o.code ? "actif" : ""}`} onClick={() => { setOnglet(o.code); router.replace(`/expert/annuaire?onglet=${o.code}`); }}>
-              {o.icone} {o.label} <span className="ml-1 text-xs opacity-60">{listes[o.code].length}</span>
+              <Icone nom={o.icone} /> {o.label} <span className="ml-1 text-xs opacity-60">{listes[o.code].length}</span>
             </button>
           ))}
         </div>
@@ -88,7 +89,7 @@ function Annuaire() {
           <Vide
             titre={recherche ? "Aucun résultat" : `Aucun ${t.un} enregistré`}
             texte={recherche ? "Modifie la recherche." : "Ajoute une fiche (recherche SIREN/SIRET pour tout remplir) ou importe une liste Excel, CSV ou PDF."}
-            action={!recherche && <div className="flex gap-2"><button className="btn-primary" onClick={() => setEdition("nouveau")}>+ Ajouter</button><button className="btn-ghost" onClick={() => setImportOuvert(true)}>📥 Importer</button></div>}
+            action={!recherche && <div className="flex gap-2"><button className="btn-primary" onClick={() => setEdition("nouveau")}>+ Ajouter</button><button className="btn-ghost" onClick={() => setImportOuvert(true)}><Icone nom="importer" /> Importer</button></div>}
           />
         </div>
       ) : (

@@ -4,6 +4,7 @@
 // signataire, signature, numérotation.
 
 import { useEffect, useRef, useState } from "react";
+import Icone from "@/components/expert/Icone";
 import SignaturePad from "@/components/SignaturePad";
 import ModalShell from "@/components/ModalShell";
 import { Bloc, Champ, EnTete, Erreur } from "@/components/expert/ui";
@@ -98,9 +99,9 @@ export default function PageCabinet() {
                 )}
               </div>
               <div className="flex flex-col gap-2">
-                <button type="button" className="btn-ghost btn-compact" onClick={() => setPadOuvert(true)}>✍️ Signer à l&apos;écran</button>
+                <button type="button" className="btn-ghost btn-compact" onClick={() => setPadOuvert(true)}><Icone nom="signature" /> Signer à l&apos;écran</button>
                 <input ref={fichierSig} type="file" accept="image/png,image/jpeg" className="hidden" onChange={async (e) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = () => enregistrerSignature(String(r.result)); r.readAsDataURL(f); e.target.value = ""; }} />
-                <button type="button" className="btn-ghost btn-compact" onClick={() => fichierSig.current?.click()}>📎 Importer une image</button>
+                <button type="button" className="btn-ghost btn-compact" onClick={() => fichierSig.current?.click()}><Icone nom="trombone" /> Importer une image</button>
               </div>
             </div>
           </div>

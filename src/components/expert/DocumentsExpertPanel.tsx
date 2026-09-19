@@ -9,6 +9,7 @@
  * ==================================================================== */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Icone from "@/components/expert/Icone";
 import CameraModal from "@/components/CameraModal";
 import ModalShell from "@/components/ModalShell";
 import { Bloc, Champ, Erreur, Vide } from "@/components/expert/ui";
@@ -71,8 +72,8 @@ export default function DocumentsExpertPanel({
             </select>
           </Champ>
           <input ref={fichier} type="file" accept="application/pdf,image/*" multiple className="hidden" onChange={(e) => { deposer(e.target.files); e.target.value = ""; }} />
-          <button type="button" className="btn-primary" disabled={envoi} onClick={() => fichier.current?.click()}>{envoi ? "Dépôt…" : "📎 Choisir un fichier"}</button>
-          <button type="button" className="btn-ghost" disabled={envoi} onClick={() => setCamera(true)}>📷 Photographier</button>
+          <button type="button" className="btn-primary" disabled={envoi} onClick={() => fichier.current?.click()}>{envoi ? "Dépôt…" : <><Icone nom="trombone" /> Choisir un fichier</>}</button>
+          <button type="button" className="btn-ghost" disabled={envoi} onClick={() => setCamera(true)}><Icone nom="photo" /> Photographier</button>
         </div>
         <p className="mt-2 text-[11px] text-white/45">Les images sont converties en PDF. Un devis ou une facture du garage peut ensuite générer le rapport en un clic.</p>
         <Erreur message={erreur} />
@@ -92,7 +93,7 @@ export default function DocumentsExpertPanel({
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {onUtiliserPourRapport && (d.type === "devis_garage" || d.type === "facture_garage") && (
-                      <button className="btn-primary btn-compact" onClick={() => onUtiliserPourRapport(d, d.type === "devis_garage" ? "devis" : "facture")}>✨ Générer le rapport</button>
+                      <button className="btn-primary btn-compact" onClick={() => onUtiliserPourRapport(d, d.type === "devis_garage" ? "devis" : "facture")}><Icone nom="ia" /> Générer le rapport</button>
                     )}
                     <button className="btn-ghost btn-compact" onClick={() => ouvrirFichierExpert(d.path)}>Ouvrir</button>
                     <button className="btn-ghost btn-compact" onClick={() => setEdition(d)}>Modifier</button>

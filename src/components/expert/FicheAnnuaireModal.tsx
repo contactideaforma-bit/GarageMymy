@@ -6,6 +6,7 @@
 // CP, ville, SIREN, SIRET). Rien n'est écrasé s'il y a déjà une adresse.
 
 import { useState } from "react";
+import Icone from "@/components/expert/Icone";
 import ModalShell from "@/components/ModalShell";
 import RechercheSiren, { ResultatSiren } from "@/components/RechercheSiren";
 import { Champ, Erreur } from "@/components/expert/ui";
@@ -85,10 +86,10 @@ export default function FicheAnnuaireModal({
       <form onSubmit={enregistrer} className="space-y-3">
         <Erreur message={erreur} />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Champ label={categorie === "clients" ? "Nom / raison sociale" : "Raison sociale"} className="sm:col-span-2" aide="Tape un nom ou un SIRET puis « 🔍 SIREN » pour remplir la fiche depuis l'annuaire officiel.">
+          <Champ label={categorie === "clients" ? "Nom / raison sociale" : "Raison sociale"} className="sm:col-span-2" aide="Tape un nom ou un SIRET puis « SIREN » pour remplir la fiche depuis l'annuaire officiel.">
             <div className="flex gap-2">
               {txt("nom", { required: true, autoFocus: true })}
-              <RechercheSiren nom={f.nom || ""} onChoisir={appliquerSiren} compact />
+              <RechercheSiren nom={f.nom || ""} onChoisir={appliquerSiren} compact libelle={<><Icone nom="recherche" /> SIREN</>} />
             </div>
           </Champ>
           {categorie === "clients" ? (
