@@ -626,6 +626,15 @@ export default function DossierDetailPage() {
     if (dossier) ouvrirOnglet(dossier.id, libelleOnglet(dossier));
   }, [dossier]);
 
+  // Dossier introuvable (supprimé, ou onglet d'un autre compte resté sur
+  // l'appareil) : on retire l'onglet et on renvoie vers la liste, plutôt
+  // que de laisser l'utilisateur sur une page vide à la connexion.
+  useEffect(() => {
+    if (loading || dossier) return;
+    fermerOnglet(id);
+    router.replace("/sinistres");
+  }, [loading, dossier, id, router]);
+
   if (loading) return <p className="text-white/40">Chargement…</p>;
 
   if (!dossier) {

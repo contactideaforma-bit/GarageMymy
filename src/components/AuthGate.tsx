@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { definirCompteOnglets } from "@/lib/onglets";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
@@ -121,6 +122,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
     const connecter = (s: Session) => {
       if (!mounted) return;
+      definirCompteOnglets(s.user?.id ?? null);
       setSession(s);
       setEtat("connecte");
       setReconnexionEchouee(false);
@@ -131,6 +133,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     };
     const deconnecter = () => {
       if (!mounted) return;
+      definirCompteOnglets(null);
       setSession(null);
       setEtat("deconnecte");
     };

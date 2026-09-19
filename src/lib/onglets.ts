@@ -6,18 +6,48 @@
 //  dans une barre d'onglets au-dessus des pages /sinistres, mémorisée PAR
 //  APPAREIL (localStorage) : on passe d'un dossier à l'autre en un clic,
 //  comme dans un navigateur, sans repasser par la liste.
+//
+//  v13.10 — onglets PAR COMPTE : la liste est rangée sous une clé propre à
+//  l'utilisateur connecté (`mea.sinistres.onglets.<uid>`). Avant, un garage
+//  qui se connectait sur un appareil partagé retrouvait les onglets du
+//  garage précédent et atterrissait sur « Dossier introuvable ». Tant
+//  qu'aucun compte n'est connu (déconnecté), la barre est vide et rien
+//  n'est écrit.
 // ====================================================================
 
 export type OngletDossier = { id: string; label: string };
 
-const CLE = "mea.sinistres.onglets";
+const CLE_BASE = "mea.sinistres.onglets";
 const EVENEMENT = "mea:onglets";
 const MAX_ONGLETS = 8;
 
+let compteCourant: string | null = null;
+const cle = () => (compteCourant ? `${CLE_BASE}.${compteCourant}` : null);
+
+/**
+ * Déclare le compte connecté (appelé par AuthGate à chaque changement de
+ * session). `null` à la déconnexion : la barre se vide aussitôt.
+ */
+export function definirCompteOnglets(uid: string | null) {
+  if (typeof window === "undefined") return;
+  if (compteCourant === uid) return;
+  compteCourant = uid;
+  try {
+    // Ancienne clé globale (avant v13.10) : on la purge, elle mélangeait
+    // les dossiers de tous les comptes passés sur l'appareil.
+    window.localStorage.removeItem(CLE_BASE);
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new Event(EVENEMENT));
+}
+
 export function lireOnglets(): OngletDossier[] {
   if (typeof window === "undefined") return [];
+  const k = cle();
+  if (!k) return [];
   try {
-    const brut = window.localStorage.getItem(CLE);
+    const brut = window.localStorage.getItem(k);
     const liste = brut ? (JSON.parse(brut) as unknown) : [];
     if (!Array.isArray(liste)) return [];
     return liste
@@ -29,8 +59,10 @@ export function lireOnglets(): OngletDossier[] {
 }
 
 function ecrire(liste: OngletDossier[]) {
+  const k = cle();
+  if (!k) return; // déconnecté : rien à mémoriser
   try {
-    window.localStorage.setItem(CLE, JSON.stringify(liste.slice(-MAX_ONGLETS)));
+    window.localStorage.setItem(k, JSON.stringify(liste.slice(-MAX_ONGLETS)));
   } catch {
     /* stockage indisponible : la barre vit seulement en mémoire */
   }
@@ -63,7 +95,7 @@ export function fermerTousLesOnglets() {
 export function surChangementOnglets(cb: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   const surStorage = (e: StorageEvent) => {
-    if (e.key === null || e.key === CLE) cb();
+    if (e.key === null || e.key === cle()) cb();
   };
   window.addEventListener(EVENEMENT, cb);
   window.addEventListener("storage", surStorage);
