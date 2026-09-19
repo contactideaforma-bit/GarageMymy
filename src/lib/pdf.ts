@@ -126,9 +126,48 @@ async function chargerSignatureGarage(ent: Partial<Entreprise>): Promise<void> {
       r.onerror = () => resolve(null);
       r.readAsDataURL(data!);
     });
-    if (dataUrl) signatureGarage = await downscaleDataUrl(dataUrl, 420);
+    if (dataUrl) signatureGarage = await detourerFondBlanc(await downscaleDataUrl(dataUrl, 420));
   } catch {
     /* signature indisponible : le tampon est imprimé seul */
+  }
+}
+
+// Rend TRANSPARENT le fond blanc (ou quasi blanc) d'une signature : les
+// signatures tracées avant ce correctif et les scans importés (JPEG, PNG
+// opaque) masquaient le tampon sur lequel elles sont superposées. Les
+// pixels clairs deviennent transparents, avec un dégradé sur les bords du
+// trait pour éviter un rendu crénelé. Sans effet sur un PNG déjà transparent.
+async function detourerFondBlanc(dataUrl: string): Promise<string> {
+  try {
+    if (typeof document === "undefined") return dataUrl;
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(im);
+      im.onerror = reject;
+      im.src = dataUrl;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return dataUrl;
+    ctx.drawImage(img, 0, 0);
+    const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const d = image.data;
+    const SEUIL_HAUT = 235; // au-dessus : fond → transparent
+    const SEUIL_BAS = 170;  // en dessous : encre → opaque
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] === 0) continue;
+      const lum = Math.max(d[i], d[i + 1], d[i + 2]);
+      if (lum >= SEUIL_HAUT) d[i + 3] = 0;
+      else if (lum > SEUIL_BAS) {
+        d[i + 3] = Math.round(d[i + 3] * (SEUIL_HAUT - lum) / (SEUIL_HAUT - SEUIL_BAS));
+      }
+    }
+    ctx.putImageData(image, 0, 0);
+    return canvas.toDataURL("image/png");
+  } catch {
+    return dataUrl;
   }
 }
 

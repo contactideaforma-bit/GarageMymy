@@ -40,8 +40,9 @@ export default function SignaturePad({
       const ctx = c.getContext("2d");
       if (!ctx) return;
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, rect.width, rect.height);
+      // Fond TRANSPARENT : le blanc visible vient du CSS (bg-white). Le PNG
+      // exporté ne doit pas masquer le tampon sur lequel il est superposé.
+      ctx.clearRect(0, 0, rect.width, rect.height);
       ctx.strokeStyle = "#1e293b";
       ctx.lineWidth = 2;
       ctx.lineCap = "round";
@@ -104,8 +105,7 @@ export default function SignaturePad({
     // rotation d'écran, il pouvait rester des traces sur les bords.
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.restore();
     hasInk.current = false;
     setVide(true);
