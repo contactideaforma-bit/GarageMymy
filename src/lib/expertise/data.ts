@@ -37,8 +37,19 @@ export async function enregistrerCabinet(patch: Partial<Cabinet>): Promise<void>
 export async function prochainNumero(): Promise<string> {
   const { data, error } = await supabase.rpc("expertise_prochain_numero");
   if (!error && typeof data === "string" && data) return data;
-  const { count } = await supabase.from("expertise_dossiers").select("id", { count: "exact", head: true });
-  return "AE" + String(34915 + (count || 0)).padStart(8, "0");
+  // Repli sans la fonction SQL : le plus grand numéro existant + 1 (et non
+  // le nombre de dossiers, qui retombait sur un numéro déjà pris après une
+  // suppression ou avec les dossiers de démo).
+  const { data: rows } = await supabase.from("expertise_dossiers").select("numero");
+  const max = ((rows as { numero: string | null }[] | null) || [])
+    .map((r) => (r.numero && /^AE\d{8}$/.test(r.numero) ? Number(r.numero.slice(2)) : 0))
+    .reduce((a, b) => Math.max(a, b), 34914);
+  return "AE" + String(max + 1).padStart(8, "0");
+}
+
+/** Erreur Postgres « doublon » sur l'index unique du numéro de mission. */
+function estDoublonNumero(e: { code?: string; message?: string } | null): boolean {
+  return Boolean(e && (e.code === "23505" || /duplicate key/i.test(e.message || "")) && /numero/i.test(e.message || ""));
 }
 
 /* ------------------------------ Garages ------------------------------ */
@@ -77,15 +88,26 @@ export async function chargerDossier(id: string): Promise<DossierExpert | null> 
 }
 
 export async function creerDossier(d: Partial<DossierExpert>): Promise<DossierExpert> {
-  const numero = d.numero || (await prochainNumero());
   const { id: _i, owner_id: _o, created_at: _c, updated_at: _u, ...reste } = d as DossierExpert;
-  const { data, error } = await supabase
-    .from("expertise_dossiers")
-    .insert({ ...reste, numero })
-    .select("*")
-    .single();
-  if (error) throw error;
-  return data as DossierExpert;
+  let numero = d.numero || (await prochainNumero());
+  // Numéro déjà pris (compteur en retard : démo, import, ancienne version de
+  // la fonction SQL) : on redemande un numéro, jusqu'à 5 fois, avant de
+  // remonter l'erreur. Un numéro saisi à la main n'est jamais remplacé.
+  for (let essai = 0; ; essai += 1) {
+    const { data, error } = await supabase
+      .from("expertise_dossiers")
+      .insert({ ...reste, numero })
+      .select("*")
+      .single();
+    if (!error) return data as DossierExpert;
+    if (d.numero || essai >= 5 || !estDoublonNumero(error)) {
+      if (estDoublonNumero(error)) {
+        throw new Error(`Le n° de mission ${numero} existe déjà. Choisis un autre numéro.`);
+      }
+      throw error;
+    }
+    numero = await prochainNumero();
+  }
 }
 
 export async function majDossier(id: string, patch: Partial<DossierExpert>): Promise<DossierExpert> {
