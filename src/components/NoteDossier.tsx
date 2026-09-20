@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { ecrireOuEnfiler } from "@/lib/horsLigne";
 import { messageErreur } from "@/lib/format";
 import { LigneArdoise } from "@/lib/types";
+import { ajouterNote, decouperNotes } from "@/lib/notesDossier";
+import { formatDateTime } from "@/lib/format";
 import {
   ajouterRappel,
   basculerRappel,
@@ -77,6 +79,10 @@ export default function NoteDossier({
 
   const [ouvert, setOuvert] = useState(false);
   const [texte, setTexte] = useState(noteInitiale || "");
+  // v13.16 — journal : nouvelle entrée saisie à part, texte brut éditable sur demande.
+  const [nouvelleNote, setNouvelleNote] = useState("");
+  const [editionBrute, setEditionBrute] = useState(false);
+  const finJournalRef = useRef<HTMLDivElement>(null);
   const [etat, setEtat] = useState<"repos" | "encours" | "ok" | "erreur">("repos");
   const [erreur, setErreur] = useState<string | null>(null);
   const zoneRef = useRef<HTMLTextAreaElement>(null);
@@ -154,11 +160,26 @@ export default function NoteDossier({
     minuteur.current = setTimeout(() => enregistrer(valeur), 800);
   }
 
+  /** Ajoute une entrée horodatée et l'enregistre tout de suite. */
+  function ajouterEntree() {
+    const t = nouvelleNote.trim();
+    if (!t) return;
+    const suivant = ajouterNote(texte, t);
+    setTexte(suivant);
+    setNouvelleNote("");
+    if (minuteur.current) clearTimeout(minuteur.current);
+    enregistrer(suivant);
+    setTimeout(() => finJournalRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
+  }
+
   const fermer = useCallback(() => {
     if (minuteur.current) clearTimeout(minuteur.current);
-    enregistrer(texte);
+    // Une note tapée mais pas encore ajoutée n'est pas perdue : on l'ajoute.
+    const t = nouvelleNote.trim();
+    enregistrer(t ? ajouterNote(texte, t) : texte);
+    if (t) { setTexte(ajouterNote(texte, t)); setNouvelleNote(""); }
     setOuvert(false);
-  }, [enregistrer, texte]);
+  }, [enregistrer, texte, nouvelleNote]);
 
   // Échap ferme le panneau, comme un clic à l'extérieur.
   useEffect(() => {
@@ -359,18 +380,56 @@ export default function NoteDossier({
         </div>
 
         <div className="mymy-fil min-h-0 flex-1 overflow-y-auto px-4 py-3">
-          {/* 1. Commentaire libre du dossier */}
-          <div className="note-titre">
-            Commentaire · reste sur ce dossier
+          {/* 1. Journal des notes du dossier (v13.16) : entrées horodatées */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="note-titre">Notes · journal du dossier</div>
+            <button onClick={() => setEditionBrute((v) => !v)} className="text-[11px] text-accent-teal hover:underline" title="Corriger le texte complet">
+              {editionBrute ? "Revenir au journal" : "Corriger"}
+            </button>
           </div>
-          <textarea
-            ref={zoneRef}
-            value={texte}
-            onChange={(e) => saisir(e.target.value)}
-            rows={6}
-            placeholder="Rappels, échanges téléphoniques, points de vigilance… Tout ce qui compte sur ce dossier."
-            className="mymy-champ mt-2 block w-full min-h-[8rem] resize-none rounded-xl px-3 py-2.5 text-[15px] leading-relaxed outline-none"
-          />
+          {editionBrute ? (
+            <textarea
+              ref={zoneRef}
+              value={texte}
+              onChange={(e) => saisir(e.target.value)}
+              rows={10}
+              className="mymy-champ mt-2 block w-full min-h-[8rem] resize-none rounded-xl px-3 py-2.5 font-mono text-[13px] leading-relaxed outline-none"
+            />
+          ) : (
+            <>
+              {(() => {
+                const entrees = decouperNotes(texte);
+                if (entrees.length === 0) return <p className="note-aide mt-2">Aucune note. Chaque note ajoutée est datée et horodatée : tu retrouves la chronologie d&apos;un coup d&apos;œil.</p>;
+                return (
+                  <ul className="note-liste mt-2">
+                    {entrees.map((e, i) => (
+                      <li key={i} className="py-2">
+                        <div className="text-[11px] tabular-nums" style={{ color: "var(--mea-texte-2)", opacity: 0.85 }}>
+                          {e.date ? `${e.date} · ${e.heure}` : "Avant le journal (non daté)"}
+                        </div>
+                        <div className="mt-0.5 whitespace-pre-wrap break-words text-[14px] leading-relaxed">{e.texte}</div>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
+              <div ref={finJournalRef} />
+              <div className="mt-2 flex items-end gap-2">
+                <textarea
+                  ref={zoneRef}
+                  value={nouvelleNote}
+                  onChange={(e) => setNouvelleNote(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); ajouterEntree(); } }}
+                  rows={2}
+                  placeholder="Nouvelle note… (appel client, point de vigilance, décision)"
+                  className="mymy-champ block min-h-[3.5rem] flex-1 resize-none rounded-xl px-3 py-2 text-[15px] leading-relaxed outline-none"
+                />
+                <button onClick={ajouterEntree} disabled={!nouvelleNote.trim()} className="mymy-envoyer shrink-0 rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-40" title="Ajouter (Ctrl/Cmd + Entrée)">
+                  Ajouter
+                </button>
+              </div>
+            </>
+          )}
 
           {/* 2. Rappels remontés au tableau de bord */}
           {rappelsDispo && (
@@ -411,6 +470,9 @@ export default function NoteDossier({
                       <span className="min-w-0 flex-1">
                         <span className={`block break-words ${r.fait ? "line-through" : ""}`}>
                           {r.texte}
+                        </span>
+                        <span className="block text-[10px] tabular-nums" style={{ color: "var(--mea-texte-2)", opacity: 0.8 }}>
+                          ajouté le {formatDateTime(r.created_at)}{r.fait && r.fait_le ? ` · fait le ${formatDateTime(r.fait_le)}` : ""}
                         </span>
                         {r.echeance && (
                           <span
@@ -503,7 +565,7 @@ export default function NoteDossier({
         )}
         <div className="mymy-saisie flex shrink-0 items-center justify-between gap-2 px-4 py-2.5 text-[11px] opacity-70">
           <span className="min-w-0 truncate">
-            Commentaire enregistré automatiquement{mobile ? "." : " — clique en dehors pour réduire."}
+            Notes enregistrées automatiquement{mobile ? "." : " — clique en dehors pour réduire."}
           </span>
           {mobile && (
             <button onClick={fermer} className="mymy-envoyer shrink-0 rounded-xl px-4 py-1.5 text-sm font-semibold">

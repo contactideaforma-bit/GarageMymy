@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { CourrierRecouvrement, Document, Dossier, LigneArdoise, OrdreReparation, Paiement, Relance } from "@/lib/types";
 import { ETAPES_GARANTIE, EtapeGarantie, affectationVente, attributionGage, etapeGarantie, gageMobilisable, situationVehicule } from "@/lib/garanties";
-import { formatDate, formatEuros, messageErreur, ymd } from "@/lib/format";
+import { formatDate, formatDateTime, formatEuros, messageErreur, ymd } from "@/lib/format";
 import { templateRelance } from "@/lib/paiements";
 import {
   CANAUX_CONTACT,
@@ -877,6 +877,7 @@ export default function RetardPaiementPanel({
                     <input type="checkbox" checked={false} onChange={() => cocher(ligne, true)} className="mt-1 h-4 w-4 shrink-0 accent-emerald-500" />
                     <div className="min-w-0 flex-1">
                       <span className="block break-words text-white/90">{ligne.texte}</span>
+                      <span className="block text-[10px] tabular-nums text-white/40">ajouté le {formatDateTime(ligne.created_at)}</span>
                       <span className="mt-0.5 flex flex-wrap items-center gap-1.5">
                         {ligne.origine === ORIGINE_AUTO && <span className="inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">Auto</span>}
                         {ligne.echeance && <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${retard ? "bg-rose-100 text-rose-700" : "bg-white/10 text-white/80"}`}>{retard ? "En retard · " : ""}{libelleEcheance(ligne.echeance)}</span>}

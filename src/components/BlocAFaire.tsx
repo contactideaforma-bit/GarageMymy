@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Dossier, LigneArdoise } from "@/lib/types";
-import { messageErreur } from "@/lib/format";
+import { formatDateTime, messageErreur } from "@/lib/format";
 import {
   ajouterRappel,
   basculerRappel,
@@ -356,6 +356,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
                 métadonnées forment une rangée alignée dessous. Toujours dense
                 (pas de marge ajoutée), mais ordonné. */}
             <div className={`break-words text-white/85 ${fait ? "line-through" : ""}`}>{ligne.texte}</div>
+            <div className="text-[10px] tabular-nums text-white/40">ajouté le {formatDateTime(ligne.created_at)}{fait && ligne.fait_le ? ` · fait le ${formatDateTime(ligne.fait_le)}` : ""}</div>
             {(ligne.echeance || ligne.pour || d || ligne.origine?.startsWith("suggestion:")) && (
               <div className="mt-1 flex flex-wrap items-center gap-1">
                 {ligne.echeance && (
