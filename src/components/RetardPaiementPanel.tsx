@@ -99,7 +99,9 @@ export default function RetardPaiementPanel({
   // Modales
   const [courrierModal, setCourrierModal] = useState<{ type: TypeCourrier; courrier?: CourrierRecouvrement; dest?: Dest; tiersNom?: string } | null>(null);
   const [envoiModal, setEnvoiModal] = useState<CourrierRecouvrement | null>(null);
-  const [etapeModal, setEtapeModal] = useState<{ code: string; ref?: string; note?: string; vers?: string; titre?: string } | null>(null);
+  const [etapeModal, setEtapeModal] = useState<{ code: string; ref?: string; note?: string; vers?: string; titre?: string; date?: string; edition?: boolean } | null>(null);
+  // v13.14 : ouvrir / fermer un bloc d'étape est LOCAL (sans toucher à l'étape en cours).
+  const [ouvertCode, setOuvertCode] = useState<string | null>(null);
   const [emailModal, setEmailModal] = useState<{ to: string; subject: string; body: string; facture: FactureRetard | null; courrier?: CourrierRecouvrement; interlocuteur: Dest } | null>(null);
 
   // Journal des contacts — formulaire
@@ -158,6 +160,8 @@ export default function RetardPaiementPanel({
   const etapesFaites: EtapesFaites = useMemo(() => (dossier.retard_etapes as EtapesFaites) || {}, [dossier.retard_etapes]);
   const etape = etapeProcedure(dossier.retard_etape);
   const idxEtape = ETAPES_PROCEDURE.findIndex((e) => e.code === etape.code);
+  // Par défaut, le bloc ouvert suit l'étape en cours (et la suit quand elle avance).
+  useEffect(() => { setOuvertCode(etape.code); }, [etape.code]);
   const nbRelances = relances.length + courriers.filter((c) => c.statut === "envoye" && c.type === "relance").length;
   const medEnvoyees = courriers.filter((c) => c.type === "mise_en_demeure" && c.statut === "envoye");
   const medLrar = medEnvoyees.find((c) => c.canal_envoi === "lrar") || null;
@@ -274,6 +278,24 @@ export default function RetardPaiementPanel({
     charger(); onChanged?.();
   }
 
+  /** Corrige la date / référence / note d'une étape déjà faite, sans changer l'étape en cours. */
+  async function modifierEtapeFaite(code: string, faitLe: string, ref: string | null, note: string | null) {
+    const faites: EtapesFaites = { ...etapesFaites, [code]: { fait_le: faitLe, ref: ref || null, note: note || null } };
+    await changerEtape(etape.code, faites);
+    setEtapeModal(null);
+  }
+
+  /** Annule une étape faite : elle redevient l'étape en cours (ses courriers et rappels sont conservés). */
+  async function annulerEtapeFaite(code: string) {
+    if (!confirm(`Annuler l'étape « ${etapeProcedure(code).titre} » ? Elle redevient l'étape en cours ; les courriers et le journal sont conservés.`)) return;
+    const faites: EtapesFaites = { ...etapesFaites };
+    delete faites[code];
+    // Une étape « avocat » marquée sans objet par l'issue de l'injonction est aussi remise à zéro.
+    if (code === "judiciaire" && faites.avocat?.ref?.startsWith("Sans objet")) delete faites.avocat;
+    await changerEtape(code, faites);
+    setOuvertCode(code);
+  }
+
   /* ------------------------------ Emails -------------------------------- */
 
   function ouvrirEmail(vers: "client" | "assurance") {
@@ -344,10 +366,10 @@ export default function RetardPaiementPanel({
 
   /* --------------------------- Rendu d'une étape ------------------------ */
 
-  function statutEtape(i: number): "fait" | "encours" | "avenir" {
+  function statutEtape(i: number): "fait" | "encours" | "passee" | "avenir" {
     const code = ETAPES_PROCEDURE[i].code;
     if (etapesFaites[code]) return "fait";
-    return i === idxEtape ? "encours" : i < idxEtape ? "fait" : "avenir";
+    return i === idxEtape ? "encours" : i < idxEtape ? "passee" : "avenir";
   }
 
   const boutonFaite = (code: string, label = "Étape faite → suivante") => (
@@ -385,8 +407,18 @@ export default function RetardPaiementPanel({
   function contenuEtape(code: string) {
     const fait = etapesFaites[code];
     const recap = fait && (
-      <div className="alerte alerte-ok mb-2 text-sm">
-        <span className="alerte-titre">Fait le {formatDate(fait.fait_le)}</span>{fait.ref ? ` — ${fait.ref}` : ""}{fait.note ? ` — ${fait.note}` : ""}
+      <div className="alerte alerte-ok mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <span><span className="alerte-titre">Fait le {formatDate(fait.fait_le)}</span>{fait.ref ? ` — ${fait.ref}` : ""}{fait.note ? ` — ${fait.note}` : ""}</span>
+        <span className="flex gap-1">
+          <button onClick={() => setEtapeModal({ code, edition: true, date: fait.fait_le, ref: fait.ref || "", note: fait.note || "", titre: `${etapeProcedure(code).titre} — modifier` })} className="btn-ghost btn-compact">Modifier</button>
+          <button onClick={() => annulerEtapeFaite(code)} className="btn-ghost btn-compact">Annuler l&apos;étape</button>
+        </span>
+      </div>
+    );
+    const reprendre = !fait && code !== etape.code && (
+      <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-white/60">
+        <span>Cette étape n&apos;est pas l&apos;étape en cours.</span>
+        <button onClick={() => changerEtape(code)} className="btn-ghost btn-compact">Reprendre la procédure à cette étape</button>
       </div>
     );
     switch (code) {
@@ -394,6 +426,7 @@ export default function RetardPaiementPanel({
         return (
           <>
             {recap}
+            {reprendre}
             <p className="text-sm text-white/80">Dès l&apos;échéance dépassée : on demande une date de paiement et on garde une trace. Les relances automatiques (J+15, J+30) partent seules ; ici vous relancez à la main.</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button onClick={() => ouvrirEmail(cible.type === "assurance" ? "assurance" : "client")} className="btn-primary btn-compact" disabled={!principale}>✉ Email de relance</button>
@@ -412,6 +445,7 @@ export default function RetardPaiementPanel({
         return (
           <>
             {recap}
+            {reprendre}
             <p className="text-sm text-white/80">L&apos;acte qui fait courir les intérêts et que le juge exigera. L&apos;appli rédige le courrier ; vous le relisez, le signez, puis vous l&apos;envoyez en <strong>recommandé avec accusé de réception</strong> (délai de 8 jours).</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {!enAttente && <button onClick={() => setCourrierModal({ type: "mise_en_demeure" })} className="btn-primary btn-compact" disabled={!principale}>⚖ Rédiger la mise en demeure</button>}
@@ -428,6 +462,7 @@ export default function RetardPaiementPanel({
         return (
           <>
             {recap}
+            {reprendre}
             {versAssurance ? (
               <p className="text-sm text-white/80">Débiteur : <strong>{cible.nom}</strong> (assureur). Avant toute action, une <strong>réclamation écrite</strong> à son service réclamations ; sans réponse satisfaisante sous 2 mois, le Médiateur de l&apos;assurance.</p>
             ) : totalDu <= 5000 ? (
@@ -458,6 +493,7 @@ export default function RetardPaiementPanel({
         return (
           <>
             {recap}
+            {reprendre}
             <div className="glass-soft p-3">
               <div className="font-semibold text-white">{voie.titre}</div>
               <p className="mt-1 text-sm text-white/80">{voie.pourquoi}</p>
@@ -497,6 +533,7 @@ export default function RetardPaiementPanel({
         return (
           <>
             {recap}
+            {reprendre}
             {sansObjet ? (
               <p className="text-sm text-white/80">Étape sans objet : l&apos;ordonnance a été obtenue sans avocat.</p>
             ) : (
@@ -518,6 +555,7 @@ export default function RetardPaiementPanel({
         return (
           <>
             {recap}
+            {reprendre}
             <p className="text-sm text-white/80">Titre exécutoire en main (ordonnance non contestée, accord homologué) : un <strong>commissaire de justice</strong> procède à la saisie (compte bancaire, vente…). Ses frais sont en principe à la charge du débiteur.</p>
             <p className="mt-1 text-xs text-white/60">Prescription : 2 ans contre un particulier, 5 ans entre professionnels, à compter de la facture{principale?.date_document ? ` (${formatDate(principale.date_document)})` : ""}.</p>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -595,15 +633,17 @@ export default function RetardPaiementPanel({
         <ol className="mt-2 space-y-2">
           {ETAPES_PROCEDURE.map((e, i) => {
             const st = statutEtape(i);
-            const ouvert = st === "encours";
+            const enCours = st === "encours";
+            const ouvert = ouvertCode === e.code;
             return (
-              <li key={e.code} className={`rounded-xl border p-3 ${ouvert ? "border-amber-400/60 bg-amber-500/10" : st === "fait" ? "border-emerald-400/40 bg-emerald-500/5" : "border-white/10"}`}>
+              <li key={e.code} className={`rounded-xl border p-3 ${enCours ? "border-amber-400/60 bg-amber-500/10" : st === "fait" ? "border-emerald-400/40 bg-emerald-500/5" : "border-white/10"}`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <button onClick={() => changerEtape(e.code)} className="flex items-center gap-2 text-left" title={e.quand}>
-                    <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${st === "fait" ? "bg-emerald-500 text-white" : ouvert ? "bg-amber-400 text-amber-950" : "bg-white/15 text-white/70"}`}>{st === "fait" ? "✓" : i + 1}</span>
+                  <button onClick={() => setOuvertCode(ouvert ? null : e.code)} className="flex min-w-0 items-center gap-2 text-left" title={ouvert ? "Replier" : "Déplier"} aria-expanded={ouvert}>
+                    <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${st === "fait" ? "bg-emerald-500 text-white" : enCours ? "bg-amber-400 text-amber-950" : "bg-white/15 text-white/70"}`}>{st === "fait" ? "✓" : i + 1}</span>
                     <span className={`text-base font-semibold ${st === "avenir" ? "text-white/60" : "text-white"}`}>{e.titre}</span>
+                    <span className="text-white/50">{ouvert ? "▾" : "▸"}</span>
                   </button>
-                  <span className="text-xs text-white/60">{st === "fait" ? (etapesFaites[e.code] ? `fait le ${formatDate(etapesFaites[e.code].fait_le)}` : "fait") : ouvert ? "étape en cours" : e.quand}</span>
+                  <span className="text-xs text-white/60">{st === "fait" ? `fait le ${formatDate(etapesFaites[e.code].fait_le)}` : enCours ? "étape en cours" : st === "passee" ? "passée sans validation" : e.quand}</span>
                 </div>
                 {ouvert && <div className="mt-3">{contenuEtape(e.code)}</div>}
                 {guideOuvert && !ouvert && <p className="mt-2 text-xs text-white/60">{e.comment}</p>}
@@ -725,7 +765,10 @@ export default function RetardPaiementPanel({
           refInitiale={etapeModal.ref}
           onClose={() => setEtapeModal(null)}
           titre={etapeModal.titre}
-          onConfirmer={(date, ref, note) => marquerEtapeFaite(etapeModal.code, date, ref, note, etapeModal.vers)}
+          dateInitiale={etapeModal.date}
+          noteInitiale={etapeModal.note}
+          edition={etapeModal.edition}
+          onConfirmer={(date, ref, note) => (etapeModal.edition ? modifierEtapeFaite(etapeModal.code, date, ref, note) : marquerEtapeFaite(etapeModal.code, date, ref, note, etapeModal.vers))}
         />
       )}
 
@@ -956,13 +999,13 @@ function EnvoiModal({ courrier, dossier, numeroFacture, onClose, onConfirmer }: 
    suivante et programme le rappel.
 ==================================================================== */
 
-function EtapeModal({ code, refInitiale, titre, onClose, onConfirmer }: { code: string; refInitiale?: string; titre?: string; onClose: () => void; onConfirmer: (date: string, ref: string | null, note: string | null) => Promise<void> }) {
+function EtapeModal({ code, refInitiale, dateInitiale, noteInitiale, edition, titre, onClose, onConfirmer }: { code: string; refInitiale?: string; dateInitiale?: string; noteInitiale?: string; edition?: boolean; titre?: string; onClose: () => void; onConfirmer: (date: string, ref: string | null, note: string | null) => Promise<void> }) {
   const e = etapeProcedure(code);
   const saisie = SAISIE_ETAPE[code];
   const suiv = etapeSuivante(code);
-  const [date, setDate] = useState(ymd());
+  const [date, setDate] = useState(dateInitiale || ymd());
   const [ref, setRef] = useState(refInitiale || "");
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(noteInitiale || "");
   const [busy, setBusy] = useState(false);
   return (
     <ModalShell title={titre || `${e.titre} — étape réalisée`} onClose={onClose} maxWidth="max-w-lg">
@@ -973,10 +1016,10 @@ function EtapeModal({ code, refInitiale, titre, onClose, onConfirmer }: { code: 
           {saisie?.ref && <div><label className="field-label text-[11px]">{saisie.ref}</label><input className="field-input field-compact w-full" value={ref} onChange={(ev) => setRef(ev.target.value)} /></div>}
         </div>
         <div><label className="field-label text-[11px]">Note (facultatif)</label><textarea className="field-input w-full" rows={2} value={note} onChange={(ev) => setNote(ev.target.value)} /></div>
-        <p className="text-xs text-white/60">{suiv ? `L'appli passe ensuite à l'étape « ${suiv.titre} » et programme le rappel.` : "Dernière étape du parcours."}</p>
+        <p className="text-xs text-white/60">{edition ? "Seules la date, la référence et la note sont modifiées." : suiv ? `L'appli passe ensuite à l'étape « ${suiv.titre} » et programme le rappel.` : "Dernière étape du parcours."}</p>
         <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
           <button type="button" onClick={onClose} className="btn-ghost btn-compact">Annuler</button>
-          <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onConfirmer(date, ref.trim() || null, note.trim() || null); } finally { setBusy(false); } }} className="btn-primary btn-compact">{busy ? "Enregistrement…" : "✓ Valider l'étape"}</button>
+          <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onConfirmer(date, ref.trim() || null, note.trim() || null); } finally { setBusy(false); } }} className="btn-primary btn-compact">{busy ? "Enregistrement…" : edition ? "Enregistrer" : "✓ Valider l'étape"}</button>
         </div>
       </div>
     </ModalShell>
