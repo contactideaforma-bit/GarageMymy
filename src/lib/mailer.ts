@@ -42,10 +42,20 @@ export async function envoyerEmailServeur(
       .limit(1)
       .maybeSingle();
     if (cfg && cfg.smtp_host && cfg.smtp_user && cfg.smtp_pass) {
-      const from =
-        cfg.from_name && cfg.from_email
-          ? `"${cfg.from_name}" <${cfg.from_email}>`
-          : cfg.from_email || cfg.smtp_user;
+      // DÉLIVRABILITÉ (v13.13) : l'adresse d'expédition DOIT être celle du
+      // compte SMTP (ou au moins son domaine). Un « From » d'un autre domaine
+      // échoue SPF/DKIM et part en indésirable ; Gmail/Orange le réécrivent
+      // ou le refusent. Si l'email expéditeur configuré est ailleurs, on
+      // expédie depuis le compte SMTP et on met l'adresse voulue en Reply-To.
+      const domaine = (a: string) => (a.split("@")[1] || "").toLowerCase();
+      const compteEstEmail = /@/.test(cfg.smtp_user);
+      let fromEmail: string = cfg.from_email || cfg.smtp_user;
+      let replyTo: string | undefined = input.replyTo || cfg.from_email || undefined;
+      if (compteEstEmail && cfg.from_email && domaine(cfg.from_email) !== domaine(cfg.smtp_user)) {
+        replyTo = replyTo || cfg.from_email;
+        fromEmail = cfg.smtp_user;
+      }
+      const from = cfg.from_name ? `"${String(cfg.from_name).replace(/"/g, "")}" <${fromEmail}>` : fromEmail;
       try {
         // Mot de passe chiffré au repos : on déchiffre. Repli sur la valeur
         // brute si c'est un ancien mot de passe stocké en clair (legacy).
@@ -56,14 +66,21 @@ export async function envoyerEmailServeur(
           secure: Boolean(cfg.smtp_secure),
           auth: { user: cfg.smtp_user, pass: smtpPass },
         });
+        // Un texte brut est TOUJOURS fourni (multipart/alternative) : les
+        // filtres pénalisent le HTML seul, et un HTML sans version texte.
+        const text = input.text || (input.html ? input.html.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "") : undefined);
         await transporter.sendMail({
           from,
           to,
           bcc: input.bcc || undefined,
-          replyTo: input.replyTo || cfg.from_email || undefined,
+          replyTo,
           subject: input.subject,
           html: input.html || undefined,
-          text: input.text || undefined,
+          text,
+          // Message-ID sur le domaine expéditeur (cohérence From / Message-ID),
+          // en-têtes « transactionnel » : pas une newsletter, pas de bulk.
+          messageId: `<${Date.now()}.${Math.random().toString(36).slice(2)}@${domaine(fromEmail) || "myeasyauto.fr"}>`,
+          headers: { "X-Mailer": "My Easy Auto", "Auto-Submitted": "no", Precedence: "normal" },
           attachments: (input.attachments || []).map((a) => ({
             filename: a.filename,
             content: a.content,

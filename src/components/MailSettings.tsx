@@ -174,11 +174,23 @@ export default function MailSettings() {
         </div>
       </div>
 
-      <p className="text-xs text-white/40">
-        Gmail : active la validation en 2 étapes puis crée un « mot de passe d&apos;application »
-        (les mots de passe normaux sont refusés). Le mot de passe est stocké côté serveur et n&apos;est
-        jamais renvoyé au navigateur.
-      </p>
+      {fromEmail && user.includes("@") && (fromEmail.split("@")[1] || "").toLowerCase() !== (user.split("@")[1] || "").toLowerCase() && (
+        <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+          <strong>Risque d&apos;indésirable :</strong> l&apos;email expéditeur ({fromEmail}) n&apos;est pas sur le même domaine que le compte SMTP ({user}).
+          Les emails partiront depuis {user} (l&apos;adresse expéditeur sera mise en « répondre à ») pour ne pas être classés en spam. Idéalement, utilisez la même adresse.
+        </div>
+      )}
+
+      <div className="rounded-lg border border-white/15 px-3 py-2 text-xs text-white/70">
+        <div className="font-semibold text-white/85">Pour ne pas finir en courrier indésirable</div>
+        <ul className="mt-1 list-disc space-y-0.5 pl-4">
+          <li>Expéditeur = le compte SMTP (même adresse, ou au moins même domaine).</li>
+          <li>Boîte pro sur votre nom de domaine (contact@songarage.fr) plutôt qu&apos;une adresse gratuite : chez votre hébergeur (OVH, Ionos, Gandi…), vérifiez que <strong>SPF</strong> et <strong>DKIM</strong> sont activés pour ce domaine — c&apos;est le critère n° 1 des filtres.</li>
+          <li>Gmail : validation en 2 étapes puis « mot de passe d&apos;application » (les mots de passe normaux sont refusés).</li>
+          <li>Demandez au client d&apos;ajouter votre adresse à ses contacts lors du premier échange (devis) : les relances suivantes arriveront dans sa boîte de réception.</li>
+        </ul>
+        <p className="mt-1 text-white/50">Le mot de passe est stocké chiffré côté serveur et n&apos;est jamais renvoyé au navigateur.</p>
+      </div>
 
       {error && <div className="rounded-lg bg-rose-500/15 border border-rose-400/30 px-3 py-2 text-sm text-rose-200">{error}</div>}
       {msg && <div className="rounded-lg bg-emerald-500/15 border border-emerald-400/30 px-3 py-2 text-sm text-emerald-200">{msg}</div>}
