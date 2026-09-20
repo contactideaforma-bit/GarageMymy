@@ -1753,6 +1753,11 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
   }
 
   // ---------- Autorisation + signature : BLOC INSÉCABLE ----------
+  // splitTextToSize mesure avec la police COURANTE : on la fixe à celle du
+  // texte imprimé (9, normal), sinon le bloc des garanties (8,2 gras) fausse
+  // la largeur et le texte sort de la page.
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
   const autorisation = pdf.splitTextToSize(AUTORISATION_OR, pageW - M * 2) as string[];
   const hBloc = 6 + autorisation.length * 4.2 + 8 + 52;
   if (ty + hBloc > pageH - 26) { pdf.addPage(); drawFooter(); ty = 25; }
