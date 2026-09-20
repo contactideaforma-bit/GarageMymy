@@ -33,8 +33,11 @@ import {
   TypeCourrier,
   cibleAssurance,
   cibleClient,
+  cibleExpert,
   cibleParDefaut,
   cibleTiers,
+  cibleTiersPourCourrier,
+  completerDossierDepuisAnnuaire,
   echeanceRappel,
   estimerPenalites,
   etapeProcedure,
@@ -64,9 +67,10 @@ const ORIGINE_AUTO = "recouvrement:auto";
 
 type FactureRetard = Document & { paiements: Paiement[]; relances: Relance[] };
 type Dest = "client" | "assurance" | "tiers";
+type Banque = { iban?: string | null; bic?: string | null; tel?: string | null; email?: string | null };
 
 export default function RetardPaiementPanel({
-  dossier,
+  dossier: dossierBrut,
   onPatch,
   onLever,
   onChanged,
@@ -82,6 +86,10 @@ export default function RetardPaiementPanel({
   const [taches, setTaches] = useState<LigneArdoise[]>([]);
   const [ordres, setOrdres] = useState<Pick<OrdreReparation, "statut" | "signature">[]>([]);
   const [garage, setGarage] = useState<string | null>(null);
+  const [banque, setBanque] = useState<Banque | null>(null);
+  // v13.13 : coordonnées manquantes complétées depuis l'annuaire (clients / assureurs / experts).
+  const [annuaire, setAnnuaire] = useState<Parameters<typeof completerDossierDepuisAnnuaire>[1]>({});
+  const dossier = useMemo(() => completerDossierDepuisAnnuaire(dossierBrut, annuaire), [dossierBrut, annuaire]);
   const [erreur, setErreur] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -97,7 +105,7 @@ export default function RetardPaiementPanel({
   // Journal des contacts — formulaire
   const [cDate, setCDate] = useState(ymd());
   const [cHeure, setCHeure] = useState(() => { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(Math.floor(d.getMinutes() / 5) * 5).padStart(2, "0")}`; });
-  const [cQui, setCQui] = useState("client");
+  const [cQui, setCQui] = useState(dossierBrut.mode_cession || dossierBrut.mode_pec ? "assurance" : "client");
   const [cCanal, setCCanal] = useState("telephone");
   const [cNotes, setCNotes] = useState("");
   const [cRappel, setCRappel] = useState("");
@@ -107,15 +115,22 @@ export default function RetardPaiementPanel({
   /* ------------------------------ Données ------------------------------ */
 
   const charger = useCallback(async () => {
-    const [docs, pais, rels, cours, rap, ent, ors] = await Promise.all([
-      supabase.from("documents").select("*").eq("dossier_id", dossier.id).eq("type", "facture").order("created_at", { ascending: false }),
-      supabase.from("paiements").select("*").eq("dossier_id", dossier.id),
-      supabase.from("relances").select("*").eq("dossier_id", dossier.id).order("date_relance", { ascending: false }).order("created_at", { ascending: false }),
-      supabase.from("courriers_recouvrement").select("*").eq("dossier_id", dossier.id).order("created_at", { ascending: false }),
-      chargerRappels(dossier.id),
-      supabase.from("entreprise").select("nom").limit(1).maybeSingle(),
-      supabase.from("ordres_reparation").select("statut, signature").eq("dossier_id", dossier.id),
+    const d = dossierBrut;
+    const parNom = (table: string, col: string, nom: string | null | undefined) =>
+      nom && nom.trim() ? supabase.from(table).select("*").ilike(col, nom.trim()).limit(1).maybeSingle() : Promise.resolve({ data: null });
+    const [docs, pais, rels, cours, rap, ent, ors, cli, ass, exp] = await Promise.all([
+      supabase.from("documents").select("*").eq("dossier_id", d.id).eq("type", "facture").order("created_at", { ascending: false }),
+      supabase.from("paiements").select("*").eq("dossier_id", d.id),
+      supabase.from("relances").select("*").eq("dossier_id", d.id).order("date_relance", { ascending: false }).order("created_at", { ascending: false }),
+      supabase.from("courriers_recouvrement").select("*").eq("dossier_id", d.id).order("created_at", { ascending: false }),
+      chargerRappels(d.id),
+      supabase.from("entreprise").select("nom, iban, bic, tel, email").limit(1).maybeSingle(),
+      supabase.from("ordres_reparation").select("statut, signature").eq("dossier_id", d.id),
+      parNom("clients", "nom", d.client_nom),
+      parNom("assureurs", "nom", d.assureur),
+      parNom("experts", "cabinet", d.cabinet_expert),
     ]);
+    setAnnuaire({ client: (cli.data as never) || null, assureur: (ass.data as never) || null, expert: (exp.data as never) || null });
     const p = (pais.data as Paiement[]) || [];
     const r = (rels.data as Relance[]) || [];
     setFactures(((docs.data as Document[]) || []).map((f) => ({ ...f, paiements: p.filter((x) => x.document_id === f.id), relances: r.filter((x) => x.document_id === f.id) })));
@@ -124,9 +139,12 @@ export default function RetardPaiementPanel({
       if (/relation|courriers_recouvrement|schema/i.test(cours.error.message || "")) setErreur("Migration v70 à exécuter dans Supabase pour les courriers de recouvrement.");
     } else setCourriers((cours.data as CourrierRecouvrement[]) || []);
     setTaches(rap.lignes.filter((l) => l.origine === ORIGINE_MANUELLE || l.origine === ORIGINE_AUTO));
-    setGarage((ent.data as { nom?: string | null } | null)?.nom || null);
+    const e = ent.data as (Banque & { nom?: string | null }) | null;
+    setGarage(e?.nom || null);
+    setBanque(e ? { iban: e.iban, bic: e.bic, tel: e.tel, email: e.email } : null);
     setOrdres((ors.data as Pick<OrdreReparation, "statut" | "signature">[]) || []);
-  }, [dossier.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dossierBrut.id, dossierBrut.client_nom, dossierBrut.assureur, dossierBrut.cabinet_expert]);
 
   useEffect(() => { charger(); }, [charger]);
 
@@ -555,6 +573,11 @@ export default function RetardPaiementPanel({
           {totalDu > 0 && (
             <div className="text-sm text-white/80 sm:max-w-xs">
               <div>Débiteur : <strong className="text-white">{cible.nom}</strong> <span className="text-white/60">({cible.professionnel ? "professionnel" : "particulier"})</span></div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {([["Adresse", cible.adresse], ["Email", cible.email], ["Tél.", cible.type === "assurance" ? dossier.assureur_tel : dossier.client_tel]] as [string, string | null | undefined][]).map(([l, v]) => (
+                  <span key={l} className={`badge ${v ? "badge-ok" : "badge-danger"}`} title={v || `${l} manquant — complétez la fiche dossier ou l'annuaire`}>{v ? `${l} ✓` : `${l} ?`}</span>
+                ))}
+              </div>
               {retardMax > 0 && (
                 <div className="text-white/70">Intérêts {formatEuros(penalites.interets)} ({penalites.taux} %, {PERIODE_TAUX}){penalites.indemnite ? ` + indemnité ${formatEuros(penalites.indemnite)}` : ""} → <strong className="text-white">{formatEuros(penalites.total)}</strong> exigibles en plus</div>
               )}
@@ -671,6 +694,7 @@ export default function RetardPaiementPanel({
           reste={etats.find((x) => x.facture.id === (courrierModal.courrier?.document_id || principale.id))?.etat.reste ?? totalDu}
           niveau={nbRelances + 1}
           garage={garage}
+          banque={banque}
           etapes={etapesFaites}
           onClose={() => setCourrierModal(null)}
           onSaved={(c, action) => {
@@ -745,7 +769,7 @@ function libelleQui(code: string): string {
    recommandé (qui ouvre l'étape d'envoi avec le n° de suivi).
 ==================================================================== */
 
-function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture, reste, niveau, garage, etapes, onClose, onSaved }: {
+function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture, reste, niveau, garage, banque, etapes, onClose, onSaved }: {
   type: TypeCourrier;
   existant?: CourrierRecouvrement;
   destInitial?: Dest;
@@ -755,19 +779,26 @@ function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture
   reste: number;
   niveau: number;
   garage: string | null;
+  banque: Banque | null;
   etapes: EtapesFaites;
   onClose: () => void;
   onSaved: (c: CourrierRecouvrement, action: "brouillon" | "signe" | "email" | "lrar") => void;
 }) {
-  const cibleDe = useCallback((d: Dest, nomT?: string, adrT?: string): CibleCourrier => (d === "assurance" ? cibleAssurance(dossier) : d === "client" ? cibleClient(dossier) : cibleTiers(nomT || tiersNom || "", adrT || "")), [dossier, tiersNom]);
-  const initialDest: Dest = existant?.destinataire || destInitial || cibleParDefaut(dossier).type;
-  const initialCible = cibleDe(initialDest, existant?.destinataire_nom || undefined, existant?.destinataire_adresse || undefined);
+  const debiteur = cibleParDefaut(dossier);
+  // Tiers pré-rempli : conciliateur / greffe / commissaire compétent au lieu du débiteur, ou le cabinet d'expertise.
+  const tiersDefaut = useMemo(() => {
+    if (tiersNom === "expert") return cibleExpert(dossier);
+    const t = cibleTiersPourCourrier(type, dossier, debiteur, reste);
+    return tiersNom && !t.nom ? cibleTiers(tiersNom) : tiersNom && type === "transmission_avocat" ? { ...t, nom: tiersNom } : t;
+  }, [type, dossier, debiteur, reste, tiersNom]);
+  const cibleDe = useCallback((d: Dest, nomT?: string, adrT?: string): CibleCourrier => (d === "assurance" ? cibleAssurance(dossier) : d === "client" ? cibleClient(dossier) : nomT !== undefined || adrT !== undefined ? cibleTiers(nomT || "", adrT || "") : tiersDefaut), [dossier, tiersDefaut]);
+  const initialDest: Dest = existant?.destinataire || destInitial || debiteur.type;
+  const initialCible = existant ? cibleDe(initialDest, existant.destinataire_nom || undefined, existant.destinataire_adresse || undefined) : cibleDe(initialDest);
   const [vers, setVers] = useState<Dest>(initialDest);
   const [nom, setNom] = useState(existant?.destinataire_nom || initialCible.nom);
   const [adresse, setAdresse] = useState(existant?.destinataire_adresse || initialCible.adresse);
   const [date, setDate] = useState(existant?.date_courrier || ymd());
-  const debiteur = cibleParDefaut(dossier);
-  const modele = useMemo(() => modeleCourrier({ type, facture, dossier, cible: cibleDe(vers, nom, adresse), reste, niveau, garage, debiteur, etapes }), [type, facture, dossier, vers, nom, adresse, reste, niveau, garage, debiteur, etapes, cibleDe]);
+  const modele = useMemo(() => modeleCourrier({ type, facture, dossier, cible: cibleDe(vers, nom, adresse), reste, niveau, garage, debiteur, etapes, banque }), [type, facture, dossier, vers, nom, adresse, reste, niveau, garage, debiteur, etapes, banque, cibleDe]);
   const [objet, setObjet] = useState(existant?.objet || modele.objet);
   const [corps, setCorps] = useState(existant?.corps || modele.corps);
   const [signataire, setSignataire] = useState(existant?.signataire_nom || garage || "");
@@ -782,7 +813,7 @@ function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture
     setVers(v);
     const c = cibleDe(v);
     setNom(c.nom); setAdresse(c.adresse);
-    const m = modeleCourrier({ type, facture, dossier, cible: c, reste, niveau, garage, debiteur, etapes });
+    const m = modeleCourrier({ type, facture, dossier, cible: c, reste, niveau, garage, debiteur, etapes, banque });
     setObjet(m.objet); setCorps(m.corps);
   }
 
@@ -822,12 +853,14 @@ function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture
               <div className="segment">
                 <button type="button" onClick={() => changerCible("client")} className={`segment-btn ${vers === "client" ? "actif" : ""}`}>Client</button>
                 <button type="button" onClick={() => changerCible("assurance")} className={`segment-btn ${vers === "assurance" ? "actif" : ""}`}>Assurance</button>
+                {type === "relance" && dossier.cabinet_expert && <button type="button" onClick={() => { setVers("tiers"); const c = cibleExpert(dossier); setNom(c.nom); setAdresse(c.adresse); }} className={`segment-btn ${vers === "tiers" ? "actif" : ""}`}>Expert</button>}
               </div>
             </div>
           )}
           <div><label className="field-label text-[11px]">Date du courrier</label><input type="date" className="field-input field-compact" value={date} onChange={(e) => setDate(e.target.value)} /></div>
           <div className="text-sm text-white/70">Facture {facture.numero || "—"} · <strong className="text-white">{formatEuros(reste)}</strong> dus</div>
         </div>
+        {versTiers && <p className="text-xs text-white/60">Destinataire pré-rempli d&apos;après le domicile / siège du débiteur ({[dossier.client_code_postal, dossier.client_ville].filter(Boolean).join(" ") || "lieu inconnu"}) : vérifiez l&apos;adresse exacte de la juridiction ou de l&apos;étude.</p>}
         <div className="grid gap-2 sm:grid-cols-2">
           <div><label className="field-label text-[11px]">{versTiers ? "Destinataire (conciliateur, greffe, commissaire…)" : "Nom du destinataire"}</label><input className="field-input field-compact w-full" value={nom} onChange={(e) => setNom(e.target.value)} /></div>
           <div><label className="field-label text-[11px]">Adresse postale</label><textarea className="field-input field-compact w-full" rows={2} value={adresse} onChange={(e) => setAdresse(e.target.value)} placeholder="Rue, code postal, ville" /></div>

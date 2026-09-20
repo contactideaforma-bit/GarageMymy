@@ -349,9 +349,97 @@ export function cibleClient(dossier: Dossier): CibleCourrier {
     adresse: [dossier.client_adresse, `${dossier.client_code_postal || ""} ${dossier.client_ville || ""}`.trim()]
       .filter(Boolean)
       .join("\n"),
-    professionnel: false,
+    // v13.13 : un client avec SIREN est une entreprise (pénalités L441-10, tribunal de commerce).
+    professionnel: Boolean((dossier.client_siren || "").trim()),
     email: dossier.client_email || null,
   };
+}
+
+/** Le cabinet d'expertise (relance du rapport définitif, information de la procédure). */
+export function cibleExpert(dossier: Dossier): CibleCourrier {
+  return {
+    type: "tiers",
+    nom: [dossier.cabinet_expert, dossier.expert_nom ? `à l'attention de ${dossier.expert_nom}` : ""].filter(Boolean).join("\n") || "Le cabinet d'expertise",
+    adresse: dossier.cabinet_adresse || "",
+    professionnel: true,
+    email: dossier.expert_email || dossier.cabinet_email || null,
+  };
+}
+
+/**
+ * v13.13 — COMPLÈTE le dossier avec l'annuaire (clients, assureurs, experts)
+ * quand une coordonnée manque sur la fiche : adresse, email, téléphone,
+ * SIREN. Le dossier n'est pas modifié en base, seulement pour les courriers.
+ */
+export function completerDossierDepuisAnnuaire(
+  dossier: Dossier,
+  annuaire: { client?: Partial<ClientAnnuaire> | null; assureur?: Partial<AssureurAnnuaire> | null; expert?: Partial<ExpertAnnuaire> | null }
+): Dossier {
+  const d = { ...dossier };
+  const c = annuaire.client;
+  if (c) {
+    if (!d.client_adresse && c.adresse) d.client_adresse = c.adresse;
+    if (!d.client_code_postal && c.code_postal) d.client_code_postal = c.code_postal;
+    if (!d.client_ville && c.ville) d.client_ville = c.ville;
+    if (!d.client_email && c.email) d.client_email = c.email;
+    if (!d.client_tel && c.telephone) d.client_tel = c.telephone;
+    if (!d.client_siren && c.siren) d.client_siren = c.siren;
+  }
+  const a = annuaire.assureur;
+  if (a) {
+    if (!d.assureur_adresse && (a.adresse || a.ville)) d.assureur_adresse = [a.adresse, `${a.code_postal || ""} ${a.ville || ""}`.trim()].filter(Boolean).join("\n");
+    if (!d.assureur_email && a.email) d.assureur_email = a.email;
+    if (!d.assureur_tel && a.tel) d.assureur_tel = a.tel;
+    if (!d.assureur_siren && a.siren) d.assureur_siren = a.siren;
+  }
+  const e = annuaire.expert;
+  if (e) {
+    if (!d.cabinet_adresse && (e.adresse || e.ville)) d.cabinet_adresse = [e.adresse, `${e.code_postal || ""} ${e.ville || ""}`.trim()].filter(Boolean).join("\n");
+    if (!d.cabinet_email && e.email) d.cabinet_email = e.email;
+    if (!d.cabinet_tel && e.tel) d.cabinet_tel = e.tel;
+    if (!d.expert_nom && e.expert_nom) d.expert_nom = e.expert_nom;
+    if (!d.expert_email && e.expert_email) d.expert_email = e.expert_email;
+    if (!d.expert_tel && e.expert_tel) d.expert_tel = e.expert_tel;
+  }
+  return d;
+}
+type ClientAnnuaire = { adresse: string | null; code_postal: string | null; ville: string | null; email: string | null; telephone: string | null; siren?: string | null };
+type AssureurAnnuaire = { adresse: string | null; code_postal: string | null; ville: string | null; email: string | null; tel: string | null; siren?: string | null };
+type ExpertAnnuaire = { adresse: string | null; code_postal: string | null; ville: string | null; email: string | null; tel: string | null; expert_nom: string | null; expert_email: string | null; expert_tel: string | null };
+
+/** Ville / code postal du débiteur (compétence territoriale : domicile ou siège du débiteur). */
+export function lieuDebiteur(dossier: Dossier, cible: CibleCourrier): { ville: string; codePostal: string } {
+  if (cible.type === "client") return { ville: (dossier.client_ville || "").trim(), codePostal: (dossier.client_code_postal || "").trim() };
+  const adr = cible.adresse || "";
+  const m = /(\d{5})\s+([^\n,]+)\s*$/.exec(adr.trim());
+  return { ville: (m?.[2] || "").trim(), codePostal: m?.[1] || "" };
+}
+
+/**
+ * v13.13 — Destinataire tiers PRÉ-REMPLI selon le courrier de procédure et le
+ * lieu du débiteur (le tribunal / conciliateur compétent est celui du
+ * domicile ou du siège du DÉBITEUR). L'adresse exacte reste à vérifier.
+ */
+export function cibleTiersPourCourrier(type: TypeCourrier, dossier: Dossier, debiteur: CibleCourrier, reste: number): CibleCourrier {
+  const { ville, codePostal } = lieuDebiteur(dossier, debiteur);
+  const ou = ville ? ` de ${ville}` : "";
+  const ligneVille = [codePostal, ville].filter(Boolean).join(" ");
+  switch (type) {
+    case "saisine_conciliateur":
+      return cibleTiers(`Conciliateur de justice${ou}`, [ville ? `Tribunal judiciaire / Mairie${ou}` : "Tribunal judiciaire", ligneVille].filter(Boolean).join("\n"));
+    case "requete_injonction": {
+      const voie = voieJudiciaire(reste, debiteur.professionnel);
+      if (voie.code === "petites_creances") return cibleTiers(`Commissaire de justice${ou}`, ligneVille);
+      if (voie.code === "injonction_tc") return cibleTiers(`Greffe du tribunal de commerce${ou}`, ligneVille);
+      return cibleTiers(`Greffe du tribunal judiciaire${ou}`, ligneVille);
+    }
+    case "transmission_avocat":
+      return cibleTiers("Maître", ligneVille);
+    case "remise_commissaire":
+      return cibleTiers(`Commissaire de justice${ou}`, ligneVille);
+    default:
+      return cibleTiers("", "");
+  }
 }
 
 export function cibleAssurance(dossier: Dossier): CibleCourrier {
@@ -380,8 +468,14 @@ export function modeleCourrier(args: {
   debiteur?: CibleCourrier;
   /** Étapes déjà réalisées (dates de la mise en demeure, du recommandé…). */
   etapes?: EtapesFaites | null;
+  /** v13.13 — coordonnées bancaires et contact du garage, pour dire OÙ payer. */
+  banque?: { iban?: string | null; bic?: string | null; tel?: string | null; email?: string | null } | null;
 }): ModeleCourrier {
   const { type, facture, dossier, cible, reste } = args;
+  const ouPayer = args.banque?.iban
+    ? `par virement sur notre compte IBAN ${args.banque.iban}${args.banque.bic ? ` (BIC ${args.banque.bic})` : ""}, en rappelant la référence ${facture.numero || "de la facture"}`
+    : "par virement sur le compte dont les coordonnées figurent sur la facture";
+  const contact = [args.banque?.tel ? `au ${args.banque.tel}` : "", args.banque?.email ? `par email à ${args.banque.email}` : ""].filter(Boolean).join(" ou ");
   if (type === "saisine_conciliateur" || type === "reclamation_assureur" || type === "requete_injonction" || type === "transmission_avocat" || type === "remise_commissaire") {
     return modeleCourrierProcedure(args);
   }
@@ -393,7 +487,7 @@ export function modeleCourrier(args: {
   const total = eur(Number(facture.total_ttc) || 0);
   const du = eur(reste);
   const civilite = cible.type === "assurance" ? "Madame, Monsieur," : "Madame, Monsieur,";
-  const signature = `Nous restons à votre disposition pour tout renseignement.\n\n${args.garage || "Le garage"}`;
+  const signature = `Nous restons à votre disposition pour tout renseignement${contact ? ` ${contact}` : ""}.\n\n${args.garage || "Le garage"}`;
 
   if (type === "relance") {
     const niveau = args.niveau || 1;
@@ -403,7 +497,7 @@ export function modeleCourrier(args: {
         delaiJours: 8,
         corps:
           `${civilite}\n\nSauf erreur ou omission de notre part, la ${ref}, d'un montant de ${total} TTC${echeance}, reste à ce jour impayée pour un solde de ${du}.\n\n` +
-          `Nous vous remercions de bien vouloir procéder à son règlement sous 8 jours, ou de nous indiquer la date de mise en paiement prévue. Si ce règlement a été effectué entre-temps, merci de ne pas tenir compte de ce courrier.\n\n` +
+          `Nous vous remercions de bien vouloir procéder à son règlement sous 8 jours ${ouPayer}, ou de nous indiquer la date de mise en paiement prévue. Si ce règlement a été effectué entre-temps, merci de ne pas tenir compte de ce courrier.\n\n` +
           signature,
       };
     }
@@ -430,7 +524,7 @@ export function modeleCourrier(args: {
     delaiJours: 8,
     corps:
       `${civilite}\n\nMalgré nos relances restées sans effet, la ${ref}, d'un montant de ${total} TTC${echeance}, demeure impayée à ce jour pour un solde de ${du}.\n\n` +
-      `Par la présente, nous vous mettons en demeure de nous régler la somme de ${du} TTC dans un délai de HUIT (8) JOURS à compter de la réception de ce courrier, par virement sur le compte dont les coordonnées figurent sur la facture.\n\n` +
+      `Par la présente, nous vous mettons en demeure de nous régler la somme de ${du} TTC dans un délai de HUIT (8) JOURS à compter de la réception de ce courrier, ${ouPayer}.\n\n` +
       `${consequences}\n\n` +
       `La présente vaut mise en demeure au sens des articles 1344 et suivants du Code civil. Si le règlement a été effectué entre-temps, nous vous prions de considérer ce courrier comme sans objet.\n\n` +
       signature,
