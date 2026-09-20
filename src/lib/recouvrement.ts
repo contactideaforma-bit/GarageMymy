@@ -310,7 +310,7 @@ export function estimerPenalites(reste: number, joursRetard: number, professionn
 
 /* --------------------- Modèles de courriers ---------------------------- */
 
-export type TypeCourrier = "relance" | "mise_en_demeure" | "mise_en_demeure_retrait" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire" | "requete_vente_1903" | "attribution_gage";
+export type TypeCourrier = "relance" | "mise_en_demeure" | "mise_en_demeure_retrait" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire" | "requete_vente_1903" | "attribution_gage" | "accord_reparation_expert" | "position_assureur";
 
 export type CibleCourrier = {
   /** client | assurance | tiers (conciliateur, tribunal, commissaire de justice) */
@@ -548,6 +548,8 @@ export const LIBELLE_TYPE_COURRIER: Record<string, string> = {
   mise_en_demeure_retrait: "Mise en demeure de payer et de retirer le véhicule",
   requete_vente_1903: "Demande de vente aux enchères (loi de 1903)",
   attribution_gage: "Notification du transfert de propriété (gage)",
+  accord_reparation_expert: "Demande d'accord de réparation (expert)",
+  position_assureur: "Mise en demeure de prise de position (assureur)",
   remise_commissaire: "Remise du titre au commissaire de justice",
 };
 

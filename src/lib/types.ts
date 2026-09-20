@@ -338,7 +338,7 @@ export type CourrierRecouvrement = {
   created_at: string;
   dossier_id: string;
   document_id: string | null;
-  type: "relance" | "mise_en_demeure" | "mise_en_demeure_retrait" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire" | "requete_vente_1903" | "attribution_gage";
+  type: "relance" | "mise_en_demeure" | "mise_en_demeure_retrait" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire" | "requete_vente_1903" | "attribution_gage" | "accord_reparation_expert" | "position_assureur";
   destinataire: "client" | "assurance" | "tiers";
   destinataire_nom: string | null;
   destinataire_adresse: string | null;

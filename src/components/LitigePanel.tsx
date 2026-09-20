@@ -15,6 +15,7 @@
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import CourriersLitige from "@/components/CourriersLitige";
 import { supabase } from "@/lib/supabaseClient";
 import { Dossier, LigneArdoise } from "@/lib/types";
 import { formatDate, messageErreur } from "@/lib/format";
@@ -196,6 +197,9 @@ export default function LitigePanel({
           />
         </div>
       </div>
+
+      {/* Courriers de déblocage (v13.18) : expert + assureur */}
+      <CourriersLitige dossier={dossier} />
 
       {/* Tâches du litige */}
       <div className="mt-3 border-t border-white/10 pt-3">

@@ -2429,6 +2429,8 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
     mise_en_demeure_retrait: "MISE EN DEMEURE — PAIEMENT ET RETRAIT DU VÉHICULE",
     requete_vente_1903: "DEMANDE DE VENTE AUX ENCHÈRES",
     attribution_gage: "NOTIFICATION DE TRANSFERT DE PROPRIÉTÉ",
+    accord_reparation_expert: "DEMANDE D'ACCORD DE RÉPARATION",
+    position_assureur: "MISE EN DEMEURE DE PRENDRE POSITION",
   };
   const titre = TITRES[c.type] || "COURRIER";
   const ctx = await startAttestationPdf(titre, null, c.date_courrier || new Date().toISOString());
@@ -2449,7 +2451,7 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
   const lieu = ctx.ent.ville ? `${ctx.ent.ville}, le ` : "Le ";
   pdf.text(`${lieu}${dateFr(c.date_courrier || new Date().toISOString())}`, pageW - M, ctx.y, { align: "right" });
   ctx.y += 5;
-  if (c.type === "mise_en_demeure" || c.type === "mise_en_demeure_retrait" || c.type === "attribution_gage" || c.type === "reclamation_assureur" || c.canal_envoi === "lrar") {
+  if (c.type === "mise_en_demeure" || c.type === "mise_en_demeure_retrait" || c.type === "attribution_gage" || c.type === "reclamation_assureur" || c.type === "position_assureur" || c.canal_envoi === "lrar") {
     pdf.setFont("helvetica", "bold");
     pdf.text(`Lettre recommandée avec accusé de réception${c.numero_suivi ? ` n° ${c.numero_suivi}` : ""}`, M, ctx.y);
     pdf.setFont("helvetica", "normal");
@@ -2501,12 +2503,12 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
   // Pièce jointe rappelée en bas
   pdf.setFontSize(8);
   pdf.setTextColor(120);
-  pdf.text(c.type === "relance" || c.type === "mise_en_demeure" ? "P.J. : copie de la facture concernée." : "P.J. : voir la liste des pièces dans le courrier.", M, ctx.y);
+  pdf.text(c.type === "relance" || c.type === "mise_en_demeure" ? "P.J. : copie de la facture concernée." : c.type === "accord_reparation_expert" ? "P.J. : photographies d'état du véhicule, rapport d'expertise." : c.type === "position_assureur" ? "P.J. : rapport d'expertise, ordre de réparation, courrier à l'expert." : "P.J. : voir la liste des pièces dans le courrier.", M, ctx.y);
   return pdf;
 }
 
 export function nomFichierCourrier(c: CourrierRecouvrement, numeroFacture?: string | null): string {
-  const GENRES: Record<string, string> = { relance: "Relance", mise_en_demeure: "Mise en demeure", mise_en_demeure_retrait: "Mise en demeure retrait", requete_vente_1903: "Demande vente 1903", attribution_gage: "Transfert propriété gage", saisine_conciliateur: "Saisine conciliateur", reclamation_assureur: "Réclamation assureur", requete_injonction: "Requête injonction", transmission_avocat: "Dossier avocat", remise_commissaire: "Remise commissaire de justice" };
+  const GENRES: Record<string, string> = { relance: "Relance", mise_en_demeure: "Mise en demeure", mise_en_demeure_retrait: "Mise en demeure retrait", accord_reparation_expert: "Demande accord réparation", position_assureur: "Mise en demeure assureur", requete_vente_1903: "Demande vente 1903", attribution_gage: "Transfert propriété gage", saisine_conciliateur: "Saisine conciliateur", reclamation_assureur: "Réclamation assureur", requete_injonction: "Requête injonction", transmission_avocat: "Dossier avocat", remise_commissaire: "Remise commissaire de justice" };
   const genre = GENRES[c.type] || "Courrier";
   return nomFichierSur(numeroFacture ? `${genre} facture N°${numeroFacture}` : `${genre} ${dateFr(c.date_courrier)}`);
 }
