@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { CourrierRecouvrement, Document, Dossier, LigneArdoise, OrdreReparation, Paiement, Relance } from "@/lib/types";
+import { ETAPES_GARANTIE, EtapeGarantie, affectationVente, attributionGage, etapeGarantie, gageMobilisable, situationVehicule } from "@/lib/garanties";
 import { formatDate, formatEuros, messageErreur, ymd } from "@/lib/format";
 import { templateRelance } from "@/lib/paiements";
 import {
@@ -27,6 +28,7 @@ import {
   ETAPES_PROCEDURE,
   EtapesFaites,
   INTERLOCUTEURS,
+  InfosGarantie,
   LIBELLE_TYPE_COURRIER,
   PERIODE_TAUX,
   SAISIE_ETAPE,
@@ -84,7 +86,7 @@ export default function RetardPaiementPanel({
   const [relances, setRelances] = useState<Relance[]>([]);
   const [courriers, setCourriers] = useState<CourrierRecouvrement[]>([]);
   const [taches, setTaches] = useState<LigneArdoise[]>([]);
-  const [ordres, setOrdres] = useState<Pick<OrdreReparation, "statut" | "signature">[]>([]);
+  const [ordres, setOrdres] = useState<OrdreReparation[]>([]);
   const [garage, setGarage] = useState<string | null>(null);
   const [banque, setBanque] = useState<Banque | null>(null);
   // v13.13 : coordonnées manquantes complétées depuis l'annuaire (clients / assureurs / experts).
@@ -99,7 +101,7 @@ export default function RetardPaiementPanel({
   // Modales
   const [courrierModal, setCourrierModal] = useState<{ type: TypeCourrier; courrier?: CourrierRecouvrement; dest?: Dest; tiersNom?: string } | null>(null);
   const [envoiModal, setEnvoiModal] = useState<CourrierRecouvrement | null>(null);
-  const [etapeModal, setEtapeModal] = useState<{ code: string; ref?: string; note?: string; vers?: string; titre?: string; date?: string; edition?: boolean } | null>(null);
+  const [etapeModal, setEtapeModal] = useState<{ code: string; ref?: string; note?: string; vers?: string; titre?: string; date?: string; edition?: boolean; montant?: number | null; frais?: number | null } | null>(null);
   // v13.14 : ouvrir / fermer un bloc d'étape est LOCAL (sans toucher à l'étape en cours).
   const [ouvertCode, setOuvertCode] = useState<string | null>(null);
   const [emailModal, setEmailModal] = useState<{ to: string; subject: string; body: string; facture: FactureRetard | null; courrier?: CourrierRecouvrement; interlocuteur: Dest } | null>(null);
@@ -127,7 +129,7 @@ export default function RetardPaiementPanel({
       supabase.from("courriers_recouvrement").select("*").eq("dossier_id", d.id).order("created_at", { ascending: false }),
       chargerRappels(d.id),
       supabase.from("entreprise").select("nom, iban, bic, tel, email").limit(1).maybeSingle(),
-      supabase.from("ordres_reparation").select("statut, signature").eq("dossier_id", d.id),
+      supabase.from("ordres_reparation").select("*").eq("dossier_id", d.id).order("created_at", { ascending: false }),
       parNom("clients", "nom", d.client_nom),
       parNom("assureurs", "nom", d.assureur),
       parNom("experts", "cabinet", d.cabinet_expert),
@@ -144,7 +146,7 @@ export default function RetardPaiementPanel({
     const e = ent.data as (Banque & { nom?: string | null }) | null;
     setGarage(e?.nom || null);
     setBanque(e ? { iban: e.iban, bic: e.bic, tel: e.tel, email: e.email } : null);
-    setOrdres((ors.data as Pick<OrdreReparation, "statut" | "signature">[]) || []);
+    setOrdres((ors.data as OrdreReparation[]) || []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dossierBrut.id, dossierBrut.client_nom, dossierBrut.assureur, dossierBrut.cabinet_expert]);
 
@@ -163,7 +165,7 @@ export default function RetardPaiementPanel({
   // Par défaut, le bloc ouvert suit l'étape en cours (et la suit quand elle avance).
   useEffect(() => { setOuvertCode(etape.code); }, [etape.code]);
   const nbRelances = relances.length + courriers.filter((c) => c.statut === "envoye" && c.type === "relance").length;
-  const medEnvoyees = courriers.filter((c) => c.type === "mise_en_demeure" && c.statut === "envoye");
+  const medEnvoyees = courriers.filter((c) => (c.type === "mise_en_demeure" || c.type === "mise_en_demeure_retrait") && c.statut === "envoye");
   const medLrar = medEnvoyees.find((c) => c.canal_envoi === "lrar") || null;
   const ordreSigne = ordres.some((o) => o.statut === "signe" || Boolean(o.signature));
   const voie = voieJudiciaire(totalDu, cible.professionnel);
@@ -175,6 +177,31 @@ export default function RetardPaiementPanel({
     cession: Boolean(dossier.mode_cession || dossier.mode_pec),
   });
   const nomDebiteur = dossier.client_nom || dossier.numero_sinistre || "dossier";
+
+  /* ---------------------- Garanties sur le véhicule (v13.15) ------------- */
+  const orRef = ordres.find((o) => o.signe_le) || ordres[0] || null;
+  const clausesOR = orRef?.clauses || null;
+  const situation = useMemo(() => situationVehicule(dossier, orRef, clausesOR), [dossier, orRef, clausesOR]);
+  const gage = gageMobilisable(orRef, dossier);
+  const vehiculeAuGarage = Boolean(dossier.au_garage);
+  const infosGarantie: InfosGarantie = {
+    vehicule: [dossier.marque_modele, dossier.immatriculation].filter(Boolean).join(" "),
+    dispoDepuis: situation.dispoDepuis,
+    gardiennageJours: situation.gardiennageJours,
+    gardiennageMontant: situation.gardiennageMontant,
+    gardiennageJour: clausesOR?.gardiennage_jour ?? null,
+    gageDelai: gage.ok ? clausesOR?.gage_delai ?? 30 : null,
+    gageMontant: clausesOR?.gage_montant ?? null,
+    numeroOR: orRef?.numero ?? null,
+    dateOR: orRef?.date_or ?? null,
+    dateSignatureOR: orRef?.signe_le ?? null,
+    valeurExpert: etapesFaites.gar_gage_expertise?.montant ?? null,
+    expert: etapesFaites.gar_gage_expertise?.ref ?? null,
+    frais: etapesFaites.gar_gage_expertise?.frais ?? null,
+    ...(etapesFaites.gar_gage_expertise?.montant != null
+      ? (() => { const a = attributionGage(etapesFaites.gar_gage_expertise!.montant!, totalDu, etapesFaites.gar_gage_expertise!.frais || 0); return { aRestituer: a.aRestituer, resteDu: a.resteDu }; })()
+      : {}),
+  };
 
   /* ------------------------------ Rappels ------------------------------ */
 
@@ -255,7 +282,18 @@ export default function RetardPaiementPanel({
   }
 
   /** Marque une étape comme faite (date, référence, note) et passe à la suivante. */
-  async function marquerEtapeFaite(code: string, faitLe: string, ref: string | null, note: string | null, versEtape?: string) {
+  async function marquerEtapeFaite(code: string, faitLe: string, ref: string | null, note: string | null, versEtape?: string, montants?: { montant?: number | null; frais?: number | null }) {
+    // Étape de GARANTIE (gar_*) : indépendante du parcours principal.
+    const eg = etapeGarantie(code);
+    if (eg) {
+      const faites: EtapesFaites = { ...etapesFaites, [code]: { fait_le: faitLe, ref: ref || null, note: note || null, montant: montants?.montant ?? null, frais: montants?.frais ?? null } };
+      await changerEtape(etape.code, faites);
+      try { await journaliser({ canal: "autre", interlocuteur: "client", notes: `Garantie véhicule — « ${eg.titre} »${ref ? ` — ${ref}` : ""}${montants?.montant != null ? ` — ${formatEuros(montants.montant)}` : ""}${note ? ` — ${note}` : ""}` }); } catch { /* facultatif */ }
+      if (eg.rappel) await programmerRappelAuto(`${eg.rappel[0]} (${nomDebiteur})`, eg.rappel[1]);
+      setEtapeModal(null);
+      charger(); onChanged?.();
+      return;
+    }
     const suiv = versEtape ? etapeProcedure(versEtape) : etapeSuivante(code);
     const faites: EtapesFaites = { ...etapesFaites, [code]: { fait_le: faitLe, ref: ref || null, note: note || null } };
     // Ordonnance obtenue sans avocat : l'étape « avocat » est sautée (marquée « sans objet »).
@@ -279,17 +317,19 @@ export default function RetardPaiementPanel({
   }
 
   /** Corrige la date / référence / note d'une étape déjà faite, sans changer l'étape en cours. */
-  async function modifierEtapeFaite(code: string, faitLe: string, ref: string | null, note: string | null) {
-    const faites: EtapesFaites = { ...etapesFaites, [code]: { fait_le: faitLe, ref: ref || null, note: note || null } };
+  async function modifierEtapeFaite(code: string, faitLe: string, ref: string | null, note: string | null, montants?: { montant?: number | null; frais?: number | null }) {
+    const faites: EtapesFaites = { ...etapesFaites, [code]: { ...etapesFaites[code], fait_le: faitLe, ref: ref || null, note: note || null, ...(montants ? { montant: montants.montant ?? null, frais: montants.frais ?? null } : {}) } };
     await changerEtape(etape.code, faites);
     setEtapeModal(null);
   }
 
   /** Annule une étape faite : elle redevient l'étape en cours (ses courriers et rappels sont conservés). */
   async function annulerEtapeFaite(code: string) {
-    if (!confirm(`Annuler l'étape « ${etapeProcedure(code).titre} » ? Elle redevient l'étape en cours ; les courriers et le journal sont conservés.`)) return;
+    const eg = etapeGarantie(code);
+    if (!confirm(`Annuler l'étape « ${eg ? eg.titre : etapeProcedure(code).titre} » ?${eg ? "" : " Elle redevient l'étape en cours ;"} les courriers et le journal sont conservés.`)) return;
     const faites: EtapesFaites = { ...etapesFaites };
     delete faites[code];
+    if (eg) { await changerEtape(etape.code, faites); return; }
     // Une étape « avocat » marquée sans objet par l'issue de l'injonction est aussi remise à zéro.
     if (code === "judiciaire" && faites.avocat?.ref?.startsWith("Sans objet")) delete faites.avocat;
     await changerEtape(code, faites);
@@ -339,6 +379,14 @@ export default function RetardPaiementPanel({
       await marquerEtapeFaite("mise_en_demeure", extra?.date || ymd(), extra?.numero_suivi || null, null);
       return;
     }
+    if (c.type === "mise_en_demeure_retrait" && canal === "lrar" && !etapesFaites.gar_med_retrait) {
+      await marquerEtapeFaite("gar_med_retrait", extra?.date || ymd(), extra?.numero_suivi || null, null);
+      // Vaut aussi mise en demeure de payer pour le parcours principal.
+      if (!etapesFaites.mise_en_demeure && etape.code === "mise_en_demeure") await marquerEtapeFaite("mise_en_demeure", extra?.date || ymd(), extra?.numero_suivi || null, "Mise en demeure de payer et de retirer le véhicule");
+      return;
+    }
+    if (c.type === "requete_vente_1903" && !etapesFaites.gar_requete_1903) { await marquerEtapeFaite("gar_requete_1903", ymd(), c.destinataire_nom || "Commissaire de justice", null); return; }
+    if (c.type === "attribution_gage" && !etapesFaites.gar_gage_attribution) { await marquerEtapeFaite("gar_gage_attribution", extra?.date || ymd(), extra?.numero_suivi || null, null); return; }
     if (c.type === "saisine_conciliateur" && !etapesFaites.amiable_judiciaire) { await marquerEtapeFaite("amiable_judiciaire", ymd(), "Conciliateur saisi", null); return; }
     if (c.type === "reclamation_assureur" && !etapesFaites.amiable_judiciaire) { await marquerEtapeFaite("amiable_judiciaire", ymd(), "Réclamation à l'assureur", null); return; }
     const jours = c.delai_jours || 8;
@@ -404,6 +452,44 @@ export default function RetardPaiementPanel({
     );
   }
 
+  /** Liste des étapes d'une voie de garantie (abandon / gage), avec validation, modification, annulation. */
+  function EtapesGarantie({ voie }: { voie: EtapeGarantie["voie"] }) {
+    const liste = ETAPES_GARANTIE.filter((e) => e.voie === voie);
+    const prerequisOk = (e: EtapeGarantie) => {
+      if (e.code === "gar_requete_1903") return Boolean(etapesFaites.gar_med_retrait) && situation.joursAvantVente === 0;
+      if (e.code === "gar_vente_1903") return Boolean(etapesFaites.gar_requete_1903);
+      if (e.code === "gar_gage_expertise") { const m = etapesFaites.gar_med_retrait; return Boolean(m) && Date.now() >= new Date(m!.fait_le).getTime() + (clausesOR?.gage_delai || 30) * 86400000; }
+      if (e.code === "gar_gage_attribution") return etapesFaites.gar_gage_expertise?.montant != null;
+      return true;
+    };
+    return (
+      <ul className="mt-2 space-y-1.5">
+        {liste.map((e) => {
+          const f = etapesFaites[e.code];
+          const ok = prerequisOk(e);
+          return (
+            <li key={e.code} className="flex items-start gap-2 text-sm">
+              <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${f ? "bg-emerald-500 text-white" : ok ? "bg-amber-400 text-amber-950" : "bg-white/15 text-white/60"}`}>{f ? "✓" : "·"}</span>
+              <span className="min-w-0 flex-1">
+                <span className={f ? "text-white" : ok ? "text-white" : "text-white/60"}>{e.titre}</span>
+                {f ? (
+                  <span className="block text-xs text-white/60">
+                    fait le {formatDate(f.fait_le)}{f.ref ? ` — ${f.ref}` : ""}{f.montant != null ? ` — ${formatEuros(f.montant)}` : ""}{f.frais != null ? ` (frais ${formatEuros(f.frais)})` : ""}
+                    {e.code === "gar_vente_1903" && f.montant != null && (() => { const a = affectationVente(f.montant!, f.frais || 0, totalDu); return <> → frais {formatEuros(a.frais)}, créance {formatEuros(a.creance)}, surplus consigné {formatEuros(a.surplusConsigne)}{a.resteDu > 0 ? `, reste dû ${formatEuros(a.resteDu)}` : ""}</>; })()}
+                    {" · "}<button className="underline hover:text-white" onClick={() => setEtapeModal({ code: e.code, edition: true, date: f.fait_le, ref: f.ref || "", note: f.note || "", montant: f.montant, frais: f.frais, titre: `${e.titre} — modifier` })}>modifier</button>
+                    {" · "}<button className="underline hover:text-rose-300" onClick={() => annulerEtapeFaite(e.code)}>annuler</button>
+                  </span>
+                ) : (
+                  <span className="block text-xs text-white/50">{e.aide} {ok && <button className="ml-1 underline text-white/80 hover:text-white" onClick={() => setEtapeModal({ code: e.code })}>marquer fait</button>}</span>
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    );
+  }
+
   function contenuEtape(code: string) {
     const fait = etapesFaites[code];
     const recap = fait && (
@@ -441,19 +527,20 @@ export default function RetardPaiementPanel({
         );
       case "mise_en_demeure": {
         const med = courriersDe(["mise_en_demeure"]);
-        const enAttente = med.find((c) => c.statut !== "envoye");
+        const enAttente = [...med, ...courriersDe(["mise_en_demeure_retrait"])].find((c) => c.statut !== "envoye");
         return (
           <>
             {recap}
             {reprendre}
             <p className="text-sm text-white/80">L&apos;acte qui fait courir les intérêts et que le juge exigera. L&apos;appli rédige le courrier ; vous le relisez, le signez, puis vous l&apos;envoyez en <strong>recommandé avec accusé de réception</strong> (délai de 8 jours).</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {!enAttente && <button onClick={() => setCourrierModal({ type: "mise_en_demeure" })} className="btn-primary btn-compact" disabled={!principale}>⚖ Rédiger la mise en demeure</button>}
+              {!enAttente && vehiculeAuGarage && <button onClick={() => setCourrierModal({ type: "mise_en_demeure_retrait" })} className="btn-primary btn-compact" disabled={!principale} title="Le véhicule est au garage : cette version fait aussi courir les 3 mois de la loi 1903 et le délai du gage">⚖ Mise en demeure de payer et de retirer le véhicule</button>}
+              {!enAttente && <button onClick={() => setCourrierModal({ type: "mise_en_demeure" })} className={`${vehiculeAuGarage ? "btn-ghost" : "btn-primary"} btn-compact`} disabled={!principale}>⚖ {vehiculeAuGarage ? "Mise en demeure simple" : "Rédiger la mise en demeure"}</button>}
               {enAttente && <button onClick={() => setEnvoiModal(enAttente)} className="btn-primary btn-compact">📮 Envoyer en recommandé (n° de suivi)</button>}
               {enAttente && <button onClick={() => courrierEnvoyeParEmail(enAttente)} className="btn-ghost btn-compact">✉ Aussi par email (PDF joint)</button>}
             </div>
-            <ListeCourriers types={["mise_en_demeure"]} />
-            {!fait && med.some((c) => c.statut === "envoye") && <div className="mt-2">{boutonFaite("mise_en_demeure", "Recommandé envoyé → tentative amiable")}</div>}
+            <ListeCourriers types={["mise_en_demeure", "mise_en_demeure_retrait"]} />
+            {!fait && [...med, ...courriersDe(["mise_en_demeure_retrait"])].some((c) => c.statut === "envoye") && <div className="mt-2">{boutonFaite("mise_en_demeure", "Recommandé envoyé → tentative amiable")}</div>}
           </>
         );
       }
@@ -657,6 +744,90 @@ export default function RetardPaiementPanel({
         )}
       </div>
 
+      {/* ---------------- Véhicule et garanties (v13.15) ---------------- */}
+      {(vehiculeAuGarage || clausesOR) && (
+        <div className="mt-3 glass-soft p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-semibold uppercase tracking-wide text-white/60">Véhicule et garanties de paiement</div>
+            <span className={`badge ${vehiculeAuGarage ? "badge-ok" : "badge-neutral"}`}>{vehiculeAuGarage ? "Véhicule au garage" : "Véhicule rendu"}</span>
+          </div>
+          {!clausesOR && <p className="mt-1 text-xs text-white/60">L&apos;OR de ce dossier ne porte pas de clauses de garantie (OR antérieur à la v13.15 ou garanties désactivées dans le profil). Les leviers légaux restent utilisables ; les courriers ci-dessous les mentionnent.</p>}
+          {!vehiculeAuGarage && <p className="mt-1 text-xs text-white/60">Le véhicule a été rendu : rétention et vente loi 1903 sont sans objet.{gage.ok ? " Le gage reste mobilisable." : ""}</p>}
+
+          <div className="mt-2 grid gap-3 lg:grid-cols-3">
+            {/* Rétention */}
+            <div className="rounded-xl border border-white/10 p-3">
+              <div className="font-semibold text-white">1. Droit de rétention</div>
+              {vehiculeAuGarage ? (
+                <>
+                  <p className="mt-1 text-sm text-white/80">Véhicule conservé jusqu&apos;au paiement intégral (art. 2286 C. civ.). Ne pas le restituer avant encaissement.</p>
+                  {situation.dispoDepuis ? (
+                    <p className="mt-1 text-sm text-white/80">À disposition depuis le <strong className="text-white">{formatDate(situation.dispoDepuis)}</strong> ({situation.joursDepuisDispo} j).{clausesOR?.gardiennage_jour ? <> Gardiennage : <strong className="text-white">{formatEuros(situation.gardiennageMontant)}</strong> HT ({situation.gardiennageJours} j × {formatEuros(clausesOR.gardiennage_jour)}).</> : " Tarif de gardiennage non renseigné dans le profil."}</p>
+                  ) : (
+                    <p className="mt-1 text-xs text-amber-200/90">Date de fin de travaux inconnue : renseignez « fin prévue » sur l&apos;OR ou la date de réparation du dossier pour déclencher le gardiennage et le compteur des 3 mois.</p>
+                  )}
+                  <p className="mt-1 text-[11px] text-white/45">Facturer le gardiennage : fiche dossier → Documents → « + Gardiennage ».</p>
+                </>
+              ) : (
+                <p className="mt-1 text-sm text-white/60">Sans objet, véhicule rendu.</p>
+              )}
+            </div>
+
+            {/* Loi 1903 */}
+            <div className="rounded-xl border border-white/10 p-3">
+              <div className="font-semibold text-white">2. Vente aux enchères (loi 1903)</div>
+              {!vehiculeAuGarage ? (
+                <p className="mt-1 text-sm text-white/60">Sans objet, véhicule rendu.</p>
+              ) : (
+                <>
+                  <p className="mt-1 text-sm text-white/80">{situation.dateVentePossible ? (situation.joursAvantVente > 0 ? <>Requête possible à partir du <strong className="text-white">{formatDate(situation.dateVentePossible)}</strong> (dans {situation.joursAvantVente} j), après mise en demeure.</> : <><strong className="text-emerald-300">Délai de 3 mois écoulé</strong> : la requête peut être déposée.</>) : "Compteur non démarré (date de mise à disposition inconnue)."}</p>
+                  <EtapesGarantie voie="abandon" />
+                </>
+              )}
+            </div>
+
+            {/* Gage */}
+            <div className="rounded-xl border border-white/10 p-3">
+              <div className="font-semibold text-white">3. Gage — pacte commissoire</div>
+              {gage.ok ? (
+                <>
+                  <p className="mt-1 text-sm text-white/80">Clause acceptée expressément le {formatDate(clausesOR?.gage_consenti_le)}{clausesOR?.gage_consenti_par ? ` par ${clausesOR.gage_consenti_par}` : ""} (OR {orRef?.numero}). Transfert de propriété à défaut de paiement <strong className="text-white">{clausesOR?.gage_delai || 30} j</strong> après la mise en demeure.</p>
+                  {etapesFaites.gar_med_retrait && (() => {
+                    const fin = new Date(new Date(etapesFaites.gar_med_retrait.fait_le).getTime() + (clausesOR?.gage_delai || 30) * 86400000);
+                    const restant = Math.ceil((fin.getTime() - Date.now()) / 86400000);
+                    return <p className="mt-1 text-sm text-white/80">{restant > 0 ? <>Délai en cours : expire le <strong className="text-white">{fin.toLocaleDateString("fr-FR")}</strong> ({restant} j).</> : <strong className="text-emerald-300">Délai expiré : le gage peut être réalisé (évaluation par expert).</strong>}</p>;
+                  })()}
+                  {!etapesFaites.gar_med_retrait && <p className="mt-1 text-xs text-amber-200/90">Envoyez d&apos;abord la mise en demeure de payer et de retirer le véhicule (colonne 2) : elle fait courir le délai du pacte.</p>}
+                  {etapesFaites.gar_gage_expertise?.montant != null && (() => {
+                    const a = attributionGage(etapesFaites.gar_gage_expertise!.montant!, totalDu, etapesFaites.gar_gage_expertise!.frais || 0);
+                    return <div className="mt-1 rounded-lg bg-white/5 p-2 text-sm text-white/85">Valeur expert <strong>{formatEuros(etapesFaites.gar_gage_expertise!.montant!)}</strong> − dû {formatEuros(a.total)} → {a.aRestituer > 0 ? <>à <strong className="text-emerald-300">restituer au client : {formatEuros(a.aRestituer)}</strong></> : a.resteDu > 0 ? <>reste dû par le client : <strong className="text-rose-300">{formatEuros(a.resteDu)}</strong></> : "solde nul"}.</div>;
+                  })()}
+                  <EtapesGarantie voie="gage" />
+                </>
+              ) : (
+                <p className="mt-1 text-sm text-white/60">Non mobilisable : {gage.raison} <span className="text-white/40">(Profil → Garanties de paiement)</span></p>
+              )}
+            </div>
+          </div>
+
+          {vehiculeAuGarage && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {!courriersDe(["mise_en_demeure_retrait"]).length ? (
+                <button onClick={() => setCourrierModal({ type: "mise_en_demeure_retrait" })} className="btn-primary btn-compact" disabled={!principale}>⚖ Mise en demeure de payer et de retirer le véhicule (PDF)</button>
+              ) : null}
+              {etapesFaites.gar_med_retrait && situation.joursAvantVente === 0 && !etapesFaites.gar_requete_1903 && (
+                <button onClick={() => setCourrierModal({ type: "requete_vente_1903", dest: "tiers" })} className="btn-primary btn-compact" disabled={!principale}>📄 Demande de vente au commissaire de justice (PDF)</button>
+              )}
+              {gage.ok && etapesFaites.gar_gage_expertise?.montant != null && !etapesFaites.gar_gage_attribution && (
+                <button onClick={() => setCourrierModal({ type: "attribution_gage" })} className="btn-primary btn-compact" disabled={!principale}>📄 Notification du transfert de propriété (PDF)</button>
+              )}
+            </div>
+          )}
+          <ListeCourriers types={["mise_en_demeure_retrait", "requete_vente_1903", "attribution_gage"]} />
+          <p className="mt-2 text-[11px] text-white/45">Repères : art. 2286 et 1948 C. civ. (rétention) ; loi du 31 déc. 1903 (vente, 3 mois, juge) ; art. 2336 et 2348 C. civ. (gage, expert, surplus). L&apos;appli n&apos;est ni avocat ni commissaire de justice.</p>
+        </div>
+      )}
+
       {/* Journal des contacts + rappels */}
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <div className="glass-soft p-3" ref={journalRef}>
@@ -735,6 +906,7 @@ export default function RetardPaiementPanel({
           niveau={nbRelances + 1}
           garage={garage}
           banque={banque}
+          garantie={infosGarantie}
           etapes={etapesFaites}
           onClose={() => setCourrierModal(null)}
           onSaved={(c, action) => {
@@ -768,7 +940,9 @@ export default function RetardPaiementPanel({
           dateInitiale={etapeModal.date}
           noteInitiale={etapeModal.note}
           edition={etapeModal.edition}
-          onConfirmer={(date, ref, note) => (etapeModal.edition ? modifierEtapeFaite(etapeModal.code, date, ref, note) : marquerEtapeFaite(etapeModal.code, date, ref, note, etapeModal.vers))}
+          montantInitial={etapeModal.montant}
+          fraisInitial={etapeModal.frais}
+          onConfirmer={(date, ref, note, montants) => (etapeModal.edition ? modifierEtapeFaite(etapeModal.code, date, ref, note, montants) : marquerEtapeFaite(etapeModal.code, date, ref, note, etapeModal.vers, montants))}
         />
       )}
 
@@ -812,7 +986,7 @@ function libelleQui(code: string): string {
    recommandé (qui ouvre l'étape d'envoi avec le n° de suivi).
 ==================================================================== */
 
-function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture, reste, niveau, garage, banque, etapes, onClose, onSaved }: {
+function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture, reste, niveau, garage, banque, garantie, etapes, onClose, onSaved }: {
   type: TypeCourrier;
   existant?: CourrierRecouvrement;
   destInitial?: Dest;
@@ -823,6 +997,7 @@ function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture
   niveau: number;
   garage: string | null;
   banque: Banque | null;
+  garantie?: InfosGarantie | null;
   etapes: EtapesFaites;
   onClose: () => void;
   onSaved: (c: CourrierRecouvrement, action: "brouillon" | "signe" | "email" | "lrar") => void;
@@ -841,7 +1016,7 @@ function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture
   const [nom, setNom] = useState(existant?.destinataire_nom || initialCible.nom);
   const [adresse, setAdresse] = useState(existant?.destinataire_adresse || initialCible.adresse);
   const [date, setDate] = useState(existant?.date_courrier || ymd());
-  const modele = useMemo(() => modeleCourrier({ type, facture, dossier, cible: cibleDe(vers, nom, adresse), reste, niveau, garage, debiteur, etapes, banque }), [type, facture, dossier, vers, nom, adresse, reste, niveau, garage, debiteur, etapes, banque, cibleDe]);
+  const modele = useMemo(() => modeleCourrier({ type, facture, dossier, cible: cibleDe(vers, nom, adresse), reste, niveau, garage, debiteur, etapes, banque, garantie }), [type, facture, dossier, vers, nom, adresse, reste, niveau, garage, debiteur, etapes, banque, garantie, cibleDe]);
   const [objet, setObjet] = useState(existant?.objet || modele.objet);
   const [corps, setCorps] = useState(existant?.corps || modele.corps);
   const [signataire, setSignataire] = useState(existant?.signataire_nom || garage || "");
@@ -849,14 +1024,14 @@ function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture
   const [signer, setSigner] = useState(Boolean(existant?.signature));
   const [busy, setBusy] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
-  const versTiers = type === "saisine_conciliateur" || type === "requete_injonction" || type === "remise_commissaire";
-  const lrar = type === "mise_en_demeure" || type === "reclamation_assureur";
+  const versTiers = type === "saisine_conciliateur" || type === "requete_injonction" || type === "remise_commissaire" || type === "requete_vente_1903";
+  const lrar = type === "mise_en_demeure" || type === "reclamation_assureur" || type === "mise_en_demeure_retrait" || type === "attribution_gage";
 
   function changerCible(v: Dest) {
     setVers(v);
     const c = cibleDe(v);
     setNom(c.nom); setAdresse(c.adresse);
-    const m = modeleCourrier({ type, facture, dossier, cible: c, reste, niveau, garage, debiteur, etapes, banque });
+    const m = modeleCourrier({ type, facture, dossier, cible: c, reste, niveau, garage, debiteur, etapes, banque, garantie });
     setObjet(m.objet); setCorps(m.corps);
   }
 
@@ -955,7 +1130,7 @@ function EnvoiModal({ courrier, dossier, numeroFacture, onClose, onConfirmer }: 
   onClose: () => void;
   onConfirmer: (canal: "lrar" | "courrier" | "remis_en_main", numero: string | null, date: string) => Promise<void>;
 }) {
-  const [canal, setCanal] = useState<"lrar" | "courrier" | "remis_en_main">(courrier.type === "mise_en_demeure" || courrier.type === "reclamation_assureur" ? "lrar" : "courrier");
+  const [canal, setCanal] = useState<"lrar" | "courrier" | "remis_en_main">(["mise_en_demeure", "reclamation_assureur", "mise_en_demeure_retrait", "attribution_gage"].includes(courrier.type) ? "lrar" : "courrier");
   const [numero, setNumero] = useState(courrier.numero_suivi || "");
   const [date, setDate] = useState(ymd());
   const [busy, setBusy] = useState(false);
@@ -999,14 +1174,18 @@ function EnvoiModal({ courrier, dossier, numeroFacture, onClose, onConfirmer }: 
    suivante et programme le rappel.
 ==================================================================== */
 
-function EtapeModal({ code, refInitiale, dateInitiale, noteInitiale, edition, titre, onClose, onConfirmer }: { code: string; refInitiale?: string; dateInitiale?: string; noteInitiale?: string; edition?: boolean; titre?: string; onClose: () => void; onConfirmer: (date: string, ref: string | null, note: string | null) => Promise<void> }) {
-  const e = etapeProcedure(code);
-  const saisie = SAISIE_ETAPE[code];
-  const suiv = etapeSuivante(code);
+function EtapeModal({ code, refInitiale, dateInitiale, noteInitiale, montantInitial, fraisInitial, edition, titre, onClose, onConfirmer }: { code: string; refInitiale?: string; dateInitiale?: string; noteInitiale?: string; montantInitial?: number | null; fraisInitial?: number | null; edition?: boolean; titre?: string; onClose: () => void; onConfirmer: (date: string, ref: string | null, note: string | null, montants?: { montant?: number | null; frais?: number | null }) => Promise<void> }) {
+  const eg = etapeGarantie(code);
+  const e = eg ? { titre: eg.titre } : etapeProcedure(code);
+  const saisie = eg ? { ref: eg.ref, aide: eg.aide } : SAISIE_ETAPE[code];
+  const suiv = eg ? null : etapeSuivante(code);
   const [date, setDate] = useState(dateInitiale || ymd());
   const [ref, setRef] = useState(refInitiale || "");
   const [note, setNote] = useState(noteInitiale || "");
+  const [montant, setMontant] = useState(montantInitial != null ? String(montantInitial) : "");
+  const [frais, setFrais] = useState(fraisInitial != null ? String(fraisInitial) : "");
   const [busy, setBusy] = useState(false);
+  const num = (v: string) => (v.trim() === "" ? null : Number(v.replace(",", ".")));
   return (
     <ModalShell title={titre || `${e.titre} — étape réalisée`} onClose={onClose} maxWidth="max-w-lg">
       <div className="space-y-3">
@@ -1014,12 +1193,15 @@ function EtapeModal({ code, refInitiale, dateInitiale, noteInitiale, edition, ti
         <div className="grid gap-2 sm:grid-cols-2">
           <div><label className="field-label text-[11px]">Date</label><input type="date" className="field-input field-compact w-full" value={date} onChange={(ev) => setDate(ev.target.value)} /></div>
           {saisie?.ref && <div><label className="field-label text-[11px]">{saisie.ref}</label><input className="field-input field-compact w-full" value={ref} onChange={(ev) => setRef(ev.target.value)} /></div>}
+          {eg?.montants?.map((m) => (
+            <div key={m.cle}><label className="field-label text-[11px]">{m.label}</label><input inputMode="decimal" className="field-input field-compact w-full text-right" value={m.cle === "montant" ? montant : frais} onChange={(ev) => (m.cle === "montant" ? setMontant(ev.target.value) : setFrais(ev.target.value))} /></div>
+          ))}
         </div>
         <div><label className="field-label text-[11px]">Note (facultatif)</label><textarea className="field-input w-full" rows={2} value={note} onChange={(ev) => setNote(ev.target.value)} /></div>
         <p className="text-xs text-white/60">{edition ? "Seules la date, la référence et la note sont modifiées." : suiv ? `L'appli passe ensuite à l'étape « ${suiv.titre} » et programme le rappel.` : "Dernière étape du parcours."}</p>
         <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
           <button type="button" onClick={onClose} className="btn-ghost btn-compact">Annuler</button>
-          <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onConfirmer(date, ref.trim() || null, note.trim() || null); } finally { setBusy(false); } }} className="btn-primary btn-compact">{busy ? "Enregistrement…" : edition ? "Enregistrer" : "✓ Valider l'étape"}</button>
+          <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onConfirmer(date, ref.trim() || null, note.trim() || null, eg?.montants ? { montant: num(montant), frais: num(frais) } : undefined); } finally { setBusy(false); } }} className="btn-primary btn-compact">{busy ? "Enregistrement…" : edition ? "Enregistrer" : "✓ Valider l'étape"}</button>
         </div>
       </div>
     </ModalShell>

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import type { ClausesOR } from "@/lib/types";
+import { textesClauses } from "@/lib/garanties";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 
 // SIGNATURE À DISTANCE : le client reçoit un lien /signer/<jeton> et signe
@@ -19,6 +21,10 @@ type Cible = {
   /** v12.7 — contrat de flotte sans dossier : on décrit le véhicule et le conducteur directement. */
   vehicule?: string;
   client?: string;
+  /** v13.15 — clauses de garantie de l'OR (texte à afficher, consentement gage requis). */
+  clauses?: ClausesOR | null;
+  montant_ht?: number | null;
+  date_fin?: string | null;
 };
 
 async function trouverParToken(token: string): Promise<Cible | null> {
@@ -26,12 +32,13 @@ async function trouverParToken(token: string): Promise<Cible | null> {
   if (!admin) return null;
 
   const { data: or } = await admin
-    .from("ordres_reparation").select("id,dossier_id,numero,signe_le,owner_id").eq("sign_token", token).maybeSingle();
+    .from("ordres_reparation").select("id,dossier_id,numero,signe_le,owner_id,clauses,montant_ht,date_fin").eq("sign_token", token).maybeSingle();
   if (or) {
     return {
       table: "ordres_reparation", type: "Ordre de réparation",
       titre: or.numero || "Ordre de réparation",
       id: or.id, dossier_id: or.dossier_id, dejaSigne: Boolean(or.signe_le), owner_id: or.owner_id,
+      clauses: (or.clauses as ClausesOR | null) || null, montant_ht: or.montant_ht, date_fin: or.date_fin,
     };
   }
   const { data: cess } = await admin
@@ -106,10 +113,16 @@ export async function GET(req: Request) {
   const admin = getAdminClient()!;
   const [{ data: dossier }, { data: ent }] = await Promise.all([
     cible.dossier_id
-      ? admin.from("dossiers").select("client_nom,marque_modele,immatriculation,numero_sinistre").eq("id", cible.dossier_id).maybeSingle()
+      ? admin.from("dossiers").select("client_nom,marque_modele,immatriculation,numero_sinistre,numero_serie").eq("id", cible.dossier_id).maybeSingle()
       : Promise.resolve({ data: null }),
     admin.from("entreprise").select("nom").eq("owner_id", cible.owner_id).limit(1).maybeSingle(),
   ]);
+
+  // v13.15 — clauses de garantie de l'OR, telles qu'imprimées : le client
+  // les lit avant de signer ; la clause de gage exige une case distincte.
+  const clauses = cible.table === "ordres_reparation" && cible.clauses
+    ? textesClauses(cible.clauses, ent || {}, { immatriculation: dossier?.immatriculation || null, marque_modele: dossier?.marque_modele || null, numero_serie: dossier?.numero_serie || null }, { montant_ht: cible.montant_ht ?? null, date_fin: cible.date_fin ?? null })
+    : [];
 
   return NextResponse.json({
     type: cible.type,
@@ -119,11 +132,13 @@ export async function GET(req: Request) {
     vehicule: cible.vehicule || (dossier ? `${dossier.marque_modele || ""}${dossier.immatriculation ? ` (${dossier.immatriculation})` : ""}`.trim() : ""),
     client: cible.client || dossier?.client_nom || "",
     sinistre: dossier?.numero_sinistre || "",
+    clauses,
+    consentementGageRequis: Boolean(cible.clauses?.gage),
   });
 }
 
 export async function POST(req: Request) {
-  let body: { token?: string; nom?: string; signature?: string };
+  let body: { token?: string; nom?: string; signature?: string; consentGage?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -154,6 +169,13 @@ export async function POST(req: Request) {
     signe_le: new Date().toISOString(),
   };
   if (cible.table === "ordres_reparation" || cible.table === "cessions_creance") maj.statut = "signe";
+  // v13.15 — clause de gage : consentement EXPRÈS obligatoire, horodaté dans les clauses figées.
+  if (cible.table === "ordres_reparation" && cible.clauses?.gage) {
+    if (!body.consentGage) {
+      return NextResponse.json({ error: "Merci de cocher l'acceptation expresse de la clause de gage pour signer cet ordre de réparation." }, { status: 400 });
+    }
+    maj.clauses = { ...cible.clauses, gage_consenti_le: new Date().toISOString(), gage_consenti_par: body.nom.trim() };
+  }
   if (cible.table === "flotte_mises_a_dispo") maj.cg_acceptees = true;
 
   // Garde ATOMIQUE : l'update ne passe que si le document n'est pas déjà

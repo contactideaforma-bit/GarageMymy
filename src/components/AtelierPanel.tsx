@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { CessionCreance, Dossier, OrdreReparation, Restitution, Document, DocumentLigne } from "@/lib/types";
+import { CessionCreance, ClausesOR, Dossier, Entreprise, OrdreReparation, Restitution, Document, DocumentLigne } from "@/lib/types";
+import { clausesDepuisProfil, textesClauses } from "@/lib/garanties";
 import { formatDate, formatEuros, messageErreur, STATUTS_ORDRE, ymd } from "@/lib/format";
 import { genNumeroOR, badgeStatutAtelier, labelStatutAtelier } from "@/lib/atelier";
 import {
@@ -440,6 +441,17 @@ function ORModal({
   const [signature, setSignature] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // v13.15 — garanties de paiement : profil du garage → clauses figées sur l'OR.
+  const [ent, setEnt] = useState<Partial<Entreprise> | null>(null);
+  const [consentGage, setConsentGage] = useState(Boolean(or?.clauses?.gage_consenti_le));
+  useEffect(() => {
+    supabase.from("entreprise").select("nom, garantie_retention, garantie_abandon, garantie_gage, garantie_gage_delai, garantie_gage_seuil, gard_tarif_jour").limit(1).maybeSingle()
+      .then(({ data }) => setEnt((data as Partial<Entreprise>) || {}));
+  }, []);
+  // Un OR déjà signé garde ses clauses ; sinon elles suivent le profil et le montant saisi.
+  const clauses: ClausesOR | null = or?.signe_le && or.clauses ? or.clauses : ent ? clausesDepuisProfil(ent, dossier, montant === "" ? null : Number(montant)) : null;
+  const textes = clauses ? textesClauses(clauses, ent, dossier, { montant_ht: montant === "" ? null : Number(montant), date_fin: fin || null }) : [];
+  const gageActif = Boolean(clauses?.gage);
 
   // Pré-remplit les travaux depuis le dernier devis (une ligne par poste).
   useEffect(() => {
@@ -470,7 +482,15 @@ function ORModal({
     setError(null);
     try {
       const signe = !!signature;
-      const payload = {
+      if (signe && gageActif && !consentGage) {
+        setError("La clause de gage doit être acceptée expressément par le client (case à cocher) avant la signature — ou désactivez le gage dans le profil.");
+        setSaving(false);
+        return;
+      }
+      const clausesFigees: ClausesOR | null = clauses
+        ? { ...clauses, ...(signe && gageActif && consentGage ? { gage_consenti_le: new Date().toISOString(), gage_consenti_par: signataire || null } : {}) }
+        : null;
+      const payload: Record<string, unknown> = {
         dossier_id: dossier.id,
         numero,
         date_or: dateOr || null,
@@ -479,13 +499,21 @@ function ORModal({
         date_fin: fin || null,
         montant_ht: montant === "" ? null : Number(montant),
         signataire_nom: signataire || null,
+        clauses: clausesFigees,
         ...(signe
           ? { signature, signe_le: new Date().toISOString(), statut: "signe" }
           : {}),
       };
-      const { error: e1 } = or
+      let { error: e1 } = or
         ? await supabase.from("ordres_reparation").update(payload).eq("id", or.id)
         : await supabase.from("ordres_reparation").insert(payload);
+      // Migration v83 pas encore jouée : l'OR est enregistré sans les clauses.
+      if (e1 && /clauses|column|colonne/i.test(e1.message || "")) {
+        delete payload.clauses;
+        ({ error: e1 } = or
+          ? await supabase.from("ordres_reparation").update(payload).eq("id", or.id)
+          : await supabase.from("ordres_reparation").insert(payload));
+      }
       if (e1) throw e1;
 
       if (signe) {
@@ -535,6 +563,24 @@ function ORModal({
         />
         <p className="mt-1 text-xs text-white/40">Pré-rempli depuis le dernier devis du dossier.</p>
       </div>
+      {textes.length > 0 && (
+        <div className="rounded-lg border border-white/15 p-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-white/60">Garanties de paiement (imprimées sur l&apos;OR)</div>
+          <ul className="mt-1 space-y-1 text-xs text-white/75">
+            {textes.map((t) => (
+              <li key={t.code}><span className="font-semibold text-white/90">{t.titre}</span> — {t.code === "retention" ? "véhicule conservé jusqu'au paiement, gardiennage après la date de restitution" : t.code === "abandon" ? "vente aux enchères sur autorisation du juge passé 3 mois (loi 1903)" : `transfert de propriété à défaut de paiement ${clauses?.gage_delai || 30} j après mise en demeure, valeur fixée par expert, surplus restitué`}</li>
+            ))}
+          </ul>
+          {gageActif && !or?.signe_le && (
+            <label className="mt-2 flex items-start gap-2 text-sm text-white/90">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 accent-pink-500" checked={consentGage} onChange={(e) => setConsentGage(e.target.checked)} />
+              <span>Le client a lu la clause de gage et de pacte commissoire et <strong>l&apos;accepte expressément</strong> (obligatoire pour signer avec cette clause).</span>
+            </label>
+          )}
+          {dossier.vehicule_finance && <p className="mt-1 text-xs text-amber-200/90">Véhicule financé (LOA / LLD / crédit) : la clause de gage est automatiquement exclue.</p>}
+          <p className="mt-1 text-[11px] text-white/45">Réglages : Profil du garage → Garanties de paiement.</p>
+        </div>
+      )}
       <div>
         <label className="field-label">Nom du signataire</label>
         <input className="field-input" value={signataire} onChange={(e) => setSignataire(e.target.value)} />

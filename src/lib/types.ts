@@ -60,6 +60,8 @@ export type Dossier = {
   reparation_fin: string | null;
   reparateur: string | null;
   au_garage: boolean | null;
+  /** v13.15 — véhicule en LOA / LLD / crédit : le client n'en est pas propriétaire (pas de gage possible). */
+  vehicule_finance?: boolean | null;
 
   // Vitrage / bris de glace (métier vitrage — v28)
   type_vitrage?: string | null; // pare_brise | lunette_arriere | vitre_laterale | toit_ouvrant | autre
@@ -90,7 +92,7 @@ export type Dossier = {
   retard_depuis?: string | null;
   retard_etape?: string | null; // amiable | mise_en_demeure | amiable_judiciaire | judiciaire | avocat | execution
   /** v13.12 — étapes de la procédure réalisées : { code: { fait_le, ref?, note? } } */
-  retard_etapes?: Record<string, { fait_le: string; ref?: string | null; note?: string | null }> | null;
+  retard_etapes?: Record<string, { fait_le: string; ref?: string | null; note?: string | null; montant?: number | null; frais?: number | null }> | null;
   /** v11.2 — mentions particulières lues dans le rapport (jsonb, cf. lib/mentionsRapport). */
   mentions_rapport?: unknown;
   pec_reference?: string | null; // référence / n° de l'accord (optionnel)
@@ -263,6 +265,12 @@ export type Entreprise = {
   pret_franchise?: number | null;
   pret_km_jour?: number | null;
   pret_prix_km?: number | null;
+  // Garanties de paiement dans l'ordre de réparation (v13.15, migration v83)
+  garantie_retention?: boolean | null;
+  garantie_abandon?: boolean | null;
+  garantie_gage?: boolean | null;
+  garantie_gage_delai?: number | null;
+  garantie_gage_seuil?: number | null;
   gard_tarif_jour?: number | null;
   gard_frais_entree?: number | null;
   gard_frais_sortie?: number | null;
@@ -330,7 +338,7 @@ export type CourrierRecouvrement = {
   created_at: string;
   dossier_id: string;
   document_id: string | null;
-  type: "relance" | "mise_en_demeure" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire";
+  type: "relance" | "mise_en_demeure" | "mise_en_demeure_retrait" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire" | "requete_vente_1903" | "attribution_gage";
   destinataire: "client" | "assurance" | "tiers";
   destinataire_nom: string | null;
   destinataire_adresse: string | null;
@@ -365,6 +373,20 @@ export type OrdreReparation = {
   signe_le: string | null;
   statut: string; // brouillon | signe
   sign_token?: string | null;
+  /** v13.15 — clauses de garantie figées sur l'OR (voir lib/garanties.ts). */
+  clauses?: ClausesOR | null;
+};
+
+export type ClausesOR = {
+  version: number;
+  retention: boolean;
+  gardiennage_jour: number | null;
+  abandon: boolean;
+  gage: boolean;
+  gage_montant: number | null;
+  gage_delai: number | null;
+  gage_consenti_le?: string | null;
+  gage_consenti_par?: string | null;
 };
 
 export type Restitution = {

@@ -310,7 +310,7 @@ export function estimerPenalites(reste: number, joursRetard: number, professionn
 
 /* --------------------- Modèles de courriers ---------------------------- */
 
-export type TypeCourrier = "relance" | "mise_en_demeure" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire";
+export type TypeCourrier = "relance" | "mise_en_demeure" | "mise_en_demeure_retrait" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire" | "requete_vente_1903" | "attribution_gage";
 
 export type CibleCourrier = {
   /** client | assurance | tiers (conciliateur, tribunal, commissaire de justice) */
@@ -436,6 +436,7 @@ export function cibleTiersPourCourrier(type: TypeCourrier, dossier: Dossier, deb
     case "transmission_avocat":
       return cibleTiers("Maître", ligneVille);
     case "remise_commissaire":
+    case "requete_vente_1903":
       return cibleTiers(`Commissaire de justice${ou}`, ligneVille);
     default:
       return cibleTiers("", "");
@@ -470,6 +471,8 @@ export function modeleCourrier(args: {
   etapes?: EtapesFaites | null;
   /** v13.13 — coordonnées bancaires et contact du garage, pour dire OÙ payer. */
   banque?: { iban?: string | null; bic?: string | null; tel?: string | null; email?: string | null } | null;
+  /** v13.15 — données de la garantie véhicule (gardiennage, OR, gage, expertise). */
+  garantie?: InfosGarantie | null;
 }): ModeleCourrier {
   const { type, facture, dossier, cible, reste } = args;
   const ouPayer = args.banque?.iban
@@ -478,6 +481,9 @@ export function modeleCourrier(args: {
   const contact = [args.banque?.tel ? `au ${args.banque.tel}` : "", args.banque?.email ? `par email à ${args.banque.email}` : ""].filter(Boolean).join(" ou ");
   if (type === "saisine_conciliateur" || type === "reclamation_assureur" || type === "requete_injonction" || type === "transmission_avocat" || type === "remise_commissaire") {
     return modeleCourrierProcedure(args);
+  }
+  if (type === "mise_en_demeure_retrait" || type === "requete_vente_1903" || type === "attribution_gage") {
+    return modeleCourrierGarantie(args);
   }
   const ref =
     `facture n° ${facture.numero || "—"}` +
@@ -539,12 +545,15 @@ export const LIBELLE_TYPE_COURRIER: Record<string, string> = {
   reclamation_assureur: "Réclamation à l'assureur",
   requete_injonction: "Lettre d'accompagnement — requête en injonction de payer",
   transmission_avocat: "Dossier de transmission à l'avocat",
+  mise_en_demeure_retrait: "Mise en demeure de payer et de retirer le véhicule",
+  requete_vente_1903: "Demande de vente aux enchères (loi de 1903)",
+  attribution_gage: "Notification du transfert de propriété (gage)",
   remise_commissaire: "Remise du titre au commissaire de justice",
 };
 
 /* ===================== Étapes réalisées (v13.12) ====================== */
 
-export type EtapeFaite = { fait_le: string; ref?: string | null; note?: string | null };
+export type EtapeFaite = { fait_le: string; ref?: string | null; note?: string | null; montant?: number | null; frais?: number | null };
 export type EtapesFaites = Record<string, EtapeFaite>;
 
 /** Ce que l'appli demande pour marquer chaque étape comme faite. */
@@ -716,6 +725,98 @@ function modeleCourrierProcedure(args: {
       `Maître,\n\nNous vous remettons ci-joint, pour exécution, le titre exécutoire${titre} obtenu à l'encontre de ${deb.nom}${deb.adresse ? `, ${deb.adresse.replace(/\n/g, ", ")}` : ""}, portant sur la somme de ${eur(reste)} en principal au titre de la ${ref}, outre intérêts et frais.\n\n` +
       `Nous vous prions de bien vouloir procéder à la signification puis aux mesures d'exécution que vous jugerez utiles (saisie-attribution sur compte bancaire, saisie-vente…), les frais étant à la charge du débiteur.\n\n` +
       `Pièces jointes : titre exécutoire, facture, mise en demeure et accusé de réception.\n\n${fin}`,
+  };
+}
+
+/* ================ Courriers de garantie véhicule (v13.15) ============= */
+
+export type InfosGarantie = {
+  vehicule: string;
+  dispoDepuis: string | null;
+  gardiennageJours: number;
+  gardiennageMontant: number;
+  gardiennageJour: number | null;
+  gageDelai: number | null;
+  gageMontant: number | null;
+  numeroOR: string | null;
+  dateOR: string | null;
+  dateSignatureOR: string | null;
+  /** Réalisation du gage : évaluation et calcul. */
+  valeurExpert?: number | null;
+  expert?: string | null;
+  frais?: number | null;
+  aRestituer?: number | null;
+  resteDu?: number | null;
+};
+
+function modeleCourrierGarantie(args: {
+  type: TypeCourrier;
+  facture: Document;
+  dossier: Dossier;
+  cible: CibleCourrier;
+  reste: number;
+  garage?: string | null;
+  debiteur?: CibleCourrier;
+  etapes?: EtapesFaites | null;
+  banque?: { iban?: string | null; bic?: string | null; tel?: string | null; email?: string | null } | null;
+  garantie?: InfosGarantie | null;
+}): ModeleCourrier {
+  const { type, facture, dossier, reste } = args;
+  const g = args.garantie;
+  const deb = args.debiteur || cibleParDefaut(dossier);
+  const garage = args.garage || "Le garage";
+  const veh = g?.vehicule || [dossier.marque_modele, dossier.immatriculation].filter(Boolean).join(" ") || "votre véhicule";
+  const ref = `facture n° ${facture.numero || "—"}` + (dossier.numero_sinistre ? ` (sinistre n° ${dossier.numero_sinistre})` : "");
+  const ouPayer = args.banque?.iban ? `par virement sur notre compte IBAN ${args.banque.iban}${args.banque.bic ? ` (BIC ${args.banque.bic})` : ""}` : "par virement sur le compte indiqué sur la facture";
+  const gard = g && g.gardiennageJours > 0 && g.gardiennageJour ? ` Des frais de gardiennage courent depuis le ${dateFr(g.dispoDepuis)} au tarif affiché de ${eur(g.gardiennageJour)} HT par jour, soit ${eur(g.gardiennageMontant)} HT à ce jour.` : "";
+  const fin = `Nous restons à votre disposition pour tout renseignement.\n\n${garage}`;
+
+  if (type === "mise_en_demeure_retrait") {
+    const or = g?.numeroOR ? `l'ordre de réparation n° ${g.numeroOR}${g.dateSignatureOR ? ` signé le ${dateFr(g.dateSignatureOR)}` : ""}` : "l'ordre de réparation signé";
+    const gage = g?.gageDelai
+      ? `\n\nNous vous rappelons qu'en application de la clause de gage et de pacte commissoire que vous avez expressément acceptée dans ${or} (article 2348 du Code civil), à défaut de paiement intégral dans un délai de ${g.gageDelai} jours à compter de la réception de la présente, la propriété du véhicule nous sera transférée. Sa valeur sera alors fixée par un expert automobile au jour du transfert ; si elle excède les sommes dues, la différence vous sera restituée.`
+      : "";
+    return {
+      objet: `MISE EN DEMEURE de payer et de retirer le véhicule ${veh} — ${ref}`,
+      delaiJours: 8,
+      corps:
+        `Madame, Monsieur,\n\nLes réparations de ${veh}, réalisées conformément à ${or}, sont achevées${g?.dispoDepuis ? ` depuis le ${dateFr(g.dispoDepuis)}` : ""} et le véhicule est à votre disposition dans nos locaux. La ${ref}, d'un montant de ${eur(Number(facture.total_ttc) || 0)} TTC, demeure impayée pour un solde de ${eur(reste)}.${gard}\n\n` +
+        `Par la présente, nous vous mettons en demeure de régler la somme de ${eur(reste)} TTC ${ouPayer}, et de retirer votre véhicule, dans un délai de HUIT (8) JOURS à compter de la réception de ce courrier. Conformément aux articles 2286 et 1948 du Code civil, le véhicule est conservé jusqu'au paiement intégral des sommes dues, frais de gardiennage compris.\n\n` +
+        `À défaut, et si le véhicule n'est ni payé ni retiré dans un délai de trois mois à compter de sa mise à disposition, nous solliciterons du tribunal judiciaire, par l'intermédiaire d'un commissaire de justice, l'autorisation de le vendre aux enchères publiques en application de la loi du 31 décembre 1903 ; le prix de vente sera affecté aux frais puis à notre créance, l'excédent étant consigné à la Caisse des dépôts et consignations à votre disposition.${gage}\n\n` +
+        `La présente vaut mise en demeure au sens des articles 1344 et suivants du Code civil. Si le règlement est intervenu entre-temps, veuillez considérer ce courrier comme sans objet.\n\n${fin}`,
+    };
+  }
+  if (type === "requete_vente_1903") {
+    const med = args.etapes?.gar_med_retrait;
+    return {
+      objet: `Demande de vente aux enchères d'un véhicule non retiré — loi du 31 décembre 1903 — ${veh}`,
+      delaiJours: 30,
+      corps:
+        `Maître,\n\nNous vous demandons de bien vouloir présenter au tribunal judiciaire une requête aux fins d'autorisation de vente aux enchères publiques, en application de la loi du 31 décembre 1903 relative à la vente de certains objets abandonnés, du véhicule suivant :\n\n` +
+        `• Véhicule : ${veh}${dossier.numero_serie ? ` — VIN ${dossier.numero_serie}` : ""}\n` +
+        `• Propriétaire : ${deb.nom}${deb.adresse ? `, ${deb.adresse.replace(/\n/g, ", ")}` : ""}\n` +
+        `• Remis pour réparation le ${dateFr(g?.dateOR || dossier.reparation_debut)} (ordre de réparation ${g?.numeroOR ? `n° ${g.numeroOR}` : ""}${g?.dateSignatureOR ? ` signé le ${dateFr(g.dateSignatureOR)}` : ""})\n` +
+        `• À disposition depuis le ${dateFr(g?.dispoDepuis)} — soit ${g?.gardiennageJours ?? "—"} jours\n` +
+        `• Créance : ${ref} — solde ${eur(reste)} TTC${g?.gardiennageMontant ? ` ; frais de gardiennage ${eur(g.gardiennageMontant)} HT` : ""}\n` +
+        `• Mise en demeure de payer et de retirer le véhicule${med ? ` adressée le ${dateFr(med.fait_le)}${med.ref ? ` (recommandé n° ${med.ref})` : ""}` : ""}, restée sans effet.\n\n` +
+        `Nous joignons l'ordre de réparation signé, la facture, les relances, la mise en demeure et son accusé de réception, ainsi que la copie de la carte grise. Nous vous demandons de nous indiquer vos frais et la date de vente qui sera fixée.\n\n${fin}`,
+    };
+  }
+  // attribution_gage
+  const tot = (Number(reste) || 0) + (Number(g?.frais) || 0);
+  return {
+    objet: `Notification du transfert de propriété du véhicule ${veh} — pacte commissoire (art. 2348 C. civ.)`,
+    delaiJours: 15,
+    corps:
+      `Madame, Monsieur,\n\nMalgré notre mise en demeure${args.etapes?.gar_med_retrait ? ` du ${dateFr(args.etapes.gar_med_retrait.fait_le)}` : ""}, la ${ref} demeure impayée pour un solde de ${eur(reste)} TTC. Le délai de ${g?.gageDelai || 30} jours prévu par la clause de gage et de pacte commissoire que vous avez expressément acceptée dans l'ordre de réparation${g?.numeroOR ? ` n° ${g.numeroOR}` : ""} est expiré.\n\n` +
+      `En application de l'article 2348 du Code civil, nous vous notifions le transfert à notre profit de la propriété du véhicule ${veh}${dossier.numero_serie ? ` (VIN ${dossier.numero_serie})` : ""}, à la date de la présente.\n\n` +
+      `La valeur du véhicule a été fixée par ${g?.expert ? `l'expert ${g.expert}` : "expert automobile"} à ${eur(Number(g?.valeurExpert) || 0)}. Les sommes dues s'élèvent à ${eur(tot)} (solde de la facture ${eur(reste)}${g?.frais ? ` et frais de gardiennage et d'expertise ${eur(g.frais)}` : ""}).\n` +
+      ((g?.aRestituer || 0) > 0
+        ? `La valeur du véhicule excédant les sommes dues, nous vous restituerons la différence, soit ${eur(g!.aRestituer!)}, dans les quinze jours, par virement sur le compte dont vous voudrez bien nous communiquer les coordonnées.\n\n`
+        : (g?.resteDu || 0) > 0
+          ? `La valeur du véhicule étant inférieure aux sommes dues, un solde de ${eur(g!.resteDu!)} reste à votre charge.\n\n`
+          : `Les sommes dues sont ainsi intégralement réglées.\n\n`) +
+      `Nous procéderons à la déclaration de cession du véhicule auprès de l'administration ; nous vous remercions de nous remettre le certificat d'immatriculation et les clés en votre possession. Une copie du rapport d'expertise est jointe.\n\n${fin}`,
   };
 }
 

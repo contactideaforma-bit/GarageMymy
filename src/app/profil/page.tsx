@@ -28,6 +28,7 @@ const EMPTY: FormE = {
   fe_plateforme: "", fe_plateforme_ref: "", fe_choisie_le: null, fe_reception_ok: false, tva_debits: false,
   pret_tarif_jour: null, pret_tarif_horaire: null, pret_franchise: null, pret_km_jour: null, pret_prix_km: null,
   gard_tarif_jour: null, gard_frais_entree: null, gard_frais_sortie: null, gard_frais_enlevement: null,
+  garantie_retention: true, garantie_abandon: true, garantie_gage: false, garantie_gage_delai: 30, garantie_gage_seuil: 0,
 };
 
 // Champ numérique (tarif) : vide = non renseigné (null en base).
@@ -111,6 +112,8 @@ export default function ProfilPage() {
           tva_debits: Boolean(e.tva_debits),
           pret_tarif_jour: e.pret_tarif_jour ?? null, pret_tarif_horaire: e.pret_tarif_horaire ?? null,
           pret_franchise: e.pret_franchise ?? null, pret_km_jour: e.pret_km_jour ?? null, pret_prix_km: e.pret_prix_km ?? null,
+          garantie_retention: e.garantie_retention !== false, garantie_abandon: e.garantie_abandon !== false, garantie_gage: Boolean(e.garantie_gage),
+          garantie_gage_delai: e.garantie_gage_delai ?? 30, garantie_gage_seuil: e.garantie_gage_seuil ?? 0,
           gard_tarif_jour: e.gard_tarif_jour ?? null, gard_frais_entree: e.gard_frais_entree ?? null,
           gard_frais_sortie: e.gard_frais_sortie ?? null, gard_frais_enlevement: e.gard_frais_enlevement ?? null,
         });
@@ -177,10 +180,13 @@ export default function ProfilPage() {
         signature_path = await upload(dataUrlVersFichier(signatureTrace), "signature", "prive");
       }
 
-      const payload = { ...form, logo_path, modele_facture_path, rib_path, signature_path };
+      const payload: Record<string, unknown> = { ...form, logo_path, modele_facture_path, rib_path, signature_path };
+      // Migration v83 pas encore jouée : on retire les garanties et on réessaie.
+      const sansGaranties = () => { const p = { ...payload }; for (const k of Object.keys(p)) if (k.startsWith("garantie_")) delete p[k]; return p; };
 
       if (id) {
-        const { error: e } = await supabase.from("entreprise").update(payload).eq("id", id);
+        let { error: e } = await supabase.from("entreprise").update(payload).eq("id", id);
+        if (e && /garantie_/i.test(e.message || "")) { ({ error: e } = await supabase.from("entreprise").update(sansGaranties()).eq("id", id)); if (!e) setMsg("Profil enregistré — exécute la migration v83 pour activer les garanties de paiement."); }
         if (e) throw e;
       } else {
         const { data, error: e } = await supabase.from("entreprise").insert(payload).select("id").single();
@@ -455,6 +461,33 @@ export default function ProfilPage() {
                 gardiennage (fiche dossier → Documents → « + Gardiennage »), modifiable ligne par ligne.
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* Garanties de paiement (v13.15) : clauses imprimées sur chaque ordre de
+            réparation, suivies ensuite dans le parcours « retard de paiement ». */}
+        <section>
+          <h2 className="text-sm font-semibold text-accent-pink mb-3">Garanties de paiement — clauses de l&apos;ordre de réparation</h2>
+          <div className="glass-soft p-4 space-y-3">
+            <label className="flex items-start gap-3 text-sm">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 accent-pink-500" checked={form.garantie_retention !== false} onChange={(e) => set("garantie_retention", e.target.checked)} />
+              <span><span className="font-semibold text-white">Droit de rétention et gardiennage</span> <span className="text-white/60">— le véhicule reste au garage jusqu&apos;au paiement intégral (art. 2286 et 1948 C. civ.) ; frais de gardiennage au tarif ci-dessus après la date de restitution prévue. Recommandé : c&apos;est votre levier le plus sûr.</span></span>
+            </label>
+            <label className="flex items-start gap-3 text-sm">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 accent-pink-500" checked={form.garantie_abandon !== false} onChange={(e) => set("garantie_abandon", e.target.checked)} />
+              <span><span className="font-semibold text-white">Véhicule non retiré — vente aux enchères (loi du 31 décembre 1903)</span> <span className="text-white/60">— passé 3 mois et une mise en demeure en recommandé, requête au tribunal par commissaire de justice ; le prix paie les frais puis votre créance, le surplus est consigné pour le client. Le parcours retard de paiement guide chaque étape.</span></span>
+            </label>
+            <label className="flex items-start gap-3 text-sm">
+              <input type="checkbox" className="mt-0.5 h-4 w-4 accent-pink-500" checked={Boolean(form.garantie_gage)} onChange={(e) => set("garantie_gage", e.target.checked)} />
+              <span><span className="font-semibold text-white">Option — gage du véhicule avec pacte commissoire (art. 2348 C. civ.)</span> <span className="text-white/60">— à défaut de paiement dans le délai suivant la mise en demeure, la propriété du véhicule vous est transférée, sa valeur étant fixée par un expert et l&apos;excédent restitué au client. Le client doit cocher une acceptation distincte à la signature. Exclu automatiquement si le véhicule est financé (LOA / LLD / crédit). <strong className="text-amber-200">À faire valider par votre conseil avant activation.</strong></span></span>
+            </label>
+            {form.garantie_gage && (
+              <div className="grid grid-cols-2 gap-3 pl-7">
+                <Tarif label="Délai après mise en demeure" value={form.garantie_gage_delai} onChange={(v) => set("garantie_gage_delai", v ?? 30)} suffixe="jours" />
+                <Tarif label="Montant HT minimum de l'OR" value={form.garantie_gage_seuil} onChange={(v) => set("garantie_gage_seuil", v ?? 0)} suffixe="€ HT" placeholder="0 = toujours" />
+              </div>
+            )}
+            <p className="text-xs text-white/40">Les clauses sont figées sur chaque OR au moment de son émission et imprimées sur le PDF. Un OR déjà signé n&apos;est jamais modifié.</p>
           </div>
         </section>
 

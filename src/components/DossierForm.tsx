@@ -17,7 +17,8 @@ import {
   resumeTarifs,
 } from "@/lib/particularites";
 import FilePicker from "@/components/FilePicker";
-import { Dossier } from "@/lib/types";
+import { Dossier, Entreprise } from "@/lib/types";
+import { clausesDepuisProfil } from "@/lib/garanties";
 import { STATUTS_ORDRE, addJoursOuvres, formatEuros, libelleStatut, ymd } from "@/lib/format";
 import { TVA_DEFAUT, ttc } from "@/lib/tva";
 import { genNumeroOR } from "@/lib/atelier";
@@ -38,6 +39,7 @@ type FormState = {
   marque_modele: string;
   numero_serie: string;
   premiere_circulation: string;
+  vehicule_finance: boolean;
   date_sinistre: string;
   numero_sinistre: string;
   cabinet_expert: string;
@@ -80,6 +82,7 @@ function toForm(d?: Partial<Dossier> | null): FormState {
     marque_modele: d?.marque_modele ?? "",
     numero_serie: d?.numero_serie ?? "",
     premiere_circulation: d?.premiere_circulation ?? "",
+    vehicule_finance: Boolean(d?.vehicule_finance),
     date_sinistre: d?.date_sinistre ?? "",
     numero_sinistre: d?.numero_sinistre ?? "",
     cabinet_expert: d?.cabinet_expert ?? "",
@@ -391,8 +394,9 @@ export default function DossierForm({
         const next = { ...f };
         (Object.keys(toForm(d)) as (keyof FormState)[]).forEach((k) => {
           const v = (d as Record<string, unknown>)[k as string];
+          if (k === "vehicule_finance") return; // booléen : jamais rempli par l'analyse
           if (v !== null && v !== undefined && v !== "") {
-            next[k] = String(v);
+            (next as Record<string, unknown>)[k] = String(v);
           }
         });
         return next;
@@ -465,6 +469,7 @@ export default function DossierForm({
         marque_modele: form.marque_modele || null,
         numero_serie: form.numero_serie || null,
         premiere_circulation: form.premiere_circulation || null,
+        vehicule_finance: form.vehicule_finance,
         date_sinistre: form.date_sinistre || null,
         numero_sinistre: form.numero_sinistre || null,
         cabinet_expert: form.cabinet_expert || null,
@@ -512,18 +517,22 @@ export default function DossierForm({
         const { error: eM } = await supabase.from("dossiers").update({ mentions_rapport: mentions }).eq("id", id);
         if (eM) console.warn("Mentions du rapport non conservées :", eM.message);
       };
+      // Migration v83 pas encore jouée : on retire « véhicule financé » et on réessaie.
+      const sansFinance = () => { const p = { ...payload } as Record<string, unknown>; delete p.vehicule_finance; return p; };
       if (isEdit && dossier) {
-        const { error: updErr } = await supabase.from("dossiers").update(payload).eq("id", dossier.id);
+        let { error: updErr } = await supabase.from("dossiers").update(payload).eq("id", dossier.id);
+        if (updErr && /vehicule_finance/i.test(updErr.message || "")) ({ error: updErr } = await supabase.from("dossiers").update(sansFinance()).eq("id", dossier.id));
         if (updErr) throw updErr;
         idFinal = dossier.id;
         await conserverMentions(dossier.id);
         await synchroniserAnnuaire(dossier.id);
       } else {
-        const { data: created, error: insErr } = await supabase
+        let { data: created, error: insErr } = await supabase
           .from("dossiers")
           .insert(payload)
           .select("id")
           .single();
+        if (insErr && /vehicule_finance/i.test(insErr.message || "")) ({ data: created, error: insErr } = await supabase.from("dossiers").insert(sansFinance()).select("id").single());
         if (insErr) throw insErr;
         const newId = created?.id as string | undefined;
         idFinal = newId;
@@ -586,14 +595,22 @@ export default function DossierForm({
                 .join("\n");
             // Toutes les erreurs REMONTENT : l'UI promet la génération auto
             // (OR + devis + facture + cession) — un échec doit se voir.
-            const { error: eOr } = await supabase.from("ordres_reparation").insert({
+            // v13.15 : clauses de garantie figées d'après le profil du garage.
+            const { data: entG } = await supabase.from("entreprise").select("garantie_retention, garantie_abandon, garantie_gage, garantie_gage_delai, garantie_gage_seuil, gard_tarif_jour").limit(1).maybeSingle();
+            const orPayload: Record<string, unknown> = {
               dossier_id: newId,
               numero: genNumeroOR(),
               date_or: ymd(),
               travaux,
               montant_ht: totalHt,
               signataire_nom: form.client_nom || null,
-            });
+              clauses: clausesDepuisProfil((entG as Partial<Entreprise>) || {}, { vehicule_finance: form.vehicule_finance }, totalHt),
+            };
+            let { error: eOr } = await supabase.from("ordres_reparation").insert(orPayload);
+            if (eOr && /clauses|column|colonne/i.test(eOr.message || "")) {
+              delete orPayload.clauses;
+              ({ error: eOr } = await supabase.from("ordres_reparation").insert(orPayload));
+            }
             if (eOr) throw new Error(`Ordre de réparation non créé : ${eOr.message}`);
             await creerDocument("devis", newId, lignes, tauxTva);
             await creerDocument("facture", newId, lignes, tauxTva);
@@ -794,6 +811,10 @@ export default function DossierForm({
               <Field label="Marque et modèle" name="marque_modele" value={form.marque_modele} onChange={set} />
               <Field label="N° de série (VIN)" name="numero_serie" value={form.numero_serie} onChange={set} />
               <Field label="1ère mise en circulation" name="premiere_circulation" value={form.premiere_circulation} onChange={set} type="date" />
+              <label className="flex items-center gap-2 text-sm text-white/80 sm:col-span-2">
+                <input type="checkbox" className="h-4 w-4 accent-pink-500" checked={form.vehicule_finance} onChange={(e) => setForm((f) => ({ ...f, vehicule_finance: e.target.checked }))} />
+                Véhicule financé (LOA / LLD / crédit) — le client n&apos;en est pas propriétaire : la clause de gage de l&apos;OR est exclue
+              </label>
             </div>
           </section>
 

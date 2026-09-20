@@ -12,6 +12,7 @@ import {
   totalLigne,
 } from "./documents";
 import { AUTORISATION_OR, CESSION_OBJET, CESSION_NOTIFICATION, DECHARGE_RESTITUTION } from "./atelier";
+import { textesClauses } from "./garanties";
 import { supabase } from "./supabaseClient";
 import { fichierBase64 } from "./storage";
 import { fetchAuth, lireReponse } from "./apiClient";
@@ -1705,6 +1706,52 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
   pdf.text(conditions, M, ty + 6);
   ty += 6 + conditions.length * 4.6 + 8;
 
+  // ---------- Garanties de paiement (v13.15) : clauses figées sur l'OR ----------
+  const clauses = textesClauses(or.clauses, ent, dossier, or);
+  if (clauses.length) {
+    if (ty + 14 > pageH - 30) { pdf.addPage(); drawFooter(); ty = 25; }
+    pdf.setFontSize(10);
+    pdf.setTextColor(30);
+    pdf.text("Garanties de paiement", M, ty);
+    ty += 5.5;
+    for (const cl of clauses) {
+      const corps = pdf.splitTextToSize(textePdf(cl.texte), pageW - M * 2) as string[];
+      const hConsent = cl.consentement ? 12 : 0;
+      const h = 4.6 + corps.length * 3.6 + hConsent + 3;
+      if (ty + h > pageH - 26) { pdf.addPage(); drawFooter(); ty = 25; }
+      pdf.setFontSize(8.6);
+      pdf.setTextColor(30);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(textePdf(cl.titre), M, ty);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.8);
+      pdf.setTextColor(70);
+      pdf.text(corps, M, ty + 4.2);
+      ty += 4.6 + corps.length * 3.6;
+      if (cl.consentement) {
+        // Case d'acceptation EXPRESSE (cochée si le client a consenti à la signature).
+        const coche = Boolean(or.clauses?.gage_consenti_le);
+        pdf.setDrawColor(60);
+        pdf.setLineWidth(0.4);
+        pdf.rect(M, ty + 1, 4, 4);
+        if (coche) {
+          pdf.setLineWidth(0.7);
+          pdf.line(M + 0.8, ty + 3, M + 1.8, ty + 4.3);
+          pdf.line(M + 1.8, ty + 4.3, M + 3.4, ty + 1.6);
+        }
+        pdf.setFontSize(8.2);
+        pdf.setTextColor(30);
+        pdf.setFont("helvetica", "bold");
+        const lc = pdf.splitTextToSize(textePdf(cl.consentement + (coche && or.clauses?.gage_consenti_le ? `  — accepté le ${dateFr(or.clauses.gage_consenti_le)}${or.clauses.gage_consenti_par ? ` par ${or.clauses.gage_consenti_par}` : ""}` : "")), pageW - M * 2 - 7) as string[];
+        pdf.text(lc, M + 6, ty + 4.2);
+        pdf.setFont("helvetica", "normal");
+        ty += Math.max(6, lc.length * 3.8) + 4;
+      }
+      ty += 3;
+    }
+    ty += 4;
+  }
+
   // ---------- Autorisation + signature : BLOC INSÉCABLE ----------
   const autorisation = pdf.splitTextToSize(AUTORISATION_OR, pageW - M * 2) as string[];
   const hBloc = 6 + autorisation.length * 4.2 + 8 + 52;
@@ -2374,6 +2421,9 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
     requete_injonction: "REQUÊTE EN INJONCTION DE PAYER",
     transmission_avocat: "DOSSIER DE RECOUVREMENT",
     remise_commissaire: "REMISE D'UN TITRE EXÉCUTOIRE",
+    mise_en_demeure_retrait: "MISE EN DEMEURE — PAIEMENT ET RETRAIT DU VÉHICULE",
+    requete_vente_1903: "DEMANDE DE VENTE AUX ENCHÈRES",
+    attribution_gage: "NOTIFICATION DE TRANSFERT DE PROPRIÉTÉ",
   };
   const titre = TITRES[c.type] || "COURRIER";
   const ctx = await startAttestationPdf(titre, null, c.date_courrier || new Date().toISOString());
@@ -2394,7 +2444,7 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
   const lieu = ctx.ent.ville ? `${ctx.ent.ville}, le ` : "Le ";
   pdf.text(`${lieu}${dateFr(c.date_courrier || new Date().toISOString())}`, pageW - M, ctx.y, { align: "right" });
   ctx.y += 5;
-  if (c.type === "mise_en_demeure" || c.type === "reclamation_assureur" || c.canal_envoi === "lrar") {
+  if (c.type === "mise_en_demeure" || c.type === "mise_en_demeure_retrait" || c.type === "attribution_gage" || c.type === "reclamation_assureur" || c.canal_envoi === "lrar") {
     pdf.setFont("helvetica", "bold");
     pdf.text(`Lettre recommandée avec accusé de réception${c.numero_suivi ? ` n° ${c.numero_suivi}` : ""}`, M, ctx.y);
     pdf.setFont("helvetica", "normal");
@@ -2451,7 +2501,7 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
 }
 
 export function nomFichierCourrier(c: CourrierRecouvrement, numeroFacture?: string | null): string {
-  const GENRES: Record<string, string> = { relance: "Relance", mise_en_demeure: "Mise en demeure", saisine_conciliateur: "Saisine conciliateur", reclamation_assureur: "Réclamation assureur", requete_injonction: "Requête injonction", transmission_avocat: "Dossier avocat", remise_commissaire: "Remise commissaire de justice" };
+  const GENRES: Record<string, string> = { relance: "Relance", mise_en_demeure: "Mise en demeure", mise_en_demeure_retrait: "Mise en demeure retrait", requete_vente_1903: "Demande vente 1903", attribution_gage: "Transfert propriété gage", saisine_conciliateur: "Saisine conciliateur", reclamation_assureur: "Réclamation assureur", requete_injonction: "Requête injonction", transmission_avocat: "Dossier avocat", remise_commissaire: "Remise commissaire de justice" };
   const genre = GENRES[c.type] || "Courrier";
   return nomFichierSur(numeroFacture ? `${genre} facture N°${numeroFacture}` : `${genre} ${dateFr(c.date_courrier)}`);
 }

@@ -18,6 +18,8 @@ type Infos = {
   vehicule: string;
   client: string;
   sinistre: string;
+  clauses?: { code: string; titre: string; texte: string; consentement?: string }[];
+  consentementGageRequis?: boolean;
 };
 
 export default function SignerPage() {
@@ -26,6 +28,7 @@ export default function SignerPage() {
   const [erreur, setErreur] = useState<string | null>(null);
   const [nom, setNom] = useState("");
   const [signature, setSignature] = useState<string | null>(null);
+  const [consentGage, setConsentGage] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [fini, setFini] = useState(false);
 
@@ -49,13 +52,17 @@ export default function SignerPage() {
       setErreur("Indique ton nom et prénom.");
       return;
     }
+    if (infos?.consentementGageRequis && !consentGage) {
+      setErreur("Coche l'acceptation expresse de la clause de gage pour pouvoir signer.");
+      return;
+    }
     setEnvoi(true);
     setErreur(null);
     try {
       const res = await fetch("/api/signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, nom: nom.trim(), signature }),
+        body: JSON.stringify({ token, nom: nom.trim(), signature, consentGage }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error || `Erreur (HTTP ${res.status}).`);
@@ -105,6 +112,24 @@ export default function SignerPage() {
                 {infos.sinistre ? ` — sinistre ${infos.sinistre}` : ""}
               </div>
             </div>
+
+            {infos.clauses && infos.clauses.length > 0 && (
+              <div className="glass-soft p-4 text-sm space-y-3">
+                <div className="text-white/50 text-xs uppercase tracking-wide">Garanties de paiement — à lire avant de signer</div>
+                {infos.clauses.map((c) => (
+                  <div key={c.code}>
+                    <div className="font-semibold text-white">{c.titre}</div>
+                    <p className="mt-0.5 text-xs leading-relaxed text-white/70">{c.texte}</p>
+                    {c.consentement && (
+                      <label className="mt-2 flex items-start gap-2 rounded-lg border border-amber-400/40 bg-amber-500/10 p-2 text-sm text-white/90">
+                        <input type="checkbox" className="mt-0.5 h-4 w-4 accent-pink-500" checked={consentGage} onChange={(e) => setConsentGage(e.target.checked)} />
+                        <span>{c.consentement}</span>
+                      </label>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div>
               <label className="field-label">Ton nom et prénom</label>
