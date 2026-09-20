@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { fetchAuth } from "@/lib/apiClient";
 
 /**
  * Vignette d'illustration du modèle (v13.10) — photo générique du modèle
@@ -16,7 +17,7 @@ export default function PhotoVehicule({ marqueModele }: { marqueModele?: string 
     const q = (marqueModele || "").trim();
     if (!q) return;
     let actif = true;
-    fetch(`/api/photo-vehicule?q=${encodeURIComponent(q)}`)
+    fetchAuth(`/api/photo-vehicule?q=${encodeURIComponent(q)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => { if (actif && j?.url) setPhoto(j); })
       .catch(() => {});

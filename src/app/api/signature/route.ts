@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ipDe, tropDeDemandes } from "@/lib/limiteur";
 import type { ClausesOR } from "@/lib/types";
 import { textesClauses } from "@/lib/garanties";
 import { getAdminClient } from "@/lib/supabaseAdmin";
@@ -138,6 +139,11 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  // Audit : 30 signatures / heure / IP suffisent largement ; freine un robot
+  // qui tenterait des jetons au hasard ou inonderait la base.
+  if (tropDeDemandes("signature", ipDe(req), 30)) {
+    return NextResponse.json({ error: "Trop de tentatives, réessaie dans une heure." }, { status: 429 });
+  }
   let body: { token?: string; nom?: string; signature?: string; consentGage?: boolean };
   try {
     body = await req.json();

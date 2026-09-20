@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 
 /**
  * PHOTO D'ILLUSTRATION DU VÉHICULE (v13.10)
@@ -62,6 +63,9 @@ async function chercherWikipedia(lang: "fr" | "en", q: string, marque: string): 
 }
 
 export async function GET(req: NextRequest) {
+  // Réservé aux utilisateurs connectés : sinon relais Wikipédia ouvert.
+  const user = await utilisateurDepuisRequete(req);
+  if (!user) return NextResponse.json(REPONSE_401, { status: 401 });
   const brut = (req.nextUrl.searchParams.get("q") || "").slice(0, 120);
   const q = libelleModele(brut);
   if (!q) return NextResponse.json({ url: null });
@@ -77,6 +81,8 @@ export async function GET(req: NextRequest) {
   } catch {
     /* réseau indisponible : pas de photo, l'appli n'en dépend pas */
   }
+  // Cache borné (audit) : au-delà de 2 000 modèles, on repart de zéro.
+  if (cache.size > 2000) cache.clear();
   cache.set(cle, resultat);
   return NextResponse.json(resultat, { headers: { "Cache-Control": "public, max-age=86400" } });
 }
