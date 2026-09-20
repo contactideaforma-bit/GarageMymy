@@ -230,6 +230,7 @@ export type Operation = {
   designation: string;
   qte: number;
   prix_unit: number; // € HT (pièce) — 0 pour une opération de main-d'œuvre
+  remise?: number | null; // % de remise sur la pièce (v13.11 — devis avec remise pièces, agrément)
   reference?: string | null;
   qualite?: "origine" | "equivalente" | "reemploi" | null; // O / Q / R (seconde main)
   fournisseur?: string | null;

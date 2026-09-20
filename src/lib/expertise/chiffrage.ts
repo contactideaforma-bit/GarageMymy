@@ -36,7 +36,8 @@ export function estForfait(poste: string): boolean {
 }
 
 export function montantOperation(o: Operation): number {
-  return ARRONDI((Number(o.qte) || 0) * (Number(o.prix_unit) || 0));
+  const brut = (Number(o.qte) || 0) * (Number(o.prix_unit) || 0);
+  return ARRONDI(brut * (1 - (Number(o.remise) || 0) / 100));
 }
 
 export type Synthese = {

@@ -14,6 +14,7 @@ import autoTable from "jspdf-autotable";
 import { Cabinet, DossierExpert, ProfilExpert, RapportExpert, nomExpert } from "./types";
 import { LEGENDE_DETAIL, LEGENDE_OPERATIONS, codeImprime, montantOperation, montantPoste, synthese } from "./chiffrage";
 import { supabase } from "@/lib/supabaseClient";
+import { POSITION_ZONE, zonesDeChoc } from "./zonesChoc";
 
 const GRIS = [242, 242, 242] as const;
 const GRIS_BARRE = [230, 230, 230] as const;
@@ -114,10 +115,26 @@ function enTete(c: Ctx) {
   ];
   lignes.forEach(([l, v, g], i) => ligneLabel(pdf, bx + 2.5, by + 4.2 + i * 3.6, l, v, 21, g));
 
-  // Silhouette du véhicule
+  // Silhouette du véhicule + croix sur les zones de choc (v13.11)
   pdf.setFillColor(...GRIS);
   pdf.rect(164.6, 11.4, 24.5, 33, "F");
-  if (c.voiture) pdf.addImage(c.voiture, "PNG", 168.5, 13, 16.5, 30);
+  const sx = 168.5, sy = 13, sw = 16.5, sh = 30;
+  if (c.voiture) pdf.addImage(c.voiture, "PNG", sx, sy, sw, sh);
+  const zones = zonesDeChoc(r.chocs || [], r.operations || []);
+  if (zones.length) {
+    pdf.setDrawColor(220, 38, 38);
+    pdf.setLineWidth(0.55);
+    const b = 1.4; // demi-branche de la croix (mm)
+    for (const z of zones) {
+      const [fx, fy] = POSITION_ZONE[z];
+      const x = sx + fx * sw;
+      const y = sy + fy * sh;
+      pdf.line(x - b, y - b, x + b, y + b);
+      pdf.line(x - b, y + b, x + b, y - b);
+    }
+    pdf.setDrawColor(...NOIR);
+    pdf.setLineWidth(0.2);
+  }
 }
 
 function pied(pdf: jsPDF, page: number, total: number) {
@@ -229,19 +246,29 @@ function page1(c: Ctx, signature: string | null) {
   pdf.text(txt(`ARG : ${d.pneu_arg || "-"}`), M + 2 * colW + 5, yp + 3.4);
   pdf.text(txt(`ARD : ${d.pneu_ard || "-"}`), M + 2 * colW + 32, yp + 3.4);
 
-  // Dommage
-  const yd = 133;
+  // Dommage — la description peut être longue : le reste de la page se
+  // décale d'autant (v13.11, plus de chevauchement), dans la limite de 6
+  // lignes (au-delà, la description est coupée avec « … »).
+  const yd = Math.max(133, yp + 8);
   barre(pdf, M, yd, LARGEUR, `Dommage : ${d.dommage_type || ""}`);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.6);
   const imput = `Dommage imputable : ${[d.dommage_imputable, d.dommage_intensite].filter(Boolean).join(", ")}${d.dommage_intensite ? "," : ""}`;
   pdf.text(txt(imput), M + 2.5, yd + 8);
+  let hDesc = 0;
   if (d.dommage_description) {
-    pdf.text(pdf.splitTextToSize(txt(d.dommage_description), LARGEUR - 5), M + 2.5, yd + 11.6);
+    const MAX_LIGNES = 6;
+    let lignes: string[] = pdf.splitTextToSize(txt(d.dommage_description), LARGEUR - 5);
+    if (lignes.length > MAX_LIGNES) {
+      lignes = lignes.slice(0, MAX_LIGNES);
+      lignes[MAX_LIGNES - 1] = lignes[MAX_LIGNES - 1].replace(/\s*\S*$/, "") + " …";
+    }
+    pdf.text(lignes, M + 2.5, yd + 11.6);
+    hDesc = lignes.length * 3.2;
   }
 
   // Expertise
-  const ye = 145;
+  const ye = yd + 12 + Math.max(0, hDesc - 3.2) + 2.4;
   barre(pdf, M, ye, LARGEUR, `Expertise : ${reparable ? "Véhicule réparable" : "Véhicule économiquement irréparable"}`);
   pdf.setFont("helvetica", "normal");
   pdf.text(txt(d.lieu_expertise || ""), M + 2.5, ye + 8);
@@ -249,7 +276,7 @@ function page1(c: Ctx, signature: string | null) {
   pdf.text(txt(d.type_expertise || ""), M + 90, ye + 8);
 
   // Conclusions | Chiffrage
-  const yc = 157.5;
+  const yc = ye + 12.5;
   const wConc = 90;
   const xChif = M + wConc + 2.5;
   const wChif = LARGEUR - wConc - 2.5;
@@ -292,7 +319,8 @@ function page1(c: Ctx, signature: string | null) {
     ["Main d'œuvre globale", s.mo],
     ["Pièces de rechange", s.pieces],
     ["Fournitures", s.fournitures],
-    ["Total vétusté", s.vetuste],
+    ["Remise", -s.remise],
+    ["Total vétusté", -s.vetuste],
     ["TOTAL Réparations", s.ht],
     ["TOTAL SRGC", s.srgc],
   ];
@@ -318,8 +346,9 @@ function page1(c: Ctx, signature: string | null) {
     pdf.text(eurosPoint(ht + tva), xTTC, y, { align: "right" });
   });
 
-  // Expert + signature
-  const yx = 217;
+  // Expert + signature — sous le bloc Conclusions / Chiffrage, quelle que
+  // soit la hauteur prise par le dommage.
+  const yx = Math.max(217, yc + 12.4 + (lignesChif.length - 1) * 3.6 + 10);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(8.5);
   pdf.text("EXPERT :", M + 1.5, yx);

@@ -27,7 +27,7 @@ const SCHEMA = `{"vehicule":{"immatriculation":string|null,"marque":string|null,
 "reparateur":{"nom":string|null,"adresse":string|null,"siret":string|null}|null,
 "document":{"numero":string|null,"date":string|null,"total_ht":number|null,"total_tva":number|null,"total_ttc":number|null}|null,
 "chocs":[{"numero":number,"libelle":string,"postes":[{"poste":string,"heures":number,"taux":number,"remise":number,"forfait":number|null}]}],
-"operations":[{"op":"E"|"FO"|"I"|"L"|"M"|"N"|"P"|"V"|"A"|"C","peinture":boolean,"designation":string,"qte":number,"prix_unit":number,"reference":string|null,"qualite":"origine"|"equivalente"|"reemploi"|null}],
+"operations":[{"op":"E"|"FO"|"I"|"L"|"M"|"N"|"P"|"V"|"A"|"C","peinture":boolean,"designation":string,"qte":number,"prix_unit":number,"remise":number,"reference":string|null,"qualite":"origine"|"equivalente"|"reemploi"|null}],
 "zones_endommagees":[{"zone":string,"gravite":"legere"|"moyenne"|"forte","description":string}],
 "dommages":string|null,
 "remarques":string|null,
@@ -37,6 +37,7 @@ const REGLES_COMMUNES = `CONVENTIONS DU RAPPORT D'EXPERTISE (modèle Alliance Ex
 - "chocs" : un choc par zone d'impact (en général 1). Ses "postes" sont les lignes de main-d'œuvre : "Tôlerie T1", "Tôlerie T2", "Tôlerie T3", "Mécanique M1", "Peinture T1", "Peinture T2", "Nacré vernis" (vernis / bi-couches), "Opaque vernis", "Ingrédients peinture" (→ mettre le montant dans "forfait" et heures 0), "Forfait" (→ "forfait"). heures en décimal, taux en €/h HT, remise en %.
 - "operations" : la liste "Opérations effectuées". Codes : E = remplacement (pièce, avec "prix_unit" HT unitaire et "qte"), I = redressage, L = peinture seule, N = dépose/repose, FO = forfait (montant dans prix_unit), M = marbre, P = contrôle, V = mesure, A = port, C = consigne. "peinture" = true quand l'opération inclut une peinture (le * du rapport). Les opérations de main-d'œuvre (I, L, N, P, V) ont qte 0 et prix_unit 0 : leur temps est déjà dans les postes du choc.
 - Désignations en MAJUSCULES, abrégées comme dans un chiffrage (AILE AVG., PORTE ARG., BOUCLIER AV., OPTIQUE AVD., CAPOT MOTEUR REPARER…). AVG/AVD/ARG/ARD = avant gauche / avant droit / arrière gauche / arrière droit.
+- REMISES : "remise" en % (0 si aucune). Sur un poste de main-d'œuvre, la remise de la ligne ou du tableau MO. Sur une pièce, la remise indiquée sur la ligne ou la remise globale "pièces" du document (ex. « remise pièces 10 % » → remise 10 sur chaque pièce E). "prix_unit" reste le prix unitaire AVANT remise.
 - Montants en euros HT, nombres avec point décimal, sans symbole. N'invente pas de références : null si absentes.
 Renvoie UNIQUEMENT cet objet JSON (aucun texte autour, pas de markdown) :
 ${SCHEMA}`;
@@ -93,6 +94,7 @@ function normaliser(brut: Record<string, unknown>) {
       designation: (texte(oo.designation, 120) || "").toUpperCase(),
       qte: nombre(oo.qte) ?? 0,
       prix_unit: nombre(oo.prix_unit) ?? 0,
+      remise: Math.min(100, Math.max(0, nombre(oo.remise) ?? 0)),
       reference: texte(oo.reference, 60),
       qualite: q === "origine" || q === "equivalente" || q === "reemploi" ? q : null,
     };

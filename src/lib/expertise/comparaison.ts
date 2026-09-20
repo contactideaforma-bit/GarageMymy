@@ -121,7 +121,8 @@ function decrirePoste(p: PosteAgrege): string {
 function decrireOperation(o: Operation): string {
   if (!o.qte && !o.prix_unit) return "main-d'œuvre";
   const q = o.qualite === "origine" ? " (O)" : o.qualite === "equivalente" ? " (Q)" : o.qualite === "reemploi" ? " (R)" : "";
-  return `${o.qte} × ${eur(o.prix_unit)}${q}`;
+  const rem = Number(o.remise) ? ` −${Number(o.remise)} %` : "";
+  return `${o.qte} × ${eur(o.prix_unit)}${rem}${q}`;
 }
 
 /* ------------------------------- Comparaison ------------------------ */
@@ -185,9 +186,9 @@ export function comparer(rapport: Pick<RapportExpert, "chocs" | "operations">, d
     x.vue = true;
     const a = x.o;
     const b = y.o;
-    const diff = Math.abs((a.qte || 0) - (b.qte || 0)) > 0.001 || Math.abs((a.prix_unit || 0) - (b.prix_unit || 0)) > 0.01 || (a.qualite || null) !== (b.qualite || null) || Boolean(a.peinture) !== Boolean(b.peinture);
+    const diff = Math.abs((a.qte || 0) - (b.qte || 0)) > 0.001 || Math.abs((a.prix_unit || 0) - (b.prix_unit || 0)) > 0.01 || Math.abs((Number(a.remise) || 0) - (Number(b.remise) || 0)) > 0.01 || (a.qualite || null) !== (b.qualite || null) || Boolean(a.peinture) !== Boolean(b.peinture);
     if (diff) {
-      const bd: Operation = { ...a, qte: b.qte, prix_unit: b.prix_unit, qualite: b.qualite ?? a.qualite ?? null, peinture: b.peinture, reference: b.reference || a.reference || null };
+      const bd: Operation = { ...a, qte: b.qte, prix_unit: b.prix_unit, remise: Number(b.remise) || 0, qualite: b.qualite ?? a.qualite ?? null, peinture: b.peinture, reference: b.reference || a.reference || null };
       ecarts.push({ id: id(), type: "operation", nature: "modification", libelle: `${a.op}${a.peinture ? "*" : ""} ${a.designation}`, avant: decrireOperation(a), apres: decrireOperation(b), montant_avant: montantOperation(a), montant_apres: montantOperation(b), decision: "refuse", operation: { cle: x.cle, devis: bd } });
     }
   }
@@ -241,7 +242,7 @@ export function appliquerDecisions(rapport: Pick<RapportExpert, "chocs" | "opera
         operations.push({ ...devis });
       } else if (e.nature === "modification" && devis) {
         const i = operations.findIndex((o) => cleOperation(o) === cle);
-        if (i >= 0) operations[i] = { ...operations[i], qte: devis.qte, prix_unit: devis.prix_unit, qualite: devis.qualite ?? null, peinture: devis.peinture, reference: devis.reference ?? operations[i].reference ?? null };
+        if (i >= 0) operations[i] = { ...operations[i], qte: devis.qte, prix_unit: devis.prix_unit, remise: Number(devis.remise) || 0, qualite: devis.qualite ?? null, peinture: devis.peinture, reference: devis.reference ?? operations[i].reference ?? null };
         else operations.push({ ...devis });
       }
     }

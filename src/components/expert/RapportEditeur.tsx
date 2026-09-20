@@ -481,7 +481,7 @@ export default function RapportEditeur({
             ) : (
               <div className="overflow-x-auto">
                 <table className="al-table">
-                  <thead><tr><th>Op.</th><th>*</th><th>Désignation</th><th className="num">Qté</th><th className="num">Prix unit. HT</th><th>Référence</th><th>Qualité</th><th className="num">Montant HT</th><th></th></tr></thead>
+                  <thead><tr><th>Op.</th><th>*</th><th>Désignation</th><th className="num">Qté</th><th className="num">Prix unit. HT</th><th className="num">Remise %</th><th>Référence</th><th>Qualité</th><th className="num">Montant HT</th><th></th></tr></thead>
                   <tbody>
                     {courant.operations.map((o, oi) => (
                       <tr key={oi}>
@@ -494,6 +494,7 @@ export default function RapportEditeur({
                         <td className="min-w-[14rem]"><input className="field-input uppercase" value={o.designation} disabled={lectureSeule} onChange={(e) => majOp(oi, { designation: e.target.value })} /></td>
                         <td className="num w-16"><input type="number" step="1" className="field-input text-right" value={o.qte} disabled={lectureSeule} onChange={(e) => majOp(oi, { qte: num(e.target.value) })} /></td>
                         <td className="num w-28"><input type="number" step="0.01" className="field-input text-right" value={o.prix_unit} disabled={lectureSeule} onChange={(e) => majOp(oi, { prix_unit: num(e.target.value) })} /></td>
+                        <td className="num w-20"><input type="number" step="1" min="0" max="100" className="field-input text-right" value={o.remise ?? 0} disabled={lectureSeule} onChange={(e) => majOp(oi, { remise: num(e.target.value) })} /></td>
                         <td className="w-32"><input className="field-input font-mono text-xs" value={o.reference || ""} disabled={lectureSeule} onChange={(e) => majOp(oi, { reference: e.target.value || null })} /></td>
                         <td className="w-28">
                           <select className="field-input" value={o.qualite || ""} disabled={lectureSeule} onChange={(e) => majOp(oi, { qualite: (e.target.value || null) as Operation["qualite"] })}>
