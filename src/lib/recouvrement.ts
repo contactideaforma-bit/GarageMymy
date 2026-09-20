@@ -251,6 +251,15 @@ export const ETAPES_PROCEDURE: EtapeProcedure[] = [
     delaiJours: 60,
   },
   {
+    code: "avocat",
+    titre: "Avocat (si la voie sans avocat n'aboutit pas)",
+    quand: "Opposition du débiteur à l'ordonnance, requête rejetée, pas d'accord en petites créances, ou créance contestée.",
+    comment:
+      "On confie le dossier à un avocat pour une assignation au fond (tribunal judiciaire ou de commerce) ou pour suivre l'opposition. L'appli prépare le dossier de transmission : récapitulatif de la créance, chronologie des démarches, liste des pièces. Les honoraires peuvent être réclamés au débiteur au titre de l'article 700 CPC.",
+    textes: "Art. 1418 CPC (opposition) ; art. 750-1 et 700 CPC ; représentation obligatoire au-delà de 10 000 € devant le tribunal judiciaire (art. 761 CPC).",
+    delaiJours: 30,
+  },
+  {
     code: "execution",
     titre: "Exécution forcée",
     quand: "Titre exécutoire obtenu (ordonnance non contestée ou accord homologué).",
@@ -301,9 +310,11 @@ export function estimerPenalites(reste: number, joursRetard: number, professionn
 
 /* --------------------- Modèles de courriers ---------------------------- */
 
+export type TypeCourrier = "relance" | "mise_en_demeure" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire";
+
 export type CibleCourrier = {
-  /** client | assurance */
-  type: "client" | "assurance";
+  /** client | assurance | tiers (conciliateur, tribunal, commissaire de justice) */
+  type: "client" | "assurance" | "tiers";
   nom: string;
   adresse: string;
   professionnel: boolean;
@@ -358,15 +369,22 @@ export function cibleAssurance(dossier: Dossier): CibleCourrier {
  * signer. `niveau` = nombre de relances déjà faites + 1 (pour la relance).
  */
 export function modeleCourrier(args: {
-  type: "relance" | "mise_en_demeure";
+  type: TypeCourrier;
   facture: Document;
   dossier: Dossier;
   cible: CibleCourrier;
   reste: number;
   niveau?: number;
   garage?: string | null;
+  /** Débiteur (pour les courriers adressés à un tiers : conciliateur, tribunal…). */
+  debiteur?: CibleCourrier;
+  /** Étapes déjà réalisées (dates de la mise en demeure, du recommandé…). */
+  etapes?: EtapesFaites | null;
 }): ModeleCourrier {
   const { type, facture, dossier, cible, reste } = args;
+  if (type === "saisine_conciliateur" || type === "reclamation_assureur" || type === "requete_injonction" || type === "transmission_avocat" || type === "remise_commissaire") {
+    return modeleCourrierProcedure(args);
+  }
   const ref =
     `facture n° ${facture.numero || "—"}` +
     (dossier.numero_sinistre ? ` — sinistre n° ${dossier.numero_sinistre}` : "") +
@@ -423,7 +441,194 @@ export function modeleCourrier(args: {
 export const LIBELLE_TYPE_COURRIER: Record<string, string> = {
   relance: "Courrier de relance",
   mise_en_demeure: "Mise en demeure de payer",
+  saisine_conciliateur: "Saisine du conciliateur de justice",
+  reclamation_assureur: "Réclamation à l'assureur",
+  requete_injonction: "Lettre d'accompagnement — requête en injonction de payer",
+  transmission_avocat: "Dossier de transmission à l'avocat",
+  remise_commissaire: "Remise du titre au commissaire de justice",
 };
+
+/* ===================== Étapes réalisées (v13.12) ====================== */
+
+export type EtapeFaite = { fait_le: string; ref?: string | null; note?: string | null };
+export type EtapesFaites = Record<string, EtapeFaite>;
+
+/** Ce que l'appli demande pour marquer chaque étape comme faite. */
+export const SAISIE_ETAPE: Record<string, { ref: string | null; aide: string }> = {
+  amiable: { ref: null, aide: "Au moins une relance (email, courrier ou appel noté au journal)." },
+  mise_en_demeure: { ref: "N° du recommandé", aide: "La mise en demeure est envoyée en recommandé AR : le n° de suivi sert de preuve." },
+  amiable_judiciaire: { ref: "Référence (conciliateur / réclamation)", aide: "Date de saisine du conciliateur, ou de la réclamation à l'assureur — ou « dispensée » (injonction de payer)." },
+  judiciaire: { ref: "N° de requête / d'ordonnance", aide: "Voie sans avocat : requête déposée (cerfa) ou petites créances engagées. Ordonnance obtenue → exécution ; opposition, rejet ou échec → avocat." },
+  avocat: { ref: "Avocat (nom, cabinet) / n° RG", aide: "Dossier transmis à l'avocat ; jugement obtenu → exécution forcée." },
+  execution: { ref: "Titre exécutoire (date / n°)", aide: "Ordonnance revêtue de la formule exécutoire ou accord homologué, remis au commissaire de justice." },
+};
+
+/* ======================= Voie judiciaire (v13.12) ===================== */
+
+export type VoieJudiciaire = {
+  code: "petites_creances" | "injonction_tj" | "injonction_tc";
+  titre: string;
+  pourquoi: string;
+  /** Ce que le garage fait concrètement. */
+  demarche: string;
+  cerfa: string | null;
+  lien: string;
+  lienLabel: string;
+};
+
+/**
+ * Choisit la voie sans avocat adaptée au montant et au débiteur :
+ *  · ≤ 5 000 € et débiteur particulier → petites créances (commissaire de justice)
+ *  · débiteur particulier → injonction de payer au tribunal judiciaire (cerfa 12948)
+ *  · débiteur société / assureur → injonction de payer au tribunal de commerce (cerfa 12946)
+ */
+export function voieJudiciaire(reste: number, debiteurProfessionnel: boolean): VoieJudiciaire {
+  if (!debiteurProfessionnel && reste <= 5000) {
+    return {
+      code: "petites_creances",
+      titre: "Procédure simplifiée de recouvrement des petites créances",
+      pourquoi: `Créance de ${eur(reste)} (≤ 5 000 €) contre un particulier : un commissaire de justice invite le débiteur à s'accorder sous 1 mois ; en cas d'accord, titre exécutoire sans passer devant le juge.`,
+      demarche: "Saisir un commissaire de justice (ex-huissier) en ligne ou près du domicile du débiteur, avec la facture, l'ordre de réparation signé, les relances et la mise en demeure + AR. Frais fixes modestes, à la charge du créancier.",
+      cerfa: null,
+      lien: "https://www.petitescreances.fr",
+      lienLabel: "petitescreances.fr (commissaires de justice)",
+    };
+  }
+  if (!debiteurProfessionnel) {
+    return {
+      code: "injonction_tj",
+      titre: "Injonction de payer — tribunal judiciaire",
+      pourquoi: `Créance de ${eur(reste)} contre un particulier : requête au tribunal judiciaire du domicile du débiteur, sans avocat.`,
+      demarche: "Remplir le cerfa 12948, joindre les pièces (facture, OR signé, relances, mise en demeure + AR), déposer ou envoyer au greffe. L'ordonnance doit être signifiée sous 3 mois ; le débiteur a 1 mois pour s'opposer.",
+      cerfa: "12948",
+      lien: "https://www.service-public.fr/particuliers/vosdroits/R14895",
+      lienLabel: "Cerfa 12948 — service-public.fr",
+    };
+  }
+  return {
+    code: "injonction_tc",
+    titre: "Injonction de payer — tribunal de commerce",
+    pourquoi: `Créance de ${eur(reste)} contre une société (assureur, entreprise) : requête au tribunal de commerce du siège du débiteur, sans avocat.`,
+    demarche: "Remplir le cerfa 12946 (ou déposer en ligne sur tribunaldigital.fr), joindre les pièces (facture, OR signé, relances, mise en demeure + AR, cession de créance ou accord de prise en charge le cas échéant). Signification sous 3 mois ; opposition possible sous 1 mois.",
+    cerfa: "12946",
+    lien: "https://www.tribunaldigital.fr",
+    lienLabel: "tribunaldigital.fr (dépôt en ligne) — cerfa 12946",
+  };
+}
+
+/** Pièces attendues au dossier pour la voie judiciaire. */
+export type PieceProcedure = { code: string; label: string; ok: boolean; detail: string };
+
+export function piecesProcedure(args: {
+  facture: Document | null;
+  ordreSigne: boolean;
+  nbRelances: number;
+  miseEnDemeure: { envoyee: boolean; lrar: boolean; numero_suivi?: string | null };
+  cession: boolean;
+}): PieceProcedure[] {
+  return [
+    { code: "facture", label: "Facture impayée", ok: Boolean(args.facture), detail: args.facture ? `N° ${args.facture.numero || "—"}` : "Aucune facture sur le dossier" },
+    { code: "or", label: "Ordre de réparation / devis signé", ok: args.ordreSigne, detail: args.ordreSigne ? "Signé" : "Non signé — preuve de l'accord sur les travaux" },
+    { code: "relances", label: "Relances", ok: args.nbRelances > 0, detail: args.nbRelances ? `${args.nbRelances} relance(s) au journal` : "Aucune relance enregistrée" },
+    {
+      code: "med",
+      label: "Mise en demeure + accusé de réception",
+      ok: args.miseEnDemeure.envoyee && args.miseEnDemeure.lrar,
+      detail: !args.miseEnDemeure.envoyee ? "Non envoyée" : args.miseEnDemeure.lrar ? `Recommandé${args.miseEnDemeure.numero_suivi ? ` n° ${args.miseEnDemeure.numero_suivi}` : ""}` : "Envoyée mais pas en recommandé AR",
+    },
+    ...(args.cession ? [{ code: "cession", label: "Cession de créance / accord de prise en charge", ok: true, detail: "Présent au dossier" }] : []),
+  ];
+}
+
+/* ================ Courriers de procédure (v13.12) ==================== */
+
+function modeleCourrierProcedure(args: {
+  type: TypeCourrier;
+  facture: Document;
+  dossier: Dossier;
+  cible: CibleCourrier;
+  reste: number;
+  garage?: string | null;
+  debiteur?: CibleCourrier;
+  etapes?: EtapesFaites | null;
+}): ModeleCourrier {
+  const { type, facture, dossier, reste } = args;
+  const deb = args.debiteur || cibleParDefaut(dossier);
+  const ref = `facture n° ${facture.numero || "—"} du ${dateFr(facture.date_document || facture.created_at)}` +
+    (dossier.numero_sinistre ? ` (sinistre n° ${dossier.numero_sinistre}` + (dossier.immatriculation ? `, véhicule ${dossier.immatriculation}` : "") + ")" : "");
+  const med = args.etapes?.mise_en_demeure;
+  const medTxt = med ? `mise en demeure du ${dateFr(med.fait_le)}${med.ref ? ` (recommandé n° ${med.ref})` : ""} restée sans effet` : "mise en demeure restée sans effet";
+  const garage = args.garage || "Le garage";
+  const fin = `Nous restons à votre disposition pour toute pièce complémentaire.\n\n${garage}`;
+
+  if (type === "saisine_conciliateur") {
+    return {
+      objet: `Demande de conciliation — ${ref}`,
+      delaiJours: 30,
+      corps:
+        `Madame, Monsieur le Conciliateur de justice,\n\nNous sollicitons votre intervention en vue d'une conciliation avec ${deb.nom}${deb.adresse ? `, ${deb.adresse.replace(/\n/g, ", ")}` : ""}.\n\n` +
+        `Nous avons réalisé pour ce dernier des travaux de réparation automobile ayant donné lieu à la ${ref}, d'un montant de ${eur(Number(facture.total_ttc) || 0)} TTC, dont un solde de ${eur(reste)} demeure impayé malgré nos relances et une ${medTxt}.\n\n` +
+        `Nous demandons le paiement de cette somme, majorée des intérêts légaux. Nous joignons la facture, l'ordre de réparation signé, nos relances et la mise en demeure avec son accusé de réception.\n\n` +
+        `Nous sommes disponibles pour une réunion de conciliation aux dates que vous voudrez bien nous proposer.\n\n${fin}`,
+    };
+  }
+  if (type === "reclamation_assureur") {
+    return {
+      objet: `RÉCLAMATION — ${ref}`,
+      delaiJours: 60,
+      corps:
+        `Madame, Monsieur,\n\nNous saisissons votre service réclamations au sujet de la ${ref}, relative aux réparations du véhicule de votre assuré${dossier.client_nom ? ` ${dossier.client_nom}` : ""}${dossier.mode_cession ? ", pour laquelle une cession de créance nous a été consentie" : dossier.mode_pec ? ", prise en charge acceptée par vos services" : ""}.\n\n` +
+        `Un solde de ${eur(reste)} demeure impayé malgré nos relances et une ${medTxt}.\n\n` +
+        `Nous vous demandons le règlement de cette somme sous deux mois, majorée des pénalités de retard et de l'indemnité forfaitaire de recouvrement (art. L441-10 et D441-5 du Code de commerce). À défaut de réponse satisfaisante dans ce délai, nous saisirons le Médiateur de l'assurance, puis, si nécessaire, le tribunal de commerce par voie d'injonction de payer.\n\n${fin}`,
+    };
+  }
+  if (type === "requete_injonction") {
+    const voie = voieJudiciaire(reste, deb.professionnel);
+    return {
+      objet: `Requête en injonction de payer — ${ref}`,
+      delaiJours: 60,
+      corps:
+        `Madame, Monsieur le Greffier en chef,\n\nVeuillez trouver ci-joint notre requête en injonction de payer${voie.cerfa ? ` (cerfa ${voie.cerfa})` : ""} à l'encontre de ${deb.nom}${deb.adresse ? `, ${deb.adresse.replace(/\n/g, ", ")}` : ""}, pour un montant en principal de ${eur(reste)} au titre de la ${ref}, outre les intérêts et l'indemnité forfaitaire de recouvrement le cas échéant.\n\n` +
+        `Pièces jointes :\n1. Facture n° ${facture.numero || "—"}\n2. Ordre de réparation / devis signé\n3. Relances\n4. Mise en demeure${med?.ref ? ` (recommandé n° ${med.ref})` : ""} et accusé de réception${dossier.mode_cession ? "\n5. Cession de créance" : dossier.mode_pec ? "\n5. Accord de prise en charge" : ""}\n\n` +
+        `Nous vous remercions de bien vouloir nous adresser l'ordonnance à intervenir.\n\n${fin}`,
+    };
+  }
+  if (type === "transmission_avocat") {
+    const et = args.etapes || {};
+    const chrono = [
+      ["Facture", `${dateFr(facture.date_document || facture.created_at)} — ${eur(Number(facture.total_ttc) || 0)} TTC${facture.date_echeance ? `, échéance ${dateFr(facture.date_echeance)}` : ""}`],
+      ["Relances amiables", et.amiable ? `faites (${dateFr(et.amiable.fait_le)})` : "voir journal des échanges"],
+      ["Mise en demeure", et.mise_en_demeure ? `${dateFr(et.mise_en_demeure.fait_le)}${et.mise_en_demeure.ref ? `, recommandé n° ${et.mise_en_demeure.ref}` : ""}` : "—"],
+      ["Tentative amiable", et.amiable_judiciaire ? `${dateFr(et.amiable_judiciaire.fait_le)}${et.amiable_judiciaire.ref ? ` — ${et.amiable_judiciaire.ref}` : ""}` : "—"],
+      ["Voie sans avocat", et.judiciaire ? `${dateFr(et.judiciaire.fait_le)}${et.judiciaire.ref ? ` — ${et.judiciaire.ref}` : ""}${et.judiciaire.note ? ` — ${et.judiciaire.note}` : ""}` : "—"],
+    ].map(([l, v]) => `• ${l} : ${v}`).join("\n");
+    return {
+      objet: `Transmission d'un dossier de recouvrement — ${ref}`,
+      delaiJours: 30,
+      corps:
+        `Maître,\n\nNous vous confions le recouvrement d'une créance de ${eur(reste)} en principal (${ref}) à l'encontre de ${deb.nom}${deb.adresse ? `, ${deb.adresse.replace(/\n/g, ", ")}` : ""}, ${deb.professionnel ? "société" : "particulier"}.\n\n` +
+        `Chronologie des démarches :\n${chrono}\n\n` +
+        `La voie sans avocat n'ayant pas abouti, nous souhaitons engager une assignation au fond (ou suivre l'opposition formée), avec demande au titre de l'article 700 du Code de procédure civile.\n\n` +
+        `Pièces jointes : facture, ordre de réparation signé, relances, mise en demeure et accusé de réception, courriers de procédure, ${dossier.mode_cession ? "cession de créance, " : dossier.mode_pec ? "accord de prise en charge, " : ""}journal des échanges.\n\n` +
+        `Merci de nous indiquer vos honoraires et la suite que vous proposez.\n\n${fin}`,
+    };
+  }
+  // remise_commissaire
+  const titre = args.etapes?.execution?.ref ? ` (${args.etapes.execution.ref})` : "";
+  return {
+    objet: `Remise d'un titre exécutoire pour exécution — ${ref}`,
+    delaiJours: 30,
+    corps:
+      `Maître,\n\nNous vous remettons ci-joint, pour exécution, le titre exécutoire${titre} obtenu à l'encontre de ${deb.nom}${deb.adresse ? `, ${deb.adresse.replace(/\n/g, ", ")}` : ""}, portant sur la somme de ${eur(reste)} en principal au titre de la ${ref}, outre intérêts et frais.\n\n` +
+      `Nous vous prions de bien vouloir procéder à la signification puis aux mesures d'exécution que vous jugerez utiles (saisie-attribution sur compte bancaire, saisie-vente…), les frais étant à la charge du débiteur.\n\n` +
+      `Pièces jointes : titre exécutoire, facture, mise en demeure et accusé de réception.\n\n${fin}`,
+  };
+}
+
+/** Destinataire « tiers » vierge (conciliateur, greffe, commissaire de justice). */
+export function cibleTiers(nom: string, adresse = ""): CibleCourrier {
+  return { type: "tiers", nom, adresse, professionnel: true, email: null };
+}
 export const INTERLOCUTEURS: { code: string; label: string }[] = [
   { code: "client", label: "Client" },
   { code: "assurance", label: "Assurance" },

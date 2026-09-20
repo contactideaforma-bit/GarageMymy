@@ -88,7 +88,9 @@ export type Dossier = {
   // v12.7 — mode « retard de paiement » assisté (migration v70)
   retard_paiement?: boolean | null;
   retard_depuis?: string | null;
-  retard_etape?: string | null; // amiable | mise_en_demeure | amiable_judiciaire | judiciaire | execution
+  retard_etape?: string | null; // amiable | mise_en_demeure | amiable_judiciaire | judiciaire | avocat | execution
+  /** v13.12 — étapes de la procédure réalisées : { code: { fait_le, ref?, note? } } */
+  retard_etapes?: Record<string, { fait_le: string; ref?: string | null; note?: string | null }> | null;
   /** v11.2 — mentions particulières lues dans le rapport (jsonb, cf. lib/mentionsRapport). */
   mentions_rapport?: unknown;
   pec_reference?: string | null; // référence / n° de l'accord (optionnel)
@@ -328,8 +330,8 @@ export type CourrierRecouvrement = {
   created_at: string;
   dossier_id: string;
   document_id: string | null;
-  type: "relance" | "mise_en_demeure";
-  destinataire: "client" | "assurance";
+  type: "relance" | "mise_en_demeure" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire";
+  destinataire: "client" | "assurance" | "tiers";
   destinataire_nom: string | null;
   destinataire_adresse: string | null;
   objet: string | null;
@@ -344,6 +346,8 @@ export type CourrierRecouvrement = {
   canal_envoi: string | null; // email | courrier | lrar | remis_en_main
   statut: "brouillon" | "signe" | "envoye";
   notes: string | null;
+  /** v13.12 — n° du recommandé / de suivi postal. */
+  numero_suivi?: string | null;
 };
 
 export type OrdreReparation = {

@@ -2366,7 +2366,16 @@ export async function commandePiecesPdfBase64(commandes: CommandePiece[], dossie
 ==================================================================== */
 
 export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, dossier: Dossier): Promise<jsPDF> {
-  const titre = c.type === "mise_en_demeure" ? "MISE EN DEMEURE DE PAYER" : "COURRIER DE RELANCE";
+  const TITRES: Record<string, string> = {
+    relance: "COURRIER DE RELANCE",
+    mise_en_demeure: "MISE EN DEMEURE DE PAYER",
+    saisine_conciliateur: "DEMANDE DE CONCILIATION",
+    reclamation_assureur: "RÉCLAMATION",
+    requete_injonction: "REQUÊTE EN INJONCTION DE PAYER",
+    transmission_avocat: "DOSSIER DE RECOUVREMENT",
+    remise_commissaire: "REMISE D'UN TITRE EXÉCUTOIRE",
+  };
+  const titre = TITRES[c.type] || "COURRIER";
   const ctx = await startAttestationPdf(titre, null, c.date_courrier || new Date().toISOString());
   const { pdf, M, pageW, pageH } = ctx;
 
@@ -2385,9 +2394,9 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
   const lieu = ctx.ent.ville ? `${ctx.ent.ville}, le ` : "Le ";
   pdf.text(`${lieu}${dateFr(c.date_courrier || new Date().toISOString())}`, pageW - M, ctx.y, { align: "right" });
   ctx.y += 5;
-  if (c.type === "mise_en_demeure") {
+  if (c.type === "mise_en_demeure" || c.type === "reclamation_assureur" || c.canal_envoi === "lrar") {
     pdf.setFont("helvetica", "bold");
-    pdf.text("Lettre recommandée avec accusé de réception", M, ctx.y);
+    pdf.text(`Lettre recommandée avec accusé de réception${c.numero_suivi ? ` n° ${c.numero_suivi}` : ""}`, M, ctx.y);
     pdf.setFont("helvetica", "normal");
     ctx.y += 6;
   }
@@ -2437,12 +2446,13 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
   // Pièce jointe rappelée en bas
   pdf.setFontSize(8);
   pdf.setTextColor(120);
-  pdf.text("P.J. : copie de la facture concernée.", M, ctx.y);
+  pdf.text(c.type === "relance" || c.type === "mise_en_demeure" ? "P.J. : copie de la facture concernée." : "P.J. : voir la liste des pièces dans le courrier.", M, ctx.y);
   return pdf;
 }
 
 export function nomFichierCourrier(c: CourrierRecouvrement, numeroFacture?: string | null): string {
-  const genre = c.type === "mise_en_demeure" ? "Mise en demeure" : "Relance";
+  const GENRES: Record<string, string> = { relance: "Relance", mise_en_demeure: "Mise en demeure", saisine_conciliateur: "Saisine conciliateur", reclamation_assureur: "Réclamation assureur", requete_injonction: "Requête injonction", transmission_avocat: "Dossier avocat", remise_commissaire: "Remise commissaire de justice" };
+  const genre = GENRES[c.type] || "Courrier";
   return nomFichierSur(numeroFacture ? `${genre} facture N°${numeroFacture}` : `${genre} ${dateFr(c.date_courrier)}`);
 }
 
