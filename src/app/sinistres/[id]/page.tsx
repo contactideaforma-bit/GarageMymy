@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import PhotoVehicule from "@/components/PhotoVehicule";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -966,6 +967,7 @@ export default function DossierDetailPage() {
       {/* Infos */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <Card title="Véhicule">
+          <PhotoVehicule marqueModele={dossier.marque_modele} />
           <InfoRow label="Immatriculation" value={dossier.immatriculation} />
           <InfoRow label="Marque et modèle" value={dossier.marque_modele} />
           <InfoRow label="N° de série (VIN)" value={dossier.numero_serie} />
