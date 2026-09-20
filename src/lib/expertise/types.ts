@@ -252,8 +252,33 @@ export type RapportExpert = {
   vetuste: number | null;
   srgc: number | null;
   pdf_path: string | null;
+  /** v13.11 — comparaison devis ↔ pré-rapport ayant produit cette version (null sinon). */
+  comparaison?: ComparaisonRapport | null;
   created_at: string;
   updated_at: string;
+};
+
+export type ComparaisonRapport = {
+  document_id: string | null;
+  document_nom: string | null;
+  rapport_base_id: string;
+  base_version: number;
+  date: string;
+  total_pre_rapport: number;
+  total_devis: number;
+  commentaire: string | null;
+  ecarts: {
+    id: string;
+    type: "poste" | "operation";
+    nature: "ajout" | "suppression" | "modification";
+    libelle: string;
+    avant: string | null;
+    apres: string | null;
+    montant_avant: number;
+    montant_apres: number;
+    decision: "accepte" | "refuse";
+    commentaire?: string | null;
+  }[];
 };
 
 export type PieceExpert = {

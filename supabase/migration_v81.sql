@@ -1,0 +1,12 @@
+-- ============================================================
+--  MIGRATION v81 — MODE EXPERT : comparaison devis ↔ pré-rapport (v13.11)
+--
+--  L'expert reçoit le devis du réparateur, le compare au pré-rapport,
+--  accepte ou refuse chaque écart, puis établit le rapport définitif.
+--  La comparaison (document, écarts, décisions, commentaire) est
+--  conservée sur la version du rapport qu'elle a produite, pour être
+--  imprimée dans le PV et retrouvée plus tard.
+--
+--  À coller dans Supabase > SQL Editor puis Run. Idempotente.
+-- ============================================================
+alter table expertise_rapports add column if not exists comparaison jsonb;

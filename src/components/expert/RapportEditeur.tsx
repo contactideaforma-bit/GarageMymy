@@ -28,6 +28,8 @@ import {
 } from "@/lib/expertise/types";
 import { POSTES_STANDARD, chocParDefaut, immobilisationEstimee, montantOperation, montantPoste, operationVide, synthese } from "@/lib/expertise/chiffrage";
 import { apercuRapportPdf, blobRapportPdf, telechargerRapportPdf } from "@/lib/expertise/rapportPdf";
+import ComparaisonDevis from "@/components/expert/ComparaisonDevis";
+import type { Comparaison } from "@/lib/expertise/comparaison";
 
 type Analyse = {
   vehicule: { immatriculation: string | null; marque: string | null; modele: string | null; vin: string | null; kilometrage: number | null } | null;
@@ -41,7 +43,8 @@ type Analyse = {
   confiance: "faible" | "moyenne" | "bonne";
 };
 
-type SourceIA = { mode: "devis" | "facture"; doc?: DocumentExpert; file?: File } | { mode: "photos" };
+/** but = "comparer" (v13.11) : le devis est confronté au pré-rapport au lieu de le remplacer. */
+type SourceIA = { mode: "devis" | "facture"; doc?: DocumentExpert; file?: File; but?: "comparer" } | { mode: "photos" };
 
 async function reduireImage(blob: Blob, maxDim = 1280): Promise<Blob> {
   const url = URL.createObjectURL(blob);
@@ -79,7 +82,7 @@ export default function RapportEditeur({
   photos: PhotoExpert[];
   documents: DocumentExpert[];
   /** Demande venue d'un autre onglet (« Générer le rapport » depuis un devis). */
-  demandeSource?: { doc: DocumentExpert; mode: "devis" | "facture"; cle: number } | null;
+  demandeSource?: { doc: DocumentExpert; mode: "devis" | "facture"; cle: number; but?: "comparer" } | null;
   onDossierChange: (d: DossierExpert) => void;
   /** Pièce envoyée depuis l'onglet Pièces (« → Chiffrage »). */
   onOperationExterne?: (recevoir: (op: Operation) => void) => void;
@@ -97,8 +100,11 @@ export default function RapportEditeur({
   const [choixSource, setChoixSource] = useState(false);
   const [analyse, setAnalyse] = useState<{ source: SourceIA; resultat: Analyse | null; encours: boolean; erreur: string | null } | null>(null);
   const [pdfEnCours, setPdfEnCours] = useState<string | null>(null);
+  // v13.11 : comparaison devis ↔ pré-rapport (écarts à accepter / refuser).
+  const [comparaison, setComparaison] = useState<{ base: RapportExpert; resultat: Analyse; doc: { id: string | null; nom: string | null } } | null>(null);
   const fichierIA = useRef<HTMLInputElement>(null);
   const modeFichier = useRef<"devis" | "facture">("devis");
+  const butFichier = useRef<"comparer" | undefined>(undefined);
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
   const derniereDemande = useRef<number>(0);
 
@@ -176,7 +182,7 @@ export default function RapportEditeur({
   useEffect(() => {
     if (!demandeSource || demandeSource.cle === derniereDemande.current) return;
     derniereDemande.current = demandeSource.cle;
-    lancerAnalyse({ mode: demandeSource.mode, doc: demandeSource.doc });
+    lancerAnalyse({ mode: demandeSource.mode, doc: demandeSource.doc, but: demandeSource.but });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demandeSource]);
 
@@ -237,6 +243,12 @@ export default function RapportEditeur({
       const res = await fetchAuth("/api/expert/analyser", { method: "POST", body: form });
       const r = await lireReponse<{ data: Analyse }>(res);
       if (!r.ok || !r.data) throw new Error(r.error || "Analyse impossible.");
+      if (source.mode !== "photos" && source.but === "comparer") {
+        if (!courant) throw new Error("Aucun pré-rapport à comparer : crée d'abord le rapport.");
+        setAnalyse(null);
+        setComparaison({ base: courant, resultat: r.data.data, doc: { id: source.doc?.id ?? null, nom: source.doc?.nom ?? source.file?.name ?? null } });
+        return;
+      }
       setAnalyse({ source, resultat: r.data.data, encours: false, erreur: null });
     } catch (e) {
       setAnalyse({ source, resultat: null, encours: false, erreur: messageErreur(e, "Analyse impossible.") });
@@ -299,6 +311,27 @@ export default function RapportEditeur({
     } catch (e) { setErreur(messageErreur(e, "Émission impossible.")); } finally { setPdfEnCours(null); }
   }
 
+  /* ------------------ Rapport définitif après comparaison ------------ */
+  async function validerComparaison(c: Comparaison, resultat: { chocs: Choc[]; operations: Operation[] }) {
+    if (!comparaison) return;
+    const base = comparaison.base;
+    try {
+      const r = await creerRapport({
+        dossier, source: "devis", chocs: resultat.chocs, operations: resultat.operations,
+        taux_tva: base.taux_tva ?? (Number(cabinet?.taux_tva) || 20), remise: base.remise, vetuste: base.vetuste, srgc: base.srgc,
+        comparaison: c,
+      });
+      await recharger();
+      setCourant(r);
+      if (dossier.statut === "mission" || dossier.statut === "visite") onDossierChange(await majDossier(dossier.id, { statut: "chiffrage" }));
+      const acceptes = c.ecarts.filter((e) => e.decision === "accepte").length;
+      setInfo(`Rapport définitif v${r.version} établi : ${acceptes} écart(s) du devis accepté(s) sur ${c.ecarts.length}. Relis, puis émets le rapport.`);
+      setComparaison(null);
+    } catch (e) {
+      setErreur(messageErreur(e, "Création du rapport définitif impossible."));
+    }
+  }
+
   async function nouvelleVersion() {
     if (!courant) return;
     await creer(courant.source, courant.chocs.map((c) => ({ ...c })), courant.operations.map((o) => ({ ...o })));
@@ -327,7 +360,7 @@ export default function RapportEditeur({
     <div className="space-y-4">
       <Erreur message={erreur} />
       {info && <div className="alerte alerte-ok text-sm flex items-start justify-between gap-2"><span>{info}</span><button className="text-xs underline" onClick={() => setInfo(null)}>fermer</button></div>}
-      <input ref={fichierIA} type="file" accept="application/pdf,image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) lancerAnalyse({ mode: modeFichier.current, file: f }); e.target.value = ""; }} />
+      <input ref={fichierIA} type="file" accept="application/pdf,image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) lancerAnalyse({ mode: modeFichier.current, file: f, but: butFichier.current }); butFichier.current = undefined; e.target.value = ""; }} />
 
       {/* ------------------------ Barre des versions ---------------------- */}
       <div className="glass-card flex flex-wrap items-center justify-between gap-2 p-3">
@@ -347,6 +380,9 @@ export default function RapportEditeur({
         </div>
         <div className="flex flex-wrap gap-2">
           <button className="btn-primary btn-compact" onClick={() => setChoixSource(true)}><Icone nom="ia" /> {courant ? "Générer automatiquement" : "Créer le rapport"}</button>
+          {courant && devis.length > 0 && (
+            <button className="btn-ghost btn-compact" title="Confronter le devis du réparateur au pré-rapport" onClick={() => lancerAnalyse({ mode: "devis", doc: devis[devis.length - 1], but: "comparer" })}><Icone nom="rapport" /> Comparer le devis</button>
+          )}
           {courant && (
             <>
               <button className="btn-ghost btn-compact" disabled={pdfEnCours !== null} onClick={async () => { setPdfEnCours("apercu"); try { await apercuRapportPdf(dossier, courant, cabinet, expert); } catch (e) { setErreur(messageErreur(e, "Aperçu impossible.")); } finally { setPdfEnCours(null); } }}><Icone nom="oeil" /> Aperçu PDF</button>
@@ -385,6 +421,14 @@ export default function RapportEditeur({
               <Champ label="Taux de TVA (%)"><input type="number" step="0.1" className="field-input" value={courant.taux_tva ?? 20} disabled={lectureSeule} onChange={(e) => modifier({ taux_tva: Number(e.target.value) })} /></Champ>
               <Champ label="Source"><input className="field-input" value={courant.source} disabled /></Champ>
             </div>
+            {courant.comparaison && (
+              <div className="alerte alerte-warn mt-3 text-sm">
+                <span className="alerte-titre">Rapport définitif établi le {formatDate(courant.comparaison.date)} après comparaison du devis{courant.comparaison.document_nom ? ` « ${courant.comparaison.document_nom} »` : ""} avec le pré-rapport v{courant.comparaison.base_version} : </span>
+                {courant.comparaison.ecarts.filter((e) => e.decision === "accepte").length} écart(s) accepté(s), {courant.comparaison.ecarts.filter((e) => e.decision === "refuse").length} refusé(s)
+                {" "}({formatEuros(courant.comparaison.total_pre_rapport)} → devis {formatEuros(courant.comparaison.total_devis)} HT).
+                {courant.comparaison.commentaire && <div className="mt-1 text-white/70">{courant.comparaison.commentaire}</div>}
+              </div>
+            )}
           </Bloc>
 
           {/* --------------------------- Chocs ----------------------------- */}
@@ -538,16 +582,26 @@ export default function RapportEditeur({
               <div className="font-semibold"><Icone nom="document" /> Depuis un devis du garage</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {devis.map((d) => <button key={d.id} className="btn-ghost btn-compact" onClick={() => lancerAnalyse({ mode: "devis", doc: d })}>{d.nom}</button>)}
-                <button className="btn-primary btn-compact" onClick={() => { modeFichier.current = "devis"; fichierIA.current?.click(); }}><Icone nom="trombone" /> Choisir un fichier</button>
+                <button className="btn-primary btn-compact" onClick={() => { modeFichier.current = "devis"; butFichier.current = undefined; fichierIA.current?.click(); }}><Icone nom="trombone" /> Choisir un fichier</button>
               </div>
             </div>
             <div className="glass-soft p-3">
               <div className="font-semibold"><Icone nom="facture" /> Depuis une facture du garage</div>
               <div className="mt-2 flex flex-wrap gap-2">
                 {factures.map((d) => <button key={d.id} className="btn-ghost btn-compact" onClick={() => lancerAnalyse({ mode: "facture", doc: d })}>{d.nom}</button>)}
-                <button className="btn-primary btn-compact" onClick={() => { modeFichier.current = "facture"; fichierIA.current?.click(); }}><Icone nom="trombone" /> Choisir un fichier</button>
+                <button className="btn-primary btn-compact" onClick={() => { modeFichier.current = "facture"; butFichier.current = undefined; fichierIA.current?.click(); }}><Icone nom="trombone" /> Choisir un fichier</button>
               </div>
             </div>
+            {courant && (
+              <div className="glass-soft border border-accent-teal/40 p-3">
+                <div className="font-semibold"><Icone nom="rapport" /> Comparer un devis au pré-rapport v{courant.version}</div>
+                <p className="mt-1 text-xs text-white/55">Les écarts (heures, taux, pièces, prix) sont listés ; tu acceptes ou refuses chacun, puis le rapport définitif est créé en nouvelle version.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {devis.map((d) => <button key={`cmp-${d.id}`} className="btn-ghost btn-compact" onClick={() => lancerAnalyse({ mode: "devis", doc: d, but: "comparer" })}>{d.nom}</button>)}
+                  <button className="btn-primary btn-compact" onClick={() => { modeFichier.current = "devis"; butFichier.current = "comparer"; fichierIA.current?.click(); }}><Icone nom="trombone" /> Choisir un fichier</button>
+                </div>
+              </div>
+            )}
             <div className="glass-soft p-3">
               <div className="font-semibold"><Icone nom="photo" /> Depuis les photos du véhicule <span className="badge badge-warn ml-1">expérimental</span></div>
               <p className="mt-1 text-xs text-white/55">{photos.length} photo(s) dans le dossier. Les dommages visibles sont décrits et une ébauche de chiffrage est proposée avec les taux du réparateur.</p>
@@ -561,13 +615,24 @@ export default function RapportEditeur({
         </ModalShell>
       )}
 
+      {/* ---------------- Comparaison devis ↔ pré-rapport (v13.11) -------- */}
+      {comparaison && (
+        <ComparaisonDevis
+          rapport={comparaison.base}
+          devis={{ chocs: comparaison.resultat.chocs, operations: comparaison.resultat.operations, total_ht: comparaison.resultat.document?.total_ht ?? null }}
+          document={comparaison.doc}
+          onClose={() => setComparaison(null)}
+          onValider={validerComparaison}
+        />
+      )}
+
       {/* ------------------------- Résultat de l'analyse ------------------ */}
       {analyse && (
         <ModalShell title={analyse.source.mode === "photos" ? "Analyse des photos" : analyse.source.mode === "devis" ? "Lecture du devis" : "Lecture de la facture"} onClose={() => !analyse.encours && setAnalyse(null)} maxWidth="max-w-3xl">
           {analyse.encours ? (
             <div className="py-8 text-center">
               <div className="skeleton mx-auto h-3 w-2/3 rounded-full" />
-              <p className="mt-4 text-sm text-white/60">{analyse.source.mode === "photos" ? "Examen des photos, identification des dommages, estimation des heures et des pièces…" : "Lecture du document et extraction du chiffrage…"}</p>
+              <p className="mt-4 text-sm text-white/60">{analyse.source.mode === "photos" ? "Examen des photos, identification des dommages, estimation des heures et des pièces…" : analyse.source.but === "comparer" ? "Lecture du devis, puis rapprochement ligne à ligne avec le pré-rapport…" : "Lecture du document et extraction du chiffrage…"}</p>
               <p className="mt-1 text-xs text-white/40">Quelques dizaines de secondes.</p>
             </div>
           ) : analyse.erreur ? (

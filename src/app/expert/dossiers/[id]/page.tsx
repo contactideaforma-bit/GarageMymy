@@ -42,7 +42,7 @@ export default function FicheDossierExpert() {
   const [onglet, setOnglet] = useState<Onglet>("dossier");
   const [edition, setEdition] = useState(false);
   const [introuvable, setIntrouvable] = useState(false);
-  const [demandeSource, setDemandeSource] = useState<{ doc: DocumentExpert; mode: "devis" | "facture"; cle: number } | null>(null);
+  const [demandeSource, setDemandeSource] = useState<{ doc: DocumentExpert; mode: "devis" | "facture"; cle: number; but?: "comparer" } | null>(null);
   const [nbPiecesEnvoyees, setNbPiecesEnvoyees] = useState(0);
   const [rdvs, setRdvs] = useState<RdvExpert[]>([]);
   const [rdvModal, setRdvModal] = useState<Partial<RdvExpert> | null | "nouveau">(null);
@@ -217,6 +217,7 @@ export default function FicheDossierExpert() {
           dossierId={dossier.id}
           onDocuments={setDocuments}
           onUtiliserPourRapport={(doc, mode) => { setDemandeSource({ doc, mode, cle: Date.now() }); setOnglet("rapport"); }}
+          onComparer={(doc) => { setDemandeSource({ doc, mode: "devis", cle: Date.now(), but: "comparer" }); setOnglet("rapport"); }}
         />
       </div>
 
@@ -265,6 +266,6 @@ export default function FicheDossierExpert() {
 }
 
 /** Le panneau Documents expose sa liste à la fiche (onglet Rapport). */
-function DocumentsExpertPanelSync({ dossierId, onDocuments, onUtiliserPourRapport }: { dossierId: string; onDocuments: (d: DocumentExpert[]) => void; onUtiliserPourRapport: (doc: DocumentExpert, mode: "devis" | "facture") => void }) {
-  return <DocumentsExpertPanel dossierId={dossierId} onUtiliserPourRapport={onUtiliserPourRapport} onChange={onDocuments} />;
+function DocumentsExpertPanelSync({ dossierId, onDocuments, onUtiliserPourRapport, onComparer }: { dossierId: string; onDocuments: (d: DocumentExpert[]) => void; onUtiliserPourRapport: (doc: DocumentExpert, mode: "devis" | "facture") => void; onComparer: (doc: DocumentExpert) => void }) {
+  return <DocumentsExpertPanel dossierId={dossierId} onUtiliserPourRapport={onUtiliserPourRapport} onComparer={onComparer} onChange={onDocuments} />;
 }

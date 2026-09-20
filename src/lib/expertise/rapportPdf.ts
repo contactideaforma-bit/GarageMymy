@@ -439,6 +439,54 @@ function pagesDetail(c: Ctx) {
   });
   y = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
 
+  // v13.11 — Écarts entre le devis du réparateur et le pré-rapport, avec la
+  // décision de l'expert et son commentaire (rapport définitif).
+  const cmp = r.comparaison;
+  if (cmp && (cmp.ecarts.length > 0 || cmp.commentaire)) {
+    if (y > 230) {
+      pdf.addPage();
+      enTete(c);
+      y = 56;
+    }
+    barre(pdf, M, y, LARGEUR, `Devis du réparateur${cmp.document_nom ? ` (${cmp.document_nom})` : ""} confronté au pré-rapport v${cmp.base_version} — pré-rapport ${dec(cmp.total_pre_rapport)} € HT · devis ${dec(cmp.total_devis)} € HT`);
+    y += 4.6;
+    const nature = { ajout: "Ajouté au devis", suppression: "Absent du devis", modification: "Modifié" } as const;
+    const corps = cmp.ecarts.map((e) => [
+      nature[e.nature],
+      txt(e.libelle),
+      txt(e.avant || "—"),
+      txt(e.apres || "—"),
+      dec(e.montant_apres - e.montant_avant),
+      e.decision === "accepte" ? "Accepté" : "Refusé",
+      txt(e.commentaire || ""),
+    ]);
+    autoTable(pdf, {
+      startY: y,
+      margin: { left: M, right: M, top: 56, bottom: 30 },
+      head: [["Écart", "Poste / opération", "Pré-rapport", "Devis", "Δ HT €", "Décision", "Commentaire"]],
+      body: corps.length ? corps : [["", "Aucun écart : devis conforme au pré-rapport", "", "", "", "", ""]],
+      theme: "grid",
+      styles: { font: "helvetica", fontSize: 6.8, cellPadding: 1, lineColor: [200, 200, 200], lineWidth: 0.15, textColor: [0, 0, 0] },
+      headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: "bold", halign: "left" },
+      columnStyles: { 0: { cellWidth: 22 }, 1: { cellWidth: 46 }, 2: { cellWidth: 28 }, 3: { cellWidth: 28 }, 4: { cellWidth: 16, halign: "right" }, 5: { cellWidth: 16 } },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 5) data.cell.styles.fontStyle = "bold";
+      },
+      didDrawPage: (data) => { if (data.pageNumber > 1) enTete(c); },
+    });
+    y = (pdf as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 3;
+    if (cmp.commentaire) {
+      pdf.setFontSize(7.4);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Commentaire de l'expert : ", M + 1.5, y + 3);
+      pdf.setFont("helvetica", "normal");
+      const lignes = pdf.splitTextToSize(txt(cmp.commentaire), LARGEUR - 3);
+      pdf.text(lignes, M + 1.5, y + 6.5);
+      y += 6.5 + lignes.length * 3.2;
+    }
+    y += 5;
+  }
+
   // Légende : en bas de la dernière page du tableau (comme le modèle),
   // sinon sur une page suivante.
   pdf.setFontSize(5.8);

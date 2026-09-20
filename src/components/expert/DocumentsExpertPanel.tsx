@@ -21,10 +21,13 @@ import { formatDateTime, messageErreur } from "@/lib/format";
 export default function DocumentsExpertPanel({
   dossierId,
   onUtiliserPourRapport,
+  onComparer,
   onChange,
 }: {
   dossierId: string;
   onUtiliserPourRapport?: (doc: DocumentExpert, mode: "devis" | "facture") => void;
+  /** v13.11 — confronter un devis au pré-rapport (écarts à valider). */
+  onComparer?: (doc: DocumentExpert) => void;
   onChange?: (docs: DocumentExpert[]) => void;
 }) {
   const [docs, setDocs] = useState<DocumentExpert[]>([]);
@@ -94,6 +97,9 @@ export default function DocumentsExpertPanel({
                   <div className="flex flex-wrap gap-1">
                     {onUtiliserPourRapport && (d.type === "devis_garage" || d.type === "facture_garage") && (
                       <button className="btn-primary btn-compact" onClick={() => onUtiliserPourRapport(d, d.type === "devis_garage" ? "devis" : "facture")}><Icone nom="ia" /> Générer le rapport</button>
+                    )}
+                    {onComparer && d.type === "devis_garage" && (
+                      <button className="btn-ghost btn-compact" title="Écarts entre ce devis et le pré-rapport, à accepter ou refuser" onClick={() => onComparer(d)}><Icone nom="rapport" /> Comparer au pré-rapport</button>
                     )}
                     <button className="btn-ghost btn-compact" onClick={() => ouvrirFichierExpert(d.path)}>Ouvrir</button>
                     <button className="btn-ghost btn-compact" onClick={() => setEdition(d)}>Modifier</button>

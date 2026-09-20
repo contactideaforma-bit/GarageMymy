@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { deposerFichier } from "@/lib/storage";
 import { preparerImage } from "@/lib/photosEtat";
 import {
-  AssuranceExpert, Cabinet, Choc, ClientExpert, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, PieceExpert, ProfilExpert, RapportExpert, RdvExpert,
+  AssuranceExpert, Cabinet, Choc, ClientExpert, ComparaisonRapport, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, PieceExpert, ProfilExpert, RapportExpert, RdvExpert,
   StatutExpertise, TypeDocExpert, ZonePhoto,
 } from "./types";
 import { chocParDefaut } from "./chiffrage";
@@ -269,22 +269,35 @@ export async function creerRapport(args: {
   chocs?: Choc[];
   operations?: Operation[];
   taux_tva?: number;
+  /** Remise / vétusté / SRGC repris de la version précédente (rapport définitif). */
+  remise?: number | null;
+  vetuste?: number | null;
+  srgc?: number | null;
+  /** v13.11 — comparaison devis ↔ pré-rapport à l'origine de cette version. */
+  comparaison?: ComparaisonRapport | null;
 }): Promise<RapportExpert> {
   const existants = await chargerRapports(args.dossier.id);
   const version = existants.length ? Math.max(...existants.map((r) => r.version)) + 1 : 1;
-  const { data, error } = await supabase
-    .from("expertise_rapports")
-    .insert({
-      dossier_id: args.dossier.id,
-      numero: args.dossier.numero,
-      version,
-      source: args.source,
-      taux_tva: args.taux_tva ?? 20,
-      chocs: args.chocs && args.chocs.length ? args.chocs : [chocParDefaut(1)],
-      operations: args.operations || [],
-    })
-    .select("*")
-    .single();
+  const ligne: Record<string, unknown> = {
+    dossier_id: args.dossier.id,
+    numero: args.dossier.numero,
+    version,
+    source: args.source,
+    taux_tva: args.taux_tva ?? 20,
+    chocs: args.chocs && args.chocs.length ? args.chocs : [chocParDefaut(1)],
+    operations: args.operations || [],
+  };
+  if (args.remise !== undefined) ligne.remise = args.remise ?? 0;
+  if (args.vetuste !== undefined) ligne.vetuste = args.vetuste ?? 0;
+  if (args.srgc !== undefined) ligne.srgc = args.srgc ?? 0;
+  if (args.comparaison) ligne.comparaison = args.comparaison;
+  let { data, error } = await supabase.from("expertise_rapports").insert(ligne).select("*").single();
+  // Migration v81 pas encore jouée : le rapport est créé quand même, sans la
+  // trace de la comparaison.
+  if (error && args.comparaison && /comparaison/i.test(error.message || "")) {
+    delete ligne.comparaison;
+    ({ data, error } = await supabase.from("expertise_rapports").insert(ligne).select("*").single());
+  }
   if (error) throw error;
   return data as RapportExpert;
 }
