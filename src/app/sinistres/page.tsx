@@ -15,7 +15,7 @@ import {
   ymd,
 } from "@/lib/format";
 import { exporterXlsx, type ColonneExcel } from "@/lib/excel";
-import { ecrireEtatListe, lireEtatListe } from "@/lib/filtresListe";
+import { consommerRetourAttendu, ecrireEtatListe, lireEtatListe, marquerRetourAttendu } from "@/lib/filtresListe";
 import { montantTtc, tauxTva, totalTtc } from "@/lib/tva";
 import DossierForm from "@/components/DossierForm";
 import StatutBadge from "@/components/StatutBadge";
@@ -253,7 +253,9 @@ export default function SinistresPage() {
   const scrollARestaurer = useRef<number>(0);
 
   useEffect(() => {
-    const e = lireEtatListe(CLE_ETAT_LISTE, ETAT_VIDE);
+    // v13.22 : restauration uniquement au RETOUR d'un dossier ouvert depuis
+    // la liste ; via le menu ou après reconnexion, la liste repart propre.
+    const e = consommerRetourAttendu(CLE_ETAT_LISTE) ? lireEtatListe(CLE_ETAT_LISTE, ETAT_VIDE) : ETAT_VIDE;
     setQ(e.q);
     setFiltreStatut(e.filtreStatut);
     setFiltreExpert(e.filtreExpert);
@@ -305,6 +307,7 @@ export default function SinistresPage() {
   const ouvrirDossier = useCallback(
     (id: string) => {
       ecrireEtatListe(CLE_ETAT_LISTE, etatCourant(window.scrollY));
+      marquerRetourAttendu(CLE_ETAT_LISTE);
       router.push(`/sinistres/${id}`);
     },
     [etatCourant, router]

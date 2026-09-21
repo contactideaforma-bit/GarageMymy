@@ -56,8 +56,8 @@ export const STATUTS_INFO: Record<
   { label: string; badge: string; dot: string }
 > = {
   nouveau: { label: "Nouveau", badge: "bg-slate-100 text-slate-700", dot: "bg-slate-400" },
-  expertise: { label: "Expertise", badge: "bg-violet-100 text-violet-700", dot: "bg-violet-500" },
-  devis: { label: "Devis", badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
+  expertise: { label: "Expertise faite", badge: "bg-violet-100 text-violet-700", dot: "bg-violet-500" },
+  devis: { label: "Devis / OR", badge: "bg-amber-100 text-amber-700", dot: "bg-amber-500" },
   reparation: { label: "Réparation", badge: "bg-blue-100 text-blue-700", dot: "bg-blue-500" },
   facture: { label: "Facture envoyée", badge: "bg-cyan-100 text-cyan-700", dot: "bg-cyan-500" },
   rendu: { label: "Véhicule rendu", badge: "bg-orange-100 text-orange-700", dot: "bg-orange-500" },

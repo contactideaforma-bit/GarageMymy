@@ -20,6 +20,11 @@ type Infos = {
   sinistre: string;
   clauses?: { code: string; titre: string; texte: string; consentement?: string }[];
   consentementGageRequis?: boolean;
+  /** v13.22 — OR : conditions générales, état constaté, texte d'autorisation. */
+  conditions?: { numero: number; titre: string; texte: string }[];
+  etat?: string[];
+  autorisation?: string | null;
+  consentementConditionsRequis?: boolean;
 };
 
 export default function SignerPage() {
@@ -29,6 +34,8 @@ export default function SignerPage() {
   const [nom, setNom] = useState("");
   const [signature, setSignature] = useState<string | null>(null);
   const [consentGage, setConsentGage] = useState(false);
+  const [consentConditions, setConsentConditions] = useState(false);
+  const [conditionsOuvertes, setConditionsOuvertes] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [fini, setFini] = useState(false);
   // v13.21 — arrivée depuis le portail de suivi (?retour=/suivi/<jeton>) :
@@ -62,6 +69,10 @@ export default function SignerPage() {
       setErreur("Indique ton nom et prénom.");
       return;
     }
+    if (infos?.consentementConditionsRequis && !consentConditions) {
+      setErreur("Coche « J'ai lu et j'accepte les conditions » pour pouvoir signer.");
+      return;
+    }
     if (infos?.consentementGageRequis && !consentGage) {
       setErreur("Coche l'acceptation expresse de la clause de gage pour pouvoir signer.");
       return;
@@ -72,7 +83,7 @@ export default function SignerPage() {
       const res = await fetch("/api/signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, nom: nom.trim(), signature, consentGage }),
+        body: JSON.stringify({ token, nom: nom.trim(), signature, consentGage, consentConditions }),
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(j.error || `Erreur (HTTP ${res.status}).`);
@@ -125,6 +136,42 @@ export default function SignerPage() {
                 {infos.sinistre ? ` — sinistre ${infos.sinistre}` : ""}
               </div>
             </div>
+
+            {infos.etat && infos.etat.length > 0 && (
+              <div className="glass-soft p-4 text-sm space-y-1">
+                <div className="text-white/50 text-xs uppercase tracking-wide">État du véhicule à la prise en charge</div>
+                {infos.etat.map((l) => <div key={l} className="text-white/80">{l}</div>)}
+              </div>
+            )}
+
+            {infos.conditions && infos.conditions.length > 0 && (
+              <div className="glass-soft p-4 text-sm space-y-2">
+                <button type="button" onClick={() => setConditionsOuvertes((o) => !o)} className="flex w-full items-center justify-between text-left">
+                  <span className="text-white/50 text-xs uppercase tracking-wide">Conditions de l&apos;ordre de réparation ({infos.conditions.length})</span>
+                  <span className="text-xs text-white/60">{conditionsOuvertes ? "Replier ▴" : "Lire ▾"}</span>
+                </button>
+                {conditionsOuvertes && (
+                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+                    {infos.conditions.map((c) => (
+                      <div key={c.numero}>
+                        <div className="font-semibold text-white">{c.numero}. {c.titre}</div>
+                        <p className="mt-0.5 text-xs leading-relaxed text-white/70">{c.texte}</p>
+                      </div>
+                    ))}
+                    {infos.autorisation && (
+                      <div>
+                        <div className="font-semibold text-white">Autorisation</div>
+                        <p className="mt-0.5 text-xs leading-relaxed text-white/70">{infos.autorisation}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <label className="flex items-start gap-2 rounded-lg border border-white/20 bg-white/5 p-2 text-sm text-white/90">
+                  <input type="checkbox" className="mt-0.5 h-4 w-4 accent-pink-500" checked={consentConditions} onChange={(e) => setConsentConditions(e.target.checked)} />
+                  <span>J&apos;ai lu et j&apos;accepte les conditions de l&apos;ordre de réparation, et je demande que les travaux commencent sans attendre la fin du délai de rétractation.</span>
+                </label>
+              </div>
+            )}
 
             {infos.clauses && infos.clauses.length > 0 && (
               <div className="glass-soft p-4 text-sm space-y-3">

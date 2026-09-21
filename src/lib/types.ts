@@ -391,6 +391,15 @@ export type OrdreReparation = {
   sign_token?: string | null;
   /** v13.15 — clauses de garantie figées sur l'OR (voir lib/garanties.ts). */
   clauses?: ClausesOR | null;
+  /** v13.22 — OR étoffé (migration v86). */
+  kilometrage?: number | null;
+  carburant?: string | null;          // "1/4" … "plein"
+  etat_entree?: string | null;
+  objets_bord?: string | null;
+  pieces_choix?: "neuves" | "equivalentes" | "reemploi" | string | null;
+  pieces_restituees?: boolean | null;
+  conditions_version?: number | null;
+  conditions_acceptees_le?: string | null;
 };
 
 export type ClausesOR = {

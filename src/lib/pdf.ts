@@ -11,7 +11,7 @@ import {
   tauxRemise,
   totalLigne,
 } from "./documents";
-import { AUTORISATION_OR, CESSION_OBJET, CESSION_NOTIFICATION, DECHARGE_RESTITUTION } from "./atelier";
+import { AUTORISATION_OR, CESSION_OBJET, CESSION_NOTIFICATION, DECHARGE_RESTITUTION, conditionsOR, LIBELLE_PIECES } from "./atelier";
 import { textesClauses } from "./garanties";
 import { supabase } from "./supabaseClient";
 import { fichierBase64 } from "./storage";
@@ -1607,9 +1607,9 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
   pdf.text(
     [
       dossier.marque_modele || "—",
-      `Immat. : ${dossier.immatriculation || "—"}`,
+      `Immat. : ${dossier.immatriculation || "—"}${dossier.numero_serie ? `  ·  VIN ${dossier.numero_serie}` : ""}`,
       `N° sinistre : ${dossier.numero_sinistre || "—"}`,
-      `Assureur : ${dossier.assureur || "—"}`,
+      `Assureur : ${dossier.assureur || "—"}${dossier.cabinet_expert ? `  ·  Expert : ${dossier.cabinet_expert}` : ""}`,
       dossier.reparateur ? `Réparateur attitré : ${dossier.reparateur}` : "",
     ].filter(Boolean),
     pageW / 2 + 6, yBlocs + 6
@@ -1665,6 +1665,27 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
     ty += txt.length * 4.2 + 6;
   }
 
+  // ---------- État à la prise en charge (v13.22) ----------
+  const etat = [
+    or.kilometrage != null ? `Kilométrage : ${Number(or.kilometrage).toLocaleString("fr-FR")} km` : "",
+    or.carburant ? `Carburant : ${or.carburant}` : "",
+    or.etat_entree ? `État constaté : ${or.etat_entree}` : "",
+    or.objets_bord ? `Objets laissés à bord : ${or.objets_bord}` : "",
+    `Pièces : ${LIBELLE_PIECES[or.pieces_choix || ""] || LIBELLE_PIECES.neuves}${or.pieces_restituees ? " — pièces remplacées à restituer au client" : ""}`,
+  ].filter(Boolean);
+  {
+    pdf.setFontSize(9);
+    const lignesEtat = etat.flatMap((l) => pdf.splitTextToSize(textePdf(l), pageW - M * 2) as string[]);
+    if (ty + 8 + lignesEtat.length * 4.2 > pageH - 40) { pdf.addPage(); drawFooter(); ty = 25; }
+    pdf.setFontSize(10);
+    pdf.setTextColor(30);
+    pdf.text("État du véhicule à la prise en charge", M, ty);
+    pdf.setFontSize(9);
+    pdf.setTextColor(70);
+    pdf.text(lignesEtat, M, ty + 6);
+    ty += 6 + lignesEtat.length * 4.2 + 8;
+  }
+
   // ---------- Total (jamais orphelin) ----------
   const totalHt = or.montant_ht != null
     ? Number(or.montant_ht) || 0
@@ -1705,6 +1726,39 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
   pdf.setTextColor(70);
   pdf.text(conditions, M, ty + 6);
   ty += 6 + conditions.length * 4.6 + 8;
+
+  // ---------- Conditions générales (v13.22) : le contrat qui protège le garage ----------
+  const cg = conditionsOR({
+    garage: ent.nom,
+    gardiennageJour: ent.gard_tarif_jour ?? null,
+    piecesChoix: or.pieces_choix,
+    piecesRestituees: or.pieces_restituees,
+    ville: ent.ville,
+    estVitrage,
+    rapportRef: dossier.date_expertise ? `expertise du ${dateFr(dossier.date_expertise)}${dossier.cabinet_expert ? ` — ${dossier.cabinet_expert}` : ""}` : null,
+  });
+  if (ty + 12 > pageH - 30) { pdf.addPage(); drawFooter(); ty = 25; }
+  pdf.setFontSize(10);
+  pdf.setTextColor(30);
+  pdf.text("Conditions générales de l'ordre de réparation", M, ty);
+  ty += 5.5;
+  for (const c of cg) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.6);
+    const corps = pdf.splitTextToSize(textePdf(c.texte), pageW - M * 2) as string[];
+    const h = 4.2 + corps.length * 3.4 + 2.5;
+    if (ty + h > pageH - 26) { pdf.addPage(); drawFooter(); ty = 25; }
+    pdf.setFontSize(8.4);
+    pdf.setTextColor(30);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(textePdf(`${c.numero}. ${c.titre}`), M, ty);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.6);
+    pdf.setTextColor(70);
+    pdf.text(corps, M, ty + 4);
+    ty += h;
+  }
+  ty += 4;
 
   // ---------- Garanties de paiement (v13.15) : clauses figées sur l'OR ----------
   const clauses = textesClauses(or.clauses, ent, dossier, or);
@@ -1790,6 +1844,7 @@ async function buildOrdreReparationPdf(or: OrdreReparation, dossier: Dossier): P
   const infosSig = [
     or.signataire_nom ? `Nom : ${or.signataire_nom}` : "",
     or.signe_le ? `Signé le ${dateFr(or.signe_le)}` : "",
+    or.conditions_acceptees_le ? "Conditions acceptées à la signature" : "",
   ].filter(Boolean);
   if (infosSig.length) pdf.text(infosSig, x, ty + h + 8);
 

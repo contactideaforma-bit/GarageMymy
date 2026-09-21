@@ -14,6 +14,7 @@ import Salutation from "@/components/Salutation";
 import Link from "next/link";
 import BandeauCompte from "@/components/BandeauCompte";
 import { estRoutePublique } from "@/lib/routesPubliques";
+import { annulerRetourAttendu } from "@/lib/filtresListe";
 import { estRouteExpert } from "@/lib/expertise/acces";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
@@ -37,6 +38,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
   const publique = estRoutePublique(pathname) && !(pathname === "/etat" && connecte);
+  // v13.22 : les filtres de la liste des sinistres ne sont restaurés qu'au
+  // retour direct d'un dossier. Dès qu'on va ailleurs, on oublie.
+  useEffect(() => {
+    if (!pathname || pathname === "/sinistres" || pathname.startsWith("/sinistres/")) return;
+    annulerRetourAttendu("sinistres.selection");
+  }, [pathname]);
   useEffect(() => {
     if (publique || typeof window === "undefined" || !("serviceWorker" in navigator)) return;
     navigator.serviceWorker.register("/sw.js").catch(() => undefined);

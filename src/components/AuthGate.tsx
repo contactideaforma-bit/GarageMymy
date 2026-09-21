@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { oublierEtatsListes } from "@/lib/filtresListe";
 import { definirCompteOnglets } from "@/lib/onglets";
 import { usePathname } from "next/navigation";
 import type { Session } from "@supabase/supabase-js";
@@ -133,6 +134,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     };
     const deconnecter = () => {
       if (!mounted) return;
+      oublierEtatsListes(); // v13.22 : aucun filtre ne survit à la session
       definirCompteOnglets(null);
       setSession(null);
       setEtat("deconnecte");

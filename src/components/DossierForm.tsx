@@ -392,6 +392,9 @@ export default function DossierForm({
       // ne remplit que les champs renvoyés (sans écraser par du vide)
       setForm((f) => {
         const next = { ...f };
+        // v13.22 : un dossier créé depuis un rapport d'expertise a, par
+        // définition, déjà été expertisé → statut « Expertise faite ».
+        if (!isEdit && (next.statut === "nouveau" || !next.statut)) next.statut = "expertise";
         (Object.keys(toForm(d)) as (keyof FormState)[]).forEach((k) => {
           const v = (d as Record<string, unknown>)[k as string];
           if (k === "vehicule_finance") return; // booléen : jamais rempli par l'analyse
@@ -498,7 +501,8 @@ export default function DossierForm({
         reparateur: form.reparateur || null,
         montant: form.montant ? Number(form.montant) : 0,
         tva: tauxTva,
-        statut: form.statut,
+        // v13.22 : rapport joint à la création → au moins « Expertise faite ».
+        statut: !isEdit && file && form.statut === "nouveau" ? "expertise" : form.statut,
         // Vitrage (renseigné pour les comptes vitrage, vide sinon)
         type_vitrage: form.type_vitrage || null,
         nature_intervention: form.nature_intervention || null,

@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { CessionCreance, ClausesOR, Dossier, Entreprise, OrdreReparation, Restitution, Document, DocumentLigne } from "@/lib/types";
 import { clausesDepuisProfil, textesClauses } from "@/lib/garanties";
 import { formatDate, formatEuros, messageErreur, STATUTS_ORDRE, ymd } from "@/lib/format";
-import { genNumeroOR, badgeStatutAtelier, labelStatutAtelier } from "@/lib/atelier";
+import { genNumeroOR, badgeStatutAtelier, labelStatutAtelier, CONDITIONS_OR_VERSION, LIBELLE_CARBURANT, LIBELLE_PIECES } from "@/lib/atelier";
 import {
   apercuCessionPdf,
   apercuOrdreReparationPdf,
@@ -439,6 +439,23 @@ function ORModal({
   const [montant, setMontant] = useState(or?.montant_ht != null ? String(or.montant_ht) : "");
   const [signataire, setSignataire] = useState(or?.signataire_nom || dossier.client_nom || "");
   const [signature, setSignature] = useState<string | null>(null);
+  // v13.22 — OR étoffé : état à la prise en charge, pièces.
+  const [km, setKm] = useState(or?.kilometrage != null ? String(or.kilometrage) : "");
+  const [carburant, setCarburant] = useState(or?.carburant || "");
+  const [etatEntree, setEtatEntree] = useState(or?.etat_entree || "");
+  const [objetsBord, setObjetsBord] = useState(or?.objets_bord || "");
+  const [piecesChoix, setPiecesChoix] = useState(or?.pieces_choix || "neuves");
+  const [piecesRestituees, setPiecesRestituees] = useState(Boolean(or?.pieces_restituees));
+  const [nbPhotosEntree, setNbPhotosEntree] = useState<number | null>(null);
+  useEffect(() => {
+    supabase.from("photos_etat").select("id", { count: "exact", head: true }).eq("dossier_id", dossier.id).eq("moment", "entree")
+      .then(({ count }) => setNbPhotosEntree(count ?? 0));
+  }, [dossier.id]);
+  useEffect(() => {
+    if (or?.etat_entree || etatEntree || nbPhotosEntree === null) return;
+    setEtatEntree(nbPhotosEntree > 0 ? `Dommages du sinistre déclaré ; état général constaté sur ${nbPhotosEntree} photo(s) d'entrée.` : "Dommages du sinistre déclaré.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nbPhotosEntree]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // v13.15 — garanties de paiement : profil du garage → clauses figées sur l'OR.
@@ -500,16 +517,33 @@ function ORModal({
         montant_ht: montant === "" ? null : Number(montant),
         signataire_nom: signataire || null,
         clauses: clausesFigees,
+        // v13.22 (migration v86)
+        kilometrage: km === "" ? null : Math.round(Number(km)),
+        carburant: carburant || null,
+        etat_entree: etatEntree || null,
+        objets_bord: objetsBord || null,
+        pieces_choix: piecesChoix || null,
+        pieces_restituees: piecesRestituees,
+        conditions_version: CONDITIONS_OR_VERSION,
         ...(signe
-          ? { signature, signe_le: new Date().toISOString(), statut: "signe" }
+          ? { signature, signe_le: new Date().toISOString(), statut: "signe", conditions_acceptees_le: new Date().toISOString() }
           : {}),
       };
+      const CHAMPS_V86 = ["kilometrage", "carburant", "etat_entree", "objets_bord", "pieces_choix", "pieces_restituees", "conditions_version", "conditions_acceptees_le"];
       let { error: e1 } = or
         ? await supabase.from("ordres_reparation").update(payload).eq("id", or.id)
         : await supabase.from("ordres_reparation").insert(payload);
+      // Migration v86 pas encore jouée : on retire les champs étoffés et on réessaie.
+      if (e1 && /kilometrage|carburant|etat_entree|objets_bord|pieces_|conditions_/i.test(e1.message || "")) {
+        CHAMPS_V86.forEach((k) => delete payload[k]);
+        ({ error: e1 } = or
+          ? await supabase.from("ordres_reparation").update(payload).eq("id", or.id)
+          : await supabase.from("ordres_reparation").insert(payload));
+      }
       // Migration v83 pas encore jouée : l'OR est enregistré sans les clauses.
       if (e1 && /clauses|column|colonne/i.test(e1.message || "")) {
         delete payload.clauses;
+        CHAMPS_V86.forEach((k) => delete payload[k]);
         ({ error: e1 } = or
           ? await supabase.from("ordres_reparation").update(payload).eq("id", or.id)
           : await supabase.from("ordres_reparation").insert(payload));
@@ -562,6 +596,50 @@ function ORModal({
           placeholder="- Remplacement pare-chocs avant&#10;- Peinture aile droite…"
         />
         <p className="mt-1 text-xs text-white/40">Pré-rempli depuis le dernier devis du dossier.</p>
+      </div>
+
+      {/* v13.22 — État à la prise en charge : ce qui fait foi en cas de litige. */}
+      <div className="rounded-lg border border-white/15 p-3 space-y-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-white/60">État du véhicule à la prise en charge</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="field-label">Kilométrage</label>
+            <input type="number" className="field-input" value={km} onChange={(e) => setKm(e.target.value)} placeholder="ex. 84 250" />
+          </div>
+          <div>
+            <label className="field-label">Niveau de carburant</label>
+            <select className="field-input" value={carburant} onChange={(e) => setCarburant(e.target.value)}>
+              <option value="">—</option>
+              {LIBELLE_CARBURANT.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="field-label">État constaté (hors dommages du sinistre)</label>
+          <textarea className="field-input" rows={2} value={etatEntree} onChange={(e) => setEtatEntree(e.target.value)} placeholder="Rayures antérieures, jante voilée, voyant allumé…" />
+          <p className="mt-1 text-xs text-white/40">
+            {nbPhotosEntree ? `${nbPhotosEntree} photo(s) d'état d'entrée jointes au dossier — elles font foi.` : "Aucune photo d'état d'entrée : prends-les avant de faire signer (bloc Photos d'état)."}
+          </p>
+        </div>
+        <div>
+          <label className="field-label">Objets laissés à bord (non couverts)</label>
+          <input className="field-input" value={objetsBord} onChange={(e) => setObjetsBord(e.target.value)} placeholder="Aucun / siège enfant, câble…" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="field-label">Pièces posées</label>
+            <select className="field-input" value={piecesChoix} onChange={(e) => setPiecesChoix(e.target.value)}>
+              {Object.keys(LIBELLE_PIECES).map((k) => <option key={k} value={k}>{k === "neuves" ? "Neuves d'origine" : k === "equivalentes" ? "Neuves de qualité équivalente" : "Réemploi (économie circulaire)"}</option>)}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 pt-6 text-sm text-white/85">
+            <input type="checkbox" className="h-4 w-4 accent-pink-500" checked={piecesRestituees} onChange={(e) => setPiecesRestituees(e.target.checked)} />
+            Le client veut récupérer les pièces remplacées
+          </label>
+        </div>
+        <p className="text-[11px] text-white/45">
+          L&apos;OR imprime 10 conditions générales (travaux supplémentaires, franchise et TVA à la charge du client, délais, pièces, garde du véhicule, gardiennage, rétractation à distance, mandat expert/assureur, garantie, litiges) — version {CONDITIONS_OR_VERSION}.
+        </p>
       </div>
       {textes.length > 0 && (
         <div className="rounded-lg border border-white/15 p-3">
