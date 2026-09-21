@@ -87,6 +87,10 @@ export type Dossier = {
   litige_probleme?: string | null;
   litige_deblocage?: string | null;
   litige_depuis?: string | null;
+  /** v13.21 — clôture du règlement (migration v85) : reste non encaissé assumé. */
+  paye_le?: string | null;
+  solde_motif?: "franchise" | "frais_dossier" | "geste_commercial" | "autre" | string | null;
+  solde_montant?: number | null;
   /** v13.20 — trace des litiges résolus (migration v84). */
   litige_resolu_le?: string | null;
   litige_historique?: LitigePasse[] | null;

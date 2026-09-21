@@ -62,6 +62,9 @@ async function executer(req: Request) {
     .from("documents")
     .select("*")
     .eq("type", "facture")
+    // v13.21 : une facture clôturée « payée » (solde assumé : franchise,
+    // frais de dossier…) ne se relance plus, même si le TTC n'est pas atteint.
+    .neq("statut", "paye")
     .not("date_echeance", "is", null)
     .lt("date_echeance", todayIso)
     .gte("date_echeance", borneIso);

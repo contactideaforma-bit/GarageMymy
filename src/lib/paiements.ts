@@ -105,8 +105,11 @@ export function templateRelance(
 }
 
 // Une facture est en retard si une échéance est dépassée et qu'il reste à payer
-export function enRetard(doc: Pick<Document, "date_echeance">, reste: number): boolean {
+export function enRetard(doc: Pick<Document, "date_echeance"> & { statut?: string | null }, reste: number): boolean {
   if (reste <= 0) return false;
+  // v13.21 : facture clôturée « payée » avec un reste assumé (franchise,
+  // frais de dossier…) — plus jamais en retard.
+  if (doc.statut === "paye") return false;
   if (!doc.date_echeance) return false;
   const ech = new Date(doc.date_echeance);
   if (isNaN(ech.getTime())) return false;

@@ -14,6 +14,7 @@ import { aFlotteHorsGarage } from "@/lib/flotte";
 import { VERSION_LABEL } from "@/lib/version";
 import { compterNonLus, lireRole } from "@/lib/conversation";
 import Salutation from "@/components/Salutation";
+import BoutonActualiser from "@/components/BoutonActualiser";
 
 const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
   {
@@ -159,10 +160,12 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             className="drop-shadow-[0_0_10px_rgba(236,72,153,0.3)]"
           />
         </button>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <Salutation className="block" />
           <div className="truncate text-xs text-white/45">{sousTitre}</div>
         </div>
+        {/* v13.21 : actualiser la page (grand écran ; sur mobile, la barre du haut l'a déjà). */}
+        <div className="hidden lg:block"><BoutonActualiser inline /></div>
       </div>
 
       <Link href="/import" onClick={onNavigate} className="btn-primary mt-2 mb-4 flex items-center justify-center gap-2 text-center">

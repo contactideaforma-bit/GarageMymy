@@ -71,8 +71,9 @@ export default function FinancePage() {
     () =>
       rows.map((r) => {
         const paye = totalPaye(r.paiements);
-        const reste = resteAPayer(r.total_ttc, paye);
-        const sp = statutPaiement(r.total_ttc, paye);
+        // v13.21 : facture clôturée « payée » (reste assumé) → soldée.
+        const reste = r.statut === "paye" ? 0 : resteAPayer(r.total_ttc, paye);
+        const sp = r.statut === "paye" ? "paye" : statutPaiement(r.total_ttc, paye);
         const retard = enRetard(r, reste);
         return { ...r, paye, reste, sp, retard };
       }),

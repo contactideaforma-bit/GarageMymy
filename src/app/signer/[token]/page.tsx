@@ -31,6 +31,16 @@ export default function SignerPage() {
   const [consentGage, setConsentGage] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [fini, setFini] = useState(false);
+  // v13.21 — arrivée depuis le portail de suivi (?retour=/suivi/<jeton>) :
+  // on propose de revenir au suivi une fois signé. Seuls les chemins
+  // internes du suivi sont acceptés (pas de redirection ouverte).
+  const [retour, setRetour] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const r = new URLSearchParams(window.location.search).get("retour") || "";
+      if (/^\/suivi\/[A-Za-z0-9_-]+$/.test(r)) setRetour(r);
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
     fetch(`/api/signature?token=${encodeURIComponent(token)}`)
@@ -95,9 +105,12 @@ export default function SignerPage() {
             <div className="font-pixel text-[0.8rem]" style={{ color: "#10b981" }}>SIGNÉ !</div>
             <p className="text-sm text-white/70">
               {fini
-                ? `Merci ${nom.trim()} — ta signature a bien été enregistrée. ${infos.garage} a été prévenu, tu peux fermer cette page.`
-                : "Ce document est déjà signé. Tu peux fermer cette page."}
+                ? `Merci ${nom.trim()} — ta signature a bien été enregistrée. ${infos.garage} a été prévenu${retour ? "." : ", tu peux fermer cette page."}`
+                : `Ce document est déjà signé.${retour ? "" : " Tu peux fermer cette page."}`}
             </p>
+            {retour && (
+              <a href={retour} className="btn-primary mt-3 inline-flex justify-center">← Retour au suivi de mon véhicule</a>
+            )}
           </div>
         )}
 
@@ -148,6 +161,9 @@ export default function SignerPage() {
             <button onClick={signer} disabled={envoi} className="btn-primary w-full justify-center">
               {envoi ? "Enregistrement…" : "Je signe ce document"}
             </button>
+            {retour && (
+              <a href={retour} className="btn-ghost w-full justify-center text-sm">← Retour au suivi sans signer</a>
+            )}
             <p className="text-center text-xs text-white/40">
               En signant, tu acceptes le contenu du document présenté par {infos.garage}.
             </p>

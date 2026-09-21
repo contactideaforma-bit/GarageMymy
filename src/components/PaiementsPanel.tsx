@@ -8,7 +8,8 @@ import { Document, Dossier, Paiement, Relance } from "@/lib/types";
 import { formatEuros, formatDate, messageErreur, ymd } from "@/lib/format";
 import EmailComposer from "@/components/EmailComposer";
 import ModalShell from "@/components/ModalShell";
-import { destinataireRelance, majDossierSiSolde } from "@/lib/dossierSync";
+import { avancerStatut, destinataireRelance, majDossierSiSolde } from "@/lib/dossierSync";
+import { STATUTS_ORDRE } from "@/lib/format";
 import {
   MOYENS,
   CANAUX,
@@ -143,6 +144,33 @@ export default function PaiementsPanel({
 
   const { plie, basculerPliage } = usePliage("dossier.finance", true);
 
+  // v13.21 — ACTIONS RAPIDES : « Payé » et « Véhicule rendu » en un clic.
+  const posStatut = STATUTS_ORDRE.indexOf(dossier.statut as (typeof STATUTS_ORDRE)[number]);
+  const dejaPaye = dossier.statut === "paye" || dossier.statut === "cloture";
+  const dejaRendu = posStatut >= STATUTS_ORDRE.indexOf("rendu") || dossier.statut === "cloture";
+  const [cloture, setCloture] = useState(false);
+  const [rendant, setRendant] = useState(false);
+
+  async function vehiculeRendu() {
+    if (!confirm("Marquer le véhicule comme rendu au client ? Le dossier passe en « Véhicule rendu » (le PV de restitution reste possible depuis le bloc Atelier).")) return;
+    setRendant(true);
+    try {
+      await avancerStatut(dossier, "rendu", { au_garage: false });
+      await supabase.from("evenements").insert({
+        dossier_id: dossierId,
+        titre: "Véhicule restitué",
+        description: "Véhicule rendu au client (marqué depuis le bloc Finance).",
+        date_evenement: new Date().toISOString(),
+        categorie: "autre",
+      });
+      onChanged?.();
+    } catch (err: unknown) {
+      alert(messageErreur(err, "Impossible de marquer le véhicule rendu."));
+    } finally {
+      setRendant(false);
+    }
+  }
+
   return (
     <section className="glass-card">
             <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2 sm:px-4 sm:py-2.5">
@@ -159,6 +187,21 @@ export default function PaiementsPanel({
         </button>
         {!plie && (
           <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+            {!dejaRendu && (
+              <button onClick={vehiculeRendu} disabled={rendant} className="btn-ghost btn-compact" title="Le client est reparti avec son véhicule : le dossier passe en « Véhicule rendu ».">
+                🚗 Véhicule rendu au client
+              </button>
+            )}
+            {!dejaPaye && factures.length > 0 && (
+              <button onClick={() => setCloture(true)} className="btn-primary btn-compact" title="Clôturer le règlement : le dossier passe en « Payé », même si une franchise ou des frais de dossier restent non encaissés.">
+                ✓ Payé
+              </button>
+            )}
+            {dejaPaye && (
+              <span className="badge badge-ok" title={dossier.solde_motif ? `Reste non encaissé assumé : ${formatEuros(dossier.solde_montant || 0)} (${libelleSoldeMotif(dossier.solde_motif)})` : undefined}>
+                Dossier payé{dossier.solde_montant ? ` · ${formatEuros(dossier.solde_montant)} non encaissés (${libelleSoldeMotif(dossier.solde_motif)})` : ""}
+              </span>
+            )}
 <button
           onClick={toggleRelanceAuto}
           className="flex items-center gap-2 text-xs text-white/60 hover:text-white transition-colors"
@@ -297,6 +340,14 @@ export default function PaiementsPanel({
         })}
       </div>
 
+      {cloture && (
+        <ClotureReglementModal
+          factures={factures}
+          dossier={dossier}
+          onClose={() => setCloture(false)}
+          onSaved={() => { setCloture(false); refresh(); }}
+        />
+      )}
       {modal?.kind === "paiement" && (
         <PaiementModal
           facture={modal.facture}
@@ -517,6 +568,163 @@ function RelanceModal({
         <button onClick={save} disabled={saving} className="btn-primary">
           {saving ? "Enregistrement…" : "Journaliser la relance"}
         </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+
+/* ==================================================================
+ *  CLÔTURE DU RÈGLEMENT (v13.21)
+ *
+ *  Un seul bouton « Payé » : si tout est encaissé, le dossier passe en
+ *  « Payé ». Sinon, le garage dit ce qu'il advient du reste — encaissé à
+ *  l'instant (on enregistre le paiement), ou jamais encaissé parce qu'il
+ *  s'agit d'une franchise, de frais de dossier, d'un geste commercial…
+ *  (on garde motif + montant sur le dossier, migration v85).
+ * ================================================================== */
+
+const MOTIFS_SOLDE: Record<string, string> = {
+  franchise: "Franchise / reste à charge non réclamé",
+  frais_dossier: "Frais de dossier retenus",
+  geste_commercial: "Geste commercial / remise",
+  autre: "Autre",
+};
+
+export function libelleSoldeMotif(code: string | null | undefined): string {
+  return (code && MOTIFS_SOLDE[code]) || code || "—";
+}
+
+function ClotureReglementModal({
+  factures,
+  dossier,
+  onClose,
+  onSaved,
+}: {
+  factures: FactureFinance[];
+  dossier: Dossier;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const restes = factures.map((f) => ({ f, reste: resteAPayer(f.total_ttc, totalPaye(f.paiements)) }));
+  const totalTtc = factures.reduce((s, f) => s + (Number(f.total_ttc) || 0), 0);
+  const encaisse = factures.reduce((s, f) => s + totalPaye(f.paiements), 0);
+  const reste = Math.round(restes.reduce((s, r) => s + r.reste, 0) * 100) / 100;
+  const [choix, setChoix] = useState<"encaisse" | "assume">(reste > 0.01 ? "encaisse" : "assume");
+  const [moyen, setMoyen] = useState("virement");
+  const [motif, setMotif] = useState("franchise");
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function valider() {
+    setSaving(true);
+    setError(null);
+    try {
+      const maintenant = new Date().toISOString();
+      if (reste > 0.01 && choix === "encaisse") {
+        for (const r of restes) {
+          if (r.reste <= 0.01) continue;
+          const { error: e1 } = await supabase.from("paiements").insert({
+            dossier_id: dossier.id,
+            document_id: r.f.id,
+            montant: r.reste,
+            date_paiement: ymd(new Date()),
+            moyen,
+            reference: null,
+            notes: "Solde encaissé (bouton « Payé »)",
+          });
+          if (e1) throw e1;
+        }
+      }
+      // Toutes les factures passent en « payé » (soldées ou reste assumé).
+      const ids = factures.map((f) => f.id);
+      if (ids.length) {
+        const { error: e2 } = await supabase.from("documents").update({ statut: "paye" }).in("id", ids);
+        if (e2) throw e2;
+      }
+      const assume = reste > 0.01 && choix === "assume";
+      const patch: Record<string, unknown> = {
+        statut: "paye",
+        paye_le: maintenant,
+        solde_motif: assume ? motif : null,
+        solde_montant: assume ? reste : null,
+      };
+      let { error: e3 } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
+      if (e3) {
+        // Migration v85 pas encore exécutée : on clôture quand même.
+        ({ error: e3 } = await supabase.from("dossiers").update({ statut: "paye" }).eq("id", dossier.id));
+        if (e3) throw e3;
+      }
+      await supabase.from("evenements").insert({
+        dossier_id: dossier.id,
+        titre: "Dossier payé",
+        description: assume
+          ? `Règlement clôturé : ${formatEuros(reste)} non encaissés (${libelleSoldeMotif(motif)})${note ? ` — ${note}` : ""}.`
+          : reste > 0.01
+            ? `Solde de ${formatEuros(reste)} encaissé (${labelMoyen(moyen)}) — dossier passé en « Payé ».`
+            : "Toutes les factures sont encaissées — dossier passé en « Payé ».",
+        date_evenement: maintenant,
+        categorie: "autre",
+      });
+      onSaved();
+    } catch (err: unknown) {
+      setError(messageErreur(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Clôturer le règlement" onClose={onClose}>
+      <div className="space-y-4 text-sm">
+        <div className="grid grid-cols-3 gap-3">
+          <div><div className="text-xs text-white/40">Facturé TTC</div><div className="font-medium text-white/90">{formatEuros(totalTtc)}</div></div>
+          <div><div className="text-xs text-white/40">Encaissé</div><div className="font-medium text-emerald-300">{formatEuros(encaisse)}</div></div>
+          <div><div className="text-xs text-white/40">Reste</div><div className={`font-medium ${reste > 0.01 ? "text-amber-300" : "text-white/60"}`}>{formatEuros(reste)}</div></div>
+        </div>
+
+        {reste <= 0.01 ? (
+          <p className="text-white/70">Tout est encaissé : le dossier passe en <strong className="text-white">« Payé »</strong>.</p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-white/70">Il reste {formatEuros(reste)}. Que devient ce montant ?</p>
+            <label className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 ${choix === "encaisse" ? "border-accent-violet bg-white/10" : "border-white/10"}`}>
+              <input type="radio" className="mt-0.5 accent-pink-500" checked={choix === "encaisse"} onChange={() => setChoix("encaisse")} />
+              <span>
+                <span className="font-medium text-white">Il vient d'être encaissé</span>
+                <span className="block text-xs text-white/50">Un paiement de {formatEuros(reste)} est enregistré à la date du jour.</span>
+                {choix === "encaisse" && (
+                  <select className="field-input mt-2" value={moyen} onChange={(e) => setMoyen(e.target.value)}>
+                    {Object.keys(MOYENS).map((k) => <option key={k} value={k}>{labelMoyen(k)}</option>)}
+                  </select>
+                )}
+              </span>
+            </label>
+            <label className={`flex cursor-pointer items-start gap-2 rounded-lg border p-3 ${choix === "assume" ? "border-accent-violet bg-white/10" : "border-white/10"}`}>
+              <input type="radio" className="mt-0.5 accent-pink-500" checked={choix === "assume"} onChange={() => setChoix("assume")} />
+              <span className="min-w-0 flex-1">
+                <span className="font-medium text-white">Il ne sera pas encaissé</span>
+                <span className="block text-xs text-white/50">Franchise, frais de dossier, geste commercial… Le dossier est payé, le montant est gardé en mémoire (plus aucune relance).</span>
+                {choix === "assume" && (
+                  <>
+                    <select className="field-input mt-2" value={motif} onChange={(e) => setMotif(e.target.value)}>
+                      {Object.entries(MOTIFS_SOLDE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                    <input className="field-input mt-2" placeholder="Précision (facultatif)" value={note} onChange={(e) => setNote(e.target.value)} />
+                  </>
+                )}
+              </span>
+            </label>
+          </div>
+        )}
+
+        {error && <div className="rounded-lg border border-rose-400/30 bg-rose-500/15 px-3 py-2 text-rose-200">{error}</div>}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="btn-ghost btn-compact">Annuler</button>
+          <button onClick={valider} disabled={saving} className="btn-primary btn-compact">{saving ? "Enregistrement…" : "✓ Marquer le dossier payé"}</button>
+        </div>
       </div>
     </ModalShell>
   );

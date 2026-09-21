@@ -19,6 +19,7 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 import { aAccesExpert, LIEN_ALLIANCE } from "@/lib/expertise/acces";
 import ExpertSidebar from "@/components/expert/ExpertSidebar";
 import BoutonHaut from "@/components/BoutonHaut";
+import BoutonActualiser from "@/components/BoutonActualiser";
 import TableauxFluides from "@/components/TableauxFluides";
 
 /** Applique / retire la charte Alliance sur <html>. */
@@ -117,6 +118,7 @@ export default function ExpertShell({ children }: { children: React.ReactNode })
             <button onClick={() => setOpen(true)} aria-label="Ouvrir le menu" className="btn-ghost btn-compact px-2.5 leading-none"><Icone nom="menu" /></button>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/alliance/logo.png" alt="Alliance Experts" className="h-8 w-auto" />
+            <BoutonActualiser inline />
           </div>
         </div>
         {open && <div className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-md" onClick={() => setOpen(false)} />}

@@ -9,6 +9,7 @@ import BandeauHorsLigne from "@/components/BandeauHorsLigne";
 import MyMyChat from "@/components/MyMyChat";
 import TableauxFluides from "@/components/TableauxFluides";
 import BoutonHaut from "@/components/BoutonHaut";
+import BoutonActualiser from "@/components/BoutonActualiser";
 import Salutation from "@/components/Salutation";
 import Link from "next/link";
 import BandeauCompte from "@/components/BandeauCompte";
@@ -79,6 +80,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <Image src="/logo.png" alt="" width={28} height={28} className="shrink-0" />
             <Salutation />
           </Link>
+          {/* v13.21 : recharger la page (mobile). */}
+          <BoutonActualiser inline />
         </div>
       </div>
 

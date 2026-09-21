@@ -16,6 +16,12 @@ import { Dossier, Entreprise, PhotoEtat } from "@/lib/types";
 // ============================================================
 
 export const runtime = "nodejs";
+// v13.21 — le lien de suivi doit TOUJOURS refléter l'état courant du dossier :
+// pas de rendu statique (la route ne lit pas la requête, Next pouvait la
+// figer) ni de cache navigateur/CDN.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+const SANS_CACHE = { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0", Pragma: "no-cache" };
 
 /** Événements qu'on accepte de montrer au client (le reste est interne). */
 const JALONS_VISIBLES = [
@@ -156,5 +162,5 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
     jalons,
     photos,
     aSigner,
-  });
+  }, { headers: SANS_CACHE });
 }

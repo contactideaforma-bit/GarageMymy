@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { labelAngle } from "@/lib/photosEtat";
@@ -50,20 +50,32 @@ export default function SuiviPage() {
   const [data, setData] = useState<Suivi | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [charge, setCharge] = useState(false);
+  const [actualisation, setActualisation] = useState(false);
+  const [majLe, setMajLe] = useState<Date | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch(`/api/suivi/${params.token}`, { cache: "no-store" });
-        const json = await res.json();
-        if (!res.ok) setErreur(json.error || "Ce lien de suivi n'est pas valable.");
-        else setData(json as Suivi);
-      } catch {
-        setErreur("Impossible de charger le suivi. Vérifiez votre connexion.");
-      }
-      setCharge(true);
-    })();
+  // v13.21 — rechargeable : le client revient sur le lien (ou clique
+  // « Actualiser ») et voit l'état du moment, jamais une version figée.
+  const charger = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/suivi/${params.token}?t=${Date.now()}`, { cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok) setErreur(json.error || "Ce lien de suivi n'est pas valable.");
+      else { setData(json as Suivi); setErreur(null); setMajLe(new Date()); }
+    } catch {
+      setErreur("Impossible de charger le suivi. Vérifiez votre connexion.");
+    }
+    setCharge(true);
+    setActualisation(false);
   }, [params.token]);
+
+  useEffect(() => { charger(); }, [charger]);
+  // Retour sur l'onglet (après une signature, par exemple) : on recharge.
+  useEffect(() => {
+    const surRetour = () => { if (document.visibilityState === "visible") charger(); };
+    document.addEventListener("visibilitychange", surRetour);
+    window.addEventListener("pageshow", charger);
+    return () => { document.removeEventListener("visibilitychange", surRetour); window.removeEventListener("pageshow", charger); };
+  }, [charger]);
 
   if (!charge) {
     return (
@@ -98,6 +110,18 @@ export default function SuiviPage() {
   return (
     <div className="landing-pro min-h-screen px-4 py-8 sm:py-12">
       <div className="mx-auto max-w-2xl space-y-5">
+        <div className="flex items-center justify-end gap-3 text-xs text-slate-400">
+          {majLe && <span>Mis à jour à {majLe.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</span>}
+          <button
+            type="button"
+            onClick={() => { setActualisation(true); charger(); }}
+            disabled={actualisation}
+            className="lp-btn-ghost !px-3 !py-1.5 text-xs"
+            title="Recharger l'état du dossier"
+          >
+            <span className={actualisation ? "inline-block animate-spin" : "inline-block"}>↻</span> Actualiser
+          </button>
+        </div>
         {/* En-tête : c'est le garage qu'on met en avant */}
         <header className="flex items-center gap-3">
           {garage.logoUrl ? (
@@ -165,7 +189,7 @@ export default function SuiviPage() {
               {aSigner.map((doc) => (
                 <a
                   key={doc.token}
-                  href={`/signer/${doc.token}`}
+                  href={`/signer/${doc.token}?retour=${encodeURIComponent(`/suivi/${params.token}`)}`}
                   className="lp-btn w-full"
                 >
                   Signer — {doc.type}

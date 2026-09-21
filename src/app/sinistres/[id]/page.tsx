@@ -25,6 +25,7 @@ import { calculeProchaineAction } from "@/lib/actions";
 import SuggestionAction from "@/components/SuggestionAction";
 import LitigePanel from "@/components/LitigePanel";
 import HistoriqueLitige from "@/components/HistoriqueLitige";
+import EmailsDossier from "@/components/EmailsDossier";
 import RetardPaiementPanel from "@/components/RetardPaiementPanel";
 import { etatRecouvrement } from "@/lib/recouvrement";
 import MentionsRapport from "@/components/MentionsRapport";
@@ -749,9 +750,9 @@ export default function DossierDetailPage() {
   });
 
   // v12.7 — une facture échue et non soldée : on propose le mode « retard de paiement ».
-  const retardDetecte = !dossier.retard_paiement
+  const retardDetecte = !dossier.retard_paiement && dossier.statut !== "paye" && dossier.statut !== "cloture"
     ? documents
-        .filter((d) => d.type === "facture")
+        .filter((d) => d.type === "facture" && d.statut !== "paye")
         .map((f) => etatRecouvrement(f, paiements.filter((p) => p.document_id === f.id), relances.filter((r) => r.document_id === f.id)))
         .find((e) => e.reste > 0.01 && e.retard > 0) || null
     : null;
@@ -1276,6 +1277,9 @@ export default function DossierDetailPage() {
 
       {/* Demandes de documents complémentaires (assurance / expert) */}
       <DemandesPanel dossier={dossier} demandes={demandes} pieces={pieces} onChanged={load} />
+
+      {/* Emails envoyés depuis l'appli sur ce dossier (v13.21) — relire ce qui est parti. */}
+      <EmailsDossier dossierId={dossier.id} />
 
       {/* Véhicule de prêt & transfert de garantie */}
       <TransfertGarantiePanel dossier={dossier} onChanged={load} />
