@@ -329,13 +329,18 @@ function afficherPdfIntegre(url: string, nomFichier: string) {
   // page vide par une fiche « document prêt » : nom, boutons larges
   // Ouvrir (lecteur natif : partager, enregistrer dans Fichiers, imprimer),
   // Télécharger, Fermer. Sur ordinateur, l'aperçu reste dans l'iframe.
-  if (appareilTactile()) {
+  // v13.20 — BUREAU AUSSI : l'iframe blob: dépendait de la CSP et du lecteur
+  // PDF du navigateur (page d'erreur constatée sur Chrome). La fiche
+  // « document prêt » est plus claire : nom, Ouvrir dans un onglet,
+  // Télécharger, Fermer.
+  {
     barre.remove();
+    const tactile = appareilTactile();
     voile.style.cssText =
-      "position:fixed;inset:0;z-index:10000;display:flex;align-items:flex-end;justify-content:center;background:rgba(8,10,22,0.6);";
+      `position:fixed;inset:0;z-index:10000;display:flex;align-items:${tactile ? "flex-end" : "center"};justify-content:center;background:rgba(8,10,22,0.6);padding:${tactile ? "0" : "1rem"};`;
     const fiche = document.createElement("div");
     fiche.style.cssText =
-      "width:100%;max-width:520px;background:#fff;color:#1e2233;border-radius:1.25rem 1.25rem 0 0;padding:1.1rem 1.1rem calc(1.1rem + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35);font-family:system-ui,sans-serif;";
+      `width:100%;max-width:520px;background:#fff;color:#1e2233;border-radius:${tactile ? "1.25rem 1.25rem 0 0" : "1.25rem"};padding:1.1rem 1.1rem calc(1.1rem + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.35);font-family:system-ui,sans-serif;`;
     const poignee = document.createElement("div");
     poignee.style.cssText = "width:2.5rem;height:4px;border-radius:2px;background:#d1d5e3;margin:0 auto .9rem;";
     const icone = document.createElement("div");
@@ -345,7 +350,9 @@ function afficherPdfIntegre(url: string, nomFichier: string) {
     nom.textContent = nomFichier;
     nom.style.cssText = "margin:.6rem 0 .2rem;text-align:center;font-weight:700;font-size:1rem;word-break:break-word;";
     const aide = document.createElement("div");
-    aide.textContent = "Ton document est prêt. « Ouvrir » l'affiche dans le lecteur du téléphone (partager, imprimer, enregistrer dans Fichiers).";
+    aide.textContent = tactile
+      ? "Ton document est prêt. « Ouvrir » l'affiche dans le lecteur du téléphone (partager, imprimer, enregistrer dans Fichiers)."
+      : "Ton document est prêt. « Ouvrir » l'affiche dans un nouvel onglet (si le navigateur bloque les fenêtres, autorise-les pour ce site) ; « Télécharger » l'enregistre sur l'ordinateur.";
     aide.style.cssText = "text-align:center;font-size:.8rem;color:#5b6078;margin-bottom:1rem;";
     const grand = "display:flex;align-items:center;justify-content:center;width:100%;box-sizing:border-box;padding:.8rem 1rem;border-radius:.9rem;font:600 .95rem system-ui,sans-serif;text-decoration:none;margin-top:.5rem;";
     ouvrir.style.cssText = grand + "background:linear-gradient(135deg,#8b5cf6,#ec4899);color:#fff;border:0;box-shadow:0 0 14px rgba(236,72,153,.3);";
@@ -359,18 +366,11 @@ function afficherPdfIntegre(url: string, nomFichier: string) {
     });
     // Le lecteur s'ouvre dans un nouvel onglet : on replie la fiche derrière.
     ouvrir.addEventListener("click", () => setTimeout(detruire, 400));
+    if (!tactile) poignee.style.display = "none";
     fiche.append(poignee, icone, nom, aide, ouvrir, telecharger, fermer);
     voile.appendChild(fiche);
     document.body.appendChild(voile);
-    return;
   }
-
-  const cadre = document.createElement("iframe");
-  cadre.src = url;
-  cadre.title = nomFichier;
-  cadre.style.cssText = "flex:1;width:100%;border:0;background:#fff;";
-  voile.append(barre, cadre);
-  document.body.appendChild(voile);
 }
 
 /* ==================================================================

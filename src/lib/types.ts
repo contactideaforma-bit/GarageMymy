@@ -87,6 +87,9 @@ export type Dossier = {
   litige_probleme?: string | null;
   litige_deblocage?: string | null;
   litige_depuis?: string | null;
+  /** v13.20 — trace des litiges résolus (migration v84). */
+  litige_resolu_le?: string | null;
+  litige_historique?: LitigePasse[] | null;
   // v12.7 — mode « retard de paiement » assisté (migration v70)
   retard_paiement?: boolean | null;
   retard_depuis?: string | null;
@@ -333,6 +336,15 @@ export type Relance = {
 
 // v12.7 — courrier de relance / mise en demeure généré par l'appli
 // (texte modifiable, signé, envoyé) — table `courriers_recouvrement`.
+/** Un litige passé, conservé sur le dossier après sa levée (v13.20). */
+export type LitigePasse = {
+  depuis: string | null;
+  resolu_le: string;
+  probleme: string | null;
+  deblocage: string | null;
+  conclusion: string | null;
+};
+
 export type CourrierRecouvrement = {
   id: string;
   created_at: string;

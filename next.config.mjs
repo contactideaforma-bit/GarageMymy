@@ -60,6 +60,11 @@ const nextConfig = {
               "img-src 'self' data: blob: https:",
               "font-src 'self' data:",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+              // Aperçu PDF intégré (blob: généré par jsPDF) — sans cette
+              // directive, l'iframe tombait sur default-src et Chrome affichait
+              // une page d'erreur (v13.20).
+              "frame-src 'self' blob:",
+              "child-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

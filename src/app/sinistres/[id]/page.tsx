@@ -19,10 +19,12 @@ import {
   CessionCreance,
   PieceDossier,
   DemandeAssurance,
+  LitigePasse,
 } from "@/lib/types";
 import { calculeProchaineAction } from "@/lib/actions";
 import SuggestionAction from "@/components/SuggestionAction";
 import LitigePanel from "@/components/LitigePanel";
+import HistoriqueLitige from "@/components/HistoriqueLitige";
 import RetardPaiementPanel from "@/components/RetardPaiementPanel";
 import { etatRecouvrement } from "@/lib/recouvrement";
 import MentionsRapport from "@/components/MentionsRapport";
@@ -394,17 +396,38 @@ export default function DossierDetailPage() {
     }
   }
 
-  /** MODE LITIGE (v10.8) : activation/levée depuis l'en-tête (et le bloc). */
+  /** MODE LITIGE (v10.8) : activation/levée depuis l'en-tête (et le bloc).
+      v13.20 : la levée laisse une TRACE (date + historique, migration v84) —
+      le dossier affiche ensuite un bloc « Litige résolu ». */
   async function basculerLitige() {
     if (!dossier) return;
     const activer = !dossier.litige;
-    if (!activer && !confirm("Lever le litige ? Le problème et le plan de déblocage restent enregistrés.")) return;
-    const patch = activer
-      ? { litige: true, litige_depuis: new Date().toISOString() }
-      : { litige: false };
-    const { error } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
+    if (!activer && !confirm("Lever le litige ? Le problème et le plan de déblocage restent enregistrés, et le dossier gardera une trace du litige.")) return;
+    const maintenant = new Date().toISOString();
+    if (activer) {
+      const patch = { litige: true, litige_depuis: maintenant };
+      const { error } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
+      if (error) { alert(messageErreur(error, "Impossible (migration v60 exécutée ?).")); return; }
+      setDossier({ ...dossier, ...patch });
+      return;
+    }
+    const conclusion = (prompt("Comment le litige a-t-il été résolu ? (facultatif — accord de l'assureur, paiement reçu, expertise contradictoire…)") || "").trim() || null;
+    const passe: LitigePasse = {
+      depuis: dossier.litige_depuis || null,
+      resolu_le: maintenant,
+      probleme: dossier.litige_probleme || null,
+      deblocage: dossier.litige_deblocage || null,
+      conclusion,
+    };
+    const historique = [...(dossier.litige_historique || []), passe];
+    const patch = { litige: false, litige_resolu_le: maintenant, litige_historique: historique };
+    let { error } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
     if (error) {
-      alert(messageErreur(error, "Impossible (migration v60 exécutée ?)."));
+      // Migration v84 pas encore exécutée : on lève quand même le litige.
+      ({ error } = await supabase.from("dossiers").update({ litige: false }).eq("id", dossier.id));
+      if (error) { alert(messageErreur(error, "Impossible (migration v60 exécutée ?).")); return; }
+      alert("Litige levé. Pour conserver la trace du litige, exécute la migration supabase/migration_v84.sql.");
+      setDossier({ ...dossier, litige: false });
       return;
     }
     setDossier({ ...dossier, ...patch });
@@ -847,6 +870,12 @@ export default function DossierDetailPage() {
           déblocage et tâches dédiées (partagées avec À faire / Conversation). */}
       {dossier.litige && (
         <LitigePanel dossier={dossier} onPatch={(patch) => setDossier({ ...dossier, ...patch })} onLever={basculerLitige} />
+      )}
+
+      {/* LITIGE RÉSOLU (v13.20) : une fois le litige levé, le dossier garde
+          une trace visible — dates, problème, déblocage, courriers envoyés. */}
+      {!dossier.litige && (dossier.litige_depuis || dossier.litige_resolu_le || (dossier.litige_historique || []).length > 0) && (
+        <HistoriqueLitige dossier={dossier} onReouvrir={basculerLitige} />
       )}
 
       {/* RETARD DE PAIEMENT (v12.7) : la finance remonte en haut de page —

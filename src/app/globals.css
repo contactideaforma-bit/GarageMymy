@@ -988,7 +988,7 @@ html.light .border-white\/50 { border-color: rgba(30,34,51,0.39); }
 html.light .divide-white\/50 > :not([hidden]) ~ :not([hidden]) { border-color: rgba(30,34,51,0.39); }
 
 /* Couleurs nommées CLAIRES (pensées pour le fond sombre) → versions foncées */
-html.light .text-amber-100, html.light .text-amber-200, html.light .text-amber-200\/80,
+html.light .text-amber-100, html.light .text-amber-200, html.light .text-amber-200\/80, html.light .text-amber-200\/90,
 html.light .text-amber-100\/80, html.light .text-amber-100\/70, html.light .text-amber-100\/60 { color: #92400e; }
 html.light .text-amber-300, html.light .text-amber-400 { color: #b45309; }
 html.light .text-emerald-100, html.light .text-emerald-200, html.light .text-emerald-300,
