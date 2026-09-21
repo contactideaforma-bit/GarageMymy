@@ -704,6 +704,7 @@ export default function DossierForm({
                   {controle.montantDeduit
                     ? " (montant du dossier déduit du détail des lignes)."
                     : ", conforme au total du rapport."}
+                  {controle.correction && <span className="mt-1 block text-amber-200">↺ {controle.correction}</span>}
                 </p>
               ) : (
                 <div className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-xs text-amber-100">
@@ -730,10 +731,10 @@ export default function DossierForm({
                   ) : (
                     <span>
                       {" "}
-                      Une ligne a pu être oubliée ou mal lue : compare avec le rapport et corrige le
-                      devis avant de l&apos;envoyer.
+                      {controle.diagnostic || "Une ligne a pu être oubliée ou mal lue : compare avec le rapport et corrige le devis avant de l'envoyer."}
                     </span>
                   )}
+                  {controle.correction && <span className="mt-1 block">↺ {controle.correction}</span>}
                 </div>
               )
             )}

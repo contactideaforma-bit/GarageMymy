@@ -190,6 +190,20 @@ tableau absent n'existe pas : cherche-le sous une autre forme.
    - remise = colonne « %Rem. » (0 si vide). NE CONFONDS PAS avec « %Vét. »
      (vétusté) : la vétusté n'est PAS une remise, ignore-la. Si le montant est
      déjà net de remise, mets 0.
+   - ⚠️⚠️ FORMAT ALPHAEXPERT / ROADIA / ADENES (« Liste des pièces du chiffrage
+     N°1 ») : colonnes « Qté / Libellé / Réf.constructeur / Opé. / M. brut HT /
+     %vét / %rem / %TVA / M. net HT ». Dans ce format :
+       · prix_unitaire = « M. brut HT » (prix unitaire AVANT remise) ;
+       · remise = « %rem » UNIQUEMENT. La colonne « %TVA » (20,00) est le taux
+         de TVA : ce n'est JAMAIS une remise, même quand « %vét » est vide et
+         qu'il ne reste que deux pourcentages sur la ligne — le DERNIER
+         pourcentage avant « M. net HT » est TOUJOURS la TVA ;
+       · VÉRIFIE chaque ligne : M. brut × Qté × (1 − %rem/100) = M. net HT
+         (ex. 610,83 × 1 × 0,85 = 519,21 → remise 15, pas 20). Si ça ne tombe
+         pas, tu as pris la mauvaise colonne : recommence ;
+       · la ligne « ( Dont remise(s) 1250,46 HT) » sous le tableau = somme de
+         (M. brut × Qté − M. net) : sers-t'en pour contrôler ;
+       · « FRAIS DE DEVIS » sans %rem → remise 0.
    - une ligne dont le code opération est « F » (forfait MO, ex. « AGRAFES /
      VISSERIE », « ENLEVEMENT DECHET ») prend la catégorie "a", avec son prix.
 
@@ -367,6 +381,73 @@ function controlerBlocs(lignes: LigneExtraite[], recap: Recap | undefined): stri
   verifier("Pièces", totalLignes(pieces), nombreOuNull(recap.pieces));
   verifier("Ingrédients de peinture", totalLignes(ingredients), nombreOuNull(recap.ingredients));
   return ecarts;
+}
+
+/**
+ * CORRECTION DÉTERMINISTE DES REMISES (v13.19).
+ * Cas réel : format AlphaExpert « M. brut / %vét / %rem / %TVA / M. net » où
+ * le modèle prend « %TVA » (20) pour la remise (15). La facture sortait avec
+ * 416 € de moins que le rapport. Ici on ne fait pas confiance au pourcentage
+ * lu : on cherche la remise UNIFORME qui fait retomber le total des pièces
+ * sur le sous-total imprimé (« Pièces HT », ou « Dont remise(s) X HT » du
+ * calque texte). Si une valeur unique tombe juste (±1 €), on l'applique et on
+ * le dit ; sinon on ne touche à rien.
+ */
+function corrigerRemises(
+  lignes: LigneExtraite[],
+  recap: Recap | undefined,
+  tva: unknown,
+  calqueTexte: string | null
+): { lignes: LigneExtraite[]; correction: string | null } {
+  const pieces = lignes.filter((l) => l.categorie === "piece");
+  const avecRemise = pieces.filter((l) => (l.remise || 0) > 0);
+  if (!pieces.length) return { lignes, correction: null };
+
+  const sommePieces = (r: number | null) =>
+    centimes(pieces.reduce((s, l) => s + l.quantite * l.prix_unitaire * (1 - Math.min(100, Math.max(0, r === null ? l.remise || 0 : (l.remise || 0) > 0 ? r : 0)) / 100), 0));
+  const brutPieces = centimes(pieces.reduce((s, l) => s + l.quantite * l.prix_unitaire, 0));
+
+  // Références possibles : sous-total pièces du recap, ou brut − « Dont remise(s) ».
+  const refs: { valeur: number; origine: string }[] = [];
+  const rp = recap ? nombreOuNull(recap.pieces) : null;
+  if (rp) refs.push({ valeur: rp, origine: "sous-total « Pièces HT »" });
+  const m = calqueTexte ? /dont\s+remise\(?s?\)?\s*:?\s*([\d\s.,]+)\s*(?:€\s*)?HT/i.exec(calqueTexte) : null;
+  if (m) {
+    const dontRemise = Number(m[1].replace(/\s/g, "").replace(",", "."));
+    if (Number.isFinite(dontRemise) && dontRemise > 0) refs.push({ valeur: centimes(brutPieces - dontRemise), origine: `« Dont remise(s) ${dontRemise.toFixed(2)} HT »` });
+  }
+  if (!refs.length) return { lignes, correction: null };
+
+  const ok = (v: number, ref: number) => Math.abs(v - ref) <= 1;
+  // Déjà cohérent : rien à faire.
+  if (refs.some((r) => ok(sommePieces(null), r.valeur))) return { lignes, correction: null };
+
+  const tauxTva = Number(tva) || 20;
+  const candidats = [0, 5, 7.5, 10, 12, 12.5, 15, 17.5, 18, 20, 22, 25, 30, 35, 40].filter((c) => c !== tauxTva || avecRemise.length === 0);
+  for (const ref of refs) {
+    for (const c of candidats) {
+      if (avecRemise.length && ok(sommePieces(c), ref.valeur)) {
+        const avant = Array.from(new Set(avecRemise.map((l) => l.remise))).join("/");
+        return {
+          lignes: lignes.map((l) => (l.categorie === "piece" && (l.remise || 0) > 0 ? { ...l, remise: c } : l)),
+          correction: `Remise pièces corrigée automatiquement : ${c} % (le rapport indiquait ${avant} % — confusion probable avec la colonne TVA). Contrôle : ${ref.origine}.`,
+        };
+      }
+    }
+    // Aucune remise lue mais un sous-total plus bas : remise uniforme sur toutes les pièces.
+    if (!avecRemise.length) {
+      for (const c of candidats) {
+        const somme = centimes(pieces.reduce((s, l) => s + l.quantite * l.prix_unitaire * (1 - c / 100), 0));
+        if (c > 0 && ok(somme, ref.valeur)) {
+          return {
+            lignes: lignes.map((l) => (l.categorie === "piece" ? { ...l, remise: c } : l)),
+            correction: `Remise pièces de ${c} % appliquée automatiquement (non lue sur les lignes). Contrôle : ${ref.origine}.`,
+          };
+        }
+      }
+    }
+  }
+  return { lignes, correction: null };
 }
 
 function controlerChiffrage(lignes: LigneExtraite[], montantBrut: unknown) {
@@ -598,7 +679,11 @@ export async function POST(req: NextRequest) {
     // (libellés et tableau d'affectation UNIQUEMENT — jamais les montants).
     if (data.l !== undefined) {
       const brutes = developperLignes(data.l);
-      const { lignes, appliquees } = appliquerRegles(brutes, regles);
+      const recap = (data as { recap?: Recap }).recap;
+      // Remises : vérification déterministe contre les sous-totaux du rapport
+      // AVANT les règles apprises (qui ne touchent jamais aux montants).
+      const { lignes: corrigees, correction } = corrigerRemises(brutes, recap, data.tva, calqueTexte);
+      const { lignes, appliquees } = appliquerRegles(corrigees, regles);
       data.lignes = lignes;
       data.regles_appliquees = appliquees;
       delete data.l;
@@ -606,11 +691,17 @@ export async function POST(req: NextRequest) {
       // Le total des lignes doit retomber sur le total HT du rapport.
       // Le récapitulatif sert de repli quand « montant » n'a pas été lu, et
       // de grille de diagnostic bloc par bloc.
-      const recap = (data as { recap?: Recap }).recap;
       const reference = data.montant ?? (recap ? nombreOuNull(recap.total) : null);
       const controle = controlerChiffrage(lignes, reference);
       if (controle.montant != null) data.montant = controle.montant;
-      data.controle = { ...controle, blocs: controlerBlocs(lignes, recap) };
+      const blocs = controlerBlocs(lignes, recap);
+      // Diagnostic lisible : quand ça ne tombe pas, on dit OÙ chercher.
+      const diagnostic = !controle.coherent
+        ? blocs.length
+          ? `Écart localisé : ${blocs.join(" ; ")}.`
+          : "Écart non localisé : vérifiez la colonne Remise des pièces (une valeur 20 % est souvent la TVA), les postes de main d'œuvre et les forfaits."
+        : null;
+      data.controle = { ...controle, blocs, correction, diagnostic };
       delete (data as { recap?: Recap }).recap;
     }
 

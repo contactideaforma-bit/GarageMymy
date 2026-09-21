@@ -39,6 +39,10 @@ export type ControleChiffrage = {
    * IA, et vérifié contre les totaux imprimés (v9.1). Absent = lecture IA.
    */
   source?: "grille" | "ia";
+  /** v13.19 — remise des pièces corrigée automatiquement (message explicatif). */
+  correction?: string | null;
+  /** v13.19 — quand ça ne tombe pas : où chercher. */
+  diagnostic?: string | null;
 };
 
 export type Extraction = Partial<Dossier> & {
