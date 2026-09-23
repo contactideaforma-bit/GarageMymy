@@ -24,6 +24,8 @@ export function estRoutePublique(pathname?: string | null): boolean {
     pathname === "/confidentialite" ||
     pathname === "/contact" ||
     pathname === "/facturation-electronique" ||
+    // Détail d'une formule (v13.26), ouvert depuis l'accueil.
+    pathname.startsWith("/formules/") ||
     // Déclaration de vente par les commerciaux (v10.0) : code apporteur, pas de compte.
     pathname === "/vente" ||
     // MODE EXPERT (v13.5) : l'espace caché /alliance → /expert gère LUI-MÊME sa

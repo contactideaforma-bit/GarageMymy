@@ -741,6 +741,24 @@ html.light body:has(.landing-pro) {
 }
 .lp-card-hover { transition: border-color 0.2s, transform 0.2s; }
 .lp-card-hover:hover { border-color: rgba(139, 92, 246, 0.45); transform: translateY(-2px); }
+/* Cartes de formule (v13.26) : contour rose lumineux au survol et au clavier. */
+.lp-formule { cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; }
+.lp-formule:hover,
+.lp-formule:focus-visible {
+  outline: none;
+  border-color: #ec4899;
+  box-shadow: 0 0 0 1px rgba(236, 72, 153, 0.55), 0 0 24px rgba(236, 72, 153, 0.35), 0 12px 30px rgba(236, 72, 153, 0.12);
+  transform: translateY(-3px);
+}
+.lp-formule-cta {
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  width: 100%; border-radius: 0.6rem; padding: 0.6rem 1rem;
+  font-weight: 600; font-size: 0.875rem; color: #3b3f52;
+  border: 1px solid #d5d8e6; background: #fff;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.lp-formule:hover .lp-formule-cta,
+.lp-formule:focus-visible .lp-formule-cta { color: #fff; border-color: transparent; background: linear-gradient(135deg, #7c3aed, #db2777); }
 .lp-btn {
   display: inline-flex;
   align-items: center;

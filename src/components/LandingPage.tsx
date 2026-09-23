@@ -10,6 +10,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { METIER_INFOS, METIERS_PUBLICS, Metier } from "@/lib/metier";
+import FormulesAccueil from "@/components/vitrine/FormulesAccueil";
 
 /* ------------------------------ Contenus ------------------------------ */
 
@@ -230,6 +231,9 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
             <a href="#etapes" className="hidden text-sm text-slate-500 hover:text-slate-900 sm:block">
               Comment ça marche
             </a>
+            <a href="#formules" className="text-sm text-slate-500 hover:text-slate-900">
+              Formules
+            </a>
             <a href="#espaces" className="lp-btn !px-4 !py-2 text-sm">
               Se connecter
             </a>
@@ -261,7 +265,8 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               </a>
             </div>
             <p className="mt-5 text-xs text-slate-400">
-              Conçu avec des carrossiers, pour le travail réel de l&apos;atelier — sur ordinateur, tablette et téléphone.
+              Conçu avec des carrossiers, pour le travail réel de l&apos;atelier — sur ordinateur, tablette et téléphone.{" "}
+              <a href="#formules" className="text-violet-700 hover:underline">Voir les formules et les prix</a>
             </p>
           </div>
           <div className="mx-auto w-full max-w-md lg:max-w-[440px] xl:max-w-[480px] overflow-hidden rounded-2xl border border-black/5 shadow-2xl shadow-violet-900/20">
@@ -366,6 +371,9 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
             ))}
           </div>
         </section>
+
+        {/* ============================ Formules (v13.26) ============================ */}
+        <FormulesAccueil />
 
         {/* ========================= Choix de l'espace ========================= */}
         <section id="espaces" className="scroll-mt-20 pb-16 sm:pb-20">
