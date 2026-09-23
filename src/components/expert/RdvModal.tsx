@@ -7,7 +7,8 @@
 import { useEffect, useState } from "react";
 import ModalShell from "@/components/ModalShell";
 import { Champ, Erreur } from "@/components/expert/ui";
-import { chargerDossiers, chargerGarages, enregistrerRdv, supprimerRdv } from "@/lib/expertise/data";
+import { chargerDossiers, chargerGarages, chargerRdv, enregistrerRdv, supprimerRdv } from "@/lib/expertise/data";
+import { conflits } from "@/lib/expertise/calendrier";
 import { DossierExpert, GarageExpert, RdvExpert, TYPES_RDV, adresseFiche } from "@/lib/expertise/types";
 import { messageErreur } from "@/lib/format";
 
@@ -39,6 +40,12 @@ export default function RdvModal({
     ...(initial?.heure ? { heure: initial.heure.slice(0, 5) } : {}),
   }));
   const [erreur, setErreur] = useState<string | null>(null);
+  // v13.24 — garde-fou : RDV déjà posés ce jour-là (chevauchements).
+  const [duJour, setDuJour] = useState<RdvExpert[]>([]);
+  useEffect(() => {
+    if (!r.date) { setDuJour([]); return; }
+    chargerRdv({ de: r.date, a: r.date }).then(({ rdv }) => setDuJour(rdv));
+  }, [r.date]);
   const [envoi, setEnvoi] = useState(false);
 
   useEffect(() => {
@@ -74,6 +81,7 @@ export default function RdvModal({
   }
 
   const dossierChoisi = dossiers.find((d) => d.id === r.dossier_id);
+  const chevauchements = conflits(duJour, { id: r.id, date: r.date, heure: r.heure ? `${r.heure.slice(0, 5)}:00` : null, duree_min: Number(r.duree_min) || 45 });
   return (
     <ModalShell title={initial?.id ? "Modifier le rendez-vous" : "Planifier un rendez-vous"} onClose={onClose} maxWidth="max-w-2xl">
       <form onSubmit={enregistrer} className="space-y-3">
@@ -114,6 +122,11 @@ export default function RdvModal({
             </Champ>
           )}
         </div>
+        {chevauchements.length > 0 && (
+          <div className="alerte alerte-warn text-xs">
+            Chevauche {chevauchements.map((x) => `${x.heure?.slice(0, 5) || ""} · ${x.lieu || "RDV"}`).join(", ")}. Tu peux enregistrer quand même.
+          </div>
+        )}
         {dossierChoisi?.date_visite && dossierChoisi.date_visite !== r.date && (
           <p className="text-xs text-white/50">La date de visite du dossier ({dossierChoisi.date_visite.split("-").reverse().join("/")}) sera mise à jour.</p>
         )}
