@@ -161,11 +161,12 @@ export type PhotoExpert = {
 };
 
 export type TypeDocExpert =
-  | "ordre_mission" | "devis_garage" | "facture_garage" | "carte_grise" | "constat" | "pv_police"
+  | "ordre_mission" | "pre_rapport" | "devis_garage" | "facture_garage" | "carte_grise" | "constat" | "pv_police"
   | "permis" | "rapport" | "courrier" | "autre";
 
 export const TYPES_DOC_EXPERT: { code: TypeDocExpert; label: string }[] = [
   { code: "ordre_mission", label: "Ordre de mission" },
+  { code: "pre_rapport", label: "Pré-rapport de l'expert" },
   { code: "devis_garage", label: "Devis du garage" },
   { code: "facture_garage", label: "Facture du garage" },
   { code: "carte_grise", label: "Carte grise" },

@@ -75,6 +75,7 @@ export default function RapportEditeur({
   demandeSource,
   onDossierChange,
   onOperationExterne,
+  onComparerDevis,
 }: {
   dossier: DossierExpert;
   cabinet: Cabinet | null;
@@ -86,6 +87,8 @@ export default function RapportEditeur({
   onDossierChange: (d: DossierExpert) => void;
   /** Pièce envoyée depuis l'onglet Pièces (« → Chiffrage »). */
   onOperationExterne?: (recevoir: (op: Operation) => void) => void;
+  /** v13.23 — la comparaison devis ↔ pré-rapport se fait dans l'onglet « Contrôle du devis ». */
+  onComparerDevis?: () => void;
 }) {
   const [rapports, setRapports] = useState<RapportExpert[]>([]);
   // v13.7 : le PV est signé au nom de l'expert connecté.
@@ -381,7 +384,7 @@ export default function RapportEditeur({
         <div className="flex flex-wrap gap-2">
           <button className="btn-primary btn-compact" onClick={() => setChoixSource(true)}><Icone nom="ia" /> {courant ? "Générer automatiquement" : "Créer le rapport"}</button>
           {courant && devis.length > 0 && (
-            <button className="btn-ghost btn-compact" title="Confronter le devis du réparateur au pré-rapport" onClick={() => lancerAnalyse({ mode: "devis", doc: devis[devis.length - 1], but: "comparer" })}><Icone nom="rapport" /> Comparer le devis</button>
+            <button className="btn-ghost btn-compact" title="Confronter le devis du réparateur au pré-rapport" onClick={() => (onComparerDevis ? onComparerDevis() : lancerAnalyse({ mode: "devis", doc: devis[devis.length - 1], but: "comparer" }))}><Icone nom="rapport" /> Contrôler le devis</button>
           )}
           {courant && (
             <>
@@ -597,10 +600,14 @@ export default function RapportEditeur({
               <div className="glass-soft border border-accent-teal/40 p-3">
                 <div className="font-semibold"><Icone nom="rapport" /> Comparer un devis au pré-rapport v{courant.version}</div>
                 <p className="mt-1 text-xs text-white/55">Les écarts (heures, taux, pièces, prix) sont listés ; tu acceptes ou refuses chacun, puis le rapport définitif est créé en nouvelle version.</p>
+                {onComparerDevis ? (
+                  <button className="btn-primary btn-compact mt-2" onClick={() => { setChoixSource(false); onComparerDevis(); }}>Ouvrir le contrôle du devis <Icone nom="droite" /></button>
+                ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {devis.map((d) => <button key={`cmp-${d.id}`} className="btn-ghost btn-compact" onClick={() => lancerAnalyse({ mode: "devis", doc: d, but: "comparer" })}>{d.nom}</button>)}
                   <button className="btn-primary btn-compact" onClick={() => { modeFichier.current = "devis"; butFichier.current = "comparer"; fichierIA.current?.click(); }}><Icone nom="trombone" /> Choisir un fichier</button>
                 </div>
+                )}
               </div>
             )}
             <div className="glass-soft p-3">

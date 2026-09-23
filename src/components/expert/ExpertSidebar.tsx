@@ -1,17 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import BoutonActualiser from "@/components/BoutonActualiser";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { VERSION_LABEL } from "@/lib/version";
 import Icone, { NomIcone } from "@/components/expert/Icone";
 
-const LIENS: { href: string; label: string; icone: NomIcone; exact?: boolean }[] = [
+type Lien = { href: string; label: string; icone: NomIcone; exact?: boolean };
+
+// v13.23 : l'appli est centrée sur le CONTRÔLE DU DEVIS ; le reste passe
+// au second plan dans « Outils » (rien n'est supprimé).
+const PRINCIPAUX: Lien[] = [
+  { href: "/expert/controles", label: "Devis à contrôler", icone: "check" },
   { href: "/expert", label: "Tableau de bord", icone: "tableau", exact: true },
-  { href: "/expert/dossiers", label: "Dossiers d'expertise", icone: "dossiers" },
-  { href: "/expert/agenda", label: "RDV expert", icone: "agenda" },
+  { href: "/expert/dossiers", label: "Dossiers", icone: "dossiers" },
+];
+const OUTILS: Lien[] = [
   { href: "/expert/rapports", label: "Rapports émis", icone: "rapport" },
+  { href: "/expert/agenda", label: "RDV expert", icone: "agenda" },
   { href: "/expert/pieces", label: "Recherche de pièces", icone: "recherche" },
   { href: "/expert/annuaire", label: "Base de données", icone: "base" },
   { href: "/expert/cabinet", label: "Le cabinet", icone: "cabinet" },
@@ -19,7 +27,10 @@ const LIENS: { href: string; label: string; icone: NomIcone; exact?: boolean }[]
 
 export default function ExpertSidebar({ email, onNavigate }: { email: string | null; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const actif = (l: (typeof LIENS)[number]) => (l.exact ? pathname === l.href : pathname.startsWith(l.href));
+  const actif = (l: Lien) => (l.exact ? pathname === l.href : pathname.startsWith(l.href));
+  const dansOutils = OUTILS.some(actif);
+  const [outils, setOutils] = useState(dansOutils);
+  useEffect(() => { if (dansOutils) setOutils(true); }, [dansOutils]);
   return (
     <div className="glass-card glass-blur min-h-full flex flex-col p-3">
       <div className="flex items-start gap-2 px-2 py-3">
@@ -32,18 +43,35 @@ export default function ExpertSidebar({ email, onNavigate }: { email: string | n
         <div className="hidden lg:block"><BoutonActualiser inline /></div>
       </div>
 
-      <Link href="/expert/dossiers?nouveau=1" onClick={onNavigate} className="btn-primary mt-2 mb-4 flex items-center justify-center gap-2 text-center">
-        + Nouvelle mission
+      <Link href="/expert/controles?nouveau=1" onClick={onNavigate} className="btn-primary mt-2 mb-4 flex items-center justify-center gap-2 text-center">
+        <Icone nom="plus" /> Nouveau contrôle
       </Link>
 
       <nav className="space-y-0.5">
-        {LIENS.map((l) => (
+        {PRINCIPAUX.map((l) => (
           <Link key={l.href} href={l.href} onClick={onNavigate} className={`nav-lien ${actif(l) ? "actif" : ""}`}>
             <Icone nom={l.icone} className="opacity-70" />
             {l.label}
           </Link>
         ))}
       </nav>
+
+      <div className="mt-3 border-t border-white/10 pt-2">
+        <button type="button" onClick={() => setOutils((o) => !o)} className="nav-lien nav-compact w-full justify-between" aria-expanded={outils}>
+          <span className="flex items-center gap-2"><Icone nom="outil" className="opacity-70" /> Outils</span>
+          <Icone nom="chevron" className={`opacity-50 transition-transform ${outils ? "rotate-90" : ""}`} />
+        </button>
+        {outils && (
+          <nav className="mt-0.5 space-y-0.5 pl-2">
+            {OUTILS.map((l) => (
+              <Link key={l.href} href={l.href} onClick={onNavigate} className={`nav-lien nav-compact ${actif(l) ? "actif" : ""}`}>
+                <Icone nom={l.icone} className="opacity-70" />
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+        )}
+      </div>
 
       <div className="space-y-0 border-t border-white/10 pt-2 mt-4">
         <Link href="/expert/profil" onClick={onNavigate} className={`nav-lien nav-compact ${pathname.startsWith("/expert/profil") ? "actif" : ""}`}>

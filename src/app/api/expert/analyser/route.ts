@@ -10,6 +10,9 @@ import { jsonDepuisTexte, nombre, preparerAppelIA, texte } from "@/lib/expertise
  *  Trois sources → UNE structure de chiffrage (chocs + opérations) :
  *   · mode=devis    : devis du garage (PDF/photo) → postes MO, pièces, prix
  *   · mode=facture  : facture du garage → idem (montants réellement facturés)
+ *   · mode=rapport  : PRÉ-RAPPORT de l'expert (PDF sorti de son logiciel :
+ *                     AlphaExpert, Darva, modèle Alliance…) → même structure,
+ *                     pour le contrôle du devis (v13.23)
  *   · mode=photos   : photos du véhicule (jusqu'à 10) + contexte véhicule →
  *                     dommages constatés, opérations proposées, heures et
  *                     prix ESTIMÉS. C'est une ÉBAUCHE : l'expert relit tout.
@@ -45,6 +48,12 @@ ${SCHEMA}`;
 const PROMPT_DOCUMENT = (mode: string) => `Tu es expert automobile. Tu lis ${mode === "facture" ? "la FACTURE" : "le DEVIS"} d'un garage / carrossier pour en tirer le chiffrage d'un procès-verbal d'expertise.
 Reporte FIDÈLEMENT ce que le document contient : heures et taux de main-d'œuvre par catégorie (tôlerie, peinture, mécanique), ingrédients peinture, pièces (désignation, quantité, prix unitaire HT), forfaits. Si le document donne un total MO sans détail d'heures, crée un poste "Tôlerie T1" avec heures = montant / taux (taux 60 si inconnu). Lis aussi le véhicule, le garage émetteur et les totaux du document.
 "zones_endommagees" peut rester vide. "dommages" = résumé en une phrase des dégâts réparés.
+${REGLES_COMMUNES}`;
+
+const PROMPT_PRE_RAPPORT = `Tu es expert automobile. Tu lis un PRÉ-RAPPORT / RAPPORT D'EXPERTISE (chiffrage établi par un expert, souvent édité par un logiciel d'expertise : AlphaExpert, Darva, Sidexa, modèle Alliance Experts…) pour en tirer le chiffrage retenu par l'expert.
+Reporte FIDÈLEMENT le chiffrage de l'expert : tableau « Détail choc » (heures et taux par poste : tôlerie T1/T2/T3, peinture, vernis, ingrédients, forfaits) et tableau « Opérations effectuées » (code opération E / I / L / N / P…, * de peinture, désignation, quantité, prix unitaire HT, remise). Les lettres O / Q / R après une pièce = qualité origine / équivalente / réemploi.
+Ignore les montants de vétusté, franchise, SRGC et la TVA : seul le chiffrage des réparations compte. "document.total_ht" = total HT des réparations AVANT vétusté/remise s'il est imprimé, sinon le total HT.
+"reparateur" = le réparateur désigné dans le rapport. "zones_endommagees" peut rester vide.
 ${REGLES_COMMUNES}`;
 
 const PROMPT_PHOTOS = (ctx: string, taux: { t1: number; t2: number; peinture: number }) => `Tu es expert automobile en carrosserie. Tu examines des PHOTOS d'un véhicule sinistré pour préparer une ÉBAUCHE de chiffrage (avant travaux).
@@ -165,7 +174,7 @@ export async function POST(req: NextRequest) {
         blocs.push({ type: "text", text: `NOM DU FICHIER : ${file.name}` });
       }
       if (contexte) blocs.push({ type: "text", text: `CONTEXTE DU DOSSIER :\n${contexte}` });
-      blocs.push({ type: "text", text: PROMPT_DOCUMENT(mode) });
+      blocs.push({ type: "text", text: mode === "rapport" ? PROMPT_PRE_RAPPORT : PROMPT_DOCUMENT(mode) });
     }
 
     const message = await avecDelai(

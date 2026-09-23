@@ -37,7 +37,7 @@ const dateFr = (s: string | null | undefined) => {
 const txt = (s: string | number | null | undefined) =>
   String(s ?? "").replace(/[    ]/g, " ").replace(/…/g, "...");
 
-async function dataUrl(url: string): Promise<string | null> {
+export async function dataUrl(url: string): Promise<string | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
@@ -53,7 +53,7 @@ async function dataUrl(url: string): Promise<string | null> {
   }
 }
 
-async function signatureDataUrl(path: string | null | undefined): Promise<string | null> {
+export async function signatureDataUrl(path: string | null | undefined): Promise<string | null> {
   if (!path) return null;
   try {
     const { data } = await supabase.storage.from("pieces").download(path);

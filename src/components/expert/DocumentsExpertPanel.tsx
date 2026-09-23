@@ -95,11 +95,11 @@ export default function DocumentsExpertPanel({
                     <div className="text-xs text-white/50">{formatDateTime(d.created_at)}{d.taille ? ` · ${Math.round(d.taille / 1024)} Ko` : ""}</div>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {onUtiliserPourRapport && (d.type === "devis_garage" || d.type === "facture_garage") && (
-                      <button className="btn-primary btn-compact" onClick={() => onUtiliserPourRapport(d, d.type === "devis_garage" ? "devis" : "facture")}><Icone nom="ia" /> Générer le rapport</button>
-                    )}
                     {onComparer && d.type === "devis_garage" && (
-                      <button className="btn-ghost btn-compact" title="Écarts entre ce devis et le pré-rapport, à accepter ou refuser" onClick={() => onComparer(d)}><Icone nom="rapport" /> Comparer au pré-rapport</button>
+                      <button className="btn-primary btn-compact" title="Écarts entre ce devis et le pré-rapport, à accepter ou refuser" onClick={() => onComparer(d)}><Icone nom="check" /> Contrôler ce devis</button>
+                    )}
+                    {onUtiliserPourRapport && (d.type === "devis_garage" || d.type === "facture_garage") && (
+                      <button className="btn-ghost btn-compact" onClick={() => onUtiliserPourRapport(d, d.type === "devis_garage" ? "devis" : "facture")}><Icone nom="ia" /> Générer un rapport</button>
                     )}
                     <button className="btn-ghost btn-compact" onClick={() => ouvrirFichierExpert(d.path)}>Ouvrir</button>
                     <button className="btn-ghost btn-compact" onClick={() => setEdition(d)}>Modifier</button>

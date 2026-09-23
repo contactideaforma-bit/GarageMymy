@@ -1,8 +1,9 @@
 "use client";
 
 /* ====================================================================
- *  FICHE D'UN DOSSIER D'EXPERTISE (v13.5)
- *  Onglets : Dossier · Photos · Documents · Rapport · Pièces.
+ *  FICHE D'UN DOSSIER D'EXPERTISE (v13.5 → v13.23)
+ *  Onglets : CONTRÔLE DU DEVIS (par défaut, v13.23) · Dossier · Documents ·
+ *  Rapport · Photos · Pièces.
  *  Tous les onglets restent montés (cachés) : le rapport continue de
  *  s'enregistrer, une pièce retenue part directement dans le chiffrage,
  *  un devis déposé peut lancer la génération du rapport.
@@ -15,6 +16,7 @@ import DossierExpertForm from "@/components/expert/DossierExpertForm";
 import PhotosExpertPanel from "@/components/expert/PhotosExpertPanel";
 import DocumentsExpertPanel from "@/components/expert/DocumentsExpertPanel";
 import RapportEditeur from "@/components/expert/RapportEditeur";
+import ControleDevis from "@/components/expert/ControleDevis";
 import PiecesRecherche from "@/components/expert/PiecesRecherche";
 import RdvModal from "@/components/expert/RdvModal";
 import { BadgeStatutExpert, Bloc, EnTete, Info } from "@/components/expert/ui";
@@ -22,12 +24,13 @@ import { chargerCabinet, chargerDossier, chargerGarages, chargerRdv, changerStat
 import { Cabinet, DocumentExpert, DossierExpert, GarageExpert, Operation, PhotoExpert, RdvExpert, STATUTS_EXPERTISE, agrementPour, labelTypeRdv } from "@/lib/expertise/types";
 import { formatDate } from "@/lib/format";
 
-type Onglet = "dossier" | "photos" | "documents" | "rapport" | "pieces";
+type Onglet = "controle" | "dossier" | "photos" | "documents" | "rapport" | "pieces";
 const ONGLETS: { code: Onglet; label: string }[] = [
+  { code: "controle", label: "Contrôle du devis" },
   { code: "dossier", label: "Dossier" },
-  { code: "photos", label: "Photos" },
   { code: "documents", label: "Documents" },
   { code: "rapport", label: "Rapport" },
+  { code: "photos", label: "Photos" },
   { code: "pieces", label: "Pièces & prix" },
 ];
 
@@ -39,7 +42,15 @@ export default function FicheDossierExpert() {
   const [garages, setGarages] = useState<GarageExpert[]>([]);
   const [photos, setPhotos] = useState<PhotoExpert[]>([]);
   const [documents, setDocuments] = useState<DocumentExpert[]>([]);
-  const [onglet, setOnglet] = useState<Onglet>("dossier");
+  const [onglet, setOnglet] = useState<Onglet>("controle");
+  const [versionDocs, setVersionDocs] = useState(0);
+  const [versionRapport, setVersionRapport] = useState(0);
+  const [demandeDevis, setDemandeDevis] = useState<{ doc: DocumentExpert; cle: number } | null>(null);
+  // Lien direct vers un onglet : /expert/dossiers/<id>?onglet=dossier
+  useEffect(() => {
+    const o = new URLSearchParams(window.location.search).get("onglet");
+    if (o && ONGLETS.some((x) => x.code === o)) setOnglet(o as Onglet);
+  }, []);
   const [edition, setEdition] = useState(false);
   const [introuvable, setIntrouvable] = useState(false);
   const [demandeSource, setDemandeSource] = useState<{ doc: DocumentExpert; mode: "devis" | "facture"; cle: number; but?: "comparer" } | null>(null);
@@ -93,6 +104,20 @@ export default function FicheDossierExpert() {
             {o.code === "documents" && documents.length > 0 && <span className="ml-1 text-xs opacity-60">{documents.length}</span>}
           </button>
         ))}
+      </div>
+
+      {/* ------------------------- Contrôle du devis (v13.23) ---------------- */}
+      <div className={onglet === "controle" ? "" : "hidden"}>
+        <ControleDevis
+          dossier={dossier}
+          cabinet={cabinet}
+          garage={garage}
+          documents={documents}
+          onDocumentsChange={() => setVersionDocs((v) => v + 1)}
+          onDossierChange={setDossier}
+          onOuvrirRapport={() => { setDemandeSource(null); setVersionRapport((v) => v + 1); setOnglet("rapport"); }}
+          demandeDevis={demandeDevis}
+        />
       </div>
 
       {/* ------------------------------ Dossier ----------------------------- */}
@@ -198,11 +223,12 @@ export default function FicheDossierExpert() {
             </div>
           </Bloc>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <button className="btn-primary" onClick={() => setOnglet("controle")}><Icone nom="check" /> Contrôle du devis</button>
           <button className="btn-ghost" onClick={() => setOnglet("photos")}><Icone nom="photo" /> Photographier</button>
           <button className="btn-ghost" onClick={() => setOnglet("documents")}><Icone nom="trombone" /> Documents</button>
           <button className="btn-ghost" onClick={() => setOnglet("pieces")}><Icone nom="recherche" /> Pièces & prix</button>
-          <button className="btn-primary" onClick={() => setOnglet("rapport")}><Icone nom="rapport" /> Rapport d&apos;expertise</button>
+          <button className="btn-ghost" onClick={() => setOnglet("rapport")}><Icone nom="rapport" /> Rapport d&apos;expertise</button>
         </div>
       </div>
 
@@ -214,16 +240,18 @@ export default function FicheDossierExpert() {
       {/* ---------------------------- Documents ----------------------------- */}
       <div className={onglet === "documents" ? "" : "hidden"}>
         <DocumentsExpertPanelSync
+          key={versionDocs}
           dossierId={dossier.id}
           onDocuments={setDocuments}
           onUtiliserPourRapport={(doc, mode) => { setDemandeSource({ doc, mode, cle: Date.now() }); setOnglet("rapport"); }}
-          onComparer={(doc) => { setDemandeSource({ doc, mode: "devis", cle: Date.now(), but: "comparer" }); setOnglet("rapport"); }}
+          onComparer={(doc) => { setDemandeDevis({ doc, cle: Date.now() }); setOnglet("controle"); }}
         />
       </div>
 
       {/* ------------------------------ Rapport ----------------------------- */}
       <div className={onglet === "rapport" ? "" : "hidden"}>
         <RapportEditeur
+          key={versionRapport}
           dossier={dossier}
           cabinet={cabinet}
           garage={garage}
@@ -232,6 +260,7 @@ export default function FicheDossierExpert() {
           demandeSource={demandeSource}
           onDossierChange={setDossier}
           onOperationExterne={enregistrerRecepteur}
+          onComparerDevis={() => setOnglet("controle")}
         />
       </div>
 

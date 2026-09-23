@@ -1,6 +1,6 @@
 "use client";
 
-// TABLEAU DE BORD du mode expert (v13.5).
+// TABLEAU DE BORD du mode expert (v13.5 → v13.23 : le contrôle des devis en tête).
 
 import { useEffect, useMemo, useState } from "react";
 import Icone from "@/components/expert/Icone";
@@ -9,6 +9,9 @@ import StatCard from "@/components/StatCard";
 import { BadgeStatutExpert, Bloc, EnTete, Vide } from "@/components/expert/ui";
 import { chargerDossiers, chargerRdv, chargerTousRapports } from "@/lib/expertise/data";
 import { creerDossierDemo } from "@/lib/expertise/demo";
+import { creerControleDemo } from "@/lib/expertise/controleDemo";
+import { chargerControles } from "@/lib/expertise/controleData";
+import { Controle, STATUTS_CONTROLE, resumer } from "@/lib/expertise/controle";
 import { synthese } from "@/lib/expertise/chiffrage";
 import { DossierExpert, RapportExpert, RdvExpert, labelTypeRdv } from "@/lib/expertise/types";
 import { formatDate, formatEuros, messageErreur } from "@/lib/format";
@@ -17,13 +20,15 @@ export default function TableauDeBordExpert() {
   const [dossiers, setDossiers] = useState<DossierExpert[]>([]);
   const [rapports, setRapports] = useState<RapportExpert[]>([]);
   const [rdvs, setRdvs] = useState<RdvExpert[]>([]);
+  const [controles, setControles] = useState<Controle[]>([]);
   const [dispo, setDispo] = useState(true);
   const [chargement, setChargement] = useState(true);
   const [creation, setCreation] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
   async function charger() {
-    const [{ dossiers: d, dispo: ok }, r, { rdv }] = await Promise.all([chargerDossiers(), chargerTousRapports(), chargerRdv({ de: new Date().toISOString().slice(0, 10) })]);
+    const [{ dossiers: d, dispo: ok }, r, { rdv }, { controles: c }] = await Promise.all([chargerDossiers(), chargerTousRapports(), chargerRdv({ de: new Date().toISOString().slice(0, 10) }), chargerControles()]);
+    setControles(c);
     setDossiers(d);
     setRapports(r);
     setRdvs(rdv.filter((x) => x.statut === "planifie"));
@@ -54,8 +59,9 @@ export default function TableauDeBordExpert() {
     setErreur(null);
     try {
       const n = await creerDossierDemo();
+      const ctl = await creerControleDemo().catch(() => false);
       await charger();
-      if (!n.dossiers && !n.garages) setErreur("Les données de démonstration sont déjà en place.");
+      if (!n.dossiers && !n.garages && !ctl) setErreur("Les données de démonstration sont déjà en place.");
     } catch (e) {
       setErreur(messageErreur(e, "Création du dossier de démonstration impossible (migration v75 exécutée ?)."));
     } finally {
@@ -64,6 +70,24 @@ export default function TableauDeBordExpert() {
   }
 
   const recents = dossiers.slice(0, 8);
+
+  // v13.23 — contrôles de devis : dernier tour de chaque dossier.
+  const derniersControles = useMemo(() => {
+    const m = new Map<string, Controle>();
+    for (const c of controles) { const x = m.get(c.dossier_id); if (!x || c.tour > x.tour) m.set(c.dossier_id, c); }
+    return Array.from(m.values()).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+  }, [controles]);
+  const statsCtl = useMemo(() => {
+    const mois = new Date().toISOString().slice(0, 7);
+    const valides = derniersControles.filter((c) => c.statut === "valide" && (c.cloture_le || "").slice(0, 7) === mois);
+    return {
+      aTrancher: derniersControles.filter((c) => c.statut === "a_trancher").length,
+      attente: derniersControles.filter((c) => c.statut === "attente_garage").length,
+      valides: valides.length,
+      economie: valides.reduce((s, c) => s + Math.max(0, resumer(c).economie), 0),
+    };
+  }, [derniersControles]);
+  const enCoursCtl = derniersControles.filter((c) => c.statut !== "valide").slice(0, 6);
   const prochainesVisites = dossiers
     .filter((d) => d.date_visite && d.statut !== "cloture" && d.statut !== "emis")
     .sort((a, b) => String(a.date_visite).localeCompare(String(b.date_visite)))
@@ -73,11 +97,11 @@ export default function TableauDeBordExpert() {
     <div className="space-y-4">
       <EnTete
         titre="Tableau de bord"
-        sousTitre="Missions en cours, visites à venir et rapports à émettre."
+        sousTitre="Devis à contrôler, réponses des garages, missions en cours."
         actions={
           <>
             <button type="button" className="btn-ghost btn-compact" disabled={creation} onClick={demo} title="Ajoute des réparateurs et des missions fictives (idempotent)">{creation ? "Création…" : "Données de démo"}</button>
-            <Link href="/expert/dossiers?nouveau=1" className="btn-primary">+ Nouvelle mission</Link>
+            <Link href="/expert/controles?nouveau=1" className="btn-primary">+ Nouveau contrôle</Link>
           </>
         }
       />
@@ -88,6 +112,47 @@ export default function TableauDeBordExpert() {
         </div>
       )}
       {erreur && <div className="alerte alerte-danger text-sm">{erreur}</div>}
+
+      {/* v13.23 — le contrôle des devis en premier */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Devis à trancher" value={String(statsCtl.aTrancher)} accent="amber" />
+        <StatCard label="En attente du garage" value={String(statsCtl.attente)} accent="blue" />
+        <StatCard label="Devis validés ce mois" value={String(statsCtl.valides)} accent="emerald" />
+        <StatCard label="Non retenu ce mois (HT)" value={formatEuros(statsCtl.economie)} hint="devis − montant retenu" accent="teal" />
+      </div>
+
+      <Bloc titre="Devis à contrôler" actions={<Link href="/expert/controles" className="btn-ghost btn-compact">Tout voir</Link>}>
+        {chargement ? (
+          <div className="skeleton h-16 rounded-xl" />
+        ) : enCoursCtl.length === 0 ? (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-white/60">
+            <span>Aucun devis en cours de contrôle.</span>
+            <Link href="/expert/controles?nouveau=1" className="btn-primary btn-compact">+ Nouveau contrôle</Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {enCoursCtl.map((c) => {
+              const d = dossiers.find((x) => x.id === c.dossier_id);
+              const r = resumer(c);
+              return (
+                <Link key={c.id} href={`/expert/dossiers/${c.dossier_id}?onglet=controle`} className="carte-liste block">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="font-semibold">{d?.immatriculation || d?.numero || "Dossier"}</span>
+                      <span className="text-sm text-white/60"> · {d?.reparateur_nom || "réparateur ?"}{c.tour > 1 ? ` · tour ${c.tour}` : ""}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      {c.devis && c.reference && <span className="tabular-nums">{formatEuros(r.totalDevis)} → <b>{formatEuros(r.totalRetenu)}</b></span>}
+                      {c.devis && c.reference && r.total > 0 && c.statut === "a_trancher" && <span className="text-xs text-white/55">{r.aTrancher} à trancher</span>}
+                      <span className={`badge ${STATUTS_CONTROLE[c.statut]?.badge}`}>{STATUTS_CONTROLE[c.statut]?.label}</span>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </Bloc>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Missions en cours" value={String(stats.enCours)} accent="blue" />
