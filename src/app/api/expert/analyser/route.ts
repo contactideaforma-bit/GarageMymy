@@ -13,6 +13,8 @@ import { jsonDepuisTexte, nombre, preparerAppelIA, texte } from "@/lib/expertise
  *   · mode=rapport  : PRÉ-RAPPORT de l'expert (PDF sorti de son logiciel :
  *                     AlphaExpert, Darva, modèle Alliance…) → même structure,
  *                     pour le contrôle du devis (v13.23)
+ *   · mode=auto     : dépôt groupé (v13.25) — reconnaît d'abord la NATURE du
+ *                     document (pré-rapport, devis, facture) puis l'extrait
  *   · mode=photos   : photos du véhicule (jusqu'à 10) + contexte véhicule →
  *                     dommages constatés, opérations proposées, heures et
  *                     prix ESTIMÉS. C'est une ÉBAUCHE : l'expert relit tout.
@@ -55,6 +57,15 @@ Reporte FIDÈLEMENT le chiffrage de l'expert : tableau « Détail choc » (heure
 Ignore les montants de vétusté, franchise, SRGC et la TVA : seul le chiffrage des réparations compte. "document.total_ht" = total HT des réparations AVANT vétusté/remise s'il est imprimé, sinon le total HT.
 "reparateur" = le réparateur désigné dans le rapport. "zones_endommagees" peut rester vide.
 ${REGLES_COMMUNES}`;
+
+const PROMPT_AUTO = `Tu es expert automobile. Tu reçois UN document dont tu ne connais pas la nature. Commence par l'identifier :
+- "pre_rapport" : rapport / pré-rapport d'EXPERTISE (émis par un cabinet d'expert : AlphaExpert, Darva, Sidexa, Alliance Experts… ; mentions « procès-verbal », « rapport d'expertise », « expert », n° d'agrément, conclusions, VRADE) ;
+- "devis" : DEVIS d'un garage / carrossier (« devis », « estimation », validité) ;
+- "facture" : FACTURE d'un garage (« facture », n° de facture, échéance, mentions de paiement) ;
+- "autre" : tout autre document (carte grise, constat, courrier…) — dans ce cas, chocs et operations vides.
+Ajoute au JSON la clé "type_document" avec l'une de ces 4 valeurs. Lis aussi l'immatriculation, la marque, le modèle, et le réparateur (nom, adresse).
+Pour un pré-rapport, reporte le chiffrage retenu par l'expert ; pour un devis ou une facture, reporte fidèlement les lignes du garage.
+${REGLES_COMMUNES.replace('"confiance":"faible"|"moyenne"|"bonne"}', '"confiance":"faible"|"moyenne"|"bonne","type_document":"pre_rapport"|"devis"|"facture"|"autre"}')}`;
 
 const PROMPT_PHOTOS = (ctx: string, taux: { t1: number; t2: number; peinture: number }) => `Tu es expert automobile en carrosserie. Tu examines des PHOTOS d'un véhicule sinistré pour préparer une ÉBAUCHE de chiffrage (avant travaux).
 VÉHICULE :
@@ -124,6 +135,7 @@ function normaliser(brut: Record<string, unknown>) {
     dommages: texte(brut.dommages, 800),
     remarques: texte(brut.remarques, 800),
     confiance: conf === "bonne" || conf === "moyenne" ? conf : "faible",
+    type_document: ((t) => (t === "pre_rapport" || t === "devis" || t === "facture" ? t : brut.type_document ? "autre" : null))(texte(brut.type_document, 20)),
   };
 }
 
@@ -174,7 +186,7 @@ export async function POST(req: NextRequest) {
         blocs.push({ type: "text", text: `NOM DU FICHIER : ${file.name}` });
       }
       if (contexte) blocs.push({ type: "text", text: `CONTEXTE DU DOSSIER :\n${contexte}` });
-      blocs.push({ type: "text", text: mode === "rapport" ? PROMPT_PRE_RAPPORT : PROMPT_DOCUMENT(mode) });
+      blocs.push({ type: "text", text: mode === "rapport" ? PROMPT_PRE_RAPPORT : mode === "auto" ? PROMPT_AUTO : PROMPT_DOCUMENT(mode) });
     }
 
     const message = await avecDelai(

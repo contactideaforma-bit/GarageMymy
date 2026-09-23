@@ -29,6 +29,10 @@ export type Cabinet = {
   signature_path: string | null;
   taux_tva: number | null;
   prochain_numero: number;
+  /** v13.25 — réglages du contrôle (migration v88). */
+  delai_relance_jours?: number | null;
+  seuil_prix_pieces?: number | null;
+  seuil_vei?: number | null;
 };
 
 export type GarageExpert = {
@@ -117,6 +121,9 @@ export type DossierExpert = {
   dommage_intensite: string | null;
   dommage_description: string | null;
   vehicule_reparable: boolean | null;
+  /** v13.25 — seuil VEI (migration v88). */
+  valeur_remplacement?: number | null;
+  valeur_sauvegarde?: number | null;
   conclusions: Conclusions | null;
   notes: string | null;
   created_at: string;

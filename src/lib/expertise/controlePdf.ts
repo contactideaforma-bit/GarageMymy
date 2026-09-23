@@ -17,7 +17,7 @@ import { Cabinet, DossierExpert, ProfilExpert, nomExpert } from "./types";
 import { codeImprime, montantOperation, montantPoste } from "./chiffrage";
 import { dataUrl, signatureDataUrl } from "./rapportPdf";
 import {
-  Controle, LIBELLE_CONCLUSION, LIBELLE_DECISION, LIBELLE_NATURE_CONTROLE, appliquerControle, lignesARessaisir, resumer,
+  Controle, LIBELLE_CONCLUSION, LIBELLE_DECISION, LIBELLE_NATURE_CONTROLE, appliquerControle, lignesARessaisir, motsControle, resumer,
 } from "./controle";
 
 const M = 14;
@@ -25,7 +25,7 @@ const L = 210 - 2 * M;
 const NOIR = [0, 0, 0] as const;
 const GRIS_TEXTE = [90, 90, 90] as const;
 
-export type CtxControlePdf = { dossier: DossierExpert; cabinet: Cabinet | null; expert: ProfilExpert | null; controle: Controle };
+export type CtxControlePdf = { dossier: DossierExpert; cabinet: Cabinet | null; expert: ProfilExpert | null; controle: Controle; lien?: string | null };
 
 const txt = (s: string | number | null | undefined) => String(s ?? "").replace(/[    ]/g, " ").replace(/…/g, "...").replace(/→/g, "->").replace(/−/g, "-");
 const eur = (n: number) => {
@@ -84,8 +84,8 @@ function cartouche(pdf: jsPDF, c: CtxControlePdf, y: number): number {
     ["Sinistre", [d.numero_sinistre, d.mandant_nom].filter(Boolean).join(" — ")],
     ["Lésé / assuré", d.lese_nom || d.assure_nom || ""],
     ["Réparateur", d.reparateur_nom || ""],
-    ["Pré-rapport", ctl.reference?.nom || ""],
-    ["Devis contrôlé", [ctl.devis?.nom, ctl.devis?.numero && !String(ctl.devis?.nom || "").includes(ctl.devis.numero) ? `n° ${ctl.devis.numero}` : null].filter(Boolean).join(" — ")],
+    [ctl.type === "facture" ? "Référence" : "Pré-rapport", ctl.reference?.nom || ""],
+    [ctl.type === "facture" ? "Facture contrôlée" : "Devis contrôlé", [ctl.devis?.nom, ctl.devis?.numero && !String(ctl.devis?.nom || "").includes(ctl.devis.numero) ? `n° ${ctl.devis.numero}` : null].filter(Boolean).join(" — ")],
   ].filter(([, v]) => v) as [string, string][];
   const h = 4 + lignes.length * 4.1;
   pdf.setDrawColor(...NOIR);
@@ -105,10 +105,10 @@ function cartouche(pdf: jsPDF, c: CtxControlePdf, y: number): number {
 function totaux(pdf: jsPDF, c: CtxControlePdf, y: number): number {
   const r = resumer(c.controle);
   const cases: [string, string][] = [
-    ["Pré-rapport HT", eur(r.totalReference)],
-    ["Devis du garage HT", eur(r.totalDevis)],
+    [c.controle.type === "facture" ? "Chiffrage retenu HT" : "Pré-rapport HT", eur(r.totalReference)],
+    [c.controle.type === "facture" ? "Facture du garage HT" : "Devis du garage HT", eur(r.totalDevis)],
     ["Retenu par l'expert HT", eur(r.totalRetenu)],
-    ["Non retenu (devis − retenu)", eur(r.economie)],
+    [`Non retenu (${c.controle.type === "facture" ? "facture" : "devis"} − retenu)`, eur(r.economie)],
   ];
   const w = (L - 3 * 3) / 4;
   cases.forEach(([k, v], i) => {
@@ -180,7 +180,8 @@ export async function pdfCourrierGarage(c: CtxControlePdf): Promise<jsPDF> {
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const d = c.dossier;
   const ctl = c.controle;
-  let y = await entete(pdf, c, "DEMANDE DE MISE EN CONFORMITÉ DU DEVIS", `Dossier ${d.numero}`);
+  const mots = motsControle(ctl.type);
+  let y = await entete(pdf, c, mots.titrePdf, `Dossier ${d.numero}`);
 
   // Destinataire (à droite, comme un courrier)
   const dest = [d.reparateur_nom, ...(d.reparateur_adresse || "").split(/\n|, /)].filter((x) => x && x.trim()) as string[];
@@ -198,19 +199,19 @@ export async function pdfCourrierGarage(c: CtxControlePdf): Promise<jsPDF> {
   const acceptes = ctl.ecarts.filter((e) => e.decision === "accepte");
 
   y = paragraphe(pdf, "Madame, Monsieur,", y);
-  y = paragraphe(pdf, `Après examen de votre devis${ctl.devis?.nom ? ` « ${ctl.devis.nom} »` : ""} au regard de notre pré-rapport, nous ne pouvons pas le valider en l'état. Nous vous remercions de bien vouloir le mettre en conformité sur ${refuses.length === 1 ? "le point suivant" : `les ${refuses.length} points suivants`} :`, y + 1);
+  y = paragraphe(pdf, `Après examen de ${mots.votreDocument}${ctl.devis?.nom ? ` « ${ctl.devis.nom} »` : ""} au regard de notre ${mots.reference}, nous ne pouvons pas ${ctl.type === "facture" ? "la valider" : "le valider"} en l'état. Nous vous remercions de bien vouloir ${ctl.type === "facture" ? "la rectifier" : "le mettre en conformité"} sur ${refuses.length === 1 ? "le point suivant" : `les ${refuses.length} points suivants`} :`, y + 1);
 
   autoTable(pdf, {
     ...STYLE_TABLE,
     startY: y,
-    head: [["#", "Poste / opération", "Votre devis", "Retenu par l'expert", "Motif"]],
+    head: [["#", "Poste / opération", ctl.type === "facture" ? "Votre facture" : "Votre devis", "Retenu par l'expert", "Motif"]],
     body: refuses.map((e, i) => [String(i + 1), txt(`${e.libelle}${e.precision ? `\n(${e.precision})` : ""}`), txt(e.apres || "ligne absente"), txt(e.avant || "ligne non retenue"), txt(e.motif || "")]),
     columnStyles: { 0: { cellWidth: 7, halign: "center" }, 1: { cellWidth: 52 }, 2: { cellWidth: 36 }, 3: { cellWidth: 36, fontStyle: "bold" } },
   });
   y = derniereY(pdf) + 6;
 
   if (acceptes.length) {
-    y = titreSection(pdf, `Modifications de votre devis acceptées (${acceptes.length})`, y);
+    y = titreSection(pdf, `Modifications de ${mots.votreDocument} acceptées (${acceptes.length})`, y);
     autoTable(pdf, {
       ...STYLE_TABLE,
       startY: y,
@@ -227,11 +228,20 @@ export async function pdfCourrierGarage(c: CtxControlePdf): Promise<jsPDF> {
   pdf.rect(M, y, L, 11);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(10);
-  pdf.text(txt(`Montant HT attendu après mise en conformité : ${eur(r.totalRetenu)}`), M + L / 2, y + 7.2, { align: "center" });
+  pdf.text(txt(`Montant HT attendu : ${eur(r.totalRetenu)}`), M + L / 2, y + 7.2, { align: "center" });
   y += 17;
+  if (c.lien) {
+    y = paragraphe(pdf, "Répondez point par point, en une seule fois (accord ou contestation, photos à l'appui), sur le lien suivant :", y);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(11, 63, 196);
+    pdf.textWithLink(txt(c.lien), M, y, { url: c.lien });
+    pdf.setTextColor(...NOIR);
+    y += 7;
+  }
 
   if (ctl.commentaire) y = paragraphe(pdf, ctl.commentaire, y);
-  y = paragraphe(pdf, "Dans l'attente de votre devis rectifié, que nous contrôlerons à réception, nous restons à votre disposition. Nous vous prions d'agréer, Madame, Monsieur, nos salutations distinguées.", y + 1);
+  y = paragraphe(pdf, `Dans l'attente de ${ctl.type === "facture" ? "votre facture rectifiée" : "votre devis rectifié"}, que nous contrôlerons à réception, nous restons à votre disposition. Nous vous prions d'agréer, Madame, Monsieur, nos salutations distinguées.`, y + 1);
   await signatureExpert(pdf, c, y + 4);
   pieds(pdf, `${c.cabinet?.nom || "Alliance Experts"} — Toute modification du devis doit être validée par l'expert avant travaux.`);
   pdf.setProperties({ title: `Demande de mise en conformité — ${d.numero}`, author: c.cabinet?.nom || "Alliance Experts" });
@@ -243,17 +253,17 @@ export async function pdfCourrierGarage(c: CtxControlePdf): Promise<jsPDF> {
 export async function pdfNoteControle(c: CtxControlePdf): Promise<jsPDF> {
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const ctl = c.controle;
-  let y = await entete(pdf, c, "NOTE DE CONTRÔLE DU DEVIS", ctl.conclusion ? LIBELLE_CONCLUSION[ctl.conclusion] : "Contrôle en cours");
+  let y = await entete(pdf, c, ctl.type === "facture" ? "NOTE DE CONTRÔLE DE LA FACTURE" : "NOTE DE CONTRÔLE DU DEVIS", ctl.conclusion ? LIBELLE_CONCLUSION[ctl.conclusion] : "Contrôle en cours");
   y = cartouche(pdf, c, y);
   y = totaux(pdf, c, y);
 
   const r = resumer(ctl);
-  y = titreSection(pdf, `Écarts relevés entre le devis et le pré-rapport : ${r.total} (${r.acceptes} accepté(s), ${r.refuses} refusé(s)${r.aTrancher ? `, ${r.aTrancher} à trancher` : ""})`, y);
+  y = titreSection(pdf, `Écarts relevés entre ${ctl.type === "facture" ? "la facture et le chiffrage retenu" : "le devis et le pré-rapport"} : ${r.total} (${r.acceptes} accepté(s), ${r.refuses} refusé(s)${r.aTrancher ? `, ${r.aTrancher} à trancher` : ""})`, y);
   autoTable(pdf, {
     ...STYLE_TABLE,
     startY: y,
     styles: { ...STYLE_TABLE.styles, fontSize: 7.3 },
-    head: [["Écart", "Poste / opération", "Pré-rapport", "Devis", "Écart HT", "Décision", "Motif"]],
+    head: [["Écart", "Poste / opération", ctl.type === "facture" ? "Retenu" : "Pré-rapport", ctl.type === "facture" ? "Facture" : "Devis", "Écart HT", "Décision", "Motif"]],
     body: ctl.ecarts.length
       ? ctl.ecarts.map((e) => [txt(LIBELLE_NATURE_CONTROLE[e.nature]), txt(`${e.libelle}${e.precision ? `\n(${e.precision})` : ""}`), txt(e.avant || "—"), txt(e.apres || "—"), txt(signe(e.montant_apres - e.montant_avant)), txt(LIBELLE_DECISION[e.decision]), txt(e.motif || "")])
       : [["", "Aucun écart : le devis est conforme au pré-rapport.", "", "", "", "", ""]],

@@ -16,6 +16,8 @@ export function estRoutePublique(pathname?: string | null): boolean {
   return (
     pathname.startsWith("/signer/") ||
     pathname.startsWith("/suivi/") ||
+    // Réponse du garage à l'expert (v13.25) : lien unique par demande.
+    pathname.startsWith("/reponse-garage/") ||
     pathname === "/etat" ||
     pathname === "/mentions-legales" ||
     pathname === "/cgu" ||

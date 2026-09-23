@@ -11,7 +11,7 @@ import { chargerDossiers, chargerRdv, chargerTousRapports } from "@/lib/expertis
 import { creerDossierDemo } from "@/lib/expertise/demo";
 import { creerControleDemo } from "@/lib/expertise/controleDemo";
 import { chargerControles } from "@/lib/expertise/controleData";
-import { Controle, STATUTS_CONTROLE, resumer } from "@/lib/expertise/controle";
+import { Controle, STATUTS_CONTROLE, aRelancer, resumer } from "@/lib/expertise/controle";
 import { synthese } from "@/lib/expertise/chiffrage";
 import { DossierExpert, RapportExpert, RdvExpert, labelTypeRdv } from "@/lib/expertise/types";
 import { formatDate, formatEuros, messageErreur } from "@/lib/format";
@@ -74,7 +74,7 @@ export default function TableauDeBordExpert() {
   // v13.23 — contrôles de devis : dernier tour de chaque dossier.
   const derniersControles = useMemo(() => {
     const m = new Map<string, Controle>();
-    for (const c of controles) { const x = m.get(c.dossier_id); if (!x || c.tour > x.tour) m.set(c.dossier_id, c); }
+    for (const c of controles) { const x = m.get(c.dossier_id); if (!x || c.created_at > x.created_at) m.set(c.dossier_id, c); }
     return Array.from(m.values()).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
   }, [controles]);
   const statsCtl = useMemo(() => {
@@ -85,6 +85,8 @@ export default function TableauDeBordExpert() {
       attente: derniersControles.filter((c) => c.statut === "attente_garage").length,
       valides: valides.length,
       economie: valides.reduce((s, c) => s + Math.max(0, resumer(c).economie), 0),
+      reponses: derniersControles.filter((c) => c.reponse_garage && !c.reponse_garage.traitee_le).length,
+      relances: derniersControles.filter((c) => aRelancer(c, 5)).length,
     };
   }, [derniersControles]);
   const enCoursCtl = derniersControles.filter((c) => c.statut !== "valide").slice(0, 6);
@@ -120,6 +122,17 @@ export default function TableauDeBordExpert() {
         <StatCard label="Devis validés ce mois" value={String(statsCtl.valides)} accent="emerald" />
         <StatCard label="Non retenu ce mois (HT)" value={formatEuros(statsCtl.economie)} hint="devis − montant retenu" accent="teal" />
       </div>
+
+      {(statsCtl.reponses > 0 || statsCtl.relances > 0) && (
+        <Link href="/expert/controles" className="alerte alerte-warn flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span>
+            {statsCtl.reponses > 0 && <><b>{statsCtl.reponses}</b> réponse(s) de garage à traiter</>}
+            {statsCtl.reponses > 0 && statsCtl.relances > 0 && " · "}
+            {statsCtl.relances > 0 && <><b>{statsCtl.relances}</b> garage(s) à relancer</>}
+          </span>
+          <span className="underline">Voir</span>
+        </Link>
+      )}
 
       <Bloc titre="Devis à contrôler" actions={<Link href="/expert/controles" className="btn-ghost btn-compact">Tout voir</Link>}>
         {chargement ? (

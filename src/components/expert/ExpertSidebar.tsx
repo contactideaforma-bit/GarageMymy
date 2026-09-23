@@ -16,6 +16,7 @@ const PRINCIPAUX: Lien[] = [
   { href: "/expert/controles", label: "Devis à contrôler", icone: "check" },
   { href: "/expert", label: "Tableau de bord", icone: "tableau", exact: true },
   { href: "/expert/dossiers", label: "Dossiers", icone: "dossiers" },
+  { href: "/expert/reparateurs", label: "Réparateurs", icone: "outil" },
 ];
 const OUTILS: Lien[] = [
   { href: "/expert/rapports", label: "Rapports émis", icone: "rapport" },

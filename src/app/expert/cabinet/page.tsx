@@ -106,6 +106,19 @@ export default function PageCabinet() {
             </div>
           </div>
         </Bloc>
+        <Bloc titre="Contrôle des devis et factures">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Champ label="Relancer le garage après (jours)" aide="Sans réponse à une demande de mise en conformité.">
+              <input type="number" min={1} className="field-input" value={c.delai_relance_jours ?? 5} onChange={(e) => set("delai_relance_jours", Number(e.target.value) || 5)} />
+            </Champ>
+            <Champ label="Alerte prix des pièces (%)" aide="Pièce du devis plus chère que le prix relevé au-delà de ce seuil.">
+              <input type="number" min={0} className="field-input" value={c.seuil_prix_pieces ?? 10} onChange={(e) => set("seuil_prix_pieces", Number(e.target.value))} />
+            </Champ>
+            <Champ label="Alerte VEI (% de la valeur)" aide="Réparations / (VRADE − sauvegarde). 100 % = VEI.">
+              <input type="number" min={1} max={100} className="field-input" value={c.seuil_vei ?? 80} onChange={(e) => set("seuil_vei", Number(e.target.value) || 80)} />
+            </Champ>
+          </div>
+        </Bloc>
         <div className="flex justify-end">
           <button type="submit" className="btn-primary" disabled={envoi}>{envoi ? "Enregistrement…" : "Enregistrer"}</button>
         </div>

@@ -12,12 +12,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import StatCard from "@/components/StatCard";
 import Icone from "@/components/expert/Icone";
 import NouveauControleModal from "@/components/expert/NouveauControleModal";
+import DepotGroupeModal from "@/components/expert/DepotGroupeModal";
 import { EnTete, Vide } from "@/components/expert/ui";
-import { chargerDossiers } from "@/lib/expertise/data";
+import { chargerCabinet, chargerDossiers } from "@/lib/expertise/data";
 import { chargerControles } from "@/lib/expertise/controleData";
 import { creerDossierDemo } from "@/lib/expertise/demo";
 import { creerControleDemo } from "@/lib/expertise/controleDemo";
-import { Controle, STATUTS_CONTROLE, StatutControle, resumer } from "@/lib/expertise/controle";
+import { Controle, STATUTS_CONTROLE, StatutControle, aRelancer, joursAttente, resumer } from "@/lib/expertise/controle";
 import { DossierExpert } from "@/lib/expertise/types";
 import { formatDateTime, formatEuros, messageErreur } from "@/lib/format";
 
@@ -35,6 +36,9 @@ function ListeControles() {
   const [nouveau, setNouveau] = useState(false);
   const [demo, setDemo] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [depot, setDepot] = useState(false);
+  const [delaiRelance, setDelaiRelance] = useState(5);
+  useEffect(() => { chargerCabinet().then((c) => setDelaiRelance(Number(c?.delai_relance_jours) || 5)); }, []);
 
   async function charger() {
     const [{ controles: c, dispo: ok }, { dossiers: d }] = await Promise.all([chargerControles(), chargerDossiers()]);
@@ -51,7 +55,8 @@ function ListeControles() {
     const parDossier = new Map<string, Controle>();
     for (const c of controles) {
       const x = parDossier.get(c.dossier_id);
-      if (!x || c.tour > x.tour || (c.tour === x.tour && c.created_at > x.created_at)) parDossier.set(c.dossier_id, c);
+      // Le plus récent (tour suivant ou contrôle de facture).
+      if (!x || c.created_at > x.created_at) parDossier.set(c.dossier_id, c);
     }
     return Array.from(parDossier.values())
       .map((c) => ({ c, d: dossiers.find((x) => x.id === c.dossier_id) || null, r: resumer(c) }))
@@ -68,6 +73,9 @@ function ListeControles() {
       economie: valides.reduce((s, l) => s + Math.max(0, l.r.economie), 0),
     };
   }, [lignes]);
+
+  const reponses = lignes.filter(({ c }) => c.reponse_garage && !c.reponse_garage.traitee_le);
+  const relances = lignes.filter(({ c }) => aRelancer(c, delaiRelance));
 
   const visibles = lignes.filter(({ c, d }) => {
     if (filtre === "en_cours" && c.statut === "valide") return false;
@@ -97,7 +105,12 @@ function ListeControles() {
       <EnTete
         titre="Devis à contrôler"
         sousTitre="Le devis du garage confronté ligne à ligne à ton pré-rapport : tu tranches, l'appli rédige."
-        actions={<button className="btn-primary" onClick={() => setNouveau(true)}><Icone nom="plus" /> Nouveau contrôle</button>}
+        actions={
+          <>
+            <button className="btn-ghost" onClick={() => setDepot(true)} title="Plusieurs PDF d'un coup : reconnus et rangés dans leurs dossiers"><Icone nom="importer" /> Dépôt groupé</button>
+            <button className="btn-primary" onClick={() => setNouveau(true)}><Icone nom="plus" /> Nouveau contrôle</button>
+          </>
+        }
       />
 
       {!dispo && (
@@ -113,6 +126,30 @@ function ListeControles() {
         <StatCard label="Validés ce mois" value={String(stats.valides)} accent="emerald" />
         <StatCard label="Non retenu ce mois (HT)" value={formatEuros(stats.economie)} hint="devis − montant retenu" accent="teal" />
       </div>
+
+      {(reponses.length > 0 || relances.length > 0) && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          {reponses.length > 0 && (
+            <div className="glass-card border-2 border-emerald-500/60 p-3">
+              <div className="mb-2 font-semibold"><Icone nom="mail" /> Réponses de garage à traiter · {reponses.length}</div>
+              <ul className="space-y-1 text-sm">
+                {reponses.map(({ c, d }) => {
+                  const contest = c.reponse_garage!.lignes.filter((l) => !l.accord).length;
+                  return <li key={c.id}><button className="hover:underline" onClick={() => router.push(`/expert/dossiers/${c.dossier_id}?onglet=controle`)}><b>{d?.immatriculation || d?.numero}</b> · {d?.reparateur_nom || "garage"} — {contest ? `${contest} contestation(s)` : "accord sur tout"}</button></li>;
+                })}
+              </ul>
+            </div>
+          )}
+          {relances.length > 0 && (
+            <div className="glass-card border-2 border-amber-500/60 p-3">
+              <div className="mb-2 font-semibold"><Icone nom="horloge" /> À relancer (sans réponse depuis {delaiRelance} j et plus) · {relances.length}</div>
+              <ul className="space-y-1 text-sm">
+                {relances.map(({ c, d }) => <li key={c.id}><button className="hover:underline" onClick={() => router.push(`/expert/dossiers/${c.dossier_id}?onglet=controle`)}><b>{d?.immatriculation || d?.numero}</b> · {d?.reparateur_nom || "garage"} — {joursAttente(c)} j{Number(c.nb_relances) ? ` · ${c.nb_relances} relance(s)` : ""}</button></li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="glass-card flex flex-wrap items-center gap-2 p-3">
         <div className="flex flex-wrap gap-1">
@@ -151,7 +188,7 @@ function ListeControles() {
                   <tr key={c.id} className="cursor-pointer hover:bg-white/5" onClick={() => router.push(`/expert/dossiers/${c.dossier_id}?onglet=controle`)}>
                     <td>
                       <div className="font-semibold">{d?.immatriculation || "—"} <span className="font-normal text-white/55">· {d?.numero}</span></div>
-                      <div className="text-xs text-white/55">{[d?.marque, d?.modele].filter(Boolean).join(" ")}{c.tour > 1 ? ` · tour ${c.tour}` : ""}</div>
+                      <div className="text-xs text-white/55">{c.type === "facture" && <span className="badge badge-info mr-1">Facture</span>}{[d?.marque, d?.modele].filter(Boolean).join(" ")}{c.tour > 1 ? ` · tour ${c.tour}` : ""}</div>
                     </td>
                     <td>{d?.reparateur_nom || "—"}</td>
                     <td className="num">{c.devis ? formatEuros(r.totalDevis) : <span className="text-white/40">à déposer</span>}</td>
@@ -191,6 +228,7 @@ function ListeControles() {
         </>
       )}
 
+      {depot && <DepotGroupeModal onClose={() => setDepot(false)} onTermine={charger} />}
       {nouveau && <NouveauControleModal onClose={() => { setNouveau(false); if (params.get("nouveau")) router.replace("/expert/controles"); }} />}
     </div>
   );

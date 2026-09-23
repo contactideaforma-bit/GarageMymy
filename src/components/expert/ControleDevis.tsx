@@ -22,17 +22,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ModalShell from "@/components/ModalShell";
 import Icone from "@/components/expert/Icone";
 import LectureControleModal from "@/components/expert/LectureControleModal";
+import PanneauReponseGarage from "@/components/expert/PanneauReponseGarage";
+import PanneauVei from "@/components/expert/PanneauVei";
+import Link from "next/link";
 import { Bloc, Erreur, Vide } from "@/components/expert/ui";
 import { formatDate, formatDateTime, formatEuros, messageErreur } from "@/lib/format";
-import { Cabinet, DocumentExpert, DossierExpert, GarageExpert, ProfilExpert, RapportExpert, agrementPour, nomExpert } from "@/lib/expertise/types";
-import { ajouterDocument, chargerProfilExpert, chargerRapports, creerRapport, majDossier, ouvrirFichierExpert } from "@/lib/expertise/data";
+import { Cabinet, DocumentExpert, DossierExpert, GarageExpert, PieceExpert, ProfilExpert, RapportExpert, agrementPour, nomExpert } from "@/lib/expertise/types";
+import { ajouterDocument, chargerDossiers, chargerPieces, chargerProfilExpert, chargerRapports, creerRapport, majDossier, ouvrirFichierExpert } from "@/lib/expertise/data";
 import {
   ConclusionControle, Controle, CoteControle, DecisionControle, EcartControle, LIBELLE_CONCLUSION, LIBELLE_NATURE_CONTROLE, LigneConforme,
   MOTIFS_ACCEPTATION, MOTIFS_REFUS, STATUTS_CONTROLE, alerteLecture, appliquerControle, chiffrageAttendu, comparerControle, fusionnerDecisions,
   journaliser, lignesARessaisir, maintenant, resumer, texteDemandeConformite, totalHT,
+  aRelancer, alertePrix, cleGarage, indexerDecisions, joursAttente, motsControle, rappelPour, statsReparateurs, texteRelance,
 } from "@/lib/expertise/controle";
 import {
   chargerControlesDossier, coteAttendu, coteDepuisLecture, coteDepuisRapport, creerControle, deposerPourControle, lectureMemorisee, lireDocument, majControle, supprimerControle,
+  assurerLien, chargerControles, marquerRelance, urlReponseGarage,
 } from "@/lib/expertise/controleData";
 import { CtxControlePdf, nomFichier, ouvrirPdf, pdfChiffrageDefinitif, pdfCourrierGarage, pdfNoteControle } from "@/lib/expertise/controlePdf";
 
@@ -84,6 +89,11 @@ export default function ControleDevis({
   const [voirConformes, setVoirConformes] = useState(false);
   const [voirJournal, setVoirJournal] = useState(false);
   const [texteCourrier, setTexteCourrier] = useState<string | null>(null);
+  // v13.25 — mémoire des décisions, statistiques garage, prix relevés, relances.
+  const [tousControles, setTousControles] = useState<Controle[]>([]);
+  const [tousDossiers, setTousDossiers] = useState<DossierExpert[]>([]);
+  const [pieces, setPieces] = useState<PieceExpert[]>([]);
+  const [texteRelanceOuvert, setTexteRelanceOuvert] = useState<string | null>(null);
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aSauver = useRef<Partial<Controle> | null>(null);
   const cartes = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -99,6 +109,8 @@ export default function ControleDevis({
     setDispo(ok);
     setRapports(r);
     setExpert(e);
+    // Contexte (non bloquant) : historique de tous les contrôles et prix relevés.
+    Promise.all([chargerControles(), chargerDossiers(), chargerPieces()]).then(([t, d, p]) => { setTousControles(t.controles); setTousDossiers(d.dossiers); setPieces(p); }).catch(() => undefined);
     const choisi = (garderId && c.find((x) => x.id === garderId)) || c[c.length - 1] || null;
     setCtl(choisi);
     setChargement(false);
@@ -153,6 +165,15 @@ export default function ControleDevis({
   const conclu = Boolean(ctl && ctl.statut !== "a_trancher");
   const dernierTour = ctl ? controles.length === 0 || controles[controles.length - 1].id === ctl.id : true;
   const agrement = useMemo(() => agrementPour(garage, dossier.mandant_nom), [garage, dossier.mandant_nom]);
+  const m = motsControle(ctl?.type);
+  const estFacture = ctl?.type === "facture";
+  const cleCeGarage = cleGarage(dossier);
+  const dossiersParId = useMemo(() => new Map(tousDossiers.map((d) => [d.id, d])), [tousDossiers]);
+  const memoire = useMemo(() => indexerDecisions(tousControles, (c) => cleGarage(dossiersParId.get(c.dossier_id)), ctl?.id), [tousControles, dossiersParId, ctl?.id]);
+  const statsGarage = useMemo(() => (cleCeGarage ? statsReparateurs(tousControles, tousDossiers).find((x) => x.cle === cleCeGarage) || null : null), [tousControles, tousDossiers, cleCeGarage]);
+  const releves = useMemo(() => pieces.map((p) => ({ designation: p.designation, reference: p.reference, prix_ht: p.prix_ht, fournisseur: p.fournisseur, etat: p.etat })), [pieces]);
+  const seuilPrix = Number(cabinet?.seuil_prix_pieces ?? 10) || 10;
+  const delaiRelance = Number(cabinet?.delai_relance_jours ?? 5) || 5;
 
   const visibles = useMemo(() => {
     if (!ctl) return [];
@@ -271,11 +292,11 @@ export default function ControleDevis({
     if (autre?.document_id === doc.id) { setErreur("Ce document est déjà utilisé de l'autre côté de la comparaison."); return; }
     if (!forcer && !opts.confirme && !confirmerRemplacement(role)) return;
     setErreur(null);
-    const mode = role === "reference" ? "rapport" : "devis";
+    const mode = role === "reference" ? (estFacture ? "devis" : "rapport") : estFacture ? "facture" : "devis";
     setLecture({ role, nom: doc.nom });
     try {
       const l = await lireDocument({ dossier, doc, mode, forcer });
-      await poserCote(role, coteDepuisLecture(l, doc), `${role === "reference" ? "Pré-rapport" : "Devis"} lu : ${doc.nom}`);
+      await poserCote(role, coteDepuisLecture(l, doc), `${role === "reference" ? m.Reference : m.Document} lu : ${doc.nom}`);
       onDocumentsChange();
     } catch (e) {
       setErreur(messageErreur(e, "Lecture impossible."));
@@ -288,7 +309,7 @@ export default function ControleDevis({
     setErreur(null);
     setLecture({ role, nom: file.name });
     try {
-      const doc = await deposerPourControle(dossier.id, file, role);
+      const doc = await deposerPourControle(dossier.id, file, role, estFacture ? "facture" : "devis");
       onDocumentsChange();
       setLecture(null);
       await lire(role, doc, { confirme: true });
@@ -308,7 +329,7 @@ export default function ControleDevis({
 
   /* ------------------------------ Conclusion ------------------------- */
 
-  const ctxPdf = (c: Controle): CtxControlePdf => ({ dossier, cabinet, expert, controle: c });
+  const ctxPdf = (c: Controle): CtxControlePdf => ({ dossier, cabinet, expert, controle: c, lien: c.lien_token ? urlReponseGarage(c.lien_token) : null });
 
   async function archiverPdf(type: "courrier" | "note", c: Controle) {
     const pdf = type === "courrier" ? await pdfCourrierGarage(ctxPdf(c)) : await pdfNoteControle(ctxPdf(c));
@@ -325,11 +346,13 @@ export default function ControleDevis({
       const resultat = appliquerControle(ctl.reference!, ctl.ecarts);
       const statut = conclusion === "conformite_demandee" ? "attente_garage" : "valide";
       const detail = `${resume.acceptes} accepté(s), ${resume.refuses} refusé(s) — retenu ${formatEuros(resume.totalRetenu)} HT`;
-      const maj = await majControle(ctl.id, {
+      let maj = await majControle(ctl.id, {
         statut, conclusion, cloture_le: maintenant(),
         resultat: { ...resultat, total_ht: totalHT(resultat) },
         journal: journaliser(ctl.journal, LIBELLE_CONCLUSION[conclusion], detail),
       });
+      // UN lien de réponse par demande (créé une fois, réutilisé ensuite).
+      if (conclusion === "conformite_demandee") { try { maj = await assurerLien(maj); } catch { /* migration v88 absente : pas de lien */ } }
       setCtl(maj);
       setControles((l) => l.map((x) => (x.id === maj.id ? maj : x)));
       setPile([]);
@@ -341,7 +364,7 @@ export default function ControleDevis({
       }
       if (conclusion === "conformite_demandee") setTexteCourrier(texteCourrierDe(maj));
       setInfo(conclusion === "conformite_demandee"
-        ? "Demande de mise en conformité prête : copie le texte dans l'extranet ou envoie le courrier PDF. Quand le garage renvoie son devis, ouvre le tour suivant."
+        ? "Demande prête : copie le texte (il contient le lien de réponse du garage) dans l'extranet ou envoie le courrier PDF. Quand le garage répond ou renvoie son document, tu le verras ici."
         : "Contrôle conclu. Reporte les lignes du « Chiffrage définitif » dans ton logiciel, ou crée le rapport définitif ici.");
       setConclure(null);
     } catch (e) {
@@ -365,10 +388,10 @@ export default function ControleDevis({
     if (!ctl) return;
     try {
       const attendu = chiffrageAttendu(ctl);
-      const n = await creerControle({ dossierId: dossier.id, tour: ctl.tour + 1, parentId: ctl.id, reference: coteAttendu(ctl, attendu) });
-      await majControle(ctl.id, { journal: journaliser(ctl.journal, `Tour ${n.tour} ouvert pour le devis rectifié`) });
+      const n = await creerControle({ dossierId: dossier.id, tour: ctl.tour + 1, parentId: ctl.id, reference: coteAttendu(ctl, attendu), type: estFacture ? "facture" : "devis" });
+      await majControle(ctl.id, { journal: journaliser(ctl.journal, `Tour ${n.tour} ouvert pour ${estFacture ? "la facture rectifiée" : "le devis rectifié"}`) });
       await recharger(n.id);
-      setInfo(`Tour ${n.tour} : la référence est le chiffrage attendu (pré-rapport + écarts acceptés). Dépose le devis rectifié du garage.`);
+      setInfo(`Tour ${n.tour} : la référence est le chiffrage attendu (${m.reference} + écarts acceptés). Dépose ${estFacture ? "la facture rectifiée" : "le devis rectifié"} du garage.`);
     } catch (e) { setErreur(messageErreur(e, "Ouverture du tour suivant impossible.")); }
   }
 
@@ -427,7 +450,78 @@ export default function ControleDevis({
       devisNom: c.devis?.nom ?? null, ecarts: c.ecarts, commentaire: c.commentaire,
       expert: nomExpert(expert) || cabinet?.expert_nom || null, cabinet: cabinet?.nom || "Alliance Experts",
       totalAttendu: totalHT(chiffrageAttendu(c)),
+      type: c.type, lien: c.lien_token ? urlReponseGarage(c.lien_token) : null,
     });
+  }
+
+  /* ------------------------ v13.25 : actions étendues ------------------ */
+
+  /** Contrôle de la FACTURE finale : référence = chiffrage retenu au contrôle du devis. */
+  async function controlerFacture() {
+    if (!ctl) return;
+    try {
+      const retenu = ctl.resultat || chiffrageAttendu(ctl);
+      const n = await creerControle({
+        dossierId: dossier.id, type: "facture",
+        reference: { source: "tour_precedent", nom: `Chiffrage retenu (contrôle du devis, tour ${ctl.tour})`, chocs: retenu.chocs, operations: retenu.operations },
+      });
+      await recharger(n.id);
+      setInfo("Contrôle de la facture ouvert : dépose la facture finale du garage, elle est comparée au chiffrage que tu as retenu.");
+    } catch (e) { setErreur(messageErreur(e, "Ouverture du contrôle de facture impossible (migration v88 exécutée ?).")); }
+  }
+
+  function texteRelanceDe(c: Controle) {
+    return texteRelance({
+      garage: dossier.reparateur_nom, dossierNumero: dossier.numero, immatriculation: dossier.immatriculation, type: c.type,
+      depuis: c.cloture_le, nbRelances: Number(c.nb_relances) || 0, nbPoints: c.ecarts.filter((e) => e.decision === "refuse").length,
+      lien: c.lien_token ? urlReponseGarage(c.lien_token) : null, expert: nomExpert(expert) || cabinet?.expert_nom || null, cabinet: cabinet?.nom || "Alliance Experts",
+    });
+  }
+
+  async function confirmerRelance() {
+    if (!ctl) return;
+    try {
+      const maj = await marquerRelance(ctl);
+      setCtl(maj);
+      setControles((l) => l.map((x) => (x.id === maj.id ? maj : x)));
+      setTexteRelanceOuvert(null);
+      setInfo("Relance enregistrée dans l'historique.");
+    } catch (e) { setErreur(messageErreur(e, "Relance non enregistrée (migration v88 exécutée ?).")); }
+  }
+
+  /** Le garage accepte toutes les corrections : clôture sur le chiffrage de l'expert. */
+  async function cloreSurReponse() {
+    if (!ctl?.reponse_garage) return;
+    if (!confirm("Le garage accepte toutes les corrections.\n\nClore le contrôle sur ton chiffrage ? (Rouvrable.)")) return;
+    setEnCours("reponse");
+    try {
+      const maj = await majControle(ctl.id, {
+        statut: "valide", conclusion: "chiffrage_expert", cloture_le: maintenant(),
+        reponse_garage: { ...ctl.reponse_garage, traitee_le: maintenant() },
+        journal: journaliser(ctl.journal, "Réponse du garage traitée : accord sur tous les points", "Contrôle clos sur le chiffrage de l'expert"),
+      });
+      setCtl(maj);
+      setControles((l) => l.map((x) => (x.id === maj.id ? maj : x)));
+    } catch (e) { setErreur(messageErreur(e)); } finally { setEnCours(null); }
+  }
+
+  /** Points contestés → à trancher de nouveau ; les autres décisions restent. */
+  async function reexaminerReponse() {
+    if (!ctl?.reponse_garage) return;
+    const contestes = new Set(ctl.reponse_garage.lignes.filter((l) => !l.accord).map((l) => l.ecart_id));
+    if (!confirm(`Rouvrir le contrôle pour réexaminer ${contestes.size} point(s) contesté(s) ?\n\nIls repassent « à trancher » avec l'explication du garage ; les autres décisions sont conservées.`)) return;
+    setEnCours("reponse");
+    try {
+      const maj = await majControle(ctl.id, {
+        statut: "a_trancher", conclusion: null, cloture_le: null,
+        ecarts: ctl.ecarts.map((e) => (contestes.has(e.id) ? { ...e, decision: "a_trancher" as const } : e)),
+        reponse_garage: { ...ctl.reponse_garage, traitee_le: maintenant() },
+        journal: journaliser(ctl.journal, "Réponse du garage traitée : contrôle rouvert", `${contestes.size} point(s) contesté(s) à réexaminer`),
+      });
+      setCtl(maj);
+      setControles((l) => l.map((x) => (x.id === maj.id ? maj : x)));
+      setFiltre("a_trancher");
+    } catch (e) { setErreur(messageErreur(e)); } finally { setEnCours(null); }
   }
 
   async function documentPdf(type: "courrier" | "note" | "chiffrage", sortie: "voir" | "telecharger") {
@@ -452,14 +546,14 @@ export default function ControleDevis({
   }
 
   const docsPre = documents.filter((d) => d.type === "pre_rapport" || d.type === "rapport");
-  const docsDevis = documents.filter((d) => d.type === "devis_garage");
+  const docsDevis = documents.filter((d) => d.type === (estFacture ? "facture_garage" : "devis_garage"));
   const docDe = (c: CoteControle | null | undefined) => (c?.document_id ? documents.find((d) => d.id === c.document_id) || null : null);
   const pret = Boolean(ctl?.reference && ctl?.devis);
 
   /** Carte d'un côté (pré-rapport ou devis) — fonction de rendu, pas un sous-composant. */
   const renderCote = (role: Role) => {
     const cote = role === "reference" ? ctl?.reference : ctl?.devis;
-    const titre = role === "reference" ? (ctl && ctl.tour > 1 ? "Référence : chiffrage attendu" : "① Pré-rapport de l'expert") : "② Devis du garage";
+    const titre = role === "reference" ? (estFacture ? "① Chiffrage retenu (référence)" : ctl && ctl.tour > 1 ? "Référence : chiffrage attendu" : "① Pré-rapport de l'expert") : estFacture ? "② Facture du garage" : "② Devis du garage";
     const enLecture = lecture?.role === role;
     const alerte = alerteLecture(cote);
     const doc = docDe(cote);
@@ -520,7 +614,7 @@ export default function ControleDevis({
         <div className="flex flex-wrap gap-1">
           {autres.map((d) => (
             <button key={d.id} className="btn-ghost btn-compact max-w-full truncate" disabled={Boolean(lecture)} title={d.nom} onClick={() => lire(role, d)}>
-              {lectureMemorisee(d, role === "reference" ? "rapport" : "devis") ? <Icone nom="check" /> : <Icone nom="document" />} {d.nom}
+              {lectureMemorisee(d, role === "reference" ? "rapport" : estFacture ? "facture" : "devis") ? <Icone nom="check" /> : <Icone nom="document" />} {d.nom}
             </button>
           ))}
           {rapportsDispo.map((r) => (
@@ -529,14 +623,14 @@ export default function ControleDevis({
             </button>
           ))}
           <button className={`${remplacement ? "btn-ghost" : "btn-primary"} btn-compact`} disabled={Boolean(lecture)} onClick={() => { if (!confirmerRemplacement(role)) return; roleFichier.current = role; fichierRef.current?.click(); }}>
-            <Icone nom="importer" /> {role === "reference" ? "Déposer le pré-rapport (PDF)" : "Déposer le devis (PDF / photo)"}
+            <Icone nom="importer" /> {role === "reference" ? "Déposer le pré-rapport (PDF)" : estFacture ? "Déposer la facture (PDF / photo)" : "Déposer le devis (PDF / photo)"}
           </button>
         </div>
         {!remplacement && (
           <p className="mt-2 text-[11px] text-white/45">
             {role === "reference"
               ? "Le PDF édité par ton logiciel d'expertise, tel quel. Il est lu ligne par ligne ; tu peux vérifier la lecture."
-              : "Le devis reçu par l'extranet ou par email. Une photo nette convient aussi."}
+              : estFacture ? "La facture finale du garage : elle est confrontée au chiffrage que tu as retenu." : "Le devis reçu par l'extranet ou par email. Une photo nette convient aussi."}
           </p>
         )}
       </div>
@@ -558,6 +652,9 @@ export default function ControleDevis({
     const actif = i === focus && !conclu;
     const motifs = e.decision === "refuse" ? MOTIFS_REFUS : e.decision === "accepte" ? MOTIFS_ACCEPTATION : [];
     const taux = e.type === "poste" && /taux/.test(e.precision || "") ? tauxAgree(e.libelle) : null;
+    const prix = e.type === "operation" ? alertePrix(e.operation?.devis, releves, seuilPrix) : null;
+    const rappel = rappelPour(memoire, e, cleCeGarage);
+    const repGarage = ctl?.reponse_garage?.lignes.find((l) => l.ecart_id === e.id) || null;
     const cadre = e.decision === "accepte" ? "border-emerald-400/70" : e.decision === "refuse" ? "border-rose-400/70" : actif ? "border-accent-teal/70" : "border-white/10";
     return (
       <div
@@ -575,6 +672,21 @@ export default function ControleDevis({
             <div className="mt-1 font-semibold">{e.libelle}</div>
             {e.precision && <div className="text-xs text-white/60">{e.precision}</div>}
             {taux && <div className="mt-0.5 text-xs"><span className="badge badge-ok">Taux agréé {agrement?.assurance} : {formatEuros(taux)}/h</span></div>}
+            {prix && <div className="mt-0.5 text-xs"><span className="badge badge-danger">Prix {formatEuros(prix.prixDevis)} = +{prix.ecartPct} % vs relevé {formatEuros(prix.prixReleve)}{prix.fournisseur ? ` (${prix.fournisseur})` : ""}</span></div>}
+            {rappel && (
+              <div className="mt-0.5 text-xs text-white/65" title="Décisions prises sur des écarts identiques dans tes contrôles précédents">
+                <Icone nom="horloge" className="opacity-60" /> Déjà vu {rappel.memeGarage ? "chez ce garage" : "ailleurs"} : {rappel.refuses ? `refusé ${rappel.refuses}×` : ""}{rappel.refuses && rappel.acceptes ? ", " : ""}{rappel.acceptes ? `accepté ${rappel.acceptes}×` : ""}
+                {rappel.dernierMotif ? ` — « ${rappel.dernierMotif} »` : ""}
+                {!conclu && e.decision === "a_trancher" && (
+                  <button type="button" className="ml-1 underline" onClick={(ev) => { ev.stopPropagation(); decider(e.id, rappel.derniereDecision, rappel.dernierMotif); }}>reprendre la même décision</button>
+                )}
+              </div>
+            )}
+            {repGarage && (
+              <div className={`mt-1 rounded-lg border px-2 py-1 text-xs ${repGarage.accord ? "border-emerald-400/60" : "border-amber-500/70"}`}>
+                <b>Garage :</b> {repGarage.accord ? "accepte la correction" : "conteste"}{repGarage.commentaire ? ` — « ${repGarage.commentaire} »` : ""}{repGarage.photos.length ? ` (${repGarage.photos.length} pièce(s) jointe(s))` : ""}
+              </div>
+            )}
           </div>
           <div className={`text-right text-lg font-bold tabular-nums ${d > 0.004 ? "text-rose-600" : d < -0.004 ? "text-emerald-600" : "text-white/60"}`}>
             {signe(d)}
@@ -591,7 +703,7 @@ export default function ControleDevis({
             title="Maintenir la valeur du pré-rapport (touche R)"
           >
             <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-white/50">
-              <span>Pré-rapport</span>
+              <span>{m.Reference}</span>
               <span className={`font-semibold ${e.decision === "refuse" ? "text-rose-600" : ""}`}>{e.decision === "refuse" ? "✓ Maintenu" : "Maintenir (R)"}</span>
             </div>
             <div className="mt-0.5 font-medium">{e.avant || <span className="text-white/40">ligne absente</span>}</div>
@@ -605,7 +717,7 @@ export default function ControleDevis({
             title="Accepter la valeur du devis (touche A)"
           >
             <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-white/50">
-              <span>Devis du garage</span>
+              <span>{m.Document}</span>
               <span className={`font-semibold ${e.decision === "accepte" ? "text-emerald-600" : ""}`}>{e.decision === "accepte" ? "✓ Accepté" : "Accepter (A)"}</span>
             </div>
             <div className="mt-0.5 font-medium">{e.apres || <span className="text-white/40">ligne retirée par le garage</span>}</div>
@@ -649,10 +761,10 @@ export default function ControleDevis({
           <div className="flex flex-wrap items-center gap-2">
             {controles.length > 1 && (
               <select className="field-input field-compact w-auto" value={ctl.id} onChange={async (e) => { await vider(); const liste = controles.map((x) => (x.id === ctl.id ? ctl : x)); setControles(liste); setCtl(liste.find((c) => c.id === e.target.value) || null); }}>
-                {controles.map((c) => <option key={c.id} value={c.id}>Tour {c.tour} · {STATUTS_CONTROLE[c.statut]?.label} · {formatDate(c.created_at)}</option>)}
+                {controles.map((c) => <option key={c.id} value={c.id}>{c.type === "facture" ? "Facture" : "Devis"} · tour {c.tour} · {STATUTS_CONTROLE[c.statut]?.label} · {formatDate(c.created_at)}</option>)}
               </select>
             )}
-            {controles.length <= 1 && <span className="text-sm font-semibold">Contrôle du devis{ctl.tour > 1 ? ` · tour ${ctl.tour}` : ""}</span>}
+            {controles.length <= 1 && <span className="text-sm font-semibold">Contrôle {m.duDocument}{ctl.tour > 1 ? ` · tour ${ctl.tour}` : ""}</span>}
             <span className={`badge ${STATUTS_CONTROLE[ctl.statut]?.badge}`}>{STATUTS_CONTROLE[ctl.statut]?.label}</span>
             {!conclu && <span className={`text-xs ${sauvegarde === "erreur" ? "text-rose-600" : "text-white/45"}`}>{sauvegarde === "ok" ? "✓ Enregistré" : sauvegarde === "encours" ? "Enregistrement…" : sauvegarde === "erreur" ? "Non enregistré — nouvel essai à la prochaine action" : "Modifications en attente…"}</span>}
           </div>
@@ -662,6 +774,16 @@ export default function ControleDevis({
             {dernierTour && <button className="btn-ghost btn-compact" onClick={supprimer} title="Supprimer ce contrôle"><Icone nom="poubelle" /></button>}
           </div>
         </div>
+      )}
+
+      {statsGarage && (statsGarage.controles > 0 || statsGarage.factures > 0) && (
+        <Link href="/expert/reparateurs" className="block rounded-xl border border-white/10 px-3 py-2 text-xs text-white/65 hover:border-white/30">
+          <b>{statsGarage.nom}</b> · {statsGarage.controles} devis contrôlé(s)
+          {statsGarage.tauxConformite !== null && <> · {statsGarage.tauxConformite} % conformes du 1er coup</>}
+          {statsGarage.ecartMoyenPct !== null && <> · devis {statsGarage.ecartMoyenPct > 0 ? "+" : ""}{statsGarage.ecartMoyenPct} % en moyenne</>}
+          {statsGarage.delaiReponseJours !== null && <> · répond en {statsGarage.delaiReponseJours} j</>}
+          {statsGarage.motifs[0] && <> · refus fréquent : « {statsGarage.motifs[0].motif} »</>}
+        </Link>
       )}
 
       {voirJournal && ctl && (
@@ -689,11 +811,12 @@ export default function ControleDevis({
       {pret && resume && (
         <div className="glass-card space-y-3 p-3 sm:p-4">
           <div className="grid grid-cols-2 gap-2 text-center lg:grid-cols-4">
-            <div className="glass-soft p-2"><div className="text-[11px] uppercase tracking-wider text-white/45">Pré-rapport</div><div className="text-lg font-semibold tabular-nums">{formatEuros(resume.totalReference)}</div><div className="text-xs text-white/45">HT</div></div>
-            <div className="glass-soft p-2"><div className="text-[11px] uppercase tracking-wider text-white/45">Devis du garage</div><div className="text-lg font-semibold tabular-nums">{formatEuros(resume.totalDevis)}</div><div className={`text-xs ${resume.totalDevis - resume.totalReference > 0 ? "text-rose-600" : "text-emerald-600"}`}>{signe(resume.totalDevis - resume.totalReference)} vs pré-rapport</div></div>
+            <div className="glass-soft p-2"><div className="text-[11px] uppercase tracking-wider text-white/45">{m.Reference}</div><div className="text-lg font-semibold tabular-nums">{formatEuros(resume.totalReference)}</div><div className="text-xs text-white/45">HT</div></div>
+            <div className="glass-soft p-2"><div className="text-[11px] uppercase tracking-wider text-white/45">{m.Document}</div><div className="text-lg font-semibold tabular-nums">{formatEuros(resume.totalDevis)}</div><div className={`text-xs ${resume.totalDevis - resume.totalReference > 0 ? "text-rose-600" : "text-emerald-600"}`}>{signe(resume.totalDevis - resume.totalReference)} vs {m.reference}</div></div>
             <div className="glass-soft border-2 border-accent-teal/60 p-2"><div className="text-[11px] uppercase tracking-wider text-white/45">Retenu</div><div className="text-lg font-bold tabular-nums">{formatEuros(resume.totalRetenu)}</div><div className="text-xs text-white/45">HT, selon tes décisions</div></div>
-            <div className="glass-soft p-2"><div className="text-[11px] uppercase tracking-wider text-white/45">Non retenu</div><div className="text-lg font-semibold tabular-nums text-emerald-600">{formatEuros(resume.economie)}</div><div className="text-xs text-white/45">devis − retenu</div></div>
+            <div className="glass-soft p-2"><div className="text-[11px] uppercase tracking-wider text-white/45">Non retenu</div><div className="text-lg font-semibold tabular-nums text-emerald-600">{formatEuros(resume.economie)}</div><div className="text-xs text-white/45">{m.document} − retenu</div></div>
           </div>
+          <PanneauVei dossier={dossier} cabinet={cabinet} totalHT={resume.totalRetenu} onDossierChange={onDossierChange} lectureSeule={conclu} />
           {resume.total > 0 && (
             <div>
               <div className="flex items-center justify-between text-xs text-white/60">
@@ -709,7 +832,7 @@ export default function ControleDevis({
       {/* ---------------------------- ② Écarts --------------------------- */}
       {pret && ctl && (
         ctl.ecarts.length === 0 ? (
-          <div className="alerte alerte-ok text-sm">Aucun écart : le devis du garage est <b>conforme</b> au {ctl.tour > 1 ? "chiffrage attendu" : "pré-rapport"} ({conformes.length} ligne(s) identique(s)).</div>
+          <div className="alerte alerte-ok text-sm">Aucun écart : {m.leDocument} du garage est <b>conforme</b> au {ctl.tour > 1 || estFacture ? "chiffrage attendu" : "pré-rapport"} ({conformes.length} ligne(s) identique(s)).</div>
         ) : (
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -739,7 +862,7 @@ export default function ControleDevis({
               </div>
             </div>
 
-            {!conclu && <p className="hidden text-[11px] text-white/45 md:block">Clavier : <b>A</b> accepter le devis · <b>R</b> maintenir le pré-rapport · <b>↑ ↓</b> écart précédent / suivant · <b>Ctrl+Z</b> annuler. Un 2e clic sur la valeur choisie la remet « à trancher ».</p>}
+            {!conclu && <p className="hidden text-[11px] text-white/45 md:block">Clavier : <b>A</b> accepter {m.leDocument} · <b>R</b> maintenir le {m.reference} · <b>↑ ↓</b> écart précédent / suivant · <b>Ctrl+Z</b> annuler. Un 2e clic sur la valeur choisie la remet « à trancher ».</p>}
 
             {visibles.length === 0 ? (
               <div className="glass-card p-4">
@@ -785,13 +908,13 @@ export default function ControleDevis({
                   {resume.aTrancher > 0
                     ? <>Encore <b>{resume.aTrancher}</b> écart(s) à trancher avant de conclure.</>
                     : resume.refuses === 0
-                      ? <>Tous les écarts sont acceptés : le devis du garage peut être <b>validé</b> ({formatEuros(resume.totalRetenu)} HT).</>
+                      ? <>Tous les écarts sont acceptés : {m.leDocument} du garage peut être <b>validé{estFacture ? "e" : ""}</b> ({formatEuros(resume.totalRetenu)} HT).</>
                       : <><b>{resume.refuses}</b> écart(s) refusé(s) : demande la mise en conformité au garage, ou maintiens ton chiffrage.</>}
                 </p>
                 {resume.aTrancher > 0 ? (
                   <button className="btn-ghost" onClick={() => { setFiltre("a_trancher"); setRecents(new Set()); setFocus(0); }}>Aller au prochain écart <Icone nom="droite" /></button>
                 ) : resume.refuses === 0 ? (
-                  <button className="btn-primary" onClick={() => setConclure("devis_valide")}><Icone nom="check" /> Valider le devis du garage</button>
+                  <button className="btn-primary" onClick={() => setConclure("devis_valide")}><Icone nom="check" /> {m.valider}</button>
                 ) : (
                   <button className="btn-primary" onClick={() => setConclure("choix")}>Conclure le contrôle <Icone nom="droite" /></button>
                 )}
@@ -802,17 +925,41 @@ export default function ControleDevis({
                   Conclu le {formatDateTime(ctl.cloture_le)} · retenu <b>{formatEuros(ctl.resultat?.total_ht ?? resume.totalRetenu)} HT</b>
                   {aReporter.length > 0 ? <> · <b>{aReporter.length}</b> ligne(s) à reporter dans ton logiciel</> : <> · pré-rapport inchangé</>}
                 </div>
+                {ctl.reponse_garage && <PanneauReponseGarage controle={ctl} enCours={enCours !== null} onClore={cloreSurReponse} onReexaminer={reexaminerReponse} />}
                 {ctl.statut === "attente_garage" && dernierTour && (
+                  <div className="alerte alerte-info space-y-2 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>
+                        En attente de {estFacture ? "la facture rectifiée" : "le devis rectifié"} de {dossier.reparateur_nom || "du garage"}
+                        {joursAttente(ctl) !== null && <> · depuis <b>{joursAttente(ctl)} j</b></>}
+                        {Number(ctl.nb_relances) > 0 && <> · {ctl.nb_relances} relance(s)</>}
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        <button className={`${aRelancer(ctl, delaiRelance) ? "btn-primary" : "btn-ghost"} btn-compact`} onClick={() => setTexteRelanceOuvert(texteRelanceDe(ctl))}><Icone nom="envoyer" /> Relancer</button>
+                        <button className="btn-primary btn-compact" onClick={tourSuivant}><Icone nom="importer" /> {estFacture ? "Facture" : "Devis"} rectifié reçu → contrôler</button>
+                      </div>
+                    </div>
+                    {ctl.lien_token && (
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span>Lien de réponse du garage (un seul pour toute la demande) :</span>
+                        <code className="max-w-full truncate rounded bg-white/60 px-1">{urlReponseGarage(ctl.lien_token)}</code>
+                        <button className="underline" onClick={async () => { try { await navigator.clipboard.writeText(urlReponseGarage(ctl.lien_token!)); setInfo("Lien copié."); } catch { /* copie impossible */ } }}>copier</button>
+                        <a className="underline" href={urlReponseGarage(ctl.lien_token)} target="_blank" rel="noopener noreferrer">voir ce que voit le garage</a>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {ctl.statut === "valide" && !estFacture && dernierTour && !controles.some((c) => c.type === "facture") && (
                   <div className="alerte alerte-info flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <span>En attente du devis rectifié de {dossier.reparateur_nom || "du garage"}.</span>
-                    <button className="btn-primary btn-compact" onClick={tourSuivant}><Icone nom="importer" /> Le garage a renvoyé son devis → contrôler</button>
+                    <span>Après travaux : confronte la <b>facture finale</b> du garage à ce chiffrage retenu.</span>
+                    <button className="btn-primary btn-compact" onClick={controlerFacture}><Icone nom="facture" /> Contrôler la facture</button>
                   </div>
                 )}
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
                   {resume.refuses > 0 && (
                     <div className="glass-soft p-3">
                       <div className="font-semibold"><Icone nom="mail" /> Courrier au garage</div>
-                      <p className="mt-0.5 text-xs text-white/55">Demande de mise en conformité ({resume.refuses} point(s)).</p>
+                      <p className="mt-0.5 text-xs text-white/55">{estFacture ? "Demande de rectification" : "Demande de mise en conformité"} ({resume.refuses} point(s)){ctl.lien_token ? ", avec le lien de réponse" : ""}.</p>
                       <div className="mt-2 flex flex-wrap gap-1">
                         <button className="btn-primary btn-compact" onClick={() => setTexteCourrier(texteCourrierDe(ctl))}>Texte à copier</button>
                         <button className="btn-ghost btn-compact" disabled={enCours !== null} onClick={() => documentPdf("courrier", "voir")}><Icone nom="oeil" /> PDF</button>
@@ -871,13 +1018,13 @@ export default function ControleDevis({
       )}
 
       {conclure && ctl && resume && (
-        <ModalShell title={conclure === "choix" ? "Conclure le contrôle" : conclure === "devis_valide" ? "Valider le devis du garage" : LIBELLE_CONCLUSION[conclure]} onClose={() => enCours === null && setConclure(null)} maxWidth="max-w-xl">
+        <ModalShell title={conclure === "choix" ? "Conclure le contrôle" : conclure === "devis_valide" ? m.valider : LIBELLE_CONCLUSION[conclure]} onClose={() => enCours === null && setConclure(null)} maxWidth="max-w-xl">
           {conclure === "choix" ? (
             <div className="space-y-2">
               <p className="text-sm text-white/65">{resume.refuses} écart(s) refusé(s), {resume.acceptes} accepté(s). Retenu : <b>{formatEuros(resume.totalRetenu)} HT</b> (devis : {formatEuros(resume.totalDevis)}).</p>
               <button className="carte-liste block w-full text-left" onClick={() => setConclure("conformite_demandee")}>
-                <div className="font-semibold"><Icone nom="mail" /> Demander la mise en conformité au garage <span className="badge badge-info ml-1">conseillé</span></div>
-                <div className="text-xs text-white/55">Courrier prêt (texte à coller dans l&apos;extranet + PDF). Le contrôle attend le devis rectifié, que tu contrôleras en un clic (tour suivant).</div>
+                <div className="font-semibold"><Icone nom="mail" /> {estFacture ? "Demander la rectification de la facture" : "Demander la mise en conformité au garage"} <span className="badge badge-info ml-1">conseillé</span></div>
+                <div className="text-xs text-white/55">Courrier prêt (texte + PDF) avec <b>un lien unique</b> où le garage répond à tous les points en une fois (accord / contestation + photos). Relances et tour suivant en un clic.</div>
               </button>
               <button className="carte-liste block w-full text-left" onClick={() => setConclure("chiffrage_expert")}>
                 <div className="font-semibold"><Icone nom="stylo" /> Maintenir mon chiffrage</div>
@@ -909,6 +1056,18 @@ export default function ControleDevis({
         </ModalShell>
       )}
 
+      {texteRelanceOuvert && ctl && (
+        <ModalShell title="Relance du garage — texte à copier" onClose={() => setTexteRelanceOuvert(null)} maxWidth="max-w-2xl">
+          <p className="text-xs text-white/55">Même lien de réponse que la demande initiale. Copie le texte, envoie-le, puis enregistre la relance (elle apparaît dans l&apos;historique).</p>
+          <textarea className="field-input font-mono text-xs" rows={14} value={texteRelanceOuvert} onChange={(e) => setTexteRelanceOuvert(e.target.value)} />
+          <div className="flex flex-wrap justify-end gap-2">
+            {garage?.email && <a className="btn-ghost" href={`mailto:${garage.email}?subject=${encodeURIComponent(`Relance — dossier ${dossier.numero} — ${dossier.immatriculation || ""}`)}&body=${encodeURIComponent(texteRelanceOuvert)}`}><Icone nom="mail" /> Email</a>}
+            <button className="btn-ghost" onClick={async () => { try { await navigator.clipboard.writeText(texteRelanceOuvert); setInfo("Texte de relance copié."); } catch { /* copie impossible */ } }}><Icone nom="clone" /> Copier</button>
+            <button className="btn-primary" onClick={confirmerRelance}><Icone nom="check" /> Relance envoyée</button>
+          </div>
+        </ModalShell>
+      )}
+
       {texteCourrier && (
         <ModalShell title="Courrier au garage — texte à copier" onClose={() => setTexteCourrier(null)} maxWidth="max-w-2xl">
           <p className="text-xs text-white/55">À coller dans l&apos;extranet ou dans un email. Tu peux l&apos;ajuster avant de copier.</p>
@@ -916,7 +1075,7 @@ export default function ControleDevis({
           <div className="flex flex-wrap justify-end gap-2">
             <button className="btn-ghost" onClick={() => documentPdf("courrier", "telecharger")}><Icone nom="telecharger" /> PDF</button>
             {dossier.reparateur_nom && garage?.email && (
-              <a className="btn-ghost" href={`mailto:${garage.email}?subject=${encodeURIComponent(`Dossier ${dossier.numero} — ${dossier.immatriculation || ""} — mise en conformité du devis`)}&body=${encodeURIComponent(texteCourrier)}`}><Icone nom="mail" /> Email</a>
+              <a className="btn-ghost" href={`mailto:${garage.email}?subject=${encodeURIComponent(`Dossier ${dossier.numero} — ${dossier.immatriculation || ""} — ${m.demande}`)}&body=${encodeURIComponent(texteCourrier)}`}><Icone nom="mail" /> Email</a>
             )}
             <button className="btn-primary" onClick={async () => { try { await navigator.clipboard.writeText(texteCourrier); setInfo("Texte du courrier copié."); setTexteCourrier(null); } catch { alert("Copie impossible : sélectionne le texte et copie-le à la main."); } }}><Icone nom="clone" /> Copier le texte</button>
           </div>
