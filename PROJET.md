@@ -118,6 +118,15 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Fiche dossier** (bloc Réparateur) : agrément reconnu pour le mandant du dossier (ou mention « pas d'agrément pour ce mandant »). **Éditeur de rapport** : les taux du tarif préférentiel priment sur ceux du garage pour les nouveaux chocs ; badge dans la barre des versions.
 - Démo : Carrosserie By Sam (AXA tarif préf., Groupama), Carrosserie de l'Étang (Allianz tarif préf., MAIF).
 
+### Ajouté v13.27 — Courriers La Poste dématérialisés (Maileva)
+- **Migration** `supabase/migration_v89.sql` : `maileva_config` (identifiants API du garage, mot de passe et client_secret chiffrés via `lib/coffre`, AUCUNE policy navigateur : lue par le serveur seulement), `envois_postaux` (type simple/lrar, 6 lignes d'adresse AFNOR, options, ids Maileva, statut appli + statut Maileva, n° de recommandé, historique, lien dossier + `courrier_id` → `courriers_recouvrement`). RLS : lecture owner, écriture par les routes serveur.
+- **Serveur** `lib/maileva.ts` : OAuth2 password (`/authentication/oauth2/token`), API `mail/v2` (lettre simple, `postage_type` = `MAILEVA_POSTAGE_TYPE` ou FAST) et `registered_mail/v2` (LRAR, AR scanné en option, expéditeur = Profil du garage) ; création → document (multipart) → destinataire → submit ; suivi (envoi, destinataire, `delivery_statuses`) ; preuves (AR, dépôt, archive). URL surchargeables par env (`MAILEVA_*_URL`) ; identifiants par garage OU compte commun en env (`MAILEVA_LOGIN/PASSWORD/CLIENT_ID/CLIENT_SECRET/ENV`).
+- **Routes** `/api/courrier-postal/config` (GET/POST + test de connexion), `/envoyer` (PDF base64 ≤ 10 Mo, journal AVANT l'appel Maileva, copie du PDF dans `pieces/<owner>/envois-postaux/`), `/suivi` (réinterroge les envois en cours, reporte le n° de recommandé sur le courrier de recouvrement), `/preuve` (AR scanné, preuve de dépôt, archive).
+- **Helpers** `lib/envoisPostaux.ts` (types, statuts, `lignesAdresse` / `verifierAdresse` 38 car./ligne, mapping des statuts Maileva) et `lib/envoisPostauxClient.ts` (appels navigateur).
+- **UI** `EnvoiPostalModal` (type, 6 lignes d'adresse éditables, options, expéditeur, bandeau TEST en sandbox, confirmation), `EnvoisPostauxListe`, `EnvoisPostauxDossier` (fiche dossier, après les emails : envoi d'un courrier rédigé dans l'appli ou d'un PDF, au client / assureur / expert / autre), page `/courriers` (KPI, filtres, suivi auto à l'ouverture, envoi hors dossier, réglages Maileva) + entrée « Courriers La Poste » (Organisation).
+- **Impayés / litige** : `RetardPaiementPanel` (modale d'envoi : bouton « Envoyer par La Poste » → l'étape de procédure est validée comme un envoi manuel) et `CourriersLitige` (« 📮 Envoyer par La Poste » / « Posté moi-même »).
+- ⚠️ À valider en sandbox Maileva avant la production (versions d'API : registered_mail v4 existe, v2 par défaut). Pistes : webhooks Maileva (notification_center) au lieu du suivi à la demande, coût par envoi, envoi groupé.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

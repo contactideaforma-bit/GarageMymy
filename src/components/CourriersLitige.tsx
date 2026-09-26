@@ -25,6 +25,7 @@ import { apercuCourrierRecouvrementPdf, courrierRecouvrementPdfBase64, generateC
 import ModalShell from "./ModalShell";
 import SignaturePad from "./SignaturePad";
 import EmailComposer from "./EmailComposer";
+import EnvoiPostalModal from "./EnvoiPostalModal";
 
 const TYPES: TypeCourrierLitige[] = ["accord_reparation_expert", "position_assureur"];
 
@@ -38,6 +39,7 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
   const [envoi, setEnvoi] = useState<{ courrier: CourrierRecouvrement; canal: string; numero: string } | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [laPoste, setLaPoste] = useState<CourrierRecouvrement | null>(null);
   const dossier = useMemo(() => completerDossierDepuisAnnuaire(dossierBrut, annuaire), [dossierBrut, annuaire]);
 
   const charger = useCallback(async () => {
@@ -137,7 +139,8 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
                 <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">⬇ PDF</button>
                 {c.statut !== "envoye" && <button onClick={() => setModal({ type: c.type as TypeCourrierLitige, courrier: c })} className="btn-ghost btn-compact">Modifier</button>}
                 {c.statut !== "envoye" && <button onClick={() => setEmail(c)} className="btn-ghost btn-compact">✉ Email</button>}
-                {c.statut !== "envoye" && <button onClick={() => setEnvoi({ courrier: c, canal: c.type === "position_assureur" ? "lrar" : "courrier", numero: "" })} className="btn-primary btn-compact">📮 Posté</button>}
+                {c.statut !== "envoye" && <button onClick={() => setLaPoste(c)} className="btn-primary btn-compact" title="La Poste imprime et distribue le courrier">📮 Envoyer par La Poste</button>}
+                {c.statut !== "envoye" && <button onClick={() => setEnvoi({ courrier: c, canal: c.type === "position_assureur" ? "lrar" : "courrier", numero: "" })} className="btn-ghost btn-compact">Posté moi-même</button>}
               </div>
               {envoi?.courrier.id === c.id && (
                 <div className="flex w-full flex-wrap items-end gap-2 rounded-lg bg-white/5 p-2">
@@ -169,6 +172,22 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
             if (action === "email") setEmail(c);
             if (action === "poster") setEnvoi({ courrier: c, canal: c.type === "position_assureur" ? "lrar" : "courrier", numero: "" });
           }}
+        />
+      )}
+
+      {laPoste && (
+        <EnvoiPostalModal
+          titre={`La Poste — ${LIBELLE_COURRIER_LITIGE[laPoste.type as TypeCourrierLitige]}`}
+          getPdfBase64={() => courrierRecouvrementPdfBase64(laPoste, dossier)}
+          nomFichier={nomFichierCourrier(laPoste, dossier.numero_sinistre)}
+          objet={laPoste.objet || LIBELLE_COURRIER_LITIGE[laPoste.type as TypeCourrierLitige]}
+          destinataireNom={laPoste.destinataire_nom || ""}
+          destinataireAdresse={laPoste.destinataire_adresse || ""}
+          typeInitial={laPoste.type === "position_assureur" ? "lrar" : "simple"}
+          dossierId={dossier.id}
+          courrierId={laPoste.id}
+          onClose={() => setLaPoste(null)}
+          onEnvoye={async (e) => { const c = laPoste; setLaPoste(null); await marquerEnvoye(c, e.type === "lrar" ? "lrar" : "courrier", e.numero_suivi); }}
         />
       )}
 

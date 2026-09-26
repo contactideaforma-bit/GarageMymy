@@ -606,6 +606,7 @@ export function repondreLocalement(ctx: ContexteMyMy, question: string): Message
     [/annuaire|contacts?|base de donn/, "Base de données", "/annuaire"],
     [/factures?$/, "Factures", "/factures"],
     [/banque/, "Banque", "/banque"],
+    [/courriers? (la )?poste|recommand|lrar|maileva/, "Courriers La Poste", "/courriers"],
     [/emails?|mails?/, "Emails", "/emails"],
     [/profil|parametres?|reglages?/, "Profil du garage", "/profil"],
     [/nouveau dossier|creer un dossier|importer? (un )?rapport|ajouter un dossier/, "Nouveau dossier", "/import"],

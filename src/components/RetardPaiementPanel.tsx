@@ -63,6 +63,7 @@ import ModalShell from "./ModalShell";
 import SignaturePad from "./SignaturePad";
 import ChampEcheance from "./ChampEcheance";
 import EmailComposer from "./EmailComposer";
+import EnvoiPostalModal from "./EnvoiPostalModal";
 
 const ORIGINE_MANUELLE = "recouvrement";
 const ORIGINE_AUTO = "recouvrement:auto";
@@ -1135,10 +1136,18 @@ function EnvoiModal({ courrier, dossier, numeroFacture, onClose, onConfirmer }: 
   const [numero, setNumero] = useState(courrier.numero_suivi || "");
   const [date, setDate] = useState(ymd());
   const [busy, setBusy] = useState(false);
+  const [laPoste, setLaPoste] = useState(false);
   const signe = Boolean(courrier.signature) || courrier.statut === "signe";
   return (
     <ModalShell title={`Envoyer — ${LIBELLE_TYPE_COURRIER[courrier.type]}`} onClose={onClose} maxWidth="max-w-lg">
       <div className="space-y-3">
+        {/* v13.27 — Envoi dématérialisé : La Poste imprime et distribue le PDF. */}
+        <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3">
+          <div className="text-sm font-semibold text-white">📮 Envoyer par La Poste depuis l&apos;appli</div>
+          <p className="mt-0.5 text-xs text-white/65">Le courrier est imprimé et posté pour vous{canal === "lrar" ? " en recommandé AR : n° de recommandé, preuve de dépôt et avis de réception remontent dans le dossier" : ""}. Rien à imprimer, pas de bureau de poste.</p>
+          <button type="button" onClick={() => setLaPoste(true)} className="btn-primary btn-compact mt-2">{canal === "lrar" ? "Envoyer en recommandé AR par La Poste" : "Envoyer par La Poste"}</button>
+        </div>
+        <div className="text-center text-[11px] uppercase tracking-wide text-white/40">— ou envoi manuel —</div>
         <div className="glass-soft p-3 text-sm text-white/85">
           <div><strong className="text-white">{courrier.destinataire_nom || courrier.destinataire}</strong>{courrier.destinataire_adresse ? ` — ${courrier.destinataire_adresse.replace(/\n/g, ", ")}` : ""}</div>
           <div className="text-white/70">Daté du {formatDate(courrier.date_courrier)}{courrier.montant ? ` · ${formatEuros(courrier.montant)}` : ""} · {signe ? (courrier.signature ? "signé au doigt" : "signé (tampon et signature du profil)") : "non signé"}</div>
@@ -1165,6 +1174,26 @@ function EnvoiModal({ courrier, dossier, numeroFacture, onClose, onConfirmer }: 
           <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onConfirmer(canal, numero.trim() || null, date); } finally { setBusy(false); } }} className="btn-primary btn-compact">{busy ? "Enregistrement…" : "✓ Confirmer l'envoi"}</button>
         </div>
       </div>
+      {laPoste && (
+        <EnvoiPostalModal
+          titre={`La Poste — ${LIBELLE_TYPE_COURRIER[courrier.type]}`}
+          getPdfBase64={() => courrierRecouvrementPdfBase64(courrier, dossier)}
+          nomFichier={nomFichierCourrier(courrier, numeroFacture)}
+          objet={courrier.objet || LIBELLE_TYPE_COURRIER[courrier.type]}
+          destinataireNom={courrier.destinataire_nom || ""}
+          destinataireAdresse={courrier.destinataire_adresse || ""}
+          typeInitial={canal === "lrar" ? "lrar" : "simple"}
+          dossierId={dossier.id}
+          courrierId={courrier.id || null}
+          onClose={() => setLaPoste(false)}
+          onEnvoye={async (e) => {
+            setLaPoste(false);
+            // Le n° de recommandé est attribué à l'impression : il sera reporté
+            // automatiquement sur le courrier au prochain suivi.
+            await onConfirmer(e.type === "lrar" ? "lrar" : "courrier", e.numero_suivi, ymd());
+          }}
+        />
+      )}
     </ModalShell>
   );
 }

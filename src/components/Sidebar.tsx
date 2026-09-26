@@ -51,6 +51,7 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
     titre: "Organisation",
     items: [
       { href: "/emails", label: "Emails" },
+      { href: "/courriers", label: "Courriers La Poste" },
       { href: "/planning", label: "Planning réparation" },
       { href: "/agenda", label: "Agenda" },
       { href: "/sauvegarde", label: "Sauvegarde" },

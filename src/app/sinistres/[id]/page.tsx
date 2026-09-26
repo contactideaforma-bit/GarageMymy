@@ -26,6 +26,7 @@ import SuggestionAction from "@/components/SuggestionAction";
 import LitigePanel from "@/components/LitigePanel";
 import HistoriqueLitige from "@/components/HistoriqueLitige";
 import EmailsDossier from "@/components/EmailsDossier";
+import EnvoisPostauxDossier from "@/components/EnvoisPostauxDossier";
 import RetardPaiementPanel from "@/components/RetardPaiementPanel";
 import { etatRecouvrement } from "@/lib/recouvrement";
 import MentionsRapport from "@/components/MentionsRapport";
@@ -1280,6 +1281,9 @@ export default function DossierDetailPage() {
 
       {/* Emails envoyés depuis l'appli sur ce dossier (v13.21) — relire ce qui est parti. */}
       <EmailsDossier dossierId={dossier.id} />
+
+      {/* Courriers papier envoyés par La Poste via Maileva (v13.27). */}
+      <EnvoisPostauxDossier dossier={dossier} />
 
       {/* Véhicule de prêt & transfert de garantie */}
       <TransfertGarantiePanel dossier={dossier} onChanged={load} />
