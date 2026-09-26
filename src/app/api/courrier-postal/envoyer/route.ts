@@ -4,6 +4,8 @@ import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 import { identifiantsMaileva, envoyerCourrier, ErreurMaileva } from "@/lib/maileva";
 import { lignesAdresse, verifierAdresse } from "@/lib/envoisPostaux";
 import { tropDeDemandes } from "@/lib/limiteur";
+import { compterPagesPdf, coutJetons, feuillesPli, FEUILLES_MAX } from "@/lib/jetons";
+import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -68,10 +70,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Adresse du garage incomplète (Profil) : obligatoire pour l'expéditeur d'un recommandé." }, { status: 400 });
   }
 
+  // ---------- JETONS (v13.28) : débit ATOMIQUE avant tout appel à Maileva ----------
+  const rectoVerso = b.rectoVerso !== false;
+  const pages = compterPagesPdf(pdf.toString("latin1"));
+  const feuilles = feuillesPli(pages, rectoVerso);
+  if (feuilles > FEUILLES_MAX) {
+    return NextResponse.json({ error: `Courrier trop long : ${feuilles} feuilles (${FEUILLES_MAX} maximum par pli).` }, { status: 400 });
+  }
+  const cout = coutJetons(type, feuilles);
+  const envoiId = randomUUID();
+  const { error: eDebit } = await admin.rpc("jetons_debiter", {
+    p_owner: user.id, p_n: cout, p_libelle: `${type === "lrar" ? "Recommandé AR" : "Lettre"} → ${lignes[0]}`.slice(0, 200), p_envoi: envoiId,
+  });
+  if (eDebit) {
+    if (/SOLDE_INSUFFISANT/.test(eDebit.message)) {
+      const { data: s0 } = await admin.from("jetons_soldes").select("solde").eq("owner_id", user.id).maybeSingle();
+      return NextResponse.json({ error: `Jetons insuffisants : cet envoi coûte ${cout} jeton${cout > 1 ? "s" : ""}, il t'en reste ${Number(s0?.solde || 0)}. Recharge depuis Courriers La Poste → Mes jetons.`, code: "SOLDE_INSUFFISANT", cout }, { status: 402 });
+    }
+    return NextResponse.json({ error: "Jetons indisponibles : exécute supabase/migration_v90.sql." }, { status: 500 });
+  }
+  const rembourser = async (raison: string) => {
+    await admin.rpc("jetons_crediter", { p_owner: user.id, p_n: cout, p_motif: "remboursement", p_libelle: raison.slice(0, 200), p_envoi: envoiId, p_achat: null, p_auteur: "systeme" });
+  };
+
   const maintenant = new Date().toISOString();
   const { data: ligne, error: eIns } = await admin
     .from("envois_postaux")
     .insert({
+      id: envoiId,
+      jetons: cout,
+      feuilles,
       owner_id: user.id,
       dossier_id: b.dossierId || null,
       courrier_id: b.courrierId || null,
@@ -81,7 +109,7 @@ export async function POST(req: Request) {
       adresse_lignes: lignes,
       pays: (b.pays || "FR").toUpperCase().slice(0, 2),
       couleur: Boolean(b.couleur),
-      recto_verso: b.rectoVerso !== false,
+      recto_verso: rectoVerso,
       ar_scanne: type === "lrar" && Boolean(b.arScanne),
       environnement: id.environnement,
       statut: "brouillon",
@@ -90,6 +118,7 @@ export async function POST(req: Request) {
     .select("*")
     .single();
   if (eIns || !ligne) {
+    await rembourser("Envoi non créé (erreur technique)");
     return NextResponse.json({ error: "Journal des envois indisponible : exécute supabase/migration_v89.sql." }, { status: 500 });
   }
 
@@ -129,9 +158,11 @@ export async function POST(req: Request) {
   } catch (e) {
     const err = e as ErreurMaileva;
     const message = err.message || "Envoi impossible.";
+    await rembourser("Envoi non parti — jetons rendus");
     await admin
       .from("envois_postaux")
       .update({
+        rembourse: true,
         statut: "erreur",
         erreur: message.slice(0, 1000),
         pdf_path: eUp ? null : chemin,
@@ -139,6 +170,6 @@ export async function POST(req: Request) {
         updated_at: new Date().toISOString(),
       })
       .eq("id", ligne.id);
-    return NextResponse.json({ error: message }, { status: err.status || 502 });
+    return NextResponse.json({ error: `${message} Tes jetons ont été rendus.` }, { status: err.status || 502 });
   }
 }

@@ -219,9 +219,9 @@ export function PageVitrine({
 }
 
 /** Bloc d'un texte légal : titre numéroté + paragraphes. */
-export function BlocLegal({ titre, children }: { titre: string; children: React.ReactNode }) {
+export function BlocLegal({ titre, children, id }: { titre: string; children: React.ReactNode; id?: string }) {
   return (
-    <section className="lp-card p-6">
+    <section id={id} className="lp-card scroll-mt-24 p-6">
       <h2 className="!text-base font-semibold">{titre}</h2>
       <div className="mt-3 space-y-3 text-sm leading-relaxed text-slate-600 [&_a]:text-violet-700 [&_a]:hover:underline [&_strong]:text-slate-800 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
         {children}

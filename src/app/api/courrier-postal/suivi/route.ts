@@ -55,7 +55,16 @@ export async function POST(req: Request) {
         maj_statut_le: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      const { data: maj } = await admin.from("envois_postaux").update(patch).eq("id", e.id).select("*").single();
+      // Rejet par Maileva / La Poste : le courrier n'est pas parti, les jetons sont rendus (une seule fois).
+      const aRembourser = (statut === "rejete" || statut === "erreur") && !(e as EnvoiPostal & { rembourse?: boolean }).rembourse && ((e as EnvoiPostal & { jetons?: number }).jetons || 0) > 0;
+      if (aRembourser) {
+        await admin.rpc("jetons_crediter", {
+          p_owner: user.id, p_n: (e as EnvoiPostal & { jetons?: number }).jetons, p_motif: "remboursement",
+          p_libelle: `Courrier rejeté par La Poste → ${e.destinataire_nom || ""}`.slice(0, 200), p_envoi: e.id, p_achat: null, p_auteur: "systeme",
+        });
+        historique.push({ date: new Date().toISOString(), statut, detail: "Jetons rendus" });
+      }
+      const { data: maj } = await admin.from("envois_postaux").update(aRembourser ? { ...patch, historique, rembourse: true } : patch).eq("id", e.id).select("*").single();
       resultats.push((maj as EnvoiPostal) || { ...e, ...patch });
 
       if (s.numeroSuivi && !e.numero_suivi && e.courrier_id) {

@@ -19,6 +19,7 @@ const ONGLETS: [string, string][] = [
   ["/admin/abonnements", "Abonnements"],
   ["/admin/collaborateurs", "Collaborateurs"],
   ["/admin/reglements", "Relevés & paiements"],
+  ["/admin/jetons", "Jetons courriers"],
   ["/admin/demandes", "Demandes"],
   ["/admin/documents", "Documents"],
 ];

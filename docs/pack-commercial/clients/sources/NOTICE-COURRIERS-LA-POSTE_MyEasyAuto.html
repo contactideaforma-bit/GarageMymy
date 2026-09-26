@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<title>Courriers La Poste — My Easy Auto</title>
+<style>
+@page { size: A4; margin: 0; }
+:root{ --v:#7C3AED; --f:#DB2777; --ink:#16131F; --mut:#5B5670; --soft:#F6F3FE; --line:#E4DEF5; }
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#fff}
+body{font-family:Carlito,"Liberation Sans",sans-serif;color:var(--ink);font-size:10.4pt;line-height:1.34}
+.page{width:210mm;height:297mm;overflow:hidden;padding:10mm 12mm 8mm;display:flex;flex-direction:column;gap:3.6mm;page-break-after:always}
+.page:last-child{page-break-after:auto}
+h1,h2,h3,.big,.lbl,.num{font-family:Poppins,sans-serif}
+.hd{display:flex;align-items:center;gap:4mm;border-bottom:2.2px solid var(--ink);padding-bottom:3mm}
+.hd img{height:15mm}
+.hd .t{flex:1}
+.hd h1{font-size:19pt;line-height:1.08;font-weight:700;letter-spacing:-.3px}
+.hd h1 span{color:var(--v)}
+.hd .sub{font-size:10pt;color:var(--mut);margin-top:1mm}
+.tag{border:2px solid var(--ink);border-radius:3mm;padding:1.6mm 3mm;text-align:center;font-family:Poppins;font-weight:700;font-size:9pt;line-height:1.15}
+.tag small{display:block;font-size:6.8pt;letter-spacing:1.2px;color:var(--mut);font-weight:500}
+h2{font-size:10.5pt;font-weight:700;text-transform:uppercase;letter-spacing:.2px;margin-bottom:2mm}
+h2 i{font-style:normal;color:var(--f)}
+.intro{font-size:10.6pt;line-height:1.36}
+.intro b{color:var(--v)}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm}
+.step{border:1.3px solid var(--line);border-radius:2.6mm;padding:3mm}
+.num{display:inline-flex;align-items:center;justify-content:center;width:7mm;height:7mm;border:2px solid var(--ink);border-radius:50%;font-weight:700;font-size:9pt;margin-bottom:1.6mm}
+.step h3{font-size:9.6pt;line-height:1.15;margin-bottom:1mm}
+.step p{font-size:9pt;color:var(--mut);line-height:1.28}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:3.4mm}
+.card{border:1.3px solid var(--line);border-radius:2.6mm;padding:3.2mm 3.6mm}
+.card.k{border:2.2px solid var(--ink)}
+.card h3{font-size:12pt;display:flex;justify-content:space-between;align-items:baseline}
+.card h3 b{font-size:10pt;color:var(--v);white-space:nowrap}
+.card ul{list-style:none;margin-top:1.6mm}
+.card li{font-size:9.6pt;padding:1mm 0;border-top:1px dashed var(--line)}
+.card li:first-child{border-top:0}
+.card li b{color:var(--ink)}
+.pour{margin-top:2mm;font-size:9pt;background:var(--soft);border-radius:1.6mm;padding:1.6mm 2.2mm}
+.pour b{font-family:Poppins;font-size:7pt;letter-spacing:.6px;color:var(--v);display:block;text-transform:uppercase}
+.gains{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm}
+.gain{border-left:3px solid var(--v);padding:.6mm 0 .6mm 2.6mm}
+.gain b{display:block;font-family:Poppins;font-size:9.6pt}
+.gain span{font-size:9.2pt;color:var(--mut)}
+.call{border:2px solid var(--ink);border-radius:3mm;padding:3mm 4mm;background:#fff;font-size:10pt}
+.call b{font-family:Poppins}
+.packs{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm}
+.pack{border:1.3px solid var(--line);border-radius:2.6mm;padding:3mm;text-align:center;position:relative}
+.pack.best{border:2.2px solid var(--ink)}
+.pack .badge{position:absolute;top:-2.6mm;left:50%;transform:translateX(-50%);background:#fff;border:1.5px solid var(--f);color:var(--f);font-family:Poppins;font-weight:600;font-size:6.8pt;letter-spacing:.7px;padding:.3mm 2mm;border-radius:1mm;white-space:nowrap}
+.pack .nm{font-family:Poppins;font-weight:600;font-size:9pt;color:var(--mut)}
+.big{font-size:22pt;font-weight:700;line-height:1.05}
+.big small{font-size:9pt;font-weight:500;color:var(--mut)}
+.prix{font-family:Poppins;font-weight:700;font-size:12pt;margin-top:1mm}
+.prix small{font-weight:500;font-size:8.6pt;color:var(--mut)}
+.eq{font-size:8.8pt;color:var(--mut);margin-top:.8mm}
+table{width:100%;border-collapse:collapse;font-size:9.8pt}
+th{font-family:Poppins;font-size:8pt;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);text-align:left;padding:1.2mm 0;border-bottom:1.5px solid var(--ink)}
+td{padding:1.4mm 0;border-top:1px dashed var(--line)}
+td.n{font-family:Poppins;font-weight:700;text-align:right;white-space:nowrap}
+th.n{text-align:right}
+.how{counter-reset:h;list-style:none}
+.how li{counter-increment:h;position:relative;padding:1.1mm 0 1.1mm 8mm;font-size:9.8pt}
+.how li::before{content:counter(h);position:absolute;left:0;top:1mm;width:5.4mm;height:5.4mm;border:1.5px solid var(--ink);border-radius:50%;font-family:Poppins;font-weight:700;font-size:7.6pt;display:flex;align-items:center;justify-content:center}
+.faq{display:grid;grid-template-columns:1fr 1fr;gap:2.4mm 6mm}
+.fq{font-family:Poppins;font-weight:600;font-size:9pt;color:var(--f)}
+.fa{font-size:9.4pt;line-height:1.3;margin-top:.4mm}
+.small{font-size:8.4pt;color:var(--mut)}
+.ft{margin-top:auto;border-top:1.5px solid var(--ink);padding-top:2mm;display:flex;justify-content:space-between;font-size:8.4pt;color:var(--mut)}
+.ft b{color:var(--ink);font-family:Poppins}
+.tl{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm}
+.tl > div{border:1.3px solid var(--line);border-radius:2.6mm;padding:2.6mm 3mm}
+.tl .when{font-family:Poppins;font-weight:700;font-size:8pt;letter-spacing:.6px;color:var(--f);text-transform:uppercase}
+.tl .what{font-family:Poppins;font-weight:600;font-size:9.8pt;margin:.6mm 0}
+.tl .det{font-size:9pt;color:var(--mut)}
+</style></head>
+<body>
+
+<!-- ======================= PAGE 1 ======================= -->
+<section class="page">
+  <div class="hd">
+    <img src="LOGO-myeasyauto.png" alt="My Easy Auto">
+    <div class="t">
+      <h1>Vos courriers et recommandés<br><span>postés depuis l'appli</span></h1>
+      <div class="sub">Lettres simples et recommandés avec avis de réception, sans imprimer ni aller au bureau de poste.</div>
+    </div>
+    <div class="tag"><small>NOUVEAU</small>Courriers<br>La Poste</div>
+  </div>
+
+  <p class="intro">
+    Une relance, une mise en demeure, un courrier à l'assureur ou à l'expert : depuis le dossier, vous cliquez sur
+    <b>« Envoyer par La Poste »</b>. Notre partenaire <b>Maileva, du groupe La Poste</b>, imprime le courrier, le met sous pli
+    et le remet au facteur. La preuve de l'envoi arrive toute seule dans le dossier.
+  </p>
+
+  <div>
+    <h2>Comment ça marche <i>— 4 étapes</i></h2>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><h3>Vous choisissez le courrier</h3><p>Un courrier rédigé dans l'appli (relance, mise en demeure…) ou n'importe quel PDF.</p></div>
+      <div class="step"><div class="num">2</div><h3>Vous vérifiez l'adresse</h3><p>Reprise du dossier et mise au format postal. L'expéditeur, c'est votre garage.</p></div>
+      <div class="step"><div class="num">3</div><h3>La Poste s'en charge</h3><p>Impression, mise sous pli et dépôt le jour même pour un envoi avant 14 h.</p></div>
+      <div class="step"><div class="num">4</div><h3>Vous suivez</h3><p>Statut, n° de recommandé, preuve de dépôt et avis de réception dans le dossier.</p></div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <h3>Lettre simple <b>1 jeton</b></h3>
+      <ul>
+        <li>Déposée dans la <b>boîte aux lettres</b> du destinataire</li>
+        <li>Distribution en général sous <b>2 à 3 jours ouvrés</b></li>
+        <li>Recto verso, noir et blanc ou couleur</li>
+        <li>Copie du courrier envoyé gardée dans le dossier</li>
+      </ul>
+      <div class="pour"><b>Idéal pour</b>Relances amiables, envoi de factures, courriers d'information.</div>
+    </div>
+    <div class="card k">
+      <h3>Recommandé avec AR <b>5 jetons</b></h3>
+      <ul>
+        <li>Un <b>vrai recommandé La Poste</b>, remis contre signature</li>
+        <li><b>Même valeur</b> qu'un recommandé déposé au guichet</li>
+        <li><b>N° de recommandé</b> et <b>preuve de dépôt</b> dans le dossier</li>
+        <li><b>Avis de réception</b> scanné, consultable dans l'appli</li>
+      </ul>
+      <div class="pour"><b>Idéal pour</b>Mises en demeure, réclamations à l'assureur, tout courrier qui doit faire foi.</div>
+    </div>
+  </div>
+
+  <div>
+    <h2>Ce que vous y gagnez</h2>
+    <div class="gains">
+      <div class="gain"><b>Du temps</b><span>Plus d'impression, d'enveloppe, de formulaire de recommandé ni de file d'attente.</span></div>
+      <div class="gain"><b>Des preuves rangées</b><span>Chaque envoi est rattaché au dossier : fini les récépissés perdus.</span></div>
+      <div class="gain"><b>Des impayés relancés</b><span>La mise en demeure part en recommandé en un clic, depuis la procédure d'impayé.</span></div>
+    </div>
+  </div>
+
+  <div>
+    <h2>Exemple <i>— une facture qui ne se règle pas</i></h2>
+    <div class="tl">
+      <div><div class="when">Échéance dépassée</div><div class="what">Relance amiable</div><div class="det">Lettre simple au client, 1 jeton. Journalisée dans la procédure d'impayé.</div></div>
+      <div><div class="when">Sans réponse</div><div class="what">Mise en demeure</div><div class="det">Recommandé AR, 5 jetons. Le n° de recommandé se reporte tout seul sur l'étape.</div></div>
+      <div><div class="when">Toujours rien</div><div class="what">Dossier prêt</div><div class="det">Preuve de dépôt et avis de réception déjà rangés pour la suite (injonction, conciliateur).</div></div>
+    </div>
+  </div>
+
+  <div class="call">
+    <b>Où le trouver ?</b> Fiche dossier → bloc « Courriers La Poste », procédure d'impayé → « Envoyer par La Poste »,
+    et le menu <b>Organisation → Courriers La Poste</b> pour le suivi de tous vos envois et vos jetons.
+  </div>
+
+  <div class="ft"><span><b>MY EASY AUTO</b> by IDEAFORMA</span><span>contact@myeasyauto.fr · myeasyauto.fr</span><span>1/2</span></div>
+</section>
+
+<!-- ======================= PAGE 2 ======================= -->
+<section class="page">
+  <div class="hd">
+    <img src="LOGO-myeasyauto.png" alt="My Easy Auto">
+    <div class="t">
+      <h1>Les <span>jetons</span> : vous ne payez que ce que vous envoyez</h1>
+      <div class="sub">Pas d'abonnement, pas de minimum. Timbre, impression, mise sous pli et suivi compris.</div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card">
+      <h2>Combien coûte un envoi ?</h2>
+      <table>
+        <tr><th>Envoi</th><th class="n">Jetons</th></tr>
+        <tr><td>Lettre simple (jusqu'à 3 feuilles)</td><td class="n">1</td></tr>
+        <tr><td>Lettre simple (4 feuilles et plus)</td><td class="n">2</td></tr>
+        <tr><td>Recommandé AR (jusqu'à 3 feuilles)</td><td class="n">5</td></tr>
+        <tr><td>Recommandé AR (4 feuilles et plus)</td><td class="n">6</td></tr>
+      </table>
+      <p class="small" style="margin-top:1.6mm">La page d'adresse ajoutée par La Poste compte comme une feuille. Le recto verso (par défaut) réduit le nombre de feuilles. Le coût exact s'affiche avant chaque envoi.</p>
+    </div>
+    <div class="card">
+      <h2>Recharger en 1 minute</h2>
+      <ol class="how">
+        <li>Menu <b>Courriers La Poste</b> → <b>Mes jetons</b></li>
+        <li>Choisissez un pack et acceptez les conditions</li>
+        <li>Payez sur la page sécurisée <b>Qonto</b> : carte bancaire, Apple Pay ou PayPal</li>
+        <li>Les jetons sont crédités <b>dès la confirmation</b> du paiement</li>
+        <li>La facture vous est adressée par IDEAFORMA</li>
+      </ol>
+      <p class="small" style="margin-top:1mm">Solde bas ? L'appli vous prévient avant l'envoi et vous propose de recharger.</p>
+    </div>
+  </div>
+
+  <div>
+    <h2>Les packs <i>— plus le pack est grand, moins le jeton coûte</i></h2>
+    <div class="packs">
+      <div class="pack"><div class="nm">Pack Découverte</div><div class="big">10 <small>jetons</small></div><div class="prix">24,00 € HT <small>· 28,80 € TTC</small></div><div class="eq">2,40 € HT le jeton · 2 recommandés ou 10 lettres</div></div>
+      <div class="pack best"><span class="badge">LE PLUS CHOISI</span><div class="nm">Pack Garage</div><div class="big">50 <small>jetons</small></div><div class="prix">110,00 € HT <small>· 132,00 € TTC</small></div><div class="eq">2,20 € HT le jeton · 10 recommandés ou 50 lettres</div></div>
+      <div class="pack"><span class="badge">MEILLEUR PRIX</span><div class="nm">Pack Pro</div><div class="big">100 <small>jetons</small></div><div class="prix">200,00 € HT <small>· 240,00 € TTC</small></div><div class="eq">2,00 € HT le jeton · 20 recommandés ou 100 lettres</div></div>
+    </div>
+  </div>
+
+  <div class="call">
+    <b>Bon à savoir.</b> Les jetons <b>n'expirent pas</b>. Si un courrier n'a pas pu partir ou est refusé par La Poste
+    (adresse invalide, document illisible), <b>vos jetons sont rendus automatiquement</b>. Un pli non distribué
+    (destinataire absent qui ne va pas le chercher, adresse inexacte) reste dû, comme au guichet.
+  </div>
+
+  <div>
+    <h2>Questions fréquentes</h2>
+    <div class="faq">
+      <div><div class="fq">Le recommandé a-t-il la même valeur qu'au guichet ?</div><div class="fa">Oui : c'est un recommandé La Poste papier, distribué par le facteur contre signature, avec preuve de dépôt et avis de réception.</div></div>
+      <div><div class="fq">Puis-je annuler un envoi ?</div><div class="fa">Non, une fois confirmé il part à l'impression. Vérifiez le contenu et l'adresse : l'appli vous les montre avant l'envoi.</div></div>
+      <div><div class="fq">Au nom de qui part le courrier ?</div><div class="fa">De votre garage : l'adresse d'expéditeur est celle de votre Profil. Pensez à la tenir à jour.</div></div>
+      <div><div class="fq">Qui voit mes documents ?</div><div class="fa">Seul le prestataire d'impression (Maileva, groupe La Poste, hébergé en France), uniquement pour imprimer et distribuer.</div></div>
+      <div><div class="fq">Combien de pages au maximum ?</div><div class="fa">45 feuilles par pli. Au-delà de 3 feuilles, le pli change de tranche de poids : 1 jeton de plus.</div></div>
+      <div><div class="fq">Et si je n'ai plus de jetons ?</div><div class="fa">Vous pouvez toujours télécharger le PDF et le poster vous-même, ou recharger en une minute depuis l'appli.</div></div>
+    </div>
+  </div>
+
+  <p class="small">Conditions complètes : CGU My Easy Auto, article 8 bis « Courriers La Poste et jetons » (myeasyauto.fr/cgu). Prix en vigueur au 26 septembre 2026, TVA 20 %.</p>
+
+  <div class="ft"><span><b>MY EASY AUTO</b> by IDEAFORMA</span><span>Une question ? Menu Assistance · contact@myeasyauto.fr</span><span>2/2</span></div>
+</section>
+</body></html>

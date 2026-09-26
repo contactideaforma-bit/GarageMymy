@@ -18,6 +18,9 @@ import StatCard from "@/components/StatCard";
 import FilePicker from "@/components/FilePicker";
 import EnvoiPostalModal from "@/components/EnvoiPostalModal";
 import EnvoisPostauxListe from "@/components/EnvoisPostauxListe";
+import JetonsPanel from "@/components/JetonsPanel";
+import GuideCourriers from "@/components/GuideCourriers";
+import { estAdmin } from "@/lib/support";
 
 type Filtre = "tous" | "en_cours" | "lrar" | "simple" | "distribue" | "probleme";
 
@@ -32,6 +35,9 @@ export default function CourriersPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [fichier, setFichier] = useState<File | null>(null);
   const [nouveau, setNouveau] = useState(false);
+  const [admin, setAdmin] = useState(false);
+  const [guideOuvert, setGuideOuvert] = useState(false);
+  useEffect(() => { supabase.auth.getUser().then(({ data }) => setAdmin(estAdmin(data.user?.email))); }, []);
 
   const charger = useCallback(async () => {
     const { data, error } = await supabase.from("envois_postaux").select("*").order("created_at", { ascending: false }).limit(500);
@@ -114,6 +120,16 @@ export default function CourriersPage() {
         <StatCard label="À traiter" value={String(kpi.problemes)} hint="erreur, rejet ou retour" accent="pink" />
       </div>
 
+      <JetonsPanel />
+
+      <section className="glass-card mb-6 p-4">
+        <button onClick={() => setGuideOuvert(!guideOuvert)} className="flex w-full items-center justify-between gap-2 text-left" aria-expanded={guideOuvert}>
+          <h2 className="titre-bloc">Comment ça marche ?</h2>
+          <span className="text-white/50">{guideOuvert ? "▴" : "▾"}</span>
+        </button>
+        {guideOuvert && <div className="mt-3"><GuideCourriers /></div>}
+      </section>
+
       {erreurTable && (
         <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
           Exécute <code>supabase/migration_v89.sql</code> dans Supabase → SQL Editor pour activer les courriers La Poste.
@@ -149,7 +165,8 @@ export default function CourriersPage() {
         <EnvoisPostauxListe envois={visibles} dossiers={dossiers} />
       </section>
 
-      <ReglagesMaileva />
+      {/* Compte Maileva COMMUN : réglages réservés à l'éditeur. */}
+      {admin && <ReglagesMaileva />}
 
       {nouveau && fichier && (
         <EnvoiPostalModal
@@ -194,11 +211,11 @@ function ReglagesMaileva() {
   return (
     <section id="reglages" className="glass-card p-4">
       <div className="mb-2 flex flex-wrap items-center gap-2">
-        <h2 className="titre-bloc">Réglages Maileva (La Poste)</h2>
+        <h2 className="titre-bloc">Réglages Maileva (La Poste) — éditeur</h2>
         {config?.configured ? <span className="badge badge-ok">Connecté{config.environnement === "sandbox" ? " · TEST" : " · production"}</span> : <span className="badge badge-neutral">Non configuré</span>}
       </div>
       <p className="mb-3 text-sm text-white/65">
-        Crée un compte professionnel sur <a href="https://www.maileva.com" target="_blank" rel="noopener noreferrer" className="text-accent-teal hover:underline">maileva.com</a>, puis demande l&apos;accès API (identifiants <em>client_id</em> / <em>client_secret</em>, d&apos;abord en environnement de test). Les mots de passe sont chiffrés et ne sont jamais réaffichés. L&apos;adresse d&apos;expéditeur est celle du Profil du garage.
+        Compte commun utilisé par tous les garages (visible par l&apos;éditeur uniquement). Ce compte sert à tous les garages ; ils paient leurs envois en jetons. Crée un compte professionnel sur <a href="https://www.maileva.com" target="_blank" rel="noopener noreferrer" className="text-accent-teal hover:underline">maileva.com</a>, puis demande l&apos;accès API (identifiants <em>client_id</em> / <em>client_secret</em>, d&apos;abord en environnement de test). Les mots de passe sont chiffrés et ne sont jamais réaffichés. L&apos;adresse d&apos;expéditeur est celle du Profil du garage.
       </p>
       {config?.viaEnv && <p className="mb-3 text-xs text-sky-200">Un compte Maileva commun est déjà configuré sur le serveur : ces champs sont facultatifs.</p>}
       <div className="grid gap-3 sm:grid-cols-2">

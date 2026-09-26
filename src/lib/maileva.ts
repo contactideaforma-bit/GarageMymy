@@ -51,7 +51,13 @@ const URLS: Record<EnvMaileva, { auth: string; mail: string; lrar: string }> = {
 export async function identifiantsMaileva(ownerId: string): Promise<IdentifiantsMaileva | null> {
   const admin = getAdminClient();
   if (admin) {
-    const { data } = await admin.from("maileva_config").select("*").eq("owner_id", ownerId).limit(1).maybeSingle();
+    const { data: propre } = await admin.from("maileva_config").select("*").eq("owner_id", ownerId).limit(1).maybeSingle();
+    let data = propre;
+    // v13.28 — compte COMMUN de l'éditeur (ligne « commun »), payé par les garages en jetons.
+    if (!(data?.login && data?.password && data?.client_id && data?.client_secret)) {
+      const { data: commun } = await admin.from("maileva_config").select("*").eq("commun", true).order("updated_at", { ascending: false }).limit(1).maybeSingle();
+      if (commun) data = commun;
+    }
     if (data?.login && data?.password && data?.client_id && data?.client_secret) {
       const password = dechiffrer(data.password);
       const clientSecret = dechiffrer(data.client_secret);

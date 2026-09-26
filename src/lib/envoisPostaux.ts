@@ -44,6 +44,10 @@ export type EnvoiPostal = {
   erreur: string | null;
   soumis_le: string | null;
   maj_statut_le: string | null;
+  /** v13.28 — jetons débités, feuilles imprimées, jetons rendus après un rejet. */
+  jetons?: number;
+  feuilles?: number | null;
+  rembourse?: boolean;
 };
 
 export const LIBELLE_TYPE_ENVOI: Record<TypeEnvoiPostal, string> = {

@@ -9,8 +9,11 @@
 // ============================================================
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ModalShell from "./ModalShell";
+import GuideCourriers, { guideCourriersVu, marquerGuideCourriersVu } from "./GuideCourriers";
+import { compterPagesPdf, coutJetons, feuillesPli, FEUILLES_MAX } from "@/lib/jetons";
+import { lireSoldeJetons } from "@/lib/jetonsClient";
 import { LIBELLE_LIGNES, lignesAdresse, verifierAdresse, type EnvoiPostal, type TypeEnvoiPostal } from "@/lib/envoisPostaux";
 import { ConfigMaileva, envoyerParLaPoste, lireConfigMaileva } from "@/lib/envoisPostauxClient";
 
@@ -49,15 +52,34 @@ export default function EnvoiPostalModal({
   const [confirme, setConfirme] = useState(false);
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [solde, setSolde] = useState<number | null>(null);
+  const [pages, setPages] = useState<number | null>(null);
+  const [guide, setGuide] = useState(false);
+  const pdfCache = useRef<string | null>(null);
+
+  // Le PDF est préparé UNE fois : il sert au calcul du coût, à l'aperçu et à l'envoi.
+  async function pdf(): Promise<string> {
+    if (!pdfCache.current) pdfCache.current = await getPdfBase64();
+    return pdfCache.current;
+  }
 
   useEffect(() => {
+    setGuide(!guideCourriersVu());
     lireConfigMaileva().then(({ config: c, error }) => {
       setConfig(c);
       if (c) { setCouleur(c.couleur); setRectoVerso(c.recto_verso); }
       if (error) setErreur(error);
       setCharge(true);
     });
+    lireSoldeJetons().then(setSolde);
+    pdf().then((b64) => setPages(compterPagesPdf(atob(b64)))).catch(() => setPages(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const feuilles = pages !== null ? feuillesPli(pages, rectoVerso) : null;
+  const cout = feuilles !== null ? coutJetons(type, feuilles) : null;
+  const tropLong = feuilles !== null && feuilles > FEUILLES_MAX;
+  const soldeInsuffisant = solde !== null && cout !== null && solde < cout;
 
   const probleme = verifierAdresse(lignes);
   const exp = config?.expediteur;
@@ -65,7 +87,7 @@ export default function EnvoiPostalModal({
 
   async function apercu() {
     try {
-      const b64 = await getPdfBase64();
+      const b64 = await pdf();
       const bin = atob(b64);
       const u8 = new Uint8Array(bin.length);
       for (let i = 0; i < bin.length; i += 1) u8[i] = bin.charCodeAt(i);
@@ -81,9 +103,9 @@ export default function EnvoiPostalModal({
     if (type === "lrar" && expIncomplet) { setErreur("Complète l'adresse du garage dans le Profil : elle figure sur le recommandé comme expéditeur."); return; }
     setBusy(true);
     try {
-      const pdfBase64 = await getPdfBase64();
+      const pdfBase64 = await pdf();
       const { envoi, error } = await envoyerParLaPoste({ pdfBase64, nomFichier, type, objet, lignes, couleur, rectoVerso, arScanne: type === "lrar" && arScanne, dossierId, courrierId });
-      if (error || !envoi) { setErreur(error || "Envoi impossible."); return; }
+      if (error || !envoi) { setErreur(error || "Envoi impossible."); lireSoldeJetons().then(setSolde); return; }
       await onEnvoye(envoi);
     } catch (e) {
       setErreur((e as Error).message || "Envoi impossible.");
@@ -104,16 +126,20 @@ export default function EnvoiPostalModal({
 
       {charge && config?.migration && !config.configured && (
         <div className="space-y-2 rounded-lg border border-amber-400/30 bg-amber-500/15 px-3 py-3 text-sm text-amber-100">
-          <p>L&apos;envoi par La Poste passe par un compte <strong>Maileva</strong> (service du groupe La Poste). Renseigne tes identifiants API une seule fois.</p>
-          <Link href="/courriers#reglages" className="btn-primary btn-compact inline-block" onClick={onClose}>Réglages Maileva →</Link>
+          <p>L&apos;envoi de courriers par La Poste depuis l&apos;appli ouvre très prochainement. En attendant, télécharge le PDF et poste-le toi-même.</p>
+          <Link href="/courriers" className="btn-ghost btn-compact inline-block" onClick={onClose}>En savoir plus →</Link>
         </div>
       )}
 
-      {charge && config?.configured && (
+      {charge && config?.configured && guide && (
+        <GuideCourriers compact onCompris={() => { marquerGuideCourriersVu(); setGuide(false); }} />
+      )}
+
+      {charge && config?.configured && !guide && (
         <div className="space-y-3">
           {config.environnement === "sandbox" && (
             <div className="rounded-lg border border-sky-400/30 bg-sky-500/15 px-3 py-2 text-xs text-sky-100">
-              Environnement de <strong>TEST</strong> Maileva : l&apos;envoi est simulé, rien n&apos;est imprimé ni facturé. Passe en production dans les réglages quand tout est validé.
+              Environnement de <strong>TEST</strong> Maileva : l&apos;envoi est simulé, rien n&apos;est imprimé ni posté (les jetons sont tout de même décomptés pour tester le parcours).
             </div>
           )}
 
@@ -172,9 +198,27 @@ export default function EnvoiPostalModal({
             <button type="button" onClick={apercu} className="btn-ghost btn-compact">👁 Aperçu du PDF</button>
           </div>
 
+          <div className={`rounded-lg border px-3 py-2 text-sm ${soldeInsuffisant ? "border-rose-400/40 bg-rose-500/15 text-rose-100" : "border-white/15 bg-white/5 text-white/85"}`}>
+            {cout === null ? (
+              <span>Calcul du coût…</span>
+            ) : (
+              <span>
+                Coût : <strong>{cout} jeton{cout > 1 ? "s" : ""}</strong> ({feuilles} feuille{(feuilles || 0) > 1 ? "s" : ""} avec la page adresse)
+                {solde !== null && <> · Solde : <strong>{solde}</strong>{!soldeInsuffisant && <> → {solde - cout} après l&apos;envoi</>}</>}
+              </span>
+            )}
+            {soldeInsuffisant && (
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span>Jetons insuffisants pour cet envoi.</span>
+                <Link href="/courriers#jetons" className="btn-primary btn-compact" onClick={onClose}>Acheter des jetons</Link>
+              </div>
+            )}
+            {tropLong && <div className="mt-1 text-rose-200">Trop long : {FEUILLES_MAX} feuilles maximum par pli.</div>}
+          </div>
+
           <label className="flex items-start gap-2 text-sm text-white/85">
             <input type="checkbox" checked={confirme} onChange={(e) => setConfirme(e.target.checked)} className="mt-0.5 h-4 w-4 accent-pink-500" />
-            <span>Je confirme l&apos;envoi : ce courrier sera imprimé et posté par La Poste{config.environnement === "production" ? " et facturé sur le compte Maileva" : ""}. Un envoi transmis ne peut plus être annulé.</span>
+            <span>Je confirme l&apos;envoi : ce courrier sera imprimé et posté par La Poste{cout !== null ? ` (${cout} jeton${cout > 1 ? "s" : ""} débité${cout > 1 ? "s" : ""})` : ""}. Un envoi transmis ne peut plus être annulé.</span>
           </label>
         </div>
       )}
@@ -183,8 +227,8 @@ export default function EnvoiPostalModal({
 
       <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
         <button type="button" onClick={onClose} className="btn-ghost btn-compact">Annuler</button>
-        {config?.configured && (
-          <button type="button" disabled={busy || !confirme || Boolean(probleme)} onClick={envoyer} className="btn-primary btn-compact">
+        {config?.configured && !guide && (
+          <button type="button" disabled={busy || !confirme || Boolean(probleme) || soldeInsuffisant || tropLong || cout === null} onClick={envoyer} className="btn-primary btn-compact">
             {busy ? "Transmission à La Poste…" : type === "lrar" ? "📮 Envoyer en recommandé AR" : "✉ Envoyer la lettre"}
           </button>
         )}

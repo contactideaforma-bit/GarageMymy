@@ -5,6 +5,7 @@ import { templateRelance, totalPaye, estSoldee } from "@/lib/paiements";
 import { PALIERS, etatRecouvrement } from "@/lib/recouvrement";
 import { envoyerPush } from "@/lib/pushServeur";
 import { Document, Paiement, Relance } from "@/lib/types";
+import { verifierAchatsEnAttente } from "@/lib/jetonsServeur";
 
 // RELANCES AUTOMATIQUES (cron quotidien planifié dans vercel.json).
 // Pour chaque facture : échéance dépassée + reste à payer + dossier avec
@@ -47,6 +48,10 @@ async function executer(req: Request) {
       { status: 500 }
     );
   }
+
+  // v13.28 — filet de sécurité : crédite les achats de jetons payés mais
+  // jamais vérifiés (garage qui n'est pas revenu sur la page après paiement).
+  try { await verifierAchatsEnAttente(admin, null); } catch { /* best-effort */ }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

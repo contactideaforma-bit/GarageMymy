@@ -6,13 +6,14 @@
 
 import { PageVitrine, BlocLegal } from "@/components/vitrine/Vitrine";
 import { SOCIETE, ADRESSE_COMPLETE } from "@/components/vitrine/societe";
+import { FEUILLES_TRANCHE_1, JETONS_PAR_ENVOI } from "@/lib/jetons";
 
 export default function CguPage() {
   return (
     <PageVitrine
       titre="Conditions générales d'utilisation"
       sousTitre="Les règles qui encadrent l'accès et l'usage de l'application My Easy Auto."
-      miseAJour="25 août 2026"
+      miseAJour="26 septembre 2026"
     >
       <BlocLegal titre="1. Objet">
         <p>
@@ -109,6 +110,59 @@ export default function CguPage() {
           résiliable à tout moment pour la fin du mois en cours, par simple email à{" "}
           <a href={`mailto:${SOCIETE.email}`}>{SOCIETE.email}</a>. À la résiliation, le Garage dispose
           de 30 jours pour exporter ses données, après quoi elles sont supprimées.
+        </p>
+      </BlocLegal>
+
+      <BlocLegal id="jetons" titre="8 bis. Courriers La Poste et jetons">
+        <p>
+          <strong>Le service.</strong> Depuis l&apos;application, le Garage peut faire imprimer, mettre
+          sous pli et remettre à La Poste un document PDF, en lettre simple ou en lettre recommandée
+          avec avis de réception. L&apos;exécution est confiée à Maileva (groupe La Poste), prestataire
+          de l&apos;Éditeur. Le courrier est expédié au nom et à l&apos;adresse du Garage, tels qu&apos;ils
+          figurent dans son Profil.
+        </p>
+        <p>
+          <strong>Les jetons.</strong> Les envois se paient d&apos;avance en jetons : une lettre simple
+          coûte {JETONS_PAR_ENVOI.simple} jeton, une lettre recommandée avec avis de réception{" "}
+          {JETONS_PAR_ENVOI.lrar} jetons ; un pli de plus de {FEUILLES_TRANCHE_1} feuilles (page
+          d&apos;adresse comprise) coûte {JETONS_PAR_ENVOI.supplementLourd} jeton de plus. Le nombre de
+          jetons débités est affiché avant chaque envoi et le Garage le confirme. Ce prix comprend
+          l&apos;affranchissement, l&apos;impression, la mise sous pli et le suivi.
+        </p>
+        <p>
+          <strong>Achat.</strong> Les jetons s&apos;achètent par packs depuis l&apos;application, aux prix HT et
+          TTC affichés au moment de l&apos;achat, par lien de paiement sécurisé (carte bancaire, Apple Pay,
+          PayPal) opéré par Qonto. Ils sont crédités dès la confirmation du paiement ; une facture est
+          adressée au Garage. Le Garage agissant en qualité de professionnel, l&apos;achat n&apos;ouvre pas
+          droit à rétractation.
+        </p>
+        <p>
+          <strong>Durée et remboursement.</strong> Les jetons n&apos;ont pas de date d&apos;expiration. Ils ne
+          sont ni remboursables ni convertibles en argent, sauf arrêt du service par l&apos;Éditeur ou
+          résiliation à l&apos;initiative de l&apos;Éditeur : les jetons non utilisés sont alors remboursés
+          au prix unitaire payé. Les jetons d&apos;un envoi qui n&apos;a pas pu partir ou qui a été refusé
+          par le prestataire (adresse invalide, document illisible) sont recrédités automatiquement.
+          Un pli non distribué par La Poste (destinataire absent, pli non réclamé, adresse inexacte
+          fournie par le Garage) reste dû.
+        </p>
+        <p>
+          <strong>Responsabilités.</strong> Le Garage est seul responsable du contenu des documents
+          envoyés, de l&apos;exactitude de l&apos;adresse du destinataire et du choix du mode d&apos;envoi. Un
+          envoi confirmé ne peut plus être annulé. Les délais d&apos;acheminement sont ceux de La Poste
+          et sont donnés à titre indicatif. En cas de perte ou d&apos;avarie, l&apos;indemnisation relève des
+          conditions de La Poste ; la responsabilité de l&apos;Éditeur est limitée à la valeur des jetons
+          de l&apos;envoi concerné.
+        </p>
+        <p>
+          <strong>Données.</strong> Le document et l&apos;adresse du destinataire sont transmis au
+          prestataire uniquement pour l&apos;impression, la distribution et la preuve de l&apos;envoi. Une
+          copie du document envoyé et les preuves (dépôt, avis de réception) sont conservées dans
+          l&apos;espace du Garage.
+        </p>
+        <p>
+          <strong>Évolution des prix.</strong> L&apos;Éditeur peut modifier le prix des packs et le nombre
+          de jetons par envoi en informant les Garages au moins 30 jours à l&apos;avance. Les jetons déjà
+          achetés restent acquis.
         </p>
       </BlocLegal>
 

@@ -3,6 +3,7 @@ import { getAdminClient } from "@/lib/supabaseAdmin";
 import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 import { chiffrer } from "@/lib/coffre";
 import { identifiantsMaileva, testerConnexion, ErreurMaileva } from "@/lib/maileva";
+import { estAdminServeur } from "@/lib/supportServeur";
 
 export const runtime = "nodejs";
 
@@ -22,12 +23,13 @@ export async function GET(req: Request) {
   if (error) return NextResponse.json({ configured: false, migration: false });
 
   const { data: ent } = await admin.from("entreprise").select("nom,adresse,code_postal,ville").eq("owner_id", user.id).limit(1).maybeSingle();
-  const viaEnv = !data && Boolean(await identifiantsMaileva(user.id));
+  const idActif = await identifiantsMaileva(user.id);
+  const viaEnv = !data && Boolean(idActif);
   return NextResponse.json({
     migration: true,
     configured: viaEnv || Boolean(data?.login && data?.password && data?.client_id && data?.client_secret),
     viaEnv,
-    environnement: viaEnv ? (process.env.MAILEVA_ENV === "production" ? "production" : "sandbox") : data?.environnement || "sandbox",
+    environnement: idActif?.environnement || data?.environnement || "sandbox",
     login: data?.login || "",
     client_id: data?.client_id || "",
     notification_email: data?.notification_email || "",
@@ -42,6 +44,8 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const user = await utilisateurDepuisRequete(req);
   if (!user) return NextResponse.json(REPONSE_401, { status: 401 });
+  // v13.28 — compte Maileva COMMUN : seul l'éditeur le configure.
+  if (!estAdminServeur(user.email)) return NextResponse.json({ error: "Réservé à l'éditeur." }, { status: 403 });
   const admin = getAdminClient();
   if (!admin) return NextResponse.json({ error: "SUPABASE_SERVICE_ROLE_KEY manquante côté serveur." }, { status: 500 });
 
@@ -72,7 +76,7 @@ export async function POST(req: Request) {
     }
   }
 
-  const fields: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const fields: Record<string, unknown> = { updated_at: new Date().toISOString(), commun: true };
   if (body.environnement !== undefined) fields.environnement = body.environnement === "production" ? "production" : "sandbox";
   if (body.login !== undefined) fields.login = body.login.trim() || null;
   if (body.client_id !== undefined) fields.client_id = body.client_id.trim() || null;
