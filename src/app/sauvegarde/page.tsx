@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { formatDateTime, messageErreur } from "@/lib/format";
+import { formatDate, formatDateTime, messageErreur } from "@/lib/format";
 import {
   DELAI_SAUVEGARDE_JOURS,
   joursDepuisSauvegarde,
+  lireEtatSauvegarde,
+  passerSauvegarde,
   poidsLisible,
+  prochainRappelSauvegarde,
   sauvegarderGarage,
   sauvegardeARefaire,
 } from "@/lib/sauvegarde";
@@ -29,18 +32,20 @@ export default function SauvegardePage() {
   const [resultat, setResultat] = useState<string | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [compteurs, setCompteurs] = useState({ dossiers: 0, factures: 0, pieces: 0 });
+  const [ignoreeLe, setIgnoreeLe] = useState<string | null>(null);
+  const [infoPasse, setInfoPasse] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       const [ent, d, f, p] = await Promise.all([
-        supabase.from("entreprise").select("id,derniere_sauvegarde").limit(1).maybeSingle(),
+        lireEtatSauvegarde(),
         supabase.from("dossiers").select("id", { count: "exact", head: true }),
         supabase.from("documents").select("id", { count: "exact", head: true }).eq("type", "facture"),
         supabase.from("pieces_dossier").select("id", { count: "exact", head: true }),
       ]);
-      const e = ent.data as { id?: string; derniere_sauvegarde?: string } | null;
-      setEntrepriseId(e?.id || null);
-      setDerniere(e?.derniere_sauvegarde || null);
+      setEntrepriseId(ent?.id || null);
+      setDerniere(ent?.derniere || null);
+      setIgnoreeLe(ent?.ignoreeLe || null);
       setCompteurs({ dossiers: d.count || 0, factures: f.count || 0, pieces: p.count || 0 });
     })();
   }, []);
@@ -77,7 +82,16 @@ export default function SauvegardePage() {
   }
 
   const jours = joursDepuisSauvegarde(derniere);
-  const aRefaire = sauvegardeARefaire(derniere);
+  const aRefaire = sauvegardeARefaire(derniere, ignoreeLe);
+  const prochain = prochainRappelSauvegarde(derniere, ignoreeLe);
+
+  async function passer() {
+    if (!confirm(`Passer cette sauvegarde ? Le rappel reviendra dans ${DELAI_SAUVEGARDE_JOURS} jours.`)) return;
+    const err = await passerSauvegarde(entrepriseId);
+    if (err) { setErreur(err); return; }
+    setIgnoreeLe(new Date().toISOString());
+    setInfoPasse(`Sauvegarde passée. Prochain rappel dans ${DELAI_SAUVEGARDE_JOURS} jours.`);
+  }
 
   return (
     <div>
@@ -102,12 +116,22 @@ export default function SauvegardePage() {
       </div>
 
       {aRefaire && (
-        <div className="mb-5 rounded-lg border-2 border-amber-400/50 bg-amber-500/15 px-4 py-3 text-sm text-amber-100">
-          {jours === null
-            ? "Vous n'avez jamais fait de sauvegarde. Cela prend une minute — faites-la maintenant."
-            : `Votre dernière sauvegarde date de ${jours} jours. Au-delà de ${DELAI_SAUVEGARDE_JOURS} jours, refaites-en une.`}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-lg border-2 border-amber-400/50 bg-amber-500/15 px-4 py-3 text-sm text-amber-100">
+          <span>
+            {jours === null
+              ? "Vous n'avez jamais fait de sauvegarde. Cela prend une minute — faites-la maintenant."
+              : `Votre dernière sauvegarde date de ${jours} jours. Une sauvegarde est conseillée tous les ${DELAI_SAUVEGARDE_JOURS} jours.`}
+          </span>
+          <button onClick={passer} className="text-xs text-amber-100/70 hover:text-amber-100 hover:underline">Passer cette sauvegarde</button>
         </div>
       )}
+      {!aRefaire && prochain && (
+        <p className="mb-5 text-xs text-white/55">
+          Prochain rappel le {formatDate(prochain.toISOString())}
+          {ignoreeLe && (!derniere || new Date(ignoreeLe) > new Date(derniere)) ? " (dernière sauvegarde passée le " + formatDate(ignoreeLe) + ")" : ""}.
+        </p>
+      )}
+      {infoPasse && <p className="mb-5 text-xs text-emerald-300">{infoPasse}</p>}
 
       <section className="glass-card mb-4 p-4">
         <h2 className="titre-section mb-3">Créer la sauvegarde</h2>

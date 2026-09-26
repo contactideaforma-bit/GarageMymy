@@ -266,10 +266,10 @@ export async function sauvegarderGarage(
   };
 }
 
-/* --------------------------- Rappel mensuel -------------------------- */
+/* ------------------------ Rappel tous les 15 jours ------------------------ */
 
-/** Au-delà de ce délai, l'appli réclame une nouvelle sauvegarde. */
-export const DELAI_SAUVEGARDE_JOURS = 35;
+/** Au-delà de ce délai, l'appli réclame une nouvelle sauvegarde (v13.29 : 15 j, avant 35). */
+export const DELAI_SAUVEGARDE_JOURS = 15;
 
 export function joursDepuisSauvegarde(date?: string | null): number | null {
   if (!date) return null;
@@ -278,10 +278,56 @@ export function joursDepuisSauvegarde(date?: string | null): number | null {
   return Math.floor((Date.now() - t) / 86400000);
 }
 
-/** true = il est temps de refaire une sauvegarde (ou il n'y en a jamais eu). */
-export function sauvegardeARefaire(date?: string | null): boolean {
-  const j = joursDepuisSauvegarde(date);
+/** La plus récente de deux dates ISO (null si aucune). */
+function plusRecente(a?: string | null, b?: string | null): string | null {
+  const ta = a ? new Date(a).getTime() : NaN;
+  const tb = b ? new Date(b).getTime() : NaN;
+  if (isNaN(ta) && isNaN(tb)) return null;
+  if (isNaN(ta)) return b || null;
+  if (isNaN(tb)) return a || null;
+  return ta >= tb ? a! : b!;
+}
+
+/**
+ * true = il est temps de refaire une sauvegarde (ou il n'y en a jamais eu).
+ * `ignoreeLe` (v13.29) : le garage a choisi de PASSER la sauvegarde → le
+ * compteur repart de cette date, sans modifier la date de la dernière vraie
+ * sauvegarde.
+ */
+export function sauvegardeARefaire(date?: string | null, ignoreeLe?: string | null): boolean {
+  const j = joursDepuisSauvegarde(plusRecente(date, ignoreeLe));
   return j === null || j >= DELAI_SAUVEGARDE_JOURS;
+}
+
+/** Date du prochain rappel (null = rappel dû dès maintenant). */
+export function prochainRappelSauvegarde(date?: string | null, ignoreeLe?: string | null): Date | null {
+  const ref = plusRecente(date, ignoreeLe);
+  if (!ref) return null;
+  const d = new Date(new Date(ref).getTime() + DELAI_SAUVEGARDE_JOURS * 86400000);
+  return d.getTime() <= Date.now() ? null : d;
+}
+
+export type EtatSauvegarde = { id: string | null; derniere: string | null; ignoreeLe: string | null; migration: boolean };
+
+/** Lit l'état de sauvegarde du garage (repli propre si la migration v91 n'est pas passée). */
+export async function lireEtatSauvegarde(): Promise<EtatSauvegarde | null> {
+  const r = await supabase.from("entreprise").select("id,derniere_sauvegarde,sauvegarde_ignoree_le").limit(1).maybeSingle();
+  if (!r.error) {
+    const e = r.data as { id?: string; derniere_sauvegarde?: string | null; sauvegarde_ignoree_le?: string | null } | null;
+    return { id: e?.id || null, derniere: e?.derniere_sauvegarde || null, ignoreeLe: e?.sauvegarde_ignoree_le || null, migration: true };
+  }
+  const r2 = await supabase.from("entreprise").select("id,derniere_sauvegarde").limit(1).maybeSingle();
+  if (r2.error) return null; // migration v46 absente : on ne dit rien
+  const e = r2.data as { id?: string; derniere_sauvegarde?: string | null } | null;
+  return { id: e?.id || null, derniere: e?.derniere_sauvegarde || null, ignoreeLe: null, migration: false };
+}
+
+/** « Passer cette sauvegarde » : le rappel se tait jusqu'à la prochaine échéance. Renvoie un message d'erreur ou null. */
+export async function passerSauvegarde(entrepriseId: string | null): Promise<string | null> {
+  if (!entrepriseId) return "Renseigne d'abord le profil du garage.";
+  const { error } = await supabase.from("entreprise").update({ sauvegarde_ignoree_le: new Date().toISOString() }).eq("id", entrepriseId);
+  if (error) return /sauvegarde_ignoree_le|column/i.test(error.message) ? "Exécute supabase/migration_v91.sql dans Supabase pour activer cette option." : error.message;
+  return null;
 }
 
 export function poidsLisible(octets: number): string {

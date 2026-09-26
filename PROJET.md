@@ -137,6 +137,11 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Docs clients** `docs/pack-commercial/clients/` : `NOTICE-COURRIERS-LA-POSTE_MyEasyAuto.pdf` (2 pages, source HTML dans `sources/`) et `EMAIL-ANNONCE_courriers-la-poste.md` (email, SMS, bandeau).
 - ⚠️ À valider : liens de paiement Qonto activés (connexion Mollie dans l'appli Qonto, éligibilité), format `unit_price` HT + `vat_rate` "0.2" au 1er test ; facture des packs à émettre par IDEAFORMA (pas encore automatisée — piste : facture Qonto via API + lien de paiement de type facture) ; TVA à confirmer avec le comptable.
 
+### Ajouté v13.29 — Rappel de sauvegarde tous les 15 jours + « Passer cette sauvegarde »
+- **Migration** `supabase/migration_v91.sql` : `entreprise.sauvegarde_ignoree_le` (timestamptz).
+- `lib/sauvegarde.ts` : `DELAI_SAUVEGARDE_JOURS` 35 → **15** ; `sauvegardeARefaire(derniere, ignoreeLe)` compte depuis la plus récente des deux dates (la date de la dernière VRAIE sauvegarde n'est jamais faussée) ; `prochainRappelSauvegarde`, `lireEtatSauvegarde` (repli si v91 absente), `passerSauvegarde`.
+- `RappelSauvegarde` (tableau de bord) : Sauvegarder · Plus tard (masqué pour la journée) · **Passer cette sauvegarde** (confirmation, mémorisé sur le compte → rappel dans 15 j, tous appareils). Page `/sauvegarde` : bouton « Passer cette sauvegarde » dans l'alerte + date du prochain rappel.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.
