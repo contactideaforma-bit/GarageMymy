@@ -142,6 +142,11 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - `lib/sauvegarde.ts` : `DELAI_SAUVEGARDE_JOURS` 35 → **15** ; `sauvegardeARefaire(derniere, ignoreeLe)` compte depuis la plus récente des deux dates (la date de la dernière VRAIE sauvegarde n'est jamais faussée) ; `prochainRappelSauvegarde`, `lireEtatSauvegarde` (repli si v91 absente), `passerSauvegarde`.
 - `RappelSauvegarde` (tableau de bord) : Sauvegarder · Plus tard (masqué pour la journée) · **Passer cette sauvegarde** (confirmation, mémorisé sur le compte → rappel dans 15 j, tous appareils). Page `/sauvegarde` : bouton « Passer cette sauvegarde » dans l'alerte + date du prochain rappel.
 
+### Ajouté v13.30 — Courriers La Poste MIS EN PAUSE (arrêt de Maileva)
+- **Contexte** : Maileva à l'arrêt depuis le 23/09/2026 (tentatives d'accès frauduleuses / cyberattaque), sans date de reprise. Décision : **pause** du service, pas de nouveau prestataire pour l'instant (piste étudiée : Merci Facteur — API, LRAR ≈ 7,16 € tout compris, levée de la restriction IP à demander car Vercel n'a pas d'IP fixe).
+- **Interrupteur unique** `COURRIERS_POSTE_ACTIFS` (`lib/envoisPostaux.ts`) = variable `NEXT_PUBLIC_COURRIERS_POSTE=1` (absente → pause). En pause : boutons « Envoyer par La Poste » masqués (impayés, litige — « 📮 Posté » redevient le bouton principal —, fiche dossier), bloc dossier visible seulement s'il existe des envois, entrée de menu masquée, `/courriers` affiche un bandeau « Service en pause » sans achat ni nouvel envoi ; routes `/api/courrier-postal/envoyer` et `/api/jetons/acheter` renvoient 503. Historique, suivi manuel, soldes et console `/admin/jetons` conservés.
+- **Textes neutres** (plus de nom de prestataire côté garages) : guide, modale, liste, CGU art. 8 bis (« prestataire d'envoi postal choisi par l'Éditeur », « lorsque ce service est proposé », suspension possible, jetons acquis), notice PDF régénérée, email d'annonce marqué « EN ATTENTE ». Le code technique Maileva reste en place (réglages éditeur) pour une reprise ou un remplacement.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

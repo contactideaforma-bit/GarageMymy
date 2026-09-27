@@ -15,6 +15,7 @@ import { VERSION_LABEL } from "@/lib/version";
 import { compterNonLus, lireRole } from "@/lib/conversation";
 import Salutation from "@/components/Salutation";
 import BoutonActualiser from "@/components/BoutonActualiser";
+import { COURRIERS_POSTE_ACTIFS } from "@/lib/envoisPostaux";
 
 const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
   {
@@ -51,7 +52,8 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
     titre: "Organisation",
     items: [
       { href: "/emails", label: "Emails" },
-      { href: "/courriers", label: "Courriers La Poste" },
+      // v13.30 — masqué pendant la pause du service (page toujours accessible par l'URL).
+      ...(COURRIERS_POSTE_ACTIFS ? [{ href: "/courriers", label: "Courriers La Poste" }] : []),
       { href: "/planning", label: "Planning réparation" },
       { href: "/agenda", label: "Agenda" },
       { href: "/sauvegarde", label: "Sauvegarde" },

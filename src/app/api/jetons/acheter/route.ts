@@ -4,6 +4,7 @@ import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 import { PACKS_JETONS, TVA_JETONS, ttc } from "@/lib/jetons";
 import { creerLienPaiement, ErreurQonto } from "@/lib/qonto";
 import { tropDeDemandes } from "@/lib/limiteur";
+import { COURRIERS_POSTE_ACTIFS } from "@/lib/envoisPostaux";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,8 @@ export const runtime = "nodejs";
 // crédités quand Qonto indique le lien « payé » (route /api/jetons/verifier).
 
 export async function POST(req: Request) {
+  // v13.30 — on ne vend pas de jetons pour un service suspendu.
+  if (!COURRIERS_POSTE_ACTIFS) return NextResponse.json({ error: "Achat de jetons suspendu tant que l'envoi de courriers par La Poste est en pause." }, { status: 503 });
   const user = await utilisateurDepuisRequete(req);
   if (!user) return NextResponse.json(REPONSE_401, { status: 401 });
   if (tropDeDemandes("jetons-achat", user.id, 10, 3_600_000)) {

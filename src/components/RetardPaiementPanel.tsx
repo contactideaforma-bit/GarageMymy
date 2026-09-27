@@ -64,6 +64,7 @@ import SignaturePad from "./SignaturePad";
 import ChampEcheance from "./ChampEcheance";
 import EmailComposer from "./EmailComposer";
 import EnvoiPostalModal from "./EnvoiPostalModal";
+import { COURRIERS_POSTE_ACTIFS } from "@/lib/envoisPostaux";
 
 const ORIGINE_MANUELLE = "recouvrement";
 const ORIGINE_AUTO = "recouvrement:auto";
@@ -1141,13 +1142,15 @@ function EnvoiModal({ courrier, dossier, numeroFacture, onClose, onConfirmer }: 
   return (
     <ModalShell title={`Envoyer — ${LIBELLE_TYPE_COURRIER[courrier.type]}`} onClose={onClose} maxWidth="max-w-lg">
       <div className="space-y-3">
-        {/* v13.27 — Envoi dématérialisé : La Poste imprime et distribue le PDF. */}
+        {/* v13.27 — Envoi dématérialisé : La Poste imprime et distribue le PDF (en pause v13.30). */}
+        {COURRIERS_POSTE_ACTIFS && <>
         <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3">
           <div className="text-sm font-semibold text-white">📮 Envoyer par La Poste depuis l&apos;appli</div>
           <p className="mt-0.5 text-xs text-white/65">Le courrier est imprimé et posté pour vous{canal === "lrar" ? " en recommandé AR : n° de recommandé, preuve de dépôt et avis de réception remontent dans le dossier" : ""}. Rien à imprimer, pas de bureau de poste.</p>
           <button type="button" onClick={() => setLaPoste(true)} className="btn-primary btn-compact mt-2">{canal === "lrar" ? "Envoyer en recommandé AR par La Poste" : "Envoyer par La Poste"}</button>
         </div>
         <div className="text-center text-[11px] uppercase tracking-wide text-white/40">— ou envoi manuel —</div>
+        </>}
         <div className="glass-soft p-3 text-sm text-white/85">
           <div><strong className="text-white">{courrier.destinataire_nom || courrier.destinataire}</strong>{courrier.destinataire_adresse ? ` — ${courrier.destinataire_adresse.replace(/\n/g, ", ")}` : ""}</div>
           <div className="text-white/70">Daté du {formatDate(courrier.date_courrier)}{courrier.montant ? ` · ${formatEuros(courrier.montant)}` : ""} · {signe ? (courrier.signature ? "signé au doigt" : "signé (tampon et signature du profil)") : "non signé"}</div>
@@ -1174,7 +1177,7 @@ function EnvoiModal({ courrier, dossier, numeroFacture, onClose, onConfirmer }: 
           <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onConfirmer(canal, numero.trim() || null, date); } finally { setBusy(false); } }} className="btn-primary btn-compact">{busy ? "Enregistrement…" : "✓ Confirmer l'envoi"}</button>
         </div>
       </div>
-      {laPoste && (
+      {COURRIERS_POSTE_ACTIFS && laPoste && (
         <EnvoiPostalModal
           titre={`La Poste — ${LIBELLE_TYPE_COURRIER[courrier.type]}`}
           getPdfBase64={() => courrierRecouvrementPdfBase64(courrier, dossier)}

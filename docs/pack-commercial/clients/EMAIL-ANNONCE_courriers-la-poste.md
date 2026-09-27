@@ -1,5 +1,7 @@
 # Email d'annonce — Courriers La Poste (My Easy Auto)
 
+> ⏸ **EN ATTENTE** : service suspendu depuis le 23/09/2026 (arrêt du prestataire Maileva). Ne pas envoyer tant que le service n'est pas réactivé dans l'appli.
+
 À envoyer aux garages clients **au moins 30 jours avant l'ouverture du service** : l'article 8 bis des CGU est nouveau, et l'article 11 prévoit un préavis de 30 jours pour toute modification substantielle.
 
 Pièce jointe : `NOTICE-COURRIERS-LA-POSTE_MyEasyAuto.pdf`
@@ -13,7 +15,7 @@ Bonjour [Prénom],
 À partir du [date d'ouverture], vous pourrez envoyer vos courriers papier **directement depuis My Easy Auto**, sans imprimer ni passer au bureau de poste.
 
 **Comment ça marche ?**
-Depuis un dossier ou la procédure d'impayé, cliquez sur « Envoyer par La Poste ». Notre partenaire Maileva, du groupe La Poste, imprime votre courrier, le met sous pli et le remet au facteur, le jour même pour un envoi avant 14 h. Le suivi, le n° de recommandé, la preuve de dépôt et l'avis de réception arrivent tout seuls dans le dossier.
+Depuis un dossier ou la procédure d'impayé, cliquez sur « Envoyer par La Poste ». Notre partenaire d'envoi postal imprime votre courrier, le met sous pli et le remet au facteur, le jour même pour un envoi avant 14 h. Le suivi, le n° de recommandé, la preuve de dépôt et l'avis de réception arrivent tout seuls dans le dossier.
 
 **Deux modes d'envoi**
 - **Lettre simple** : 1 jeton, déposée dans la boîte aux lettres du destinataire.

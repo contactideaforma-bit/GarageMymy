@@ -26,6 +26,7 @@ import ModalShell from "./ModalShell";
 import SignaturePad from "./SignaturePad";
 import EmailComposer from "./EmailComposer";
 import EnvoiPostalModal from "./EnvoiPostalModal";
+import { COURRIERS_POSTE_ACTIFS } from "@/lib/envoisPostaux";
 
 const TYPES: TypeCourrierLitige[] = ["accord_reparation_expert", "position_assureur"];
 
@@ -139,8 +140,8 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
                 <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">⬇ PDF</button>
                 {c.statut !== "envoye" && <button onClick={() => setModal({ type: c.type as TypeCourrierLitige, courrier: c })} className="btn-ghost btn-compact">Modifier</button>}
                 {c.statut !== "envoye" && <button onClick={() => setEmail(c)} className="btn-ghost btn-compact">✉ Email</button>}
-                {c.statut !== "envoye" && <button onClick={() => setLaPoste(c)} className="btn-primary btn-compact" title="La Poste imprime et distribue le courrier">📮 Envoyer par La Poste</button>}
-                {c.statut !== "envoye" && <button onClick={() => setEnvoi({ courrier: c, canal: c.type === "position_assureur" ? "lrar" : "courrier", numero: "" })} className="btn-ghost btn-compact">Posté moi-même</button>}
+                {COURRIERS_POSTE_ACTIFS && c.statut !== "envoye" && <button onClick={() => setLaPoste(c)} className="btn-primary btn-compact" title="La Poste imprime et distribue le courrier">📮 Envoyer par La Poste</button>}
+                {c.statut !== "envoye" && <button onClick={() => setEnvoi({ courrier: c, canal: c.type === "position_assureur" ? "lrar" : "courrier", numero: "" })} className={COURRIERS_POSTE_ACTIFS ? "btn-ghost btn-compact" : "btn-primary btn-compact"}>{COURRIERS_POSTE_ACTIFS ? "Posté moi-même" : "📮 Posté"}</button>}
               </div>
               {envoi?.courrier.id === c.id && (
                 <div className="flex w-full flex-wrap items-end gap-2 rounded-lg bg-white/5 p-2">
@@ -175,7 +176,7 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
         />
       )}
 
-      {laPoste && (
+      {COURRIERS_POSTE_ACTIFS && laPoste && (
         <EnvoiPostalModal
           titre={`La Poste — ${LIBELLE_COURRIER_LITIGE[laPoste.type as TypeCourrierLitige]}`}
           getPdfBase64={() => courrierRecouvrementPdfBase64(laPoste, dossier)}

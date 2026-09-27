@@ -3,7 +3,7 @@
 /**
  * COURRIERS LA POSTE (v13.27)
  *
- * Tous les courriers papier partis depuis l'appli via Maileva (La Poste) :
+ * Tous les courriers papier partis depuis l'appli via notre partenaire d'envoi postal (La Poste) :
  * lettres simples et recommandés AR, suivi, n° de recommandé, preuves de
  * dépôt et avis de réception. Envoi d'un PDF hors dossier, et réglages du
  * compte Maileva du garage.
@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { EnvoiPostal, StatutEnvoiPostal, suiviActif } from "@/lib/envoisPostaux";
+import { COURRIERS_POSTE_ACTIFS, EnvoiPostal, MESSAGE_PAUSE_COURRIERS, StatutEnvoiPostal, suiviActif } from "@/lib/envoisPostaux";
 import { actualiserSuivi, ConfigMaileva, enregistrerConfigMaileva, fichierEnBase64, lireConfigMaileva, testerConfigMaileva } from "@/lib/envoisPostauxClient";
 import ConfigBanner from "@/components/ConfigBanner";
 import StatCard from "@/components/StatCard";
@@ -113,6 +113,12 @@ export default function CourriersPage() {
       <p className="mb-4 text-sm text-white/60">Envoie un PDF : La Poste l&apos;imprime, le met sous pli et le distribue — lettre simple ou recommandé avec avis de réception. Plus de passage au bureau de poste.</p>
       <ConfigBanner />
 
+      {!COURRIERS_POSTE_ACTIFS && (
+        <div className="mb-6 rounded-lg border-2 border-amber-400/50 bg-amber-500/15 px-4 py-3 text-sm text-amber-100">
+          <strong>Service en pause.</strong> {MESSAGE_PAUSE_COURRIERS} Vos jetons éventuels restent sur votre compte.
+        </div>
+      )}
+
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Envoyés ce mois" value={String(kpi.mois)} hint={`${kpi.lrar} recommandé${kpi.lrar > 1 ? "s" : ""} au total`} accent="violet" />
         <StatCard label="En cours" value={String(kpi.enCours)} hint="impression / acheminement" accent="amber" />
@@ -120,7 +126,7 @@ export default function CourriersPage() {
         <StatCard label="À traiter" value={String(kpi.problemes)} hint="erreur, rejet ou retour" accent="pink" />
       </div>
 
-      <JetonsPanel />
+      {COURRIERS_POSTE_ACTIFS && <JetonsPanel />}
 
       <section className="glass-card mb-6 p-4">
         <button onClick={() => setGuideOuvert(!guideOuvert)} className="flex w-full items-center justify-between gap-2 text-left" aria-expanded={guideOuvert}>
@@ -136,7 +142,7 @@ export default function CourriersPage() {
         </div>
       )}
 
-      <section className="glass-card mb-6 p-4">
+      {COURRIERS_POSTE_ACTIFS && <section className="glass-card mb-6 p-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="titre-bloc">Nouvel envoi</h2>
           <span className="text-xs text-white/50">Pour un courrier lié à un sinistre, passe plutôt par la fiche dossier (il y sera rattaché).</span>
@@ -145,7 +151,7 @@ export default function CourriersPage() {
           <FilePicker value={fichier} onChange={setFichier} accept="application/pdf" label="Choisir le PDF à envoyer" aide="PDF uniquement — glisse le fichier ici" avecPhoto={false} />
           <button className="btn-primary" disabled={!fichier} onClick={() => setNouveau(true)}>📮 Envoyer par La Poste</button>
         </div>
-      </section>
+      </section>}
 
       <section className="glass-card mb-6 p-4">
         <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -168,7 +174,7 @@ export default function CourriersPage() {
       {/* Compte Maileva COMMUN : réglages réservés à l'éditeur. */}
       {admin && <ReglagesMaileva />}
 
-      {nouveau && fichier && (
+      {COURRIERS_POSTE_ACTIFS && nouveau && fichier && (
         <EnvoiPostalModal
           getPdfBase64={() => fichierEnBase64(fichier)}
           nomFichier={fichier.name}

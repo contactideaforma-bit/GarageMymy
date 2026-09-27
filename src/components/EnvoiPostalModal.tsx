@@ -2,7 +2,7 @@
 
 // ============================================================
 //  ENVOI PAR LA POSTE EN 1 CLIC (v13.27)
-//  Le PDF part chez Maileva (La Poste) qui l'imprime, le met sous
+//  Le PDF part chez le partenaire d'envoi postal qui l'imprime, le met sous
 //  pli et le remet au facteur : lettre simple ou recommandé AR
 //  papier. Utilisée depuis la fiche dossier, la page Courriers et
 //  les courriers de la procédure d'impayé / du litige.
@@ -139,7 +139,7 @@ export default function EnvoiPostalModal({
         <div className="space-y-3">
           {config.environnement === "sandbox" && (
             <div className="rounded-lg border border-sky-400/30 bg-sky-500/15 px-3 py-2 text-xs text-sky-100">
-              Environnement de <strong>TEST</strong> Maileva : l&apos;envoi est simulé, rien n&apos;est imprimé ni posté (les jetons sont tout de même décomptés pour tester le parcours).
+              Environnement de <strong>TEST</strong> : l&apos;envoi est simulé, rien n&apos;est imprimé ni posté (les jetons sont tout de même décomptés pour tester le parcours).
             </div>
           )}
 

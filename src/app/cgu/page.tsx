@@ -115,10 +115,11 @@ export default function CguPage() {
 
       <BlocLegal id="jetons" titre="8 bis. Courriers La Poste et jetons">
         <p>
-          <strong>Le service.</strong> Depuis l&apos;application, le Garage peut faire imprimer, mettre
+          <strong>Le service.</strong> Lorsque ce service est proposé, le Garage peut, depuis l&apos;application, faire imprimer, mettre
           sous pli et remettre à La Poste un document PDF, en lettre simple ou en lettre recommandée
-          avec avis de réception. L&apos;exécution est confiée à Maileva (groupe La Poste), prestataire
-          de l&apos;Éditeur. Le courrier est expédié au nom et à l&apos;adresse du Garage, tels qu&apos;ils
+          avec avis de réception. L&apos;exécution est confiée à un prestataire d&apos;envoi postal choisi
+          par l&apos;Éditeur, qui peut en changer ; le service peut être suspendu en cas d&apos;incident chez
+          ce prestataire, les jetons non utilisés restant alors acquis. Le courrier est expédié au nom et à l&apos;adresse du Garage, tels qu&apos;ils
           figurent dans son Profil.
         </p>
         <p>

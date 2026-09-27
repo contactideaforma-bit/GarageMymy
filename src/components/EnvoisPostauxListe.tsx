@@ -1,6 +1,6 @@
 "use client";
 
-// Liste des courriers envoyés par La Poste (Maileva) — v13.27.
+// Liste des courriers envoyés par La Poste (partenaire d'envoi postal) — v13.27.
 // Partagée par la fiche dossier et la page « Courriers La Poste ».
 
 import Link from "next/link";
@@ -68,7 +68,7 @@ export default function EnvoisPostauxListe({
                   <div className="whitespace-pre-line text-white/80">{(e.adresse_lignes || []).filter(Boolean).join("\n")}</div>
                   <div className="text-white/50">
                     {e.recto_verso ? "Recto verso" : "Recto"} · {e.couleur ? "couleur" : "noir et blanc"}{e.type === "lrar" ? ` · AR ${e.ar_scanne ? "scanné" : "papier"}` : ""}
-                    {e.statut_maileva ? ` · Maileva : ${e.statut_maileva}` : ""}
+                    {e.statut_maileva ? ` · Prestataire : ${e.statut_maileva}` : ""}
                   </div>
                   <ul className="mt-1 space-y-0.5 border-t border-white/10 pt-1">
                     {(e.historique || []).map((h, i) => (

@@ -6,6 +6,7 @@ import { lignesAdresse, verifierAdresse } from "@/lib/envoisPostaux";
 import { tropDeDemandes } from "@/lib/limiteur";
 import { compterPagesPdf, coutJetons, feuillesPli, FEUILLES_MAX } from "@/lib/jetons";
 import { randomUUID } from "crypto";
+import { COURRIERS_POSTE_ACTIFS, MESSAGE_PAUSE_COURRIERS } from "@/lib/envoisPostaux";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -17,6 +18,8 @@ export const maxDuration = 60;
 // une trace (statut « erreur » ou « brouillon »).
 
 export async function POST(req: Request) {
+  // v13.30 — service en pause : aucun envoi ne part, aucun jeton n'est débité.
+  if (!COURRIERS_POSTE_ACTIFS) return NextResponse.json({ error: MESSAGE_PAUSE_COURRIERS }, { status: 503 });
   const user = await utilisateurDepuisRequete(req);
   if (!user) return NextResponse.json(REPONSE_401, { status: 401 });
   if (tropDeDemandes("courrier-postal", user.id, 20, 60_000)) {

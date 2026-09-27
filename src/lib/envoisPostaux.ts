@@ -6,6 +6,19 @@
 //  distribué par le facteur : lettre simple ou recommandé AR papier.
 // ====================================================================
 
+/**
+ * INTERRUPTEUR DU SERVICE (v13.30).
+ * Envoi par La Poste depuis l'appli EN PAUSE : le prestataire d'envoi
+ * (Maileva) est à l'arrêt depuis le 23/09/2026 (cyberattaque). Pour
+ * réactiver sans toucher au code : variable Vercel
+ * NEXT_PUBLIC_COURRIERS_POSTE=1 puis redéploiement.
+ * Pendant la pause : boutons masqués, routes d'envoi et d'achat de
+ * jetons fermées ; l'historique, le suivi manuel et les soldes restent.
+ */
+export const COURRIERS_POSTE_ACTIFS = process.env.NEXT_PUBLIC_COURRIERS_POSTE === "1";
+export const MESSAGE_PAUSE_COURRIERS =
+  "L'envoi de courriers par La Poste depuis l'appli est momentanément suspendu (incident chez notre partenaire d'envoi postal). Téléchargez le PDF et postez-le vous-même : le suivi manuel reste disponible.";
+
 export type TypeEnvoiPostal = "simple" | "lrar";
 
 export type StatutEnvoiPostal =

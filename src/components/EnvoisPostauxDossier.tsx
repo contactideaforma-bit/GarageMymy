@@ -3,7 +3,7 @@
 /**
  * COURRIERS LA POSTE DU DOSSIER (v13.27)
  *
- * Envoie un PDF par La Poste (Maileva) sans sortir de la fiche : lettre
+ * Envoie un PDF par La Poste (partenaire d'envoi postal) sans sortir de la fiche : lettre
  * simple ou recommandé AR papier, au client, à l'assureur, à l'expert ou à
  * une autre adresse. Source du PDF : un courrier déjà rédigé dans l'appli
  * (recouvrement, litige) ou n'importe quel PDF de l'ordinateur / du téléphone.
@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { CourrierRecouvrement, Dossier } from "@/lib/types";
-import { EnvoiPostal, suiviActif } from "@/lib/envoisPostaux";
+import { COURRIERS_POSTE_ACTIFS, EnvoiPostal, suiviActif } from "@/lib/envoisPostaux";
 import { actualiserSuivi, fichierEnBase64 } from "@/lib/envoisPostauxClient";
 import { cibleAssurance, cibleClient, cibleExpert } from "@/lib/recouvrement";
 import { courrierRecouvrementPdfBase64, nomFichierCourrier } from "@/lib/pdf";
@@ -77,6 +77,8 @@ export default function EnvoisPostauxDossier({ dossier }: { dossier: Dossier }) 
     });
 
   const enCours = envois.filter((x) => suiviActif(x.statut)).length;
+  // v13.30 — service en pause : le bloc n'apparaît que s'il y a déjà des envois à consulter.
+  if (!COURRIERS_POSTE_ACTIFS && (!charge || envois.length === 0)) return null;
 
   return (
     <section className="glass-card">
@@ -88,7 +90,7 @@ export default function EnvoisPostauxDossier({ dossier }: { dossier: Dossier }) 
         {enCours > 0 && <span className="badge badge-warn">{enCours} en cours</span>}
         <div className="flex flex-1 justify-end gap-1">
           {!plie && <button onClick={actualiser} disabled={busy} className="btn-ghost btn-compact" title="Actualiser le suivi La Poste">{busy ? "…" : "↻"}</button>}
-          <button onClick={() => setChoix(true)} className="btn-primary btn-compact">+ Envoyer un courrier</button>
+          {COURRIERS_POSTE_ACTIFS && <button onClick={() => setChoix(true)} className="btn-primary btn-compact">+ Envoyer un courrier</button>}
         </div>
       </div>
       {!plie && (

@@ -1282,7 +1282,7 @@ export default function DossierDetailPage() {
       {/* Emails envoyés depuis l'appli sur ce dossier (v13.21) — relire ce qui est parti. */}
       <EmailsDossier dossierId={dossier.id} />
 
-      {/* Courriers papier envoyés par La Poste via Maileva (v13.27). */}
+      {/* Courriers papier envoyés par La Poste (v13.27, en pause v13.30). */}
       <EnvoisPostauxDossier dossier={dossier} />
 
       {/* Véhicule de prêt & transfert de garantie */}

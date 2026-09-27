@@ -22,7 +22,7 @@ export function marquerGuideCourriersVu() {
 const ETAPES = [
   ["Vous choisissez le courrier", "Un courrier rédigé dans l'appli (relance, mise en demeure, courrier à l'assureur ou à l'expert) ou n'importe quel PDF."],
   ["Vous vérifiez l'adresse", "Elle est reprise du dossier et mise au format postal. L'expéditeur est votre garage (adresse du Profil)."],
-  ["La Poste s'occupe du reste", "Notre partenaire Maileva (groupe La Poste) imprime, met sous pli et dépose le courrier, le jour même pour un envoi avant 14 h."],
+  ["La Poste s'occupe du reste", "Notre partenaire d'envoi postal imprime, met sous pli et dépose le courrier, le jour même pour un envoi avant 14 h."],
   ["Vous suivez dans l'appli", "Statut, n° de recommandé, preuve de dépôt et avis de réception sont rangés dans le dossier."],
 ];
 
@@ -62,7 +62,7 @@ export default function GuideCourriers({ compact = false, onCompris }: { compact
       )}
 
       <div className="rounded-lg border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-100">
-        <strong>À vérifier avant d&apos;envoyer :</strong> le contenu du courrier et l&apos;adresse du destinataire sont sous votre responsabilité. Un courrier transmis à La Poste ne peut plus être annulé. Le PDF est transmis à Maileva (groupe La Poste, hébergement en France) uniquement pour l&apos;impression et la distribution.
+        <strong>À vérifier avant d&apos;envoyer :</strong> le contenu du courrier et l&apos;adresse du destinataire sont sous votre responsabilité. Un courrier transmis à La Poste ne peut plus être annulé. Le PDF est transmis à notre partenaire d'envoi postal uniquement pour l&apos;impression et la distribution.
       </div>
 
       {!compact && (
