@@ -44,8 +44,10 @@ function sansPrefixeMo(designation: string | null | undefined): string {
 // Variantes réellement rencontrées devant le poste : « Taux T1 », « Tx T2 »,
 // « Temps T1 », « Heures T3 », « H T1 », « Carrosserie T1 », « Tôlerie T2 »,
 // « Mécanique T3 ». Le poste reste ancré au début, hors ce préfixe.
+// v13.31 : préfixes étendus — « Sellerie T2 », « Électricité T3 », « Carr. T1 »,
+// « Méca. T3 », « Poste T1 », « Tôlerie / carrosserie T1 », « MO tôlerie T1 ».
 const RE_T123 =
-  /^(?:(?:taux|tx|temps|heures?|h|carrosserie|t[ôo]lerie|m[ée]canique)\s*[:.\-–]?\s*)?t\s*-?\s*[123]\b/;
+  /^(?:(?:taux|tx|temps|heures?|h|poste|carrosserie|carr\.?|t[ôo]lerie|m[ée]canique|m[ée]ca\.?|sellerie|[ée]lectricit[ée]|[ée]lec\.?|peinture|mo)\s*[:.\-–\/]?\s*)*t\s*-?\s*[123]\b/;
 // « Ingr.(MV) » est l'abréviation réellement imprimée par certains cabinets
 // (Adenes/Roadia) : la reconnaissance doit accepter la forme abrégée.
 // Accepte aussi « Ingrédient(s) peinture », « Ingrédients (MV) », « Ingr peinture »,
@@ -106,6 +108,67 @@ export function estLigneIngredients(designation: string | null | undefined): boo
   return RE_INGREDIENTS.test(sansPrefixeMo(designation));
 }
 
+/* ==================================================================
+ *  VERROU DÉTERMINISTE DES TABLEAUX (v13.31)
+ *
+ *  Quelle que soit la source (IA, grille, règles apprises, chiffrage
+ *  conservé sur un ancien dossier, saisie manuelle), le rangement final
+ *  obéit à des règles fixes, appliquées EN DERNIER :
+ *   • T1 / T2 / T3 / Peinture / Ingrédients → TOUJOURS « Main d'œuvre »,
+ *     avec un libellé normalisé (« Tôlerie T1 » → « T1 ») ;
+ *   • une ligne « mo » qui n'est pas l'un de ces postes → « Autres » ;
+ *   • une OPÉRATION SANS PRIX (« CAPOT MOTEUR REPARER », « AILE AV G
+ *     PEINTURE S2 G », « DEPOSE/REPOSE PARE-CHOCS »…) → « Autres » : elle
+ *     est comprise dans les heures de main d'œuvre, elle n'a rien à faire
+ *     dans les pièces (ni dans la commande de pièces).
+ * ================================================================== */
+
+// Verbes / codes d'opération des rapports (Act = P, R, D, T, G, S1-S3…).
+const RE_OPERATION =
+  /(r[ée]par(?:er|ation|é)|redress|remise\s+en\s+[ée]tat|peint(?:ure|dre)|pr[ée]par(?:ation|er)|d[ée]pose|repose|d\/r\b|contr[ôo]le|r[ée]glage|retouche|d[ée]bossel|mastic|pon[çc]age|appr[êe]t|raccord|lustrage|polissage|calibr|g[ée]om[ée]trie|parall[ée]lisme|\bs[123]\b|\(\s*[drpgt]\s*\)|\s[drpgt]$)/;
+
+/** Opération comprise dans la main d'œuvre : libellé d'opération ET prix nul. */
+export function estOperationSansPrix(l: { designation?: string | null; quantite?: number | string | null; prix_unitaire?: number | string | null }): boolean {
+  const pu = Number(l.prix_unitaire) || 0;
+  if (pu !== 0) return false;
+  const d = (l.designation || "").trim().toLowerCase();
+  return d !== "" && RE_OPERATION.test(d);
+}
+
+/** Libellé normalisé d'un poste : « Tôlerie T1 » → « T1 », « TP » → « Peinture ». */
+export function normaliserPoste(designation: string | null | undefined): string {
+  const brut = (designation || "").trim();
+  if (!estPosteMo(brut)) return brut;
+  const d = sansPrefixeMo(brut);
+  if (RE_INGREDIENTS.test(d)) return "Ingrédients de peinture";
+  if (RE_T123.test(d)) {
+    const m = d.match(/t\s*-?\s*([123])\b/);
+    return m ? `T${m[1]}` : brut;
+  }
+  if (RE_PEINTURE.test(d)) return "Peinture";
+  return brut;
+}
+
+/** Catégorie définitive d'une ligne — cf. règles ci-dessus. */
+export function verrouillerCategorie(l: { designation?: string | null; quantite?: number | string | null; prix_unitaire?: number | string | null; categorie?: string | null }): CategorieLigne {
+  if (estPosteMo(l.designation)) return "mo";
+  const c = (l.categorie || "").toString();
+  if (c === "mo") return "autre";
+  if (c === "autre") return "autre";
+  if (estOperationSansPrix(l)) return "autre";
+  if (c === "piece") return "piece";
+  return categoriseLigne(l.designation);
+}
+
+/** Applique le verrou (catégorie + libellé de poste) à une liste de lignes. */
+export function verrouillerLignes<T extends { designation?: string | null; quantite?: number | string | null; prix_unitaire?: number | string | null; categorie?: string | null }>(lignes: T[]): T[] {
+  return lignes.map((l) => {
+    const categorie = verrouillerCategorie(l);
+    const designation = categorie === "mo" ? normaliserPoste(l.designation) : l.designation;
+    return categorie === l.categorie && designation === l.designation ? l : { ...l, categorie, designation };
+  });
+}
+
 type LigneBase = {
   designation?: string | null;
   quantite?: number | string | null;
@@ -115,9 +178,8 @@ type LigneBase = {
 };
 
 export function categorieDe(l: LigneBase): CategorieLigne {
-  const c = (l.categorie || "").toString();
-  if (c === "piece" || c === "mo" || c === "autre") return c;
-  return categoriseLigne(l.designation);
+  // v13.31 — le verrou a le dernier mot, même sur une catégorie déjà stockée.
+  return verrouillerCategorie(l);
 }
 
 // Répartit les lignes dans les 3 tableaux de la facture.
@@ -389,7 +451,7 @@ export function normaliseLignes(
   const arr = (lignes || [])
     .filter((l) => l && (l.designation || l.prix_unitaire))
     .map((l) => ({
-      designation: String(l.designation || "Prestation"),
+      designation: normaliserPoste(String(l.designation || "Prestation")),
       quantite: Number(l.quantite) || 1,
       prix_unitaire: Number(l.prix_unitaire) || 0,
       remise: tauxRemise(l.remise),
@@ -442,7 +504,7 @@ export function lignesDepuisChiffrage(chiffrage: unknown): LigneChiffrage[] {
   return chiffrage
     .filter((l): l is Record<string, unknown> => Boolean(l) && typeof l === "object")
     .map((l) => ({
-      designation: String(l.designation ?? "").trim(),
+      designation: normaliserPoste(String(l.designation ?? "").trim()),
       quantite: Number(l.quantite) || 0,
       prix_unitaire: Number(l.prix_unitaire) || 0,
       remise: tauxRemise(l.remise as number),

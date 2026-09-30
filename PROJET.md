@@ -157,6 +157,14 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - Liste des abonnements : un abonnement « Sans compte » affiche « Créer le compte + email de bienvenue » (action `creer_compte_garage` avec `abonnement_id`) ; un abonnement avec compte affiche « Renvoyer l'email de bienvenue ».
 - Formulaire abonnement : « Compte My Easy Auto rattaché » renommé « Compte de connexion du garage (identifiant) » avec explication (automatique par email, à forcer seulement si le garage se connecte avec un autre email).
 
+### Ajouté v13.32 — Analyse du rapport : verrou déterministe des tableaux (fin des T1/T2 dans « Autres » et des opérations dans les pièces)
+- **`src/lib/documents.ts`** : `verrouillerCategorie()` / `verrouillerLignes()` / `normaliserPoste()` / `estOperationSansPrix()`. Règles appliquées EN DERNIER, quelle que soit la source (IA, grille, règles apprises, chiffrage conservé, saisie) : T1/T2/T3/Peinture/Ingrédients → toujours « Main d'œuvre » avec libellé normalisé (« Tôlerie T1 » → « T1 », « TP » → « Peinture ») ; une ligne « mo » qui n'est pas un poste → « Autres » ; une **opération sans prix** (REPARER, PEINTURE S2, DEPOSE/REPOSE, REMISE EN ETAT…) → « Autres », plus jamais dans les pièces. `categorieDe()` passe par le verrou → les documents et chiffrages déjà stockés sont corrigés à l'affichage / à la régénération, sans relire le rapport.
+- Préfixes reconnus devant un poste élargis (`RE_T123`) : Tôlerie, Carrosserie, Carr., Mécanique, Méca., Sellerie, Électricité, Poste, MO, Taux, Temps…
+- **Règles apprises** (`apprentissage.ts`) : une règle « catégorie » ne peut plus contredire le verrou (c'était la cause des « Tôlerie T1 » en « Autres »).
+- **Prompt IA** (`extract-rapport`) : postes toujours « m » avec nom normalisé ; opérations sans prix → « a » (et non « p ») ; verrou appliqué après les règles sur les deux chemins (grille et IA).
+- **Commande de pièces** : n'importe plus que des lignes `categorieDe() === "piece"` (fini les T1 / opérations dans la commande).
+- **Éditeur de document** : champs Qté / PU / Remise en `step="any"` → les flèches vont de 1 en 1, les décimales restent possibles.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

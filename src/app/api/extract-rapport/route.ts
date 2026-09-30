@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { DelaiDepasse, avecDelai } from "@/lib/delai";
 import { appliquerRegles, blocRegles } from "@/lib/apprentissage";
+import { verrouillerLignes } from "@/lib/documents";
 import { IaRegle } from "@/lib/types";
 import { estPosteMo } from "@/lib/documents";
 import { texteDuPdf } from "@/lib/pdfTexte";
@@ -107,9 +108,12 @@ Extrais UNIQUEMENT le CHIFFRAGE (aucune information d'identité) et renvoie cet 
 
 CE QUE TU PRODUIS DEVIENT UNE FACTURE, telle quelle, sans relecture ligne à ligne.
 La facture reprend le rapport en TROIS tableaux, et rien d'autre :
-  "p" → tableau 1 « Pièces, fournitures & prestations » (Désignation / Qté / PU HT / Remise / Total HT) ;
+  "p" → tableau 1 « Pièces, fournitures & prestations » : UNIQUEMENT ce qui a un PRIX
+        (pièces remplacées, fournitures, prestations tarifées) ;
   "m" → tableau 2 « Main d'œuvre & peinture », LISTE FERMÉE : T1, T2, T3, Peinture, Ingrédients de peinture ;
-  "a" → tableau 3 « Autres éléments retenus au rapport ».
+  "a" → tableau 3 « Autres éléments retenus au rapport » : forfaits, frais annexes, ET TOUTES
+        les OPÉRATIONS SANS PRIX (réparer, redresser, peinture S1/S2/S3, dépose/repose,
+        remise en état, contrôle…) dont le coût est déjà dans les heures de main d'œuvre.
 Une ligne oubliée, un taux recalculé « au jugé » ou une remise confondue avec une
 vétusté produisent une facture FAUSSE envoyée à l'assurance. Dans le doute :
 recopie le rapport, ne l'interprète pas, n'arrondis rien, n'invente aucune ligne.
@@ -119,8 +123,13 @@ recopie le rapport, ne l'interprète pas, n'arrondis rien, n'invente aucune lign
   [designation:string, quantite:number, prix_unitaire:number, remise:number, categorie:"m"|"p"|"a"]
   Ce format court est OBLIGATOIRE (il divise par deux la longueur de ta réponse).
 - categorie "m" = LISTE FERMÉE : UNIQUEMENT T1, T2, T3, Peinture et Ingrédients de
-  peinture. Rien d'autre ne prend "m" — une main d'œuvre générique, de la tôlerie,
-  un forfait ou une prestation annexe prennent "a". Les pièces prennent "p".
+  peinture. Rien d'autre ne prend "m" — une main d'œuvre générique, un forfait ou une
+  prestation annexe prennent "a". Les pièces (avec prix) prennent "p".
+- ⚠️ Les POSTES portent souvent un qualificatif dans le rapport : « Tôlerie T1 »,
+  « Carrosserie T2 », « Mécanique T3 », « MO T1 », « Taux T1 », « TP », « Peint. »,
+  « Ingr. (MV) ». C'est TOUJOURS un poste "m", et la designation renvoyée est le
+  nom NORMALISÉ, sans qualificatif : exactement « T1 », « T2 », « T3 », « Peinture »
+  ou « Ingrédients de peinture ». JAMAIS « Tôlerie T1 » en "a", JAMAIS « T1 » en "p".
 
 ⚠️ LES RAPPORTS N'ONT PAS TOUS LA MÊME MISE EN PAGE. Repère D'ABORD le format
 du chiffrage, puis applique la règle correspondante. Ne suppose jamais qu'un
@@ -178,8 +187,9 @@ tableau absent n'existe pas : cherche-le sous une autre forme.
    - quantite = colonne Q / Qté (1 si la colonne est vide) ;
    - prix_unitaire = « Prix (HT) », ou « Mnt HT » ÷ quantite ;
    - ⚠️⚠️ COLONNE DE PRIX VIDE → prix_unitaire = 0, ET LA LIGNE EST EXTRAITE
-     QUAND MÊME. Ce sont les opérations de peinture, de remise en état, de
-     dépose/repose (Act = P, R, D, T, G) dont le coût est DÉJÀ dans les heures
+     QUAND MÊME, avec la categorie "a" (PAS "p" : sans prix, ce n'est pas une
+     pièce à commander). Ce sont les opérations de peinture, de remise en état,
+     de dépose/repose (Act = P, R, D, T, G) dont le coût est DÉJÀ dans les heures
      de main d'œuvre. Exemples réels à ne surtout pas perdre :
        « AILE AV G PEINTURE S3 G », « AILE AV G REMISE EN ETAT G »,
        « AILE AR G SECTION CENTRALE PEINTURE S2 G »,
@@ -579,7 +589,8 @@ export async function POST(req: NextRequest) {
           remise: l.remise,
           categorie: l.categorie as string,
         }));
-        const { lignes, appliquees } = appliquerRegles(brutes, regles);
+        const { lignes: reglees, appliquees } = appliquerRegles(brutes, regles);
+        const lignes = verrouillerLignes(reglees);
         const controle = controlerChiffrage(lignes, grille.montant);
         return NextResponse.json({
           data: {
@@ -683,7 +694,10 @@ export async function POST(req: NextRequest) {
       // Remises : vérification déterministe contre les sous-totaux du rapport
       // AVANT les règles apprises (qui ne touchent jamais aux montants).
       const { lignes: corrigees, correction } = corrigerRemises(brutes, recap, data.tva, calqueTexte);
-      const { lignes, appliquees } = appliquerRegles(corrigees, regles);
+      const { lignes: reglees, appliquees } = appliquerRegles(corrigees, regles);
+      // VERROU FINAL (v13.31) : postes → « Main d'œuvre » (libellé normalisé),
+      // opérations sans prix → « Autres », jamais dans les pièces.
+      const lignes = verrouillerLignes(reglees);
       data.lignes = lignes;
       data.regles_appliquees = appliquees;
       delete data.l;

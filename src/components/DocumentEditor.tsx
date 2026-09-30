@@ -370,7 +370,7 @@ export default function DocumentEditor({
         </select>
         <input
           type="number"
-          step="0.01"
+          step="any"
           inputMode="decimal"
           className="field-input col-span-3 sm:col-span-1 px-2 text-right tabular-nums"
           value={it.quantite}
@@ -383,7 +383,7 @@ export default function DocumentEditor({
         />
         <input
           type="number"
-          step="0.01"
+          step="any"
           inputMode="decimal"
           className="field-input col-span-3 sm:col-span-1 px-2 text-right tabular-nums"
           value={it.prix_unitaire}
@@ -392,7 +392,7 @@ export default function DocumentEditor({
         />
         <input
           type="number"
-          step="0.01"
+          step="any"
           min="0"
           max="100"
           inputMode="decimal"
@@ -595,7 +595,7 @@ export default function DocumentEditor({
             )}
             {renderBloc(
               "Autres éléments retenus au rapport",
-              "Forfaits, fournitures diverses, frais annexes… (tableau affiché seulement s'il contient des lignes)",
+              "Forfaits, frais annexes et opérations comprises dans la main d'œuvre (réparer, peinture S2, dépose/repose… à 0 €) — tableau affiché seulement s'il contient des lignes",
               "autre",
               indicesPar("autre")
             )}

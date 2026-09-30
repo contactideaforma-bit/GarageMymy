@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { CommandePiece, Document, DocumentLigne, Dossier } from "@/lib/types";
 import { formatEuros, messageErreur } from "@/lib/format";
+import { categorieDe, estPosteMo } from "@/lib/documents";
 import ModalShell from "@/components/ModalShell";
 import EmailComposer from "@/components/EmailComposer";
 import { apercuCommandePiecesPdf, commandePiecesPdfBase64 } from "@/lib/pdf";
@@ -73,7 +74,7 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
         const des = m[1].trim();
         const qte = Number(m[2]) || 1;
         const prix = Number(m[3].replace(/\s/g, "").replace(",", "."));
-        if (!des || !prix || MOTIFS_MO.test(des) || dejaLa.has(des.toLowerCase())) continue;
+        if (!des || !prix || MOTIFS_MO.test(des) || estPosteMo(des) || dejaLa.has(des.toLowerCase())) continue;
         aImporter.push({ dossier_id: dossier.id, designation: des, prix_ht: prix, statut: "a_commander", quantite: qte });
       }
 
@@ -97,7 +98,8 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
             .filter((l) => {
               const des = (l.designation || "").trim();
               const total = (Number(l.quantite) || 0) * (Number(l.prix_unitaire) || 0);
-              return des && total > 0 && !MOTIFS_MO.test(des) && !dejaLa.has(des.toLowerCase());
+              // v13.31 — verrou des tableaux : seules les PIÈCES tarifées partent en commande.
+              return des && total > 0 && !MOTIFS_MO.test(des) && categorieDe(l) === "piece" && !dejaLa.has(des.toLowerCase());
             })
             .map((l) => ({
               dossier_id: dossier.id,

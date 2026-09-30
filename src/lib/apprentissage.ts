@@ -22,6 +22,7 @@
 // utilisé côté serveur (route d'extraction) ET côté navigateur.
 
 import { IaRegle, TypeRegle } from "./types";
+import { estPosteMo } from "./documents";
 
 /** Nombre d'occurrences d'une même correction avant qu'elle devienne une règle. */
 export const SEUIL_APPRENTISSAGE = 2;
@@ -92,8 +93,14 @@ export function appliquerRegles<T extends LigneBrute>(
     }
     // La règle de tableau peut avoir été enregistrée sur l'ancien OU le
     // nouveau libellé : on regarde les deux clés.
-    const categorie =
+    let categorie =
       categories.get(cleAvant) ?? categories.get(normaliseCle(designation)) ?? l.categorie;
+    // v13.31 — VERROU : une règle apprise ne peut ni sortir un poste
+    // (T1/T2/T3/Peinture/Ingrédients) du tableau « Main d'œuvre », ni y faire
+    // entrer autre chose. On voyait des « Tôlerie T1 » finir dans « Autres ».
+    const poste = estPosteMo(designation);
+    if (poste && categorie !== "mo") categorie = "mo";
+    if (!poste && categorie === "mo") categorie = "autre";
     if (categorie && categorie !== l.categorie) appliquees++;
     return { ...l, designation, categorie } as T;
   });
