@@ -4,12 +4,12 @@ import { getAdminClient } from "@/lib/supabaseAdmin";
 import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 import { estAdminServeur, tousLesComptes, comptesAdmin } from "@/lib/supportServeur";
 import { envoyerEmailServeur } from "@/lib/mailer";
-import { emailBienvenueHtml, emailBienvenueTexte, sujetBienvenue } from "@/lib/admin/emailBienvenue";
+import { randomBytes } from "crypto";
+import { ErreurCompte, SaisieCompteManuel, creerCompteDepuisVente, creerCompteManuel, renvoyerBienvenueDepuisAbonnement, renvoyerBienvenueDepuisVente } from "@/lib/admin/compteGarageServeur";
 import { emailBienvenueCommercialHtml, emailBienvenueCommercialTexte, sujetBienvenueCommercial, emailDocsCollaborateurHtml, emailDocsCollaborateurTexte, sujetDocsCollaborateur } from "@/lib/admin/emailCollaborateur";
 import { lireDocPack } from "@/lib/admin/packDocsServeur";
 import { docsPour, nomFichierDoc } from "@/lib/admin/packDocs";
 import type { MailAttachment } from "@/lib/mailer";
-import { randomBytes } from "crypto";
 import { appliquerFinsDeContrat, comptesAPurger, definirEtat, purgerCompte, EtatCompteRow } from "@/lib/admin/comptesServeur";
 import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from "@/lib/admin/economie";
 
@@ -28,6 +28,8 @@ import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from 
 //  POST { action: "generer_mensualites", abonnement_id } → crée les mois manquants
 //  POST { action: "generer_releve" }            → lignes dues manquantes
 //  POST { action: "creer_compte_garage", vente_id } → compte Auth + email de bienvenue
+//  POST { action: "creer_compte_manuel", saisie }   → compte garage de A à Z (v13.31)
+//  POST { action: "renvoyer_bienvenue", vente_id | abonnement_id } → nouveau mot de passe provisoire + email
 // ============================================================
 
 export const runtime = "nodejs";
@@ -97,6 +99,7 @@ export async function POST(req: Request) {
     vente_id?: string; date_debut?: string; secretaire_id?: string | null; remise_acceptee?: boolean;
     metier?: string; owner_id?: string; etat?: EtatCompteRow["etat"]; message?: string | null; motif?: string | null; fin_le?: string | null; purge_le?: string | null; confirmation?: string;
     collaborateur_id?: string; email?: string; cles?: string[]; contrat_pdf?: string | null; contrat_nom?: string | null;
+    saisie?: unknown;
   };
   try {
     body = await req.json();
@@ -203,93 +206,40 @@ export async function POST(req: Request) {
   // en « compte créé » et envoie l'email de bienvenue aux couleurs de
   // l'appli (SMTP du compte admin, repli Resend).
   if (body.action === "creer_compte_garage") {
-    const { data: v } = await admin.from("ventes").select("*").eq("id", body.vente_id || "").maybeSingle();
-    if (!v) return NextResponse.json({ error: "Vente introuvable." }, { status: 404 });
-    const email = String(v.contact_email || "").trim().toLowerCase();
-    if (!/^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(email)) {
-      return NextResponse.json({ error: "Email du garage manquant ou invalide sur la vente." }, { status: 400 });
+    try {
+      const r = await creerCompteDepuisVente(admin, body.vente_id || "", { par: "editeur" });
+      return NextResponse.json(r);
+    } catch (e) {
+      const status = e instanceof ErreurCompte ? e.status : 500;
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Création impossible." }, { status });
     }
+  }
 
-    // Compte déjà existant ? On rattache sans toucher au mot de passe.
-    const comptes = await tousLesComptes(admin);
-    const existant = comptes.find((c) => c.email.toLowerCase() === email);
-    let ownerId = existant?.id || null;
-    let motDePasse: string | null = null;
-
-    if (!existant) {
-      // Mot de passe provisoire : 12 caractères lisibles (sans ambigus).
-      const alphabet = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789";
-      const brut = randomBytes(12);
-      motDePasse = Array.from(brut, (b) => alphabet[b % alphabet.length]).join("");
-      const { data: cree, error: eUser } = await admin.auth.admin.createUser({
-        email,
-        password: motDePasse,
-        email_confirm: true,
-        user_metadata: { garage: v.garage_nom },
-      });
-      if (eUser || !cree?.user) {
-        return NextResponse.json({ error: `Création du compte impossible : ${eUser?.message || "erreur Auth"}` }, { status: 500 });
-      }
-      ownerId = cree.user.id;
+  // ---- CRÉATION D'UN COMPTE GARAGE DE A À Z (v13.31) ----
+  // Sans vente ni commercial : l'éditeur saisit le garage et l'offre, on
+  // crée l'abonnement (+ mensualités), le compte Auth, le profil pré-rempli
+  // et on envoie l'email de bienvenue. Logique partagée : compteGarageServeur.
+  if (body.action === "creer_compte_manuel") {
+    try {
+      const r = await creerCompteManuel(admin, (body.saisie || {}) as SaisieCompteManuel);
+      return NextResponse.json(r);
+    } catch (e) {
+      const status = e instanceof ErreurCompte ? e.status : 500;
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Création impossible." }, { status });
     }
+  }
 
-    // Rattachements : abonnement → owner, vente → compte créé.
-    if (v.abonnement_id && ownerId) {
-      await admin.from("abonnements").update({ garage_owner_id: ownerId, garage_email: email }).eq("id", v.abonnement_id);
+  // ---- RENVOI DE L'EMAIL DE BIENVENUE (v13.31) : nouveau mot de passe provisoire
+  if (body.action === "renvoyer_bienvenue") {
+    try {
+      const r = body.abonnement_id
+        ? await renvoyerBienvenueDepuisAbonnement(admin, body.abonnement_id)
+        : await renvoyerBienvenueDepuisVente(admin, body.vente_id || "", {});
+      return NextResponse.json(r);
+    } catch (e) {
+      const status = e instanceof ErreurCompte ? e.status : 500;
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Renvoi impossible." }, { status });
     }
-    await admin.from("ventes").update({ statut: "compte_cree" }).eq("id", v.id);
-
-    // Email de bienvenue (seulement si on vient de créer le compte : un
-    // compte existant a déjà son mot de passe).
-    let emailEnvoye = false;
-    let erreurEmail: string | null = null;
-    if (motDePasse) {
-      const p = await lireParametres(admin);
-      const f = p.formules[v.formule as Formule];
-      let secretaireNom: string | null = null;
-      let commercialNom: string | null = null;
-      const ids = [v.collaborateur_id].filter(Boolean);
-      if (v.abonnement_id) {
-        const { data: abo } = await admin.from("abonnements").select("secretaire_id").eq("id", v.abonnement_id).maybeSingle();
-        if (abo?.secretaire_id) ids.push(abo.secretaire_id);
-      }
-      if (ids.length) {
-        const { data: cs } = await admin.from("collaborateurs").select("id,prenom,nom,type").in("id", ids);
-        for (const c of cs || []) {
-          const nomC = [c.prenom, c.nom].filter(Boolean).join(" ");
-          if (c.type === "secretaire") secretaireNom = nomC;
-          else if (c.id === v.collaborateur_id) commercialNom = nomC;
-        }
-      }
-      const b = {
-        garageNom: v.garage_nom as string,
-        contactNom: (v.contact_nom as string) || null,
-        email,
-        motDePasse,
-        formule: f ? f.libelle : null,
-        heures: f?.heures || null,
-        secretaireNom,
-        commercialNom,
-        url: process.env.NEXT_PUBLIC_SITE_URL || "https://myeasyauto.fr",
-      };
-      const expediteur = (await comptesAdmin(admin))[0];
-      const res = await envoyerEmailServeur(
-        { to: email, subject: sujetBienvenue(v.garage_nom), html: emailBienvenueHtml(b), text: emailBienvenueTexte(b) },
-        expediteur?.id || ownerId || ""
-      );
-      emailEnvoye = res.ok;
-      if (!res.ok) erreurEmail = res.error || "Envoi impossible.";
-    }
-
-    return NextResponse.json({
-      ok: true,
-      dejaExistant: Boolean(existant),
-      emailEnvoye,
-      erreurEmail,
-      // Si l'email n'est pas parti, l'éditeur doit pouvoir transmettre le
-      // mot de passe provisoire lui-même : on ne le renvoie QUE dans ce cas.
-      motDePasse: motDePasse && !emailEnvoye ? motDePasse : undefined,
-    });
   }
 
   // ---- CRÉATION DU COMPTE DU COMMERCIAL (v10.6) ----
@@ -468,9 +418,17 @@ export async function POST(req: Request) {
       }
     }
     if (lignes.length) await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });
+    // v13.31 — le commercial a pu créer le compte AVANT la validation : on
+    // garde le statut « compte créé » et on rattache l'abonnement au compte.
+    const dejaCree = v.statut === "compte_cree";
+    if (dejaCree) {
+      const email = String(v.contact_email || "").toLowerCase();
+      const compte = (await tousLesComptes(admin)).find((c) => c.email.toLowerCase() === email);
+      if (compte) await admin.from("abonnements").update({ garage_owner_id: compte.id }).eq("id", abo.id);
+    }
     await admin
       .from("ventes")
-      .update({ statut: "validee", abonnement_id: abo.id, validee_le: new Date().toISOString(), remise_supp_pct: remiseSupp })
+      .update({ statut: dejaCree ? "compte_cree" : "validee", abonnement_id: abo.id, validee_le: new Date().toISOString(), remise_supp_pct: remiseSupp })
       .eq("id", v.id);
     return NextResponse.json({ ok: true, abonnement_id: abo.id });
   }

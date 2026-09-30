@@ -6,6 +6,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminShell, { ChampAdmin, dateFr, euros, moisFr } from "@/components/admin/AdminShell";
 import ModalShell from "@/components/ModalShell";
+import CompteGarageModal from "@/components/admin/CompteGarageModal";
+import BoutonRenvoiBienvenue from "@/components/admin/BoutonRenvoiBienvenue";
 import {
   Abonnement, Collaborateur, CompteAuth, EtatCompteAdmin, Mensualite, appliquerFinsDeContrat, definirEtatCompte, genererMensualites, lireComptes, lireParametres, lireTable, nomCollab, purgerCompte, supprimerLigne, upsertLigne,
 } from "@/lib/admin/client";
@@ -28,6 +30,8 @@ export default function AbonnementsPage() {
   const [comptes, setComptes] = useState<CompteAuth[]>([]);
   const [etats, setEtats] = useState<EtatCompteAdmin[]>([]);
   const [etatModal, setEtatModal] = useState<{ abo: Abonnement; owner: string } | null>(null);
+  // v13.31 — création d'un compte garage de A à Z (abonnement + compte + profil + email)
+  const [compteModal, setCompteModal] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -157,7 +161,8 @@ export default function AbonnementsPage() {
       actions={
         <>
           <button className="btn-ghost" onClick={appliquerFins} title="Passe en lecture seule les comptes dont le contrat résilié est arrivé à échéance (le cron le fait chaque nuit)">Appliquer les fins de contrat</button>
-          <button className="btn-primary" onClick={nouveau}>+ Abonnement</button>
+          <button className="btn-ghost" onClick={nouveau}>+ Abonnement seul</button>
+          <button className="btn-primary" onClick={() => setCompteModal(true)} title="Abonnement + compte My Easy Auto + profil pré-rempli + email de bienvenue, en un clic">+ Compte garage de A à Z</button>
         </>
       }
     >
@@ -209,7 +214,10 @@ export default function AbonnementsPage() {
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
                   <button className="text-accent-teal hover:underline" onClick={() => setOuvert(ouvert === a.id ? null : a.id)}>{ouvert === a.id ? "Masquer" : "Mensualités"}</button>
                   {ownerDe(a) && (
-                    <button className="text-amber-200 hover:underline" onClick={() => setEtatModal({ abo: a, owner: ownerDe(a)! })}>Accès du compte</button>
+                    <>
+                      <button className="text-amber-200 hover:underline" onClick={() => setEtatModal({ abo: a, owner: ownerDe(a)! })}>Accès du compte</button>
+                      <BoutonRenvoiBienvenue cible={{ abonnement_id: a.id }} email={comptes.find((c) => c.id === ownerDe(a))?.email || a.garage_email || ""} />
+                    </>
                   )}
                   <button className="text-accent-pink hover:underline" onClick={() => setForm({ ...a })}>Modifier</button>
                   <button className="text-white/40 hover:text-rose-300" onClick={() => supprimer(a)}>Suppr.</button>
@@ -245,11 +253,14 @@ export default function AbonnementsPage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <ChampAdmin label="Garage *"><input className="field-input" value={form.garage_nom || ""} onChange={(e) => set("garage_nom", e.target.value)} /></ChampAdmin>
             <ChampAdmin label="Email du garage"><input className="field-input" type="email" value={form.garage_email || ""} onChange={(e) => set("garage_email", e.target.value)} /></ChampAdmin>
-            <ChampAdmin label="Compte My Easy Auto rattaché">
+            <ChampAdmin label="Compte de connexion du garage (identifiant)">
               <select className="field-input" value={form.garage_owner_id || ""} onChange={(e) => set("garage_owner_id", e.target.value || null)}>
-                <option value="">— par l&apos;email du garage —</option>
+                <option value="">— automatique : le compte dont l&apos;identifiant = l&apos;email du garage —</option>
                 {comptes.map((c) => <option key={c.id} value={c.id}>{c.email}</option>)}
               </select>
+              <p className="mt-1 text-[11px] text-white/45">
+                C&apos;est le compte avec lequel le garage se connecte à l&apos;appli. À laisser en automatique, sauf si le garage se connecte avec un autre email que celui saisi à gauche (l&apos;abonnement, les fins de contrat et la suspension du compte suivent ce rattachement).
+              </p>
             </ChampAdmin>
             <ChampAdmin label="Formule"><select className="field-input" value={form.formule} onChange={(e) => changerFormule(e.target.value as Formule)}>{FORMULES.map((f) => <option key={f} value={f}>{p.formules[f].libelle} — {euros(p.formules[f].prix)}</option>)}</select></ChampAdmin>
             <ChampAdmin label="Périodicité de paiement">
@@ -295,6 +306,7 @@ export default function AbonnementsPage() {
           </div>
         </ModalShell>
       )}
+      {compteModal && <CompteGarageModal p={p} collabs={collabs} onClose={() => setCompteModal(false)} onCree={load} />}
       {etatModal && (
         <EtatCompteModal
           abo={etatModal.abo}

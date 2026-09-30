@@ -26,6 +26,8 @@ export type Vente = {
   signature: string | null; signe_le: string | null;
   statut: "declaree" | "validee" | "compte_cree" | "fidelisee" | "perdue" | "refusee"; abonnement_id: string | null; validee_le: string | null; notes_admin: string | null;
   prospect_id?: string | null; owner_id?: string | null; paiement_demande?: string | null; paiement_demande_le?: string | null; paiement_confirme_le?: string | null; paiement_valide_le?: string | null;
+  /** v13.31 (migration v92) — trace de création du compte garage. */
+  compte_cree_le?: string | null; compte_cree_par?: "editeur" | "commercial" | null;
 };
 export type Abonnement = {
   id: string; created_at: string; garage_nom: string; garage_email: string | null; garage_owner_id: string | null;
@@ -95,6 +97,17 @@ export const purgerCompte = (owner_id: string) => post<{ objets: number }>({ act
 /** Valide une vente déclarée : crée l'abonnement rattaché au commercial, ses mensualités, et passe la vente en « validée ». */
 export type ResultatCompteGarage = { ok: boolean; dejaExistant: boolean; emailEnvoye: boolean; erreurEmail: string | null; motDePasse?: string };
 export const creerCompteGarage = (vente_id: string) => post<ResultatCompteGarage>({ action: "creer_compte_garage", vente_id });
+/** v13.31 — compte garage créé DE A À Z depuis l'espace éditeur (sans vente) : abonnement + compte + profil + email. */
+export type SaisieCompteManuel = {
+  garage: { nom: string; email: string; siret?: string | null; adresse?: string | null; cp?: string | null; ville?: string | null; tel?: string | null; contactNom?: string | null; contactFonction?: string | null };
+  offre: { formule: Abonnement["formule"]; engagement_12: boolean; periodicite: Abonnement["periodicite"]; remise_supp_pct?: number; date_debut?: string | null; commercial_id?: string | null; secretaire_id?: string | null; notes?: string | null };
+  avecAbonnement: boolean;
+  envoyerEmail: boolean;
+};
+/** v13.31 — renvoi de l'email de bienvenue (nouveau mot de passe provisoire) depuis une vente ou un abonnement. */
+export type ResultatRenvoiBienvenue = { ok: boolean; email: string; emailEnvoye: boolean; erreurEmail: string | null; motDePasse?: string };
+export const renvoyerBienvenue = (cible: { vente_id?: string; abonnement_id?: string }) => post<ResultatRenvoiBienvenue>({ action: "renvoyer_bienvenue", ...cible });
+export const creerCompteGarageManuel = (saisie: SaisieCompteManuel) => post<ResultatCompteGarage & { ownerId: string; abonnementId?: string | null }>({ action: "creer_compte_manuel", saisie });
 /** Crée le compte My Easy Auto d'un COMMERCIAL depuis sa fiche (v10.6) : compte Auth + métier commercial + email de bienvenue. */
 export type ResultatCompteCollaborateur = ResultatCompteGarage & { owner_id?: string | null };
 export const creerCompteCollaborateur = (collaborateur_id: string, email?: string) =>

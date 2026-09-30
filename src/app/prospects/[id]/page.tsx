@@ -20,7 +20,7 @@ import {
   DELAIS_RAPPEL, OFFRE_DEFAUT, ORIGINES_PROSPECT, ParametresOffre, Prospect, ProspectDocument, ProspectOrigine, ProspectStatut, STATUTS_PROSPECT, TYPES_DOCUMENT, dateDansJours, etatRappel,
   chargerProspect, creerDocument, enregistrerProspect, majDocument, prospectVersContrat, supprimerDocument, supprimerProspect,
 } from "@/lib/prospects";
-import { ContexteCommercial, chargerContexteCommercial, declarerVente, enregistrerSignatureCommercial, majPaiement, nomCommercial } from "@/lib/commercialClient";
+import { ContexteCommercial, ResultatCompteGarageCommercial, ResultatRenvoiBienvenue, chargerContexteCommercial, creerCompteGarageCommercial, renvoyerBienvenueCommercial, declarerVente, enregistrerSignatureCommercial, majPaiement, nomCommercial } from "@/lib/commercialClient";
 import { Agrement, DemandeParticuliere, QuestionBesoin, SECTIONS_BESOINS, agrementsDe, demandesDe, reponseLisible, tauxRemplissage } from "@/lib/ficheBesoins";
 import { Formule, Periodicite, grilleTarifs, primeVente, prixVente } from "@/lib/admin/economie";
 import { MODES_PAIEMENT, articlesCGV, conditionsParticulieres } from "@/lib/admin/contratGarage";
@@ -245,7 +245,7 @@ export default function ProspectPage() {
               <h2 className="titre-bloc">Déclarer la vente</h2>
               {contratSigne ? (
                 <>
-                  <p className="mt-2 text-sm text-white/70">Le contrat {contratSigne.numero} est signé par le garage{contratSigne.signe_le ? ` le ${formatDateTime(contratSigne.signe_le)}` : ""}. Déclare la vente à IDEAFORMA : elle sera validée sous 5 jours ouvrés et le compte du garage créé.</p>
+                  <p className="mt-2 text-sm text-white/70">Le contrat {contratSigne.numero} est signé par le garage{contratSigne.signe_le ? ` le ${formatDateTime(contratSigne.signe_le)}` : ""}. Déclare la vente à IDEAFORMA, puis crée toi-même le compte du garage depuis cette fiche.</p>
                   <button className="btn-primary mt-3" onClick={() => setVenteModal(true)}>Déclarer la vente à IDEAFORMA</button>
                 </>
               ) : (
@@ -751,6 +751,85 @@ function VenteSuivi({ vente: v, params, onChanged }: { vente: Vente; params: Con
           {vv.paiement_valide_le ? ` · vérifié par IDEAFORMA le ${formatDate(vv.paiement_valide_le)}` : ""}
         </p>
       </div>
+      <CompteGarageBloc vente={v} onChanged={onChanged} />
+    </div>
+  );
+}
+
+/* ----------------------- Compte du garage (v13.31) ----------------------- */
+// Contrat signé → le commercial crée lui-même le compte My Easy Auto du
+// garage (identifiant = email de la fiche), sans attendre l'éditeur.
+function CompteGarageBloc({ vente: v, onChanged }: { vente: Vente; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<ResultatCompteGarageCommercial | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [renvoi, setRenvoi] = useState<ResultatRenvoiBienvenue | null>(null);
+  const vv = v as Vente & { paiement_confirme_le?: string | null; compte_cree_le?: string | null; compte_cree_par?: string | null };
+  async function renvoyer() {
+    if (!confirm(`Renvoyer l'email de bienvenue à ${v.contact_email} ?\nUn NOUVEAU mot de passe provisoire sera posé : l'ancien ne fonctionnera plus.`)) return;
+    setBusy(true);
+    setErr(null);
+    try { setRenvoi(await renvoyerBienvenueCommercial(v.id)); } catch (e) { setErr(messageErreur(e, "Renvoi impossible.")); } finally { setBusy(false); }
+  }
+  const deja = v.statut === "compte_cree" || v.statut === "fidelisee";
+  const bloque = v.statut === "refusee" || v.statut === "perdue";
+  async function creer() {
+    if (!confirm(`Créer le compte My Easy Auto de ${v.garage_nom} ?\nIdentifiant : ${v.contact_email}\nLe garage recevra son email de bienvenue avec un mot de passe provisoire.`)) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      setRes(await creerCompteGarageCommercial(v.id));
+      onChanged();
+    } catch (e) {
+      setErr(messageErreur(e, "Création impossible."));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="glass-soft mt-3 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="text-sm font-semibold text-white">Compte My Easy Auto du garage</div>
+          <div className="text-xs text-white/60">Identifiant : {v.contact_email}{v.signe_le ? ` · contrat signé le ${formatDate(v.signe_le)}` : ""}</div>
+        </div>
+        {deja || res ? (
+          <span className="badge badge-ok">Compte créé{vv.compte_cree_le ? ` le ${formatDate(vv.compte_cree_le)}` : ""}{vv.compte_cree_par === "commercial" ? " · par toi" : vv.compte_cree_par === "editeur" ? " · par IDEAFORMA" : ""}</span>
+        ) : bloque ? (
+          <span className="badge badge-neutral">Vente {v.statut === "perdue" ? "perdue" : "refusée"}</span>
+        ) : (
+          <button className="btn-primary btn-compact" disabled={busy || !v.signature} onClick={creer}>{busy ? "Création…" : "Créer le compte du garage"}</button>
+        )}
+      </div>
+      {!deja && !res && !bloque && !vv.paiement_confirme_le && (
+        <p className="mt-2 text-xs text-amber-200/80">Le paiement de la 1re échéance n&apos;est pas encore confirmé : tu peux créer le compte dès maintenant (contrat signé), mais pense à confirmer le paiement ci-dessus.</p>
+      )}
+      {res && (
+        <div className="mt-2 space-y-1 text-xs">
+          {res.dejaExistant ? (
+            <p className="text-white/70">Ce garage avait déjà un compte : il est rattaché, son mot de passe n&apos;a pas changé.</p>
+          ) : res.emailEnvoye ? (
+            <p className="text-emerald-300">Email de bienvenue envoyé à {v.contact_email} avec le mot de passe provisoire. Le profil du garage est pré-rempli.</p>
+          ) : (
+            <>
+              <p className="text-amber-300">Compte créé mais l&apos;email de bienvenue n&apos;est pas parti ({res.erreurEmail || "erreur"}). Transmets ce mot de passe provisoire au garage :</p>
+              {res.motDePasse && <p className="text-white">Mot de passe : <code className="rounded bg-white/10 px-2 py-0.5 font-mono text-sm tracking-wide">{res.motDePasse}</code> — à changer à la première connexion.</p>}
+            </>
+          )}
+          <p className="text-white/50">IDEAFORMA est prévenue et valide l&apos;abonnement de son côté.</p>
+        </div>
+      )}
+      {(deja || res) && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+          <button className="btn-ghost btn-compact" disabled={busy} onClick={renvoyer} title="Nouveau mot de passe provisoire + email de bienvenue">{busy ? "Envoi…" : "Renvoyer l'email de bienvenue"}</button>
+          {renvoi && (renvoi.emailEnvoye ? (
+            <span className="text-emerald-300">✓ Renvoyé à {renvoi.email} avec un nouveau mot de passe provisoire.</span>
+          ) : (
+            <span className="text-amber-300">Email non parti{renvoi.erreurEmail ? ` (${renvoi.erreurEmail})` : ""}{renvoi.motDePasse ? <> — nouveau mot de passe à transmettre : <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white">{renvoi.motDePasse}</code></> : null}</span>
+          ))}
+        </div>
+      )}
+      {err && <p className="mt-2 text-xs text-rose-300">{err}</p>}
     </div>
   );
 }

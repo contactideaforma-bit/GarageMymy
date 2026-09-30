@@ -29,4 +29,12 @@ export const declarerVente = (args: { prospect_id: string; offre: ParametresOffr
 export const majPaiement = (args: { vente_id: string; paiement_demande?: "virement" | "cb"; reference?: string; confirme?: boolean; montant?: number | null }) =>
   post({ action: "paiement", ...args });
 
+/** v13.31 — le commercial crée lui-même le compte du garage une fois le contrat signé. */
+export type ResultatCompteGarageCommercial = { ok: boolean; ownerId: string; dejaExistant: boolean; emailEnvoye: boolean; erreurEmail: string | null; motDePasse?: string };
+export const creerCompteGarageCommercial = (vente_id: string) => post<ResultatCompteGarageCommercial>({ action: "creer_compte_garage", vente_id });
+
+/** v13.31 — renvoi de l'email de bienvenue : pose un NOUVEAU mot de passe provisoire et renvoie l'email. */
+export type ResultatRenvoiBienvenue = { ok: boolean; email: string; emailEnvoye: boolean; erreurEmail: string | null; motDePasse?: string };
+export const renvoyerBienvenueCommercial = (vente_id: string) => post<ResultatRenvoiBienvenue>({ action: "renvoyer_bienvenue", vente_id });
+
 export const nomCommercial = (c: CollaborateurMoi | null) => (c ? [c.prenom, c.nom].filter(Boolean).join(" ") : "IDEAFORMA");

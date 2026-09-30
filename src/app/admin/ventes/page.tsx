@@ -3,12 +3,13 @@
 // VENTES DÉCLARÉES (v10.0) — ce que les commerciaux envoient depuis /vente.
 // L'éditeur : lit la fiche, télécharge le contrat signé, VALIDE (crée
 // l'abonnement rattaché au commercial → primes calculées par les relevés),
-// crée le compte Supabase à la main puis coche « compte créé », et suit la
+// crée le compte du garage (ou le commercial l'a déjà fait, v13.31), et suit la
 // fidélisation (mensualités encaissées) dans le temps.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminShell, { ChampAdmin, dateFr, euros } from "@/components/admin/AdminShell";
 import ModalShell from "@/components/ModalShell";
+import BoutonRenvoiBienvenue from "@/components/admin/BoutonRenvoiBienvenue";
 import {
   Abonnement, Collaborateur, Mensualite, ResultatCompteGarage, STATUTS_VENTE, Vente, creerCompteGarage, lireParametres, lireTable, nomCollab, supprimerLigne, upsertLigne, validerVente,
 } from "@/lib/admin/client";
@@ -127,6 +128,7 @@ export default function VentesPage() {
                       {v.paiement_sur_place && <span className="text-emerald-300"> · reçu sur place {euros(v.paiement_montant)} (réf. {v.paiement_reference || "—"})</span>}
                       {v.paiement_demande && !v.paiement_confirme_le && <span className="text-amber-300"> · {v.paiement_demande} demandé au garage</span>}
                       {v.paiement_confirme_le && <span className={v.paiement_valide_le ? "text-emerald-300" : "text-amber-300"}> · paiement confirmé par le commercial{v.paiement_valide_le ? " ✓ vérifié" : " — À VÉRIFIER"}</span>}
+                      {v.compte_cree_par && <span className="text-accent-teal"> · compte créé {v.compte_cree_par === "commercial" ? "par le commercial" : "par l'éditeur"}{v.compte_cree_le ? ` le ${dateFr(v.compte_cree_le)}` : ""}</span>}
                     </div>
                     <div className="mt-1 text-xs text-white/50">
                       Commercial : {nomCollab(commercial)} (code {v.code_apporteur}) · prime {euros(prime.total)} à la {prime.mensualiteEcheance}<sup>e</sup> mensualité
@@ -274,6 +276,12 @@ function VenteModal({ vente: v, collabs, p, onClose, onChanged }: { vente: Vente
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/15 p-3 text-sm">
           <span className="text-white/70">Le compte du garage n&apos;est pas encore créé.</span>
           <button className="btn-primary btn-compact" onClick={creerCompte} disabled={busy}>{busy ? "…" : "Créer le compte + email de bienvenue"}</button>
+        </div>
+      )}
+      {(v.statut === "compte_cree" || v.statut === "fidelisee") && !resCompte && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/15 p-3 text-sm">
+          <span className="text-white/70">Compte du garage créé{v.compte_cree_par ? ` par ${v.compte_cree_par === "commercial" ? "le commercial" : "l'éditeur"}` : ""}{v.compte_cree_le ? ` le ${dateFr(v.compte_cree_le)}` : ""} · {v.contact_email}</span>
+          <BoutonRenvoiBienvenue cible={{ vente_id: v.id }} email={v.contact_email} compact={false} />
         </div>
       )}
       {resCompte && (

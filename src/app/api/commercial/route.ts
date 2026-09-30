@@ -5,6 +5,7 @@ import { estAdminServeur, comptesAdmin, emailsAdminServeur } from "@/lib/support
 import { envoyerEmailServeur } from "@/lib/mailer";
 import { FORMULES, Formule, Parametres, fusionnerParametres, prixVente, primeVente } from "@/lib/admin/economie";
 import type { ParametresPublics } from "@/lib/admin/ventePublic";
+import { ErreurCompte, creerCompteDepuisVente, renvoyerBienvenueDepuisVente } from "@/lib/admin/compteGarageServeur";
 
 // ============================================================
 //  ESPACE COMMERCIAL (v10.2) — route AUTHENTIFIÉE.
@@ -15,6 +16,8 @@ import type { ParametresPublics } from "@/lib/admin/ventePublic";
 //  GET                          → { collaborateur, estAdmin, parametres }
 //  POST { action: "declarer_vente", prospect_id, offre, ... }
 //  POST { action: "paiement", vente_id, paiement_demande?, reference?, confirme? }
+//  POST { action: "creer_compte_garage", vente_id }  → v13.31 : le commercial crée
+//       lui-même le compte du garage une fois le contrat signé.
 // ============================================================
 
 export const runtime = "nodejs";
@@ -199,6 +202,56 @@ export async function POST(req: Request) {
     const { error } = await admin.from("ventes").update(patch).eq("id", venteId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
+  }
+
+  // ---- CRÉATION DU COMPTE DU GARAGE PAR LE COMMERCIAL (v13.31) ----
+  // Après signature du contrat (vente déclarée), le commercial crée le compte
+  // de son garage sans attendre l'éditeur : compte Auth + profil pré-rempli
+  // + email de bienvenue. L'éditeur valide ensuite la vente (abonnement) et
+  // le rattachement se fait tout seul. Restreint à SES ventes (owner_id).
+  if (body.action === "creer_compte_garage") {
+    const venteId = texte(body.vente_id, 40);
+    try {
+      const r = await creerCompteDepuisVente(admin, venteId, { par: estAdmin ? "editeur" : "commercial", ownerIdAppelant: user.id, restreindreAuProprietaire: !estAdmin });
+      // Prévenir l'éditeur (best-effort)
+      try {
+        const comptes = await comptesAdmin(admin);
+        const expediteurId = comptes[0]?.id;
+        if (expediteurId && !estAdmin) {
+          const { data: v } = await admin.from("ventes").select("numero,garage_nom,contact_email").eq("id", venteId).maybeSingle();
+          const qui = collab ? `${[collab.prenom, collab.nom].filter(Boolean).join(" ")} (code ${collab.code_apporteur || "—"})` : "un commercial";
+          await envoyerEmailServeur(
+            {
+              to: emailsAdminServeur().join(","),
+              subject: `[Compte garage] ${v?.garage_nom || ""} — créé par ${qui} (${v?.numero || ""})`,
+              text: [
+                `${qui} a créé le compte My Easy Auto du garage ${v?.garage_nom || ""} (${v?.contact_email || ""}).`,
+                r.dejaExistant ? "Le compte existait déjà : rattaché sans changement de mot de passe." : r.emailEnvoye ? "Email de bienvenue envoyé au garage." : `⚠️ Email de bienvenue NON envoyé : ${r.erreurEmail || ""}`,
+                `Vente à valider (abonnement) : ${process.env.NEXT_PUBLIC_SITE_URL || "https://myeasyauto.fr"}/admin/ventes`,
+              ].join("\n"),
+            },
+            expediteurId
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+      return NextResponse.json(r);
+    } catch (e) {
+      const status = e instanceof ErreurCompte ? e.status : 500;
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Création impossible." }, { status });
+    }
+  }
+
+  // ---- RENVOI DE L'EMAIL DE BIENVENUE par le commercial (v13.31), SES ventes.
+  if (body.action === "renvoyer_bienvenue") {
+    try {
+      const r = await renvoyerBienvenueDepuisVente(admin, texte(body.vente_id, 40), { ownerIdAppelant: user.id, restreindreAuProprietaire: !estAdmin });
+      return NextResponse.json(r);
+    } catch (e) {
+      const status = e instanceof ErreurCompte ? e.status : 500;
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Renvoi impossible." }, { status });
+    }
   }
 
   return NextResponse.json({ error: "Action inconnue." }, { status: 400 });
