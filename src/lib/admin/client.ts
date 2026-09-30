@@ -97,6 +97,8 @@ export const purgerCompte = (owner_id: string) => post<{ objets: number }>({ act
 /** Valide une vente déclarée : crée l'abonnement rattaché au commercial, ses mensualités, et passe la vente en « validée ». */
 export type ResultatCompteGarage = { ok: boolean; dejaExistant: boolean; emailEnvoye: boolean; erreurEmail: string | null; motDePasse?: string };
 export const creerCompteGarage = (vente_id: string) => post<ResultatCompteGarage>({ action: "creer_compte_garage", vente_id });
+/** v13.31 — crée le compte d'un abonnement « Sans compte » (email de l'abonnement) + email de bienvenue. */
+export const creerCompteDepuisAbonnement = (abonnement_id: string) => post<ResultatCompteGarage>({ action: "creer_compte_garage", abonnement_id });
 /** v13.31 — compte garage créé DE A À Z depuis l'espace éditeur (sans vente) : abonnement + compte + profil + email. */
 export type SaisieCompteManuel = {
   garage: { nom: string; email: string; siret?: string | null; adresse?: string | null; cp?: string | null; ville?: string | null; tel?: string | null; contactNom?: string | null; contactFonction?: string | null };

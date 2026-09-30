@@ -5,7 +5,7 @@ import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 import { estAdminServeur, tousLesComptes, comptesAdmin } from "@/lib/supportServeur";
 import { envoyerEmailServeur } from "@/lib/mailer";
 import { randomBytes } from "crypto";
-import { ErreurCompte, SaisieCompteManuel, creerCompteDepuisVente, creerCompteManuel, renvoyerBienvenueDepuisAbonnement, renvoyerBienvenueDepuisVente } from "@/lib/admin/compteGarageServeur";
+import { ErreurCompte, SaisieCompteManuel, creerCompteDepuisAbonnement, creerCompteDepuisVente, creerCompteManuel, renvoyerBienvenueDepuisAbonnement, renvoyerBienvenueDepuisVente } from "@/lib/admin/compteGarageServeur";
 import { emailBienvenueCommercialHtml, emailBienvenueCommercialTexte, sujetBienvenueCommercial, emailDocsCollaborateurHtml, emailDocsCollaborateurTexte, sujetDocsCollaborateur } from "@/lib/admin/emailCollaborateur";
 import { lireDocPack } from "@/lib/admin/packDocsServeur";
 import { docsPour, nomFichierDoc } from "@/lib/admin/packDocs";
@@ -207,7 +207,9 @@ export async function POST(req: Request) {
   // l'appli (SMTP du compte admin, repli Resend).
   if (body.action === "creer_compte_garage") {
     try {
-      const r = await creerCompteDepuisVente(admin, body.vente_id || "", { par: "editeur" });
+      const r = body.abonnement_id
+        ? await creerCompteDepuisAbonnement(admin, body.abonnement_id)
+        : await creerCompteDepuisVente(admin, body.vente_id || "", { par: "editeur" });
       return NextResponse.json(r);
     } catch (e) {
       const status = e instanceof ErreurCompte ? e.status : 500;

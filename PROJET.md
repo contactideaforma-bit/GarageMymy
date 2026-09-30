@@ -154,6 +154,7 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Migration `supabase/migration_v92.sql`** : `ventes.compte_cree_le`, `ventes.compte_cree_par` (editeur | commercial) — affiché dans `/admin/ventes` et sur la fiche client.
 - `/api/admin/donnees` `creer_compte_garage` refactorisé sur la logique partagée.
 - **Renvoi de l'email de bienvenue** (éditeur : fiche vente + liste des abonnements ; commercial : bloc compte de la fiche client) : action `renvoyer_bienvenue` → NOUVEAU mot de passe provisoire posé sur le compte puis email renvoyé (mot de passe affiché si l'email ne part pas). Composant `src/components/admin/BoutonRenvoiBienvenue.tsx`.
+- Liste des abonnements : un abonnement « Sans compte » affiche « Créer le compte + email de bienvenue » (action `creer_compte_garage` avec `abonnement_id`) ; un abonnement avec compte affiche « Renvoyer l'email de bienvenue ».
 - Formulaire abonnement : « Compte My Easy Auto rattaché » renommé « Compte de connexion du garage (identifiant) » avec explication (automatique par email, à forcer seulement si le garage se connecte avec un autre email).
 
 ## Ce qu'il reste à faire

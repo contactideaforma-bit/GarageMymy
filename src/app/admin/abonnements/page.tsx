@@ -9,7 +9,7 @@ import ModalShell from "@/components/ModalShell";
 import CompteGarageModal from "@/components/admin/CompteGarageModal";
 import BoutonRenvoiBienvenue from "@/components/admin/BoutonRenvoiBienvenue";
 import {
-  Abonnement, Collaborateur, CompteAuth, EtatCompteAdmin, Mensualite, appliquerFinsDeContrat, definirEtatCompte, genererMensualites, lireComptes, lireParametres, lireTable, nomCollab, purgerCompte, supprimerLigne, upsertLigne,
+  Abonnement, Collaborateur, CompteAuth, EtatCompteAdmin, Mensualite, appliquerFinsDeContrat, creerCompteDepuisAbonnement, definirEtatCompte, genererMensualites, lireComptes, lireParametres, lireTable, nomCollab, purgerCompte, supprimerLigne, upsertLigne,
 } from "@/lib/admin/client";
 import { FORMULES, Formule, PARAMETRES_DEFAUT, Parametres } from "@/lib/admin/economie";
 
@@ -144,6 +144,17 @@ export default function AbonnementsPage() {
     lecture_seule: { label: "Lecture seule", badge: "badge badge-warn" },
     ferme: { label: "Fermé — purge programmée", badge: "badge badge-danger" },
   };
+  // v13.31 — abonnement « Sans compte » : crée le compte de connexion + email de bienvenue
+  const [msgCompte, setMsgCompte] = useState<Record<string, string>>({});
+  async function creerCompte(a: Abonnement) {
+    if (!a.garage_email) return alert("Renseigne d'abord l'email du garage (Modifier).");
+    if (!confirm(`Créer le compte My Easy Auto de ${a.garage_nom} ?\nIdentifiant : ${a.garage_email}\nUn email de bienvenue avec mot de passe provisoire sera envoyé.`)) return;
+    try {
+      const r = await creerCompteDepuisAbonnement(a.id);
+      setMsgCompte((m) => ({ ...m, [a.id]: r.dejaExistant ? "Compte existant rattaché (mot de passe inchangé)." : r.emailEnvoye ? `✓ Compte créé, email de bienvenue envoyé à ${a.garage_email}.` : `Compte créé mais email non parti (${r.erreurEmail || "erreur"})${r.motDePasse ? ` — mot de passe provisoire : ${r.motDePasse}` : ""}` }));
+      await load();
+    } catch (e) { alert(e instanceof Error ? e.message : "Création impossible."); }
+  }
   async function appliquerFins() {
     try {
       const r = await appliquerFinsDeContrat();
@@ -213,16 +224,19 @@ export default function AbonnementsPage() {
                 </div>
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
                   <button className="text-accent-teal hover:underline" onClick={() => setOuvert(ouvert === a.id ? null : a.id)}>{ouvert === a.id ? "Masquer" : "Mensualités"}</button>
-                  {ownerDe(a) && (
+                  {ownerDe(a) ? (
                     <>
                       <button className="text-amber-200 hover:underline" onClick={() => setEtatModal({ abo: a, owner: ownerDe(a)! })}>Accès du compte</button>
                       <BoutonRenvoiBienvenue cible={{ abonnement_id: a.id }} email={comptes.find((c) => c.id === ownerDe(a))?.email || a.garage_email || ""} />
                     </>
+                  ) : (
+                    <button className="text-accent-pink hover:underline" onClick={() => creerCompte(a)} title="Crée le compte de connexion du garage (identifiant = email de l'abonnement) et envoie l'email de bienvenue">Créer le compte + email de bienvenue</button>
                   )}
                   <button className="text-accent-pink hover:underline" onClick={() => setForm({ ...a })}>Modifier</button>
                   <button className="text-white/40 hover:text-rose-300" onClick={() => supprimer(a)}>Suppr.</button>
                 </div>
               </div>
+              {msgCompte[a.id] && <p className="mt-2 text-xs text-emerald-300">{msgCompte[a.id]}</p>}
               {ouvert === a.id && (
                 <div className="mt-3 border-t border-white/10 pt-3">
                   {a.periodicite === "annuel" && (

@@ -381,3 +381,24 @@ export async function renvoyerBienvenueDepuisAbonnement(admin: SupabaseClient, a
   if (!emailValide(email)) throw new ErreurCompte("Aucun email de garage sur cet abonnement.");
   return renvoyerBienvenuePour(admin, { nom: a.garage_nom, email }, { formule: FORMULES.includes(a.formule) ? (a.formule as Formule) : null, commercialId: a.commercial_id, secretaireId: a.secretaire_id });
 }
+
+// ------------------------------------------------------------
+//  4) DEPUIS UN ABONNEMENT SANS COMPTE (éditeur, liste des abonnements)
+// ------------------------------------------------------------
+export async function creerCompteDepuisAbonnement(admin: SupabaseClient, abonnementId: string): Promise<ResultatCompte> {
+  const { data: a } = await admin.from("abonnements").select("*").eq("id", abonnementId).maybeSingle();
+  if (!a) throw new ErreurCompte("Abonnement introuvable.", 404);
+  const g: IdentiteGarage = { nom: a.garage_nom, email: String(a.garage_email || "").trim().toLowerCase() };
+  if (!emailValide(g.email)) throw new ErreurCompte("Renseigne d'abord l'email du garage sur l'abonnement (Modifier).");
+  const u = await utilisateurGarage(admin, g);
+  await preremplirProfil(admin, u.ownerId, g);
+  await admin.from("abonnements").update({ garage_owner_id: u.ownerId }).eq("id", a.id);
+  let emailEnvoye = false;
+  let erreurEmail: string | null = null;
+  if (u.motDePasse) {
+    const r = await envoyerBienvenue(admin, { g, motDePasse: u.motDePasse, formule: FORMULES.includes(a.formule) ? (a.formule as Formule) : null, commercialId: a.commercial_id, secretaireId: a.secretaire_id, ownerId: u.ownerId });
+    emailEnvoye = r.ok;
+    erreurEmail = r.error;
+  }
+  return { ok: true, ownerId: u.ownerId, dejaExistant: u.existant, emailEnvoye, erreurEmail, motDePasse: u.motDePasse && !emailEnvoye ? u.motDePasse : undefined, abonnementId: a.id };
+}
