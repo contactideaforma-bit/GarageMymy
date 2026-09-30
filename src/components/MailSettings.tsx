@@ -27,9 +27,13 @@ export default function MailSettings() {
   const [configured, setConfigured] = useState(false);
   const [hasPassword, setHasPassword] = useState(false);
   const [host, setHost] = useState("");
+  // v13.32 — compte Gmail détecté (serveur ou identifiant) : lien direct vers
+  // la création d'un mot de passe d'application, étape qui bloquait les garages.
+  const estGmailDe = (h: string, u: string) => /gmail\.com$/i.test(h.trim()) || /@(gmail\.com|googlemail\.com)$/i.test(u.trim());
   const [port, setPort] = useState("587");
   const [secure, setSecure] = useState(false);
   const [user, setUser] = useState("");
+  const estGmail = estGmailDe(host, user);
   const [pass, setPass] = useState("");
   const [fromName, setFromName] = useState("");
   const [fromEmail, setFromEmail] = useState("");
@@ -129,6 +133,24 @@ export default function MailSettings() {
         </select>
       </div>
 
+      {estGmail && (
+        <div className="rounded-lg border border-white/25 bg-white/5 px-3 py-2 text-sm text-white/85">
+          <div className="font-semibold text-white">Compte Gmail : il faut un « mot de passe d&apos;application »</div>
+          <p className="mt-1 text-xs text-white/70">
+            Gmail refuse le mot de passe habituel pour l&apos;envoi SMTP. Créez un mot de passe d&apos;application (16 caractères) et collez-le
+            dans le champ « Mot de passe » ci-dessous. La validation en 2 étapes doit être activée sur le compte Google.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <a className="btn-primary btn-compact" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer noopener">
+              Créer un mot de passe d&apos;application Google ↗
+            </a>
+            <a className="btn-ghost btn-compact" href="https://myaccount.google.com/signinoptions/two-step-verification" target="_blank" rel="noreferrer noopener">
+              Activer la validation en 2 étapes ↗
+            </a>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="field-label">Serveur SMTP</label>
@@ -186,7 +208,7 @@ export default function MailSettings() {
         <ul className="mt-1 list-disc space-y-0.5 pl-4">
           <li>Expéditeur = le compte SMTP (même adresse, ou au moins même domaine).</li>
           <li>Boîte pro sur votre nom de domaine (contact@songarage.fr) plutôt qu&apos;une adresse gratuite : chez votre hébergeur (OVH, Ionos, Gandi…), vérifiez que <strong>SPF</strong> et <strong>DKIM</strong> sont activés pour ce domaine — c&apos;est le critère n° 1 des filtres.</li>
-          <li>Gmail : validation en 2 étapes puis « mot de passe d&apos;application » (les mots de passe normaux sont refusés).</li>
+          <li>Gmail : validation en 2 étapes puis « mot de passe d&apos;application » (les mots de passe normaux sont refusés) — <a className="text-accent-teal underline" href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer noopener">créer un mot de passe d&apos;application ↗</a>.</li>
           <li>Demandez au client d&apos;ajouter votre adresse à ses contacts lors du premier échange (devis) : les relances suivantes arriveront dans sa boîte de réception.</li>
         </ul>
         <p className="mt-1 text-white/50">Le mot de passe est stocké chiffré côté serveur et n&apos;est jamais renvoyé au navigateur.</p>

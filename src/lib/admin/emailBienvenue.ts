@@ -38,6 +38,7 @@ export function sujetBienvenue(garageNom: string): string {
 }
 
 export function emailBienvenueHtml(b: BienvenueInput): string {
+  const estGmail = /@(gmail\.com|googlemail\.com)$/i.test(b.email.trim());
   const url = b.url || SOCIETE.site;
   const bonjour = b.contactNom ? `Bonjour ${esc(b.contactNom)},` : "Bonjour,";
   const ligne = (label: string, valeur: string, mono = false) => `
@@ -119,8 +120,9 @@ export function emailBienvenueHtml(b: BienvenueInput): string {
       ${etape(1, "Connectez-vous et <b>changez votre mot de passe</b> dans Profil.")}
       ${etape(2, "Complétez votre fiche entreprise (logo, RIB, SIRET) : elle alimente vos devis et factures.")}
       ${etape(3, "Créez votre premier dossier de sinistre — ou déposez le rapport d'expertise, l'analyse remplit le chiffrage.")}
-      ${etape(4, "Sur mobile, ajoutez l'application à l'écran d'accueil pour recevoir les notifications.")}
-      ${b.secretaireNom ? etape(5, `Votre chargé de mission dédié, <b>${esc(b.secretaireNom)}</b>, vous contacte pour la mise en service.`) : ""}
+      ${etape(4, `Branchez votre boîte mail (Profil → Envoi des emails) pour envoyer devis, factures et relances depuis l'application.${estGmail ? ` Avec Gmail, créez d'abord un <a href="https://myaccount.google.com/apppasswords" style="color:${TEAL}">mot de passe d'application</a> (validation en 2 étapes requise) et collez-le dans le champ mot de passe.` : ""}`)}
+      ${etape(5, "Sur mobile, ajoutez l'application à l'écran d'accueil pour recevoir les notifications.")}
+      ${b.secretaireNom ? etape(6, `Votre chargé de mission dédié, <b>${esc(b.secretaireNom)}</b>, vous contacte pour la mise en service.`) : ""}
     </table>
 
     <p style="color:${TEXTE_DOUX};font-size:13px;line-height:1.6;margin:18px 0 0">
@@ -156,7 +158,8 @@ export function emailBienvenueTexte(b: BienvenueInput): string {
     "",
     `Découvrez l'application en 1 min 30 (vidéo) : ${SOCIETE.site}/#video`,
     "",
-    "Premiers pas : 1) changer le mot de passe, 2) compléter la fiche entreprise (logo, RIB), 3) créer un premier dossier ou déposer un rapport d'expertise, 4) sur mobile, ajouter l'application à l'écran d'accueil.",
+    "Premiers pas : 1) changer le mot de passe, 2) compléter la fiche entreprise (logo, RIB), 3) créer un premier dossier ou déposer un rapport d'expertise, 4) brancher votre boîte mail (Profil → Envoi des emails), 5) sur mobile, ajouter l'application à l'écran d'accueil.",
+    ...(/@(gmail\.com|googlemail\.com)$/i.test(b.email.trim()) ? ["Avec Gmail : créez d'abord un mot de passe d'application (validation en 2 étapes requise) : https://myaccount.google.com/apppasswords"] : []),
     ...(b.secretaireNom ? [`Votre chargé de mission dédié, ${b.secretaireNom}, vous contacte pour la mise en service.`] : []),
     "",
     `Une question ? ${SOCIETE.email}${b.commercialNom ? ` — votre interlocuteur commercial : ${b.commercialNom}` : ""}`,

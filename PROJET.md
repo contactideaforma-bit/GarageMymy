@@ -163,6 +163,7 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Règles apprises** (`apprentissage.ts`) : une règle « catégorie » ne peut plus contredire le verrou (c'était la cause des « Tôlerie T1 » en « Autres »).
 - **Prompt IA** (`extract-rapport`) : postes toujours « m » avec nom normalisé ; opérations sans prix → « a » (et non « p ») ; verrou appliqué après les règles sur les deux chemins (grille et IA).
 - **Commande de pièces** : n'importe plus que des lignes `categorieDe() === "piece"` (fini les T1 / opérations dans la commande).
+- **Réglage SMTP (`MailSettings.tsx`)** : compte Gmail détecté (serveur ou identifiant) → encart avec liens directs « Créer un mot de passe d'application Google » (https://myaccount.google.com/apppasswords) et « Activer la validation en 2 étapes » ; lien aussi dans la liste de conseils. L'email de bienvenue ajoute l'étape « brancher votre boîte mail » et, pour un identifiant Gmail, le lien direct.
 - **Éditeur de document** : champs Qté / PU / Remise en `step="any"` → les flèches vont de 1 en 1, les décimales restent possibles.
 
 ## Ce qu'il reste à faire
