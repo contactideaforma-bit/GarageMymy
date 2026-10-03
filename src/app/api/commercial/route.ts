@@ -6,6 +6,9 @@ import { envoyerEmailServeur } from "@/lib/mailer";
 import { FORMULES, Formule, Parametres, fusionnerParametres, prixVente, primeVente } from "@/lib/admin/economie";
 import type { ParametresPublics } from "@/lib/admin/ventePublic";
 import { ErreurCompte, creerCompteDepuisVente, renvoyerBienvenueDepuisVente } from "@/lib/admin/compteGarageServeur";
+import { ErreurVente, envoyerDemandePaiement, lienPaiementVente, verifierPaiementVente } from "@/lib/admin/venteServeur";
+import { qontoConfigure } from "@/lib/qonto";
+import type { VenteParcours } from "@/lib/venteParcours";
 
 // ============================================================
 //  ESPACE COMMERCIAL (v10.2) — route AUTHENTIFIÉE.
@@ -18,6 +21,10 @@ import { ErreurCompte, creerCompteDepuisVente, renvoyerBienvenueDepuisVente } fr
 //  POST { action: "paiement", vente_id, paiement_demande?, reference?, confirme? }
 //  POST { action: "creer_compte_garage", vente_id }  → v13.31 : le commercial crée
 //       lui-même le compte du garage une fois le contrat signé.
+//  v13.37 — PAIEMENT de la 1re échéance (parcours de vente) :
+//  POST { action: "lien_paiement", vente_id }            → lien Qonto unique (ou lien CB fixe)
+//  POST { action: "envoyer_paiement", vente_id, mode: "lien" | "virement", to? } → email au garage
+//  POST { action: "verifier_paiement", vente_id }        → statut du lien ; payé → vente payée
 // ============================================================
 
 export const runtime = "nodejs";
@@ -61,7 +68,7 @@ export async function GET(req: Request) {
   const collab = c.collab
     ? { id: c.collab.id, nom: c.collab.nom, prenom: c.collab.prenom, code_apporteur: c.collab.code_apporteur, zone: c.collab.zone, portefeuille: c.collab.portefeuille, signature: c.collab.signature, statut: c.collab.statut }
     : null;
-  return NextResponse.json({ collaborateur: collab, estAdmin: c.estAdmin, parametres: parametresPublics(c.p) });
+  return NextResponse.json({ collaborateur: collab, estAdmin: c.estAdmin, parametres: parametresPublics(c.p), paiementEnLigne: qontoConfigure() || Boolean(c.p.lienPaiementCb), qonto: qontoConfigure() });
 }
 
 const texte = (v: unknown, max: number): string => (typeof v === "string" ? v.trim().slice(0, max) : "");
@@ -251,6 +258,41 @@ export async function POST(req: Request) {
     } catch (e) {
       const status = e instanceof ErreurCompte ? e.status : 500;
       return NextResponse.json({ error: e instanceof Error ? e.message : "Renvoi impossible." }, { status });
+    }
+  }
+
+  // ---- PAIEMENT DE LA 1re ÉCHÉANCE (v13.37) — SES ventes uniquement.
+  if (body.action === "lien_paiement" || body.action === "envoyer_paiement" || body.action === "verifier_paiement") {
+    const venteId = texte(body.vente_id, 40);
+    let q = admin.from("ventes").select("*").eq("id", venteId);
+    if (!estAdmin) q = q.eq("owner_id", user.id);
+    const { data: v } = await q.maybeSingle();
+    if (!v) return NextResponse.json({ error: "Vente introuvable." }, { status: 404 });
+    const vente = v as VenteParcours;
+    try {
+      if (body.action === "lien_paiement") {
+        return NextResponse.json(await lienPaiementVente(admin, vente, p));
+      }
+      if (body.action === "verifier_paiement") {
+        return NextResponse.json(await verifierPaiementVente(admin, vente));
+      }
+      // envoyer_paiement
+      const mode = body.mode === "virement" ? "virement" : "lien";
+      let url: string | null = null;
+      if (mode === "lien") url = (await lienPaiementVente(admin, vente, p)).url;
+      const commercialNom = collab ? [collab.prenom, collab.nom].filter(Boolean).join(" ") : "L'équipe IDEAFORMA";
+      const r = await envoyerDemandePaiement(admin, vente, p, {
+        mode,
+        to: texte(body.to, 200) || vente.contact_email,
+        commercialNom,
+        commercialEmail: user.email || null,
+        url,
+      });
+      if (!r.ok) return NextResponse.json({ error: `Email non parti : ${r.error || "erreur d'envoi"}` }, { status: 502 });
+      return NextResponse.json({ ok: true, url });
+    } catch (e) {
+      const status = e instanceof ErreurVente ? e.status : (e as { status?: number })?.status || 500;
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Opération impossible." }, { status });
     }
   }
 

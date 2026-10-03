@@ -5,8 +5,13 @@
 // PDF interne pour le chargé de mission), offre,
 // documents (simulation, devis, contrat) signés sur place, vente et
 // paiement. Tout est modifiable à tout moment, rien n'est bloquant.
+//
+// v13.37 — PARCOURS DE VENTE guidé en tête de fiche (8 étapes, une carte
+// « Prochaine étape » avec un seul bouton) et paiement de la 1re échéance
+// par LIEN DE PAIEMENT (Qonto, sur place / email / SMS) ou VIREMENT.
+// La signature du contrat enchaîne directement sur la déclaration de vente.
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ModalShell from "@/components/ModalShell";
 import SignaturePad from "@/components/SignaturePad";
@@ -14,13 +19,16 @@ import EmailComposer from "@/components/EmailComposer";
 import EmailPresentationModal, { TypeEmailProspect } from "@/components/EmailPresentationModal";
 import JournalProspect from "@/components/JournalProspect";
 import ContactRapideProspect from "@/components/ContactRapideProspect";
+import ParcoursVente from "@/components/commercial/ParcoursVente";
+import PaiementVente from "@/components/commercial/PaiementVente";
+import type { CleEtape, VenteParcours } from "@/lib/venteParcours";
 import { formatDate, formatDateTime, formatEuros, messageErreur } from "@/lib/format";
 import { supabase } from "@/lib/supabaseClient";
 import {
   DELAIS_RAPPEL, OFFRE_DEFAUT, ORIGINES_PROSPECT, ParametresOffre, Prospect, ProspectDocument, ProspectOrigine, ProspectStatut, STATUTS_PROSPECT, TYPES_DOCUMENT, dateDansJours, etatRappel,
   chargerProspect, creerDocument, enregistrerProspect, majDocument, prospectVersContrat, supprimerDocument, supprimerProspect,
 } from "@/lib/prospects";
-import { ContexteCommercial, ResultatCompteGarageCommercial, ResultatRenvoiBienvenue, chargerContexteCommercial, creerCompteGarageCommercial, renvoyerBienvenueCommercial, declarerVente, enregistrerSignatureCommercial, majPaiement, nomCommercial } from "@/lib/commercialClient";
+import { ContexteCommercial, ResultatCompteGarageCommercial, ResultatRenvoiBienvenue, chargerContexteCommercial, creerCompteGarageCommercial, renvoyerBienvenueCommercial, declarerVente, enregistrerSignatureCommercial, nomCommercial } from "@/lib/commercialClient";
 import { Agrement, DemandeParticuliere, QuestionBesoin, SECTIONS_BESOINS, agrementsDe, demandesDe, reponseLisible, tauxRemplissage } from "@/lib/ficheBesoins";
 import { Formule, Periodicite, grilleTarifs, primeVente, prixVente } from "@/lib/admin/economie";
 import { MODES_PAIEMENT, articlesCGV, conditionsParticulieres } from "@/lib/admin/contratGarage";
@@ -44,6 +52,7 @@ export default function ProspectPage() {
   const [envoyer, setEnvoyer] = useState<ProspectDocument[] | null>(null);
   const [presentation, setPresentation] = useState<TypeEmailProspect | null>(null); // v12.8 — emails prospect
   const [venteModal, setVenteModal] = useState(false);
+  const ongletsRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     const r = await chargerProspect(id);
@@ -121,7 +130,30 @@ export default function ProspectPage() {
   if (!p) return <p className="text-sm text-white/50">{msg || "Chargement…"}</p>;
   const st = STATUTS_PROSPECT[p.statut];
   const contratSigne = docs.find((d) => d.type === "contrat" && d.signature_client);
+  const contratASigner = docs.find((d) => d.type === "contrat" && !d.signature_client);
   const vente = ventes[0];
+
+  // PARCOURS (v13.37) : chaque étape mène directement au bon endroit.
+  function allerA(o: Onglet, message?: string) {
+    setOnglet(o);
+    if (message) setMsg(message);
+    setTimeout(() => ongletsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
+  function actionParcours(cle: CleEtape) {
+    switch (cle) {
+      case "contact": return allerA("fiche", "Complète le téléphone, l'email et le SIRET, puis « Enregistrer ».");
+      case "rdv": return setPresentation("rdv");
+      case "besoins": return allerA("besoins");
+      case "devis": return allerA("offre", "Choisis la formule et l'engagement, puis « Générer le devis ».");
+      case "contrat":
+        if (contratASigner && !contratSigne) return setSigner(contratASigner);
+        return allerA("offre", contratSigne ? undefined : "Vérifie l'offre, puis « Générer le contrat » et fais-le signer sur place.");
+      case "vente":
+        if (contratSigne && !vente) { setOnglet("vente"); return setVenteModal(true); }
+        return allerA("vente");
+      default: return allerA("vente");
+    }
+  }
 
   return (
     <div>
@@ -150,7 +182,10 @@ export default function ProspectPage() {
 
       <RappelProspect p={p} onSave={sauver} />
 
-      <div className="segment mb-4 flex-wrap">
+      {/* PARCOURS DE VENTE (v13.37) */}
+      <ParcoursVente prospect={p} docs={docs} vente={(vente as VenteParcours) || null} onAction={actionParcours} />
+
+      <div ref={ongletsRef} className="segment mb-4 flex-wrap scroll-mt-20">
         {([["suivi", "Suivi & appels"], ["fiche", "Fiche"], ["besoins", "Questionnaire"], ["offre", "Offre & documents"], ["vente", "Vente & paiement"]] as [Onglet, string][]).map(([k, l]) => (
           <button key={k} className={`segment-btn ${onglet === k ? "actif" : ""}`} onClick={() => setOnglet(k)}>{l}{k === "offre" && docs.length ? ` (${docs.length})` : ""}</button>
         ))}
@@ -253,7 +288,7 @@ export default function ProspectPage() {
               )}
             </div>
           ) : (
-            <VenteSuivi vente={vente} params={params} onChanged={load} />
+            <VenteSuivi vente={vente} params={params} ctx={ctx!} onChanged={load} />
           )}
           {ventes.length > 1 && <p className="text-xs text-white/40">{ventes.length - 1} vente(s) antérieure(s) sur cette fiche.</p>}
         </div>
@@ -277,7 +312,23 @@ export default function ProspectPage() {
           }}
         />
       )}
-      {signer && <SignatureModal doc={signer} ctx={ctx} onClose={() => setSigner(null)} onSigned={async () => { setSigner(null); await load(); if (signer.type === "contrat") await sauver({ statut: "signe" }); }} />}
+      {signer && (
+        <SignatureModal
+          doc={signer}
+          ctx={ctx}
+          onClose={() => setSigner(null)}
+          onSigned={async () => {
+            const etaitContrat = signer.type === "contrat";
+            setSigner(null);
+            await load();
+            if (etaitContrat) {
+              await sauver({ statut: "signe" });
+              // v13.37 : contrat signé → on enchaîne sur la déclaration de vente.
+              if (!vente) { setOnglet("vente"); setVenteModal(true); }
+            }
+          }}
+        />
+      )}
       {envoyer && (
         <EmailComposer
           defaultTo={p.email || ""}
@@ -299,8 +350,9 @@ export default function ProspectPage() {
             doc={contratSigne}
             offre={{ ...OFFRE_DEFAUT, ...(contratSigne.parametres || offre) }}
             params={params}
+            paiementEnLigne={Boolean(ctx?.paiementEnLigne)}
             onClose={() => setVenteModal(false)}
-            onDone={async () => { setVenteModal(false); await load(); }}
+            onDone={async () => { setVenteModal(false); await load(); allerA("vente", "Vente déclarée ✓ — étape suivante : le paiement."); }}
           />
         </ModalShell>
       )}
@@ -669,8 +721,8 @@ function SignatureModal({ doc, ctx, onClose, onSigned }: { doc: ProspectDocument
 }
 
 /* ------------------------- Déclaration de vente ------------------------- */
-function VenteDeclaration({ prospect, doc, offre, params, onClose, onDone }: { prospect: Prospect; doc: ProspectDocument; offre: ParametresOffre; params: ContexteCommercial["parametres"]; onClose: () => void; onDone: () => void }) {
-  const [paiement, setPaiement] = useState<"virement" | "cb">(params.lienPaiementCb ? "cb" : "virement");
+function VenteDeclaration({ prospect, doc, offre, params, paiementEnLigne, onClose, onDone }: { prospect: Prospect; doc: ProspectDocument; offre: ParametresOffre; params: ContexteCommercial["parametres"]; paiementEnLigne: boolean; onClose: () => void; onDone: () => void }) {
+  const [paiement, setPaiement] = useState<"virement" | "cb">(paiementEnLigne ? "cb" : "virement");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const prix = prixVente(offre.formule, { engagement12: offre.engagement_12, periodicite: offre.periodicite, remiseSupp: offre.remise_supp_pct }, params);
@@ -688,19 +740,23 @@ function VenteDeclaration({ prospect, doc, offre, params, onClose, onDone }: { p
         {params.formules[offre.formule].libelle} · {offre.periodicite === "annuel" ? `année en une fois ${formatEuros(prix.montantAnnuel)} HT` : `${formatEuros(prix.mensualite)} HT / mois`}{offre.engagement_12 || offre.periodicite === "annuel" ? " · engagement 12 mois" : ""}. Première échéance : <b className="text-white">{formatEuros(du)} HT</b> (TVA en sus), facturée par IDEAFORMA.
       </p>
       <div>
-        <label className="field-label">Comment le garage règle-t-il ?</label>
-        <div className="grid gap-2 sm:grid-cols-2">
-          <label className={`rounded-lg border px-3 py-2 text-sm ${paiement === "virement" ? "border-accent-pink bg-accent-pink/10" : "border-white/15"}`}>
-            <input type="radio" checked={paiement === "virement"} onChange={() => setPaiement("virement")} /> <b>Virement bancaire</b>
-            <div className="mt-1 text-xs text-white/60">{params.iban ? `IBAN ${params.iban}${params.bic ? ` · BIC ${params.bic}` : ""}` : "IBAN : sur la facture IDEAFORMA"} · référence « MEA {prospect.nom.slice(0, 20)} »</div>
+        <label className="field-label">Comment le garage préfère-t-il régler ?</label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className={`cursor-pointer rounded-xl border-2 p-3 text-sm ${paiement === "cb" ? "border-accent-pink bg-accent-pink/10" : "border-white/15"} ${!paiementEnLigne ? "opacity-50" : ""}`}>
+            <input type="radio" className="sr-only" checked={paiement === "cb"} disabled={!paiementEnLigne} onChange={() => setPaiement("cb")} />
+            <div className="text-2xl" aria-hidden="true">💳</div>
+            <b className="text-white">Lien de paiement</b>
+            <div className="mt-0.5 text-xs text-white/60">{paiementEnLigne ? "Carte bancaire, sur place ou à distance" : "Non configuré par IDEAFORMA"}</div>
           </label>
-          <label className={`rounded-lg border px-3 py-2 text-sm ${paiement === "cb" ? "border-accent-pink bg-accent-pink/10" : "border-white/15"} ${!params.lienPaiementCb ? "opacity-50" : ""}`}>
-            <input type="radio" checked={paiement === "cb"} disabled={!params.lienPaiementCb} onChange={() => setPaiement("cb")} /> <b>Carte bancaire</b>
-            <div className="mt-1 text-xs text-white/60">{params.lienPaiementCb ? "Lien de paiement sécurisé, à ouvrir sur place ou envoyé au garage." : "Lien de paiement non configuré par IDEAFORMA."}</div>
+          <label className={`cursor-pointer rounded-xl border-2 p-3 text-sm ${paiement === "virement" ? "border-accent-pink bg-accent-pink/10" : "border-white/15"}`}>
+            <input type="radio" className="sr-only" checked={paiement === "virement"} onChange={() => setPaiement("virement")} />
+            <div className="text-2xl" aria-hidden="true">🏦</div>
+            <b className="text-white">Virement</b>
+            <div className="mt-0.5 text-xs text-white/60">IBAN et référence envoyés par email</div>
           </label>
         </div>
       </div>
-      <p className="text-xs text-white/45">Le commercial n&apos;encaisse jamais en son nom. Tu confirmeras ensuite depuis cette fiche que le paiement est fait (référence du virement / reçu CB) ; IDEAFORMA le vérifie et valide la vente.</p>
+      <p className="text-xs text-white/45">Étape suivante, juste après : tu crées le lien ou tu envoies les coordonnées de virement en un clic. Le commercial n&apos;encaisse jamais en son nom : tout est réglé à IDEAFORMA.</p>
       {err && <p className="text-sm text-rose-300">{err}</p>}
       <div className="flex justify-end gap-2">
         <button className="btn-ghost" onClick={onClose}>Annuler</button>
@@ -711,16 +767,7 @@ function VenteDeclaration({ prospect, doc, offre, params, onClose, onDone }: { p
 }
 
 /* ----------------------------- Suivi vente ----------------------------- */
-function VenteSuivi({ vente: v, params, onChanged }: { vente: Vente; params: ContexteCommercial["parametres"]; onChanged: () => void }) {
-  const [ref, setRef] = useState(v.paiement_reference || "");
-  const [montant, setMontant] = useState(v.paiement_montant != null ? String(v.paiement_montant) : "");
-  const [busy, setBusy] = useState(false);
-  const du = (v.periodicite === "annuel" ? Number(v.montant_annuel_ht) : Number(v.prix_mensuel_ht)) + Number(v.mise_en_service_ht || 0);
-  const vv = v as Vente & { paiement_demande?: string | null; paiement_confirme_le?: string | null; paiement_valide_le?: string | null };
-  async function action(args: Parameters<typeof majPaiement>[0]) {
-    setBusy(true);
-    try { await majPaiement(args); onChanged(); } catch (e) { alert(messageErreur(e, "Impossible.")); } finally { setBusy(false); }
-  }
+function VenteSuivi({ vente: v, params, ctx, onChanged }: { vente: Vente; params: ContexteCommercial["parametres"]; ctx: ContexteCommercial; onChanged: () => void }) {
   const statut = { declaree: "Déclarée — en attente de validation IDEAFORMA", validee: "Validée par IDEAFORMA", compte_cree: "Compte du garage créé", fidelisee: "Fidélisée", perdue: "Perdue", refusee: "Refusée" }[v.statut];
   return (
     <div className="glass-card p-4">
@@ -729,28 +776,8 @@ function VenteSuivi({ vente: v, params, onChanged }: { vente: Vente; params: Con
         <span className={`badge ${v.statut === "declaree" ? "badge-warn" : v.statut === "perdue" || v.statut === "refusee" ? "badge-danger" : "badge-ok"}`}>{statut}</span>
       </div>
       <p className="mt-2 text-sm text-white/70">{params.formules[v.formule].libelle} · {v.periodicite === "annuel" ? `${formatEuros(v.montant_annuel_ht)} HT / an` : `${formatEuros(v.prix_mensuel_ht)} HT / mois`}{v.engagement_12 ? " · engagement 12 mois" : ""} · déclarée le {formatDate(v.created_at)}</p>
-      <div className="glass-soft mt-3 p-3">
-        <div className="text-sm font-semibold text-white">Paiement de la 1re échéance — {formatEuros(du)} HT</div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <button className={`btn-ghost btn-compact ${vv.paiement_demande === "virement" ? "border-accent-pink" : ""}`} disabled={busy} onClick={() => action({ vente_id: v.id, paiement_demande: "virement" })}>Demander un virement</button>
-          <button className={`btn-ghost btn-compact ${vv.paiement_demande === "cb" ? "border-accent-pink" : ""}`} disabled={busy || !params.lienPaiementCb} onClick={() => action({ vente_id: v.id, paiement_demande: "cb" })}>Paiement par CB</button>
-          {params.lienPaiementCb && <a className="btn-ghost btn-compact" href={params.lienPaiementCb} target="_blank" rel="noreferrer">Ouvrir le lien de paiement ↗</a>}
-        </div>
-        {vv.paiement_demande === "virement" && <p className="mt-2 text-xs text-white/60">{params.iban ? `IBAN ${params.iban}${params.bic ? ` · BIC ${params.bic}` : ""}` : "IBAN sur la facture IDEAFORMA"} · référence « MEA {v.garage_nom.slice(0, 20)} »</p>}
-        <div className="mt-3 grid gap-2 sm:grid-cols-3">
-          <input className="field-input field-compact" placeholder="Référence (virement, reçu CB)" value={ref} onChange={(e) => setRef(e.target.value)} />
-          <input className="field-input field-compact" inputMode="decimal" placeholder="Montant reçu € TTC" value={montant} onChange={(e) => setMontant(e.target.value)} />
-          {vv.paiement_confirme_le ? (
-            <button className="btn-ghost btn-compact" disabled={busy} onClick={() => action({ vente_id: v.id, confirme: false })}>Annuler la confirmation</button>
-          ) : (
-            <button className="btn-primary btn-compact" disabled={busy} onClick={() => action({ vente_id: v.id, confirme: true, reference: ref, montant: montant ? Number(String(montant).replace(",", ".")) : null })}>Confirmer : paiement fait</button>
-          )}
-        </div>
-        <p className="mt-2 text-xs text-white/50">
-          {vv.paiement_confirme_le ? `✅ Paiement confirmé le ${formatDateTime(vv.paiement_confirme_le)}${v.paiement_reference ? ` (réf. ${v.paiement_reference})` : ""}` : "En attente du paiement du garage."}
-          {vv.paiement_valide_le ? ` · vérifié par IDEAFORMA le ${formatDate(vv.paiement_valide_le)}` : ""}
-        </p>
-      </div>
+      {/* v13.37 : paiement guidé — lien de paiement (Qonto) ou virement */}
+      <PaiementVente vente={v as VenteParcours} ctx={ctx} onChanged={onChanged} />
       <CompteGarageBloc vente={v} onChanged={onChanged} />
     </div>
   );

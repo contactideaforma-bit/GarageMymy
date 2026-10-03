@@ -7,6 +7,7 @@ import { envoyerPush } from "@/lib/pushServeur";
 import { Document, Paiement, Relance } from "@/lib/types";
 import { verifierAchatsEnAttente } from "@/lib/jetonsServeur";
 import { traiterQuotidien } from "@/lib/admin/paiementsServeur";
+import { verifierLiensVentes } from "@/lib/admin/venteServeur";
 
 // RELANCES AUTOMATIQUES (cron quotidien planifié dans vercel.json).
 // Pour chaque facture : échéance dépassée + reste à payer + dossier avec
@@ -58,6 +59,8 @@ async function executer(req: Request) {
   // Adossé à ce cron (jours ouvrés) pour ne pas ajouter un cron Vercel.
   let suiviAbonnements: string[] = [];
   try { suiviAbonnements = await traiterQuotidien(admin); } catch (e) { suiviAbonnements = [`erreur : ${e instanceof Error ? e.message : ""}`]; }
+  // v13.37 — ventes payées par lien de paiement (1re échéance d'un nouveau garage).
+  try { await verifierLiensVentes(admin); } catch { /* best-effort */ }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

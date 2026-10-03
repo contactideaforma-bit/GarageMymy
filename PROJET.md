@@ -193,6 +193,16 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Loupe automatique** sur toute barre `.field-input` dont le placeholder commence par « Rechercher » (Sinistres, Archives, Documents, Historique, Emails, Flotte, Extranets, Assureurs…).
 - Thème sombre et page d'accueil publique inchangés. Aucune migration.
 
+### Ajouté v13.37 — Parcours de vente guidé (espace commercial) : du premier contact au paiement par lien ou virement
+- **Fiche client `/prospects/[id]`** : bloc **Parcours de vente** en tête (`src/components/commercial/ParcoursVente.tsx`) — 8 étapes (Premier contact · Rendez-vous · Besoins · Offre et devis · Contrat signé · Vente déclarée · Paiement · Compte du garage), barre d'avancement, carte **« Prochaine étape »** avec UN bouton qui mène au bon endroit (onglet, modale RDV, signature du contrat, déclaration de vente). Frise cliquable (8 pastilles sur grand écran, liste repliable sur téléphone). Étape sautée mais incomplète (ex. fiche sans email) = pastille orange « ! ».
+- **Enchaînements** : contrat signé → la déclaration de vente s'ouvre aussitôt ; vente déclarée → onglet Vente & paiement.
+- **Paiement de la 1re échéance** (`src/components/commercial/PaiementVente.tsx`, remplace l'ancien bloc de `VenteSuivi`) : montant TTC (HT + TVA 20 %, mise en service incluse) et deux tuiles **💳 Lien de paiement** / **🏦 Virement**. Lien : lien Qonto UNIQUE créé en un clic (repli sur `lienPaiementCb` si Qonto absent) → « Payer maintenant, sur place », SMS (`sms:`), email, copie ; « Vérifier » + vérification automatique chaque matin (cron `/api/relances-auto`). Virement : bénéficiaire, IBAN, BIC, montant, référence `MEA <n° vente> <GARAGE>` copiables + envoi par email. Confirmation manuelle (référence + montant) conservée pour le virement et le lien CB fixe.
+- **Payé par lien Qonto** → vente `paiement_confirme_le` + `paiement_valide_le` (constaté par la banque), référence et montant renseignés, email « Paiement reçu » au commercial et à l'éditeur.
+- **Serveur** `src/lib/admin/venteServeur.ts` (`lienPaiementVente`, `verifierPaiementVente`, `verifierLiensVentes`, `envoyerDemandePaiement` — email depuis la boîte IDEAFORMA, réponse au commercial, commercial + éditeur en CCI). Logique pure `src/lib/venteParcours.ts` (`calculerParcours`, `premiereEcheance`, `referenceVirement`, `estPaye`).
+- **API `/api/commercial`** : actions `lien_paiement`, `envoyer_paiement` (mode lien | virement), `verifier_paiement` (ses ventes seulement) ; GET renvoie `paiementEnLigne` et `qonto` (ajoutés à `ContexteCommercial`).
+- **Migration `supabase/migration_v94.sql`** : `ventes.qonto_link_id`, `qonto_url`, `qonto_statut`, `paiement_envoye_le`, `paiement_envoye_a`, `paiement_envoye_mode` + index des liens ouverts.
+- ⚠️ Prérequis : IBAN/BIC renseignés dans les paramètres éditeur (sinon le virement ne peut pas être envoyé) ; liens Qonto actifs (`QONTO_LOGIN` / `QONTO_SECRET_KEY`), sinon le lien CB fixe des paramètres est utilisé.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.
