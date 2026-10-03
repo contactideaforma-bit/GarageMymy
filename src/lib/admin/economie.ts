@@ -54,6 +54,8 @@ export type RelancesParams = {
   suspensionAuto: boolean;   // suspension automatique du compte au palier « suspension »
   digestEditeur: boolean;    // email quotidien à l'éditeur (impayés, à venir, collaborateurs à payer)
   delaiCollaborateurs: number; // jours au-delà desquels une ligne « à payer » à un collaborateur est signalée en retard
+  appelAuto: boolean;        // v13.39 — appel de paiement envoyé AVANT l'échéance (email + lien + IBAN)
+  appelJours: number;        // v13.39 — combien de jours avant l'échéance
 };
 
 export const RELANCES_DEFAUT: RelancesParams = {
@@ -66,6 +68,8 @@ export const RELANCES_DEFAUT: RelancesParams = {
   suspensionAuto: true,
   digestEditeur: true,
   delaiCollaborateurs: 30,
+  appelAuto: true,
+  appelJours: 5,
 };
 
 export const PARAMETRES_DEFAUT: Parametres = {

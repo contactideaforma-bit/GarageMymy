@@ -39,6 +39,8 @@ export type Mensualite = {
   id: string; abonnement_id: string; periode: string; montant_ht: number; payee_le: string | null; heures_faites: number | null; notes: string | null;
   /** v13.33 (migration v93) — suivi des paiements. */
   echeance?: string | null; relance_niveau?: number | null; relance_le?: string | null; qonto_link_id?: string | null; qonto_url?: string | null; qonto_statut?: string | null; mode_paiement?: string | null;
+  /** v13.39 (migration v96) — appel de paiement envoyé avant l'échéance. */
+  appel_le?: string | null;
 };
 export type Reglement = {
   id: string; created_at: string; collaborateur_id: string; abonnement_id: string | null; cle: string | null;
@@ -164,6 +166,8 @@ async function postPaiements<T = unknown>(body: Record<string, unknown>): Promis
   return r.data as T;
 }
 export const lienPaiementMensualite = (mensualite_id: string) => postPaiements<{ url: string; id: string }>({ action: "lien", mensualite_id });
+/** v13.39 — appel de paiement avant l'échéance. */
+export const appelMensualite = (mensualite_id: string) => postPaiements<{ ok: boolean; email: string; erreur: string | null }>({ action: "appel", mensualite_id });
 export const relancerMensualite = (mensualite_id: string, niveau: 1 | 2 | 3 | 4) => postPaiements<{ ok: boolean; email: string; erreur: string | null; suspendu: boolean }>({ action: "relancer", mensualite_id, niveau });
 export const pointerMensualitePayee = (mensualite_id: string, mode?: string, date?: string) => postPaiements<{ ok: boolean; reactive: boolean }>({ action: "payee", mensualite_id, mode, date });
 export const suspendreAbonnementImpaye = (abonnement_id: string) => postPaiements<{ ok: boolean; message: string }>({ action: "suspendre", abonnement_id });

@@ -213,6 +213,13 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Migration `supabase/migration_v95.sql`** : table `qonto_oauth` (ligne unique, RLS sans politique → clé service uniquement).
 - Le cron quotidien (jours ouvrés) utilise la connexion, ce qui la renouvelle bien avant les 90 jours d'expiration du jeton de renouvellement.
 
+### Ajouté v13.39 — Paiement mensualisé automatique (appel de paiement avant l'échéance)
+- **Principe** : chaque mois, sans intervention, la mensualité suivante se crée, le garage reçoit N jours AVANT l'échéance un email « votre mensualité de <mois> » avec un lien de paiement Qonto unique + IBAN/référence ; le paiement par lien est pointé tout seul (cron) ; les relances (paliers v13.33) ne partent que s'il ne paie pas. (Prélèvement SEPA Qonto = piste ultérieure, selon éligibilité.)
+- **`src/lib/admin/paiementsServeur.ts`** : `rattacherPaiementsVentes` (1re échéance payée à la signature → 1re mensualité pointée, ou les 12 mois du forfait annuel ; une fois par vente via `ventes.premiere_echeance_pointee` ; abonnement retrouvé par `abonnement_id` ou email), `prolongerMensualites` (abonnements mensuels actifs : prolonge à partir de la DERNIÈRE mensualité existante jusqu'à J+40, jamais de rattrapage passé, jamais au-delà de `date_fin`), `envoyerAppel` / `envoyerAppels` (journal `paiement_relances` niveau 0, canal `appel` / `appel_auto`, `abonnement_mensualites.appel_le`). Ordre du cron `traiterQuotidien` : liens Qonto → rattachement ventes → prolongation → appels → relances → réactivations → digest.
+- **Réglages** (`RelancesParams`) : `appelAuto` (défaut oui), `appelJours` (défaut 5) — modale « Réglages des relances ».
+- **UI `/admin/paiements`** : « Envoyer l'appel de paiement » sur les paiements à venir (sinon « ✉️ appel envoyé le … »), journal « Appel de paiement ». API `/api/admin/paiements` action `appel`.
+- **Migration `supabase/migration_v96.sql`** : `abonnement_mensualites.appel_le`, `ventes.premiere_echeance_pointee`.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

@@ -6,6 +6,10 @@
 //  • verifierLiens()        : pointe automatiquement les mensualités payées par lien
 //  • relancer()             : email de relance (palier 1..4) au garage + journal
 //  • traiterQuotidien()     : cron — relances auto, suspension auto, réactivation, digest
+//  v13.39 — PAIEMENT MENSUALISÉ :
+//  • rattacherPaiementsVentes() : 1re échéance payée à la signature → 1re mensualité pointée
+//  • prolongerMensualites()     : crée chaque mois la mensualité suivante (abonnements mensuels actifs)
+//  • envoyerAppels()            : « appel de paiement » N jours AVANT l'échéance (lien Qonto + IBAN)
 //
 //  Paliers (jours APRÈS l'échéance, paramétrables) — cohérents avec l'art. 5
 //  des CGV : suspension après 15 jours suivant une relance restée sans effet.
@@ -61,12 +65,13 @@ export function palierDu(joursRetard: number, p: RelancesParams): number {
 /* ---------------------------------------------------------------- types */
 export type MensualiteRow = {
   id: string; abonnement_id: string; periode: string; montant_ht: number; payee_le: string | null; notes: string | null;
-  echeance?: string | null; relance_niveau?: number | null; relance_le?: string | null;
+  echeance?: string | null; relance_niveau?: number | null; relance_le?: string | null; appel_le?: string | null;
   qonto_link_id?: string | null; qonto_url?: string | null; qonto_statut?: string | null; mode_paiement?: string | null;
 };
 export type AbonnementRow = {
   id: string; garage_nom: string; garage_email: string | null; garage_owner_id: string | null; formule: string; statut: string;
   prix_ht: number; periodicite: string; commercial_id: string | null; secretaire_id: string | null;
+  date_debut?: string | null; date_fin?: string | null;
 };
 export type LigneSuivi = {
   mensualite: MensualiteRow;
@@ -356,6 +361,146 @@ export async function digestEditeur(admin: SupabaseClient, s?: Situation): Promi
   return r.ok;
 }
 
+/* ------------------------------------------- v13.39 : paiement mensualisé */
+
+const moisSuivant = (periode: string) => {
+  const d = new Date(periode + "T00:00:00");
+  d.setMonth(d.getMonth() + 1);
+  return ymd(new Date(d.getFullYear(), d.getMonth(), 1));
+};
+
+/**
+ * 1re échéance payée à la signature (vente) → pointée sur l'abonnement :
+ * mensuel = la 1re mensualité ; annuel = les 12 mois du forfait. Une seule
+ * fois par vente (ventes.premiere_echeance_pointee). Sans abonnement ni
+ * mensualités encore créés, on réessaie le lendemain.
+ */
+export async function rattacherPaiementsVentes(admin: SupabaseClient): Promise<number> {
+  const { data: ventes, error } = await admin
+    .from("ventes")
+    .select("id,numero,abonnement_id,contact_email,periodicite,paiement_confirme_le,paiement_reference,mode_paiement,qonto_link_id")
+    .not("paiement_confirme_le", "is", null)
+    .is("premiere_echeance_pointee", null);
+  if (error) return 0; // migration v96 non exécutée
+  let n = 0;
+  for (const v of (ventes || []) as { id: string; numero: string; abonnement_id: string | null; contact_email: string | null; periodicite: string; paiement_confirme_le: string; paiement_reference: string | null; mode_paiement: string | null; qonto_link_id: string | null }[]) {
+    let aboId = v.abonnement_id;
+    if (!aboId && v.contact_email) {
+      const { data: a } = await admin.from("abonnements").select("id").eq("garage_email", v.contact_email.toLowerCase()).neq("statut", "resilie").order("created_at", { ascending: false }).limit(1).maybeSingle();
+      aboId = a?.id || null;
+    }
+    if (!aboId) continue;
+    const { data: mens } = await admin.from("abonnement_mensualites").select("id,periode,payee_le,notes").eq("abonnement_id", aboId).order("periode", { ascending: true });
+    const liste = (mens || []) as { id: string; periode: string; payee_le: string | null; notes: string | null }[];
+    if (!liste.length) continue;
+    const cibles = v.periodicite === "annuel" ? liste.slice(0, 12) : liste.slice(0, 1);
+    const mode = v.qonto_link_id ? "qonto" : v.mode_paiement === "cb" ? "qonto" : v.mode_paiement || "virement";
+    const jour = v.paiement_confirme_le.slice(0, 10);
+    for (const m of cibles) {
+      if (m.payee_le) continue;
+      await admin.from("abonnement_mensualites").update({
+        payee_le: jour,
+        mode_paiement: mode,
+        notes: [m.notes, `Payée à la signature (vente ${v.numero}${v.paiement_reference ? `, réf. ${v.paiement_reference}` : ""})`].filter(Boolean).join(" · "),
+      }).eq("id", m.id);
+    }
+    await admin.from("ventes").update({ premiere_echeance_pointee: new Date().toISOString(), abonnement_id: aboId }).eq("id", v.id);
+    n += 1;
+  }
+  return n;
+}
+
+/**
+ * Abonnements MENSUELS actifs : crée les mensualités suivantes jusqu'au mois
+ * dont l'échéance tombe dans la fenêtre d'appel (+ 1 mois de visibilité).
+ * On ne prolonge qu'à partir de la DERNIÈRE mensualité existante (jamais de
+ * rattrapage de mois passés oubliés) et jamais au-delà de date_fin.
+ */
+export async function prolongerMensualites(admin: SupabaseClient): Promise<number> {
+  const { data: abos } = await admin.from("abonnements").select("*").eq("statut", "actif").neq("periodicite", "annuel");
+  const horizon = new Date(aujourdhui());
+  horizon.setDate(horizon.getDate() + 40);
+  const limite = ymd(new Date(horizon.getFullYear(), horizon.getMonth(), 1));
+  let ajoutees = 0;
+  for (const a of (abos || []) as AbonnementRow[]) {
+    const { data: der } = await admin.from("abonnement_mensualites").select("periode").eq("abonnement_id", a.id).order("periode", { ascending: false }).limit(1).maybeSingle();
+    if (!der?.periode) continue; // abonnement pas encore initialisé : l'éditeur génère la 1re mensualité
+    const fin = a.date_fin ? String(a.date_fin).slice(0, 10) : null;
+    const lignes: { abonnement_id: string; periode: string; montant_ht: number }[] = [];
+    let p = moisSuivant(der.periode);
+    while (p <= limite && (!fin || p <= fin) && lignes.length < 3) {
+      lignes.push({ abonnement_id: a.id, periode: p, montant_ht: Number(a.prix_ht) || 0 });
+      p = moisSuivant(p);
+    }
+    if (!lignes.length) continue;
+    const { error } = await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });
+    if (!error) ajoutees += lignes.length;
+  }
+  return ajoutees;
+}
+
+/** Email « votre mensualité arrive » — envoyé avant l'échéance, ton neutre. */
+export async function envoyerAppel(admin: SupabaseClient, mensualiteId: string, auteur: string): Promise<{ ok: boolean; email: string; erreur: string | null }> {
+  const { data: m } = await admin.from("abonnement_mensualites").select("*").eq("id", mensualiteId).maybeSingle();
+  if (!m) throw new ErreurPaiement("Mensualité introuvable.", 404);
+  if (m.payee_le) throw new ErreurPaiement("Cette mensualité est déjà encaissée.", 409);
+  const { data: a } = await admin.from("abonnements").select("*").eq("id", m.abonnement_id).maybeSingle();
+  if (!a) throw new ErreurPaiement("Abonnement introuvable.", 404);
+  const email = (a.garage_email || "").toLowerCase();
+  if (!email) throw new ErreurPaiement("Aucun email de garage sur cet abonnement.");
+  const p = await lireParametresPaiements(admin);
+  let lien: string | null = m.qonto_url || null;
+  if (!lien && qontoConfigure()) {
+    try { lien = (await lienPaiement(admin, m.id)).url; } catch { lien = null; }
+  }
+  if (!lien && p.lienPaiementCb) lien = p.lienPaiementCb;
+  const mois = moisFr(m.periode);
+  const montantTtc = eur(Number(m.montant_ht) * (1 + TVA_ABONNEMENT / 100));
+  const echeanceFr = new Date(echeanceDe(m, p.relances) + "T00:00:00").toLocaleDateString("fr-FR");
+  const texte = [
+    "Bonjour,",
+    "",
+    `Votre mensualité ${SOCIETE.produit} de ${mois} pour ${a.garage_nom} arrive à échéance le ${echeanceFr} : ${montantTtc} TTC (${eur(Number(m.montant_ht))} HT + TVA ${TVA_ABONNEMENT} %).`,
+    "",
+    lien ? `👉 Payer en quelques secondes (carte bancaire, Apple Pay) : ${lien}` : "",
+    p.iban ? `Ou par virement : IBAN ${p.iban}${p.bic ? ` · BIC ${p.bic}` : ""} — référence « MEA ${a.garage_nom.slice(0, 20)} ${mois} »` : "",
+    "",
+    "Le paiement est enregistré automatiquement : vous n'avez rien d'autre à faire.",
+    "",
+    "Merci de votre confiance,",
+    `${SOCIETE.editeur} — ${SOCIETE.email}`,
+  ].filter((l, i, t) => !(l === "" && t[i - 1] === "")).join("\n");
+  const expediteur = (await comptesAdmin(admin))[0];
+  if (!expediteur) throw new ErreurPaiement("Aucun compte éditeur pour expédier l'email (ADMIN_EMAILS).", 500);
+  const sujet = `${SOCIETE.produit} — votre mensualité de ${mois} (${montantTtc} TTC)`;
+  const r = await envoyerEmailServeur({ to: email, subject: sujet, text: texte }, expediteur.id);
+  await admin.from("paiement_relances").insert({
+    mensualite_id: m.id, abonnement_id: a.id, garage_nom: a.garage_nom, email, niveau: 0, canal: auteur === "cron" ? "appel_auto" : "appel", auteur, sujet, ok: r.ok, erreur: r.ok ? null : r.error || null,
+  });
+  if (r.ok) await admin.from("abonnement_mensualites").update({ appel_le: new Date().toISOString() }).eq("id", m.id);
+  return { ok: r.ok, email, erreur: r.ok ? null : r.error || "Envoi impossible." };
+}
+
+/** Cron : appels de paiement des mensualités dont l'échéance tombe dans les N prochains jours. */
+export async function envoyerAppels(admin: SupabaseClient, sit: Situation): Promise<string[]> {
+  const rp = sit.relances;
+  const rapport: string[] = [];
+  if (!rp.appelAuto) return rapport;
+  for (const l of sit.aVenir) {
+    const m = l.mensualite;
+    if (m.appel_le || (Number(m.relance_niveau) || 0) > 0) continue;
+    if (l.abonnement.statut !== "actif" || !l.email) continue;
+    if (-l.joursRetard > Math.max(0, rp.appelJours)) continue; // pas encore dans la fenêtre
+    try {
+      const r = await envoyerAppel(admin, m.id, "cron");
+      rapport.push(`Appel de paiement → ${l.abonnement.garage_nom} (${moisFr(m.periode)}) : ${r.ok ? "ok" : r.erreur}`);
+    } catch (e) {
+      rapport.push(`Appel ${l.abonnement.garage_nom} : ${e instanceof Error ? e.message : "erreur"}`);
+    }
+  }
+  return rapport;
+}
+
 /* ------------------------------------------------------------- cron quotidien */
 export async function traiterQuotidien(admin: SupabaseClient): Promise<string[]> {
   const rapport: string[] = [];
@@ -364,8 +509,14 @@ export async function traiterQuotidien(admin: SupabaseClient): Promise<string[]>
     if (v.verifies) rapport.push(`Liens Qonto vérifiés : ${v.verifies}, payés : ${v.payees}.`);
   } catch (e) { rapport.push(`Liens Qonto : ${e instanceof Error ? e.message : "erreur"}`); }
 
+  // v13.39 — paiement mensualisé : 1re échéance de la vente → abonnement,
+  // mensualités suivantes créées toutes seules, appels avant l'échéance.
+  try { const n = await rattacherPaiementsVentes(admin); if (n) rapport.push(`1re échéance payée à la signature reportée sur ${n} abonnement(s).`); } catch (e) { rapport.push(`Rattachement des ventes : ${e instanceof Error ? e.message : "erreur"}`); }
+  try { const n = await prolongerMensualites(admin); if (n) rapport.push(`${n} mensualité(s) créée(s) pour les mois à venir.`); } catch (e) { rapport.push(`Mensualités à venir : ${e instanceof Error ? e.message : "erreur"}`); }
+
   const sit = await situation(admin);
   const rp = sit.relances;
+  try { rapport.push(...(await envoyerAppels(admin, sit))); } catch (e) { rapport.push(`Appels de paiement : ${e instanceof Error ? e.message : "erreur"}`); }
   if (rp.auto) {
     // Une seule relance par abonnement et par jour : la mensualité la plus ancienne porte le palier.
     const vus = new Set<string>();

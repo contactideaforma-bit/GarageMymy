@@ -14,7 +14,7 @@ import AdminShell, { ChampAdmin, dateFr, euros, moisFr } from "@/components/admi
 import ModalShell from "@/components/ModalShell";
 import ConnexionQonto from "@/components/admin/ConnexionQonto";
 import {
-  LigneSuiviPaiement, SituationPaiements, enregistrerParametres, envoyerDigestPaiements, lancerCronPaiements, lienPaiementMensualite, lireParametres, lireSituationPaiements,
+  LigneSuiviPaiement, SituationPaiements, appelMensualite, enregistrerParametres, envoyerDigestPaiements, lancerCronPaiements, lienPaiementMensualite, lireParametres, lireSituationPaiements,
   pointerMensualitePayee, reactiverAbonnement, relancerMensualite, suspendreAbonnementImpaye, verifierLiensQonto,
 } from "@/lib/admin/client";
 import { PARAMETRES_DEFAUT, Parametres, RelancesParams } from "@/lib/admin/economie";
@@ -151,7 +151,7 @@ export default function PaiementsPage() {
       <section className="glass-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="titre-bloc">🟠 Paiements à venir (45 jours)</h2>
-          <span className="text-xs text-white/50">Envoie le lien de paiement en avance : le pointage se fait tout seul quand le garage paie.</span>
+          <span className="text-xs text-white/50">{s?.relances.appelAuto ? `Chaque garage reçoit automatiquement son lien de paiement ${s.relances.appelJours} jours avant l'échéance ; le pointage se fait tout seul quand il paie.` : "Appels automatiques désactivés (Réglages des relances) : envoie l'appel à la main."}</span>
         </div>
         {!s ? null : s.aVenir.length === 0 ? <p className="mt-3 text-sm text-white/50">Rien à venir sur les 45 prochains jours (génère les mensualités manquantes depuis Abonnements).</p> : (
           <div className="mt-3 overflow-x-auto">
@@ -167,7 +167,11 @@ export default function PaiementsPage() {
                     <td className="py-1.5 pr-3">{l.mensualite.qonto_url ? <span className="badge badge-info">{l.mensualite.qonto_statut || "ouvert"}</span> : <span className="text-white/35">—</span>}</td>
                     <td className="py-1.5 text-right whitespace-nowrap">
                       {s.qonto && <button className="text-accent-teal hover:underline mr-3" disabled={busy === `lien-${l.mensualite.id}`} onClick={() => copierLien(l)}>{l.mensualite.qonto_url ? "Copier le lien" : "Créer un lien"}</button>}
-                      <button className="text-accent-pink hover:underline mr-3" onClick={() => setRelance(l)}>Envoyer un rappel</button>
+                      {l.mensualite.appel_le ? (
+                        <span className="mr-3 text-xs text-emerald-300" title="Appel de paiement envoyé avant l'échéance">✉️ appel envoyé le {new Date(l.mensualite.appel_le).toLocaleDateString("fr-FR")}</span>
+                      ) : (
+                        <button className="text-accent-pink hover:underline mr-3" disabled={busy === `appel-${l.mensualite.id}`} onClick={() => action(`appel-${l.mensualite.id}`, async () => { const r = await appelMensualite(l.mensualite.id); return r.ok ? `Appel de paiement envoyé à ${r.email}.` : `Échec : ${r.erreur}`; })}>{busy === `appel-${l.mensualite.id}` ? "Envoi…" : "Envoyer l'appel de paiement"}</button>
+                      )}
                       <button className="text-emerald-300 hover:underline" onClick={() => setPayee(l)}>Payée</button>
                     </td>
                   </tr>
@@ -205,10 +209,10 @@ export default function PaiementsPage() {
             {s.journal.map((j) => (
               <div key={j.id} className="flex flex-wrap items-center gap-2 text-white/70">
                 <span className="text-white/40">{new Date(j.created_at).toLocaleString("fr-FR")}</span>
-                <span className={NIVEAUX[j.niveau]?.badge || "badge badge-neutral"}>{NIVEAUX[j.niveau]?.label || j.niveau}</span>
+                <span className={j.niveau === 0 ? "badge badge-ok" : NIVEAUX[j.niveau]?.badge || "badge badge-neutral"}>{j.niveau === 0 ? "Appel de paiement" : NIVEAUX[j.niveau]?.label || j.niveau}</span>
                 <span className="text-white">{j.garage_nom}</span>
                 <span>{j.email}</span>
-                <span className="text-white/40">{j.canal === "auto" ? "automatique" : j.auteur || "manuel"}</span>
+                <span className="text-white/40">{j.canal === "auto" || j.canal === "appel_auto" ? "automatique" : j.auteur || "manuel"}</span>
                 {!j.ok && <span className="text-rose-300">échec : {j.erreur}</span>}
               </div>
             ))}
@@ -320,16 +324,18 @@ function ReglagesModal({ p, onClose, onSaved }: { p: Parametres; onClose: () => 
   }
   return (
     <ModalShell title="Réglages des relances de paiement" onClose={onClose} maxWidth="max-w-2xl">
-      <p className="text-xs text-white/60">Les mensualités sont payables d&apos;avance. Les paliers sont comptés en jours <b>après l&apos;échéance</b>. Le contrat garage (CGV art. 5) autorise la suspension 15 jours après une relance restée sans effet, et la résiliation après 30 jours d&apos;impayé.</p>
+      <p className="text-xs text-white/60">Chaque mois : la mensualité se crée toute seule, le garage reçoit son <b>appel de paiement</b> quelques jours avant l&apos;échéance, puis les relances seulement s&apos;il ne paie pas. Les mensualités sont payables d&apos;avance. Les paliers sont comptés en jours <b>après l&apos;échéance</b>. Le contrat garage (CGV art. 5) autorise la suspension 15 jours après une relance restée sans effet, et la résiliation après 30 jours d&apos;impayé.</p>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <ChampAdmin label="Échéance : le … du mois"><input className="field-input" type="number" min="1" max="28" value={r.jourEcheance} onChange={num("jourEcheance")} /></ChampAdmin>
         <ChampAdmin label="Rappel amical (J+)"><input className="field-input" type="number" value={r.rappel} onChange={num("rappel")} /></ChampAdmin>
         <ChampAdmin label="Relance formelle (J+)"><input className="field-input" type="number" value={r.relance} onChange={num("relance")} /></ChampAdmin>
         <ChampAdmin label="Dernier avertissement (J+)"><input className="field-input" type="number" value={r.avertissement} onChange={num("avertissement")} /></ChampAdmin>
         <ChampAdmin label="Suspension (J+, ≥ relance + 15)"><input className="field-input" type="number" value={r.suspension} onChange={num("suspension")} /></ChampAdmin>
+        <ChampAdmin label="Appel de paiement : jours AVANT l'échéance"><input className="field-input" type="number" min="0" max="25" value={r.appelJours} onChange={num("appelJours")} /></ChampAdmin>
         <ChampAdmin label="Collaborateurs : alerte après (jours)"><input className="field-input" type="number" value={r.delaiCollaborateurs} onChange={num("delaiCollaborateurs")} /></ChampAdmin>
       </div>
       <div className="mt-3 space-y-2 text-sm text-white/85">
+        <label className="flex items-center gap-2"><input type="checkbox" checked={r.appelAuto} onChange={(e) => setR((x) => ({ ...x, appelAuto: e.target.checked }))} />Appel de paiement automatique avant l&apos;échéance (email avec lien de paiement Qonto + IBAN)</label>
         <label className="flex items-center gap-2"><input type="checkbox" checked={r.auto} onChange={(e) => setR((x) => ({ ...x, auto: e.target.checked }))} />Relances automatiques par email (chaque matin, jours ouvrés)</label>
         <label className="flex items-center gap-2"><input type="checkbox" checked={r.suspensionAuto} onChange={(e) => setR((x) => ({ ...x, suspensionAuto: e.target.checked }))} />Suspension automatique du compte au palier « suspension » (réactivation automatique au paiement)</label>
         <label className="flex items-center gap-2"><input type="checkbox" checked={r.digestEditeur} onChange={(e) => setR((x) => ({ ...x, digestEditeur: e.target.checked }))} />Me rappeler par email : impayés, échéances sous 7 jours, collaborateurs à payer</label>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 import { estAdminServeur } from "@/lib/supportServeur";
-import { ErreurPaiement, Niveau, digestEditeur, lienPaiement, reactiverSiRegularise, relancer, situation, suspendrePourImpaye, traiterQuotidien, verifierLiens } from "@/lib/admin/paiementsServeur";
+import { ErreurPaiement, Niveau, digestEditeur, envoyerAppel, lienPaiement, reactiverSiRegularise, relancer, situation, suspendrePourImpaye, traiterQuotidien, verifierLiens } from "@/lib/admin/paiementsServeur";
 import { definirEtat } from "@/lib/admin/comptesServeur";
 
 // ============================================================
@@ -49,6 +49,11 @@ export async function POST(req: Request) {
       case "lien": {
         const r = await lienPaiement(admin, body.mensualite_id || "");
         return NextResponse.json({ ok: true, ...r });
+      }
+      case "appel": {
+        // v13.39 — appel de paiement AVANT l'échéance (email + lien + IBAN)
+        const r = await envoyerAppel(admin, body.mensualite_id || "", auteur);
+        return NextResponse.json(r);
       }
       case "relancer": {
         const niveau = Math.min(4, Math.max(1, Number(body.niveau) || 1)) as Niveau;
