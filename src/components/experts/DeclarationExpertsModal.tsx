@@ -8,14 +8,17 @@
 //   1. Mon garage      — coordonnées, assurance RC, agréments, horaires
 //   2. Taux & Kbis     — T1/T2/T3, peinture, ingrédients (opaque,
 //                        métallisé/vernis, nacré), extrait Kbis PDF
-//   3. Destinataires   — les cabinets de l'annuaire (+ adresses en plus)
+//   3. Destinataires   — les cabinets de la base de données ; on peut en
+//                        AJOUTER sur place (fiche ou adresses collées), ils
+//                        sont enregistrés dans la base (Base de données → Experts)
 //   4. Message         — objet, texte, APERÇU exact, envoi test à soi
 //   5. Envoi           — un email personnalisé par cabinet, progression
 //  Les informations saisies sont enregistrées dans le profil du garage
 //  (elles resservent pour la prochaine campagne).
 // ============================================================
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import ModalShell from "@/components/ModalShell";
 import { supabase } from "@/lib/supabaseClient";
 import { deposerFichier } from "@/lib/storage";
@@ -37,8 +40,28 @@ type Resultat = { email: string; cabinet: string | null; ok: boolean; erreur?: s
 
 const VIDE: InfosDeclaration = Object.fromEntries(CHAMPS_DECLARATION.map((k) => [k, null])) as unknown as InfosDeclaration;
 
-export default function DeclarationExpertsModal({ experts, onClose, onEnvoye }: { experts: Expert[]; onClose: () => void; onEnvoye: () => void }) {
+/** Nom de cabinet déduit d'une adresse : contact@cabinet-dupont.fr → « Cabinet dupont ». */
+function cabinetDepuisEmail(email: string): string {
+  const dom = email.split("@")[1] || email;
+  const base = dom.split(".").slice(0, -1).join(" ") || dom;
+  const n = base.replace(/[-_.]+/g, " ").trim();
+  return n.charAt(0).toUpperCase() + n.slice(1);
+}
+
+export default function DeclarationExpertsModal({ experts: expertsInitiaux, onClose, onEnvoye }: { experts?: Expert[]; onClose: () => void; onEnvoye: () => void }) {
   const [etape, setEtape] = useState<Etape>(1);
+  // Base des experts : fournie par l'appelant ou chargée ici (page Espaces experts).
+  const [experts, setExperts] = useState<Expert[]>(expertsInitiaux || []);
+  const chargerExperts = useCallback(async () => {
+    const { data } = await supabase.from("experts").select("*").order("cabinet", { ascending: true });
+    setExperts((data as Expert[]) || []);
+  }, []);
+  useEffect(() => {
+    if (!expertsInitiaux) chargerExperts();
+  }, [expertsInitiaux, chargerExperts]);
+  // Ajout d'un cabinet sur place (enregistré dans la base)
+  const [nouveau, setNouveau] = useState({ cabinet: "", expert_nom: "", email: "", tel: "", ville: "" });
+  const [ajoutOuvert, setAjoutOuvert] = useState(false);
   const [entId, setEntId] = useState<string | null>(null);
   const [infos, setInfos] = useState<InfosDeclaration>(VIDE);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -50,7 +73,7 @@ export default function DeclarationExpertsModal({ experts, onClose, onEnvoye }: 
 
   // Destinataires
   const [coches, setCoches] = useState<Record<string, boolean>>({});
-  const [autres, setAutres] = useState("");
+  const [colle, setColle] = useState("");
   const [filtre, setFiltre] = useState("");
 
   // Message
@@ -94,18 +117,50 @@ export default function DeclarationExpertsModal({ experts, onClose, onEnvoye }: 
   }, [experts]);
   const sansEmail = experts.length - destsAnnuaire.length;
 
-  // Par défaut : tous les cabinets jamais contactés.
+  // Par défaut : tous les cabinets jamais contactés (les nouveaux arrivés
+  // dans la liste sont cochés, les choix déjà faits sont conservés).
   useEffect(() => {
-    setCoches(Object.fromEntries(destsAnnuaire.map((d) => [d.cle, !d.deja])));
+    setCoches((c) => {
+      const n = { ...c };
+      for (const d of destsAnnuaire) if (!(d.cle in n)) n[d.cle] = !d.deja;
+      return n;
+    });
   }, [destsAnnuaire]);
 
-  const autresListe = useMemo<Dest[]>(() => {
-    const deja = new Set(destsAnnuaire.map((d) => d.email));
-    return Array.from(new Set(autres.split(/[\s,;]+/).map((s) => s.trim().toLowerCase()).filter((s) => EMAIL_RE.test(s) && !deja.has(s))))
-      .map((email) => ({ cle: `x-${email}`, expert_id: null, email, cabinet: null, expert_nom: null, deja: null, ville: null }));
-  }, [autres, destsAnnuaire]);
+  const selection = useMemo(() => destsAnnuaire.filter((d) => coches[d.cle]), [destsAnnuaire, coches]);
 
-  const selection = useMemo(() => [...destsAnnuaire.filter((d) => coches[d.cle]), ...autresListe], [destsAnnuaire, coches, autresListe]);
+  /** Ajoute un cabinet (formulaire) dans la base de données des experts. */
+  async function ajouterCabinet() {
+    const email = nouveau.email.trim().toLowerCase();
+    if (!nouveau.cabinet.trim()) return setErr("Indique le nom du cabinet.");
+    if (!EMAIL_RE.test(email)) return setErr("Adresse email du cabinet invalide.");
+    if (destsAnnuaire.some((d) => d.email === email)) return setErr("Cette adresse est déjà dans la base.");
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.from("experts").insert({
+      cabinet: nouveau.cabinet.trim(), expert_nom: nouveau.expert_nom.trim() || null, email, tel: nouveau.tel.trim() || null, ville: nouveau.ville.trim() || null, source: "manuel",
+    });
+    setBusy(false);
+    if (error) return setErr(messageErreur(error, "Ajout impossible."));
+    setNouveau({ cabinet: "", expert_nom: "", email: "", tel: "", ville: "" });
+    setInfo(`✓ ${nouveau.cabinet.trim()} ajouté à la base et sélectionné.`);
+    await chargerExperts();
+  }
+
+  /** Adresses collées en vrac → une fiche par adresse dans la base. */
+  async function ajouterColle() {
+    const deja = new Set(destsAnnuaire.map((d) => d.email));
+    const emails = Array.from(new Set(colle.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter((x) => EMAIL_RE.test(x) && !deja.has(x))));
+    if (!emails.length) return setErr("Aucune nouvelle adresse valide à ajouter.");
+    setBusy(true);
+    setErr(null);
+    const { error } = await supabase.from("experts").insert(emails.map((email) => ({ cabinet: cabinetDepuisEmail(email), email, source: "manuel" })));
+    setBusy(false);
+    if (error) return setErr(messageErreur(error, "Ajout impossible."));
+    setColle("");
+    setInfo(`✓ ${emails.length} cabinet${emails.length > 1 ? "s" : ""} ajouté${emails.length > 1 ? "s" : ""} à la base et sélectionné${emails.length > 1 ? "s" : ""} (nom déduit de l'adresse, modifiable dans Base de données → Experts).`);
+    await chargerExperts();
+  }
   const m = manquants(infos);
   const set = <K extends keyof InfosDeclaration>(k: K, v: InfosDeclaration[K]) => setInfos((x) => ({ ...x, [k]: v }));
 
@@ -297,7 +352,37 @@ export default function DeclarationExpertsModal({ experts, onClose, onEnvoye }: 
           {/* ------------------------- 3. DESTINATAIRES ------------------------- */}
           {etape === 3 && (
             <>
-              <Aide>Chaque cabinet coché reçoit son <b>propre</b> email (il ne voit pas les autres destinataires). Par défaut, ceux qui n&apos;ont jamais reçu ta déclaration sont cochés.</Aide>
+              <Aide>Chaque cabinet coché reçoit son <b>propre</b> email (il ne voit pas les autres destinataires). Par défaut, ceux qui n&apos;ont jamais reçu ta déclaration sont cochés. Les cabinets ajoutés ici sont enregistrés dans ta base de données.</Aide>
+
+              {/* Ajouter des cabinets dans la base */}
+              <div className="rounded-xl border-2 border-dashed border-white/20 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm font-semibold text-white">➕ Ajouter des cabinets d&apos;expertise</div>
+                  <Link href="/annuaire?tab=experts" className="text-xs text-accent-teal hover:underline">Ouvrir la base des experts ↗</Link>
+                </div>
+                {!ajoutOuvert ? (
+                  <button className="btn-ghost btn-compact mt-2" onClick={() => setAjoutOuvert(true)}>Saisir un cabinet ou coller des adresses</button>
+                ) : (
+                  <div className="mt-2 space-y-3">
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      <input className="field-input field-compact" placeholder="Cabinet *" value={nouveau.cabinet} onChange={(e) => setNouveau((n) => ({ ...n, cabinet: e.target.value }))} />
+                      <input className="field-input field-compact" type="email" placeholder="Email *" value={nouveau.email} onChange={(e) => setNouveau((n) => ({ ...n, email: e.target.value }))} />
+                      <input className="field-input field-compact" placeholder="Nom de l'expert" value={nouveau.expert_nom} onChange={(e) => setNouveau((n) => ({ ...n, expert_nom: e.target.value }))} />
+                      <input className="field-input field-compact" type="tel" placeholder="Téléphone" value={nouveau.tel} onChange={(e) => setNouveau((n) => ({ ...n, tel: e.target.value }))} />
+                      <input className="field-input field-compact" placeholder="Ville" value={nouveau.ville} onChange={(e) => setNouveau((n) => ({ ...n, ville: e.target.value }))} />
+                      <button className="btn-primary btn-compact" disabled={busy} onClick={ajouterCabinet}>Ajouter à la base</button>
+                    </div>
+                    <div>
+                      <label className="field-label !text-xs">Ou colle plusieurs adresses (séparées par des virgules ou des retours à la ligne)</label>
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        <textarea className="field-input field-compact flex-1" rows={2} value={colle} onChange={(e) => setColle(e.target.value)} placeholder="contact@cabinet-a.fr, gestion@cabinet-b.fr" />
+                        <button className="btn-ghost btn-compact shrink-0" disabled={busy || !colle.trim()} onClick={ajouterColle}>Ajouter ces adresses</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex flex-wrap items-center gap-2">
                 <input className="field-input field-compact max-w-xs flex-1" placeholder="Rechercher un cabinet, une ville…" value={filtre} onChange={(e) => setFiltre(e.target.value)} />
                 <button className="btn-ghost btn-compact" onClick={() => setCoches(Object.fromEntries(destsAnnuaire.map((d) => [d.cle, true])))}>Tout cocher</button>
@@ -305,7 +390,7 @@ export default function DeclarationExpertsModal({ experts, onClose, onEnvoye }: 
                 <button className="btn-ghost btn-compact" onClick={() => setCoches(Object.fromEntries(destsAnnuaire.map((d) => [d.cle, !d.deja])))}>Jamais contactés</button>
               </div>
               {destsAnnuaire.length === 0 ? (
-                <p className="text-sm text-white/55">Aucun cabinet avec email dans ton annuaire. Ajoute-les ci-dessous ou depuis « + Cabinet ».</p>
+                <p className="text-sm text-white/55">Aucun cabinet avec email dans ta base pour l&apos;instant : ajoute-les ci-dessus.</p>
               ) : (
                 <ul className="max-h-72 divide-y divide-white/10 overflow-y-auto rounded-lg border border-white/10">
                   {visibles.map((d) => (
@@ -322,11 +407,7 @@ export default function DeclarationExpertsModal({ experts, onClose, onEnvoye }: 
                   ))}
                 </ul>
               )}
-              {sansEmail > 0 && <p className="text-xs text-amber-200">{sansEmail} cabinet{sansEmail > 1 ? "s" : ""} de l&apos;annuaire sans email (ou en double) : complète leur fiche pour les inclure.</p>}
-              <div>
-                <label className="field-label">Autres adresses (cabinets hors annuaire) — séparées par des virgules ou des retours à la ligne</label>
-                <textarea className="field-input" rows={2} value={autres} onChange={(e) => setAutres(e.target.value)} placeholder="contact@cabinet-expert.fr, …" />
-              </div>
+              {sansEmail > 0 && <p className="text-xs text-amber-200">{sansEmail} cabinet{sansEmail > 1 ? "s" : ""} de la base sans email (ou en double) : complète leur fiche pour les inclure.</p>}
               <p className="text-sm font-semibold text-white">{selection.length} cabinet{selection.length > 1 ? "s" : ""} sélectionné{selection.length > 1 ? "s" : ""}</p>
             </>
           )}

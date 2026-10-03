@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ConfigBanner from "@/components/ConfigBanner";
+import BandeauReferencementExperts from "@/components/experts/BandeauReferencementExperts";
 import ModalShell from "@/components/ModalShell";
 import { fetchAuth } from "@/lib/apiClient";
 import { messageErreur } from "@/lib/format";
@@ -150,6 +151,9 @@ export default function ExtranetsPage() {
         du navigateur : ils ne sont déchiffrés qu&apos;au moment où tu cliques sur Afficher ou Copier.
       </p>
       <ConfigBanner />
+
+      {/* v13.40 — se faire connaître des cabinets (email groupé assisté) */}
+      <BandeauReferencementExperts />
 
       <div className="mb-4">
         <input

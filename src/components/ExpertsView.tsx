@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { messageErreur } from "@/lib/format";
 import { Expert } from "@/lib/types";
-import DeclarationExpertsModal from "@/components/experts/DeclarationExpertsModal";
+import BandeauReferencementExperts from "@/components/experts/BandeauReferencementExperts";
 
 const EMPTY = {
   cabinet: "", adresse: "", code_postal: "", ville: "", tel: "", email: "",
@@ -20,7 +20,6 @@ export default function ExpertsView() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormE>({ ...EMPTY });
-  const [declaration, setDeclaration] = useState(false); // v13.40
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -65,21 +64,10 @@ export default function ExpertsView() {
     ? rows.filter((r) => [r.cabinet, r.expert_nom, r.ville, r.email].filter(Boolean).some((v) => (v as string).toLowerCase().includes(term)))
     : rows;
 
-  const declares = rows.filter((r) => r.declaration_envoyee_le).length;
-
   return (
     <div>
-      {/* v13.40 — se déclarer auprès de tous les cabinets en une fois */}
-      <div className="glass-card mb-4 flex flex-wrap items-center justify-between gap-3 border-2 border-accent-pink/40 p-4">
-        <div className="min-w-0">
-          <div className="font-semibold text-white">📣 Se faire connaître des experts</div>
-          <p className="text-sm text-white/65">
-            Un assistant prépare un email à ton logo avec tes coordonnées, ton Kbis et tes taux horaires (T1, T2, T3, peinture, ingrédients), puis l&apos;envoie à chaque cabinet.
-            {rows.length > 0 && ` ${declares}/${rows.length} cabinet${rows.length > 1 ? "s" : ""} déjà informé${declares > 1 ? "s" : ""}.`}
-          </p>
-        </div>
-        <button onClick={() => setDeclaration(true)} className="btn-primary shrink-0">Me déclarer auprès des experts</button>
-      </div>
+      {/* v13.40 — se faire référencer auprès de tous les cabinets */}
+      <BandeauReferencementExperts experts={rows} onChange={load} />
 
       <div className="flex items-center justify-between mb-4">
         <input className="field-input max-w-sm" placeholder="Rechercher un cabinet / expert…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -154,7 +142,6 @@ export default function ExpertsView() {
         </table>
       </div>
 
-      {declaration && <DeclarationExpertsModal experts={rows} onClose={() => setDeclaration(false)} onEnvoye={load} />}
     </div>
   );
 }

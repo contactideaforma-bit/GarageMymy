@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ClientsView from "@/components/ClientsView";
 import ExpertsView from "@/components/ExpertsView";
 import AssureursView from "@/components/AssureursView";
@@ -16,6 +16,11 @@ const TABS: { key: Tab; label: string }[] = [
 
 export default function AnnuairePage() {
   const [tab, setTab] = useState<Tab>("clients");
+  // v13.40 — lien direct vers un onglet : /annuaire?tab=experts
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab");
+    if (t === "experts" || t === "assureurs" || t === "clients") setTab(t);
+  }, []);
 
   return (
     <div>
