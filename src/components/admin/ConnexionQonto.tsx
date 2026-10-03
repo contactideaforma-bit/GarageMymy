@@ -34,6 +34,14 @@ export default function ConnexionQonto() {
     else setErr(r.error || "État de la connexion Qonto illisible.");
   }, []);
 
+  // Retour arrière depuis Qonto (page restaurée du cache) : le bouton ne doit
+  // pas rester bloqué sur « Ouverture de Qonto… ».
+  useEffect(() => {
+    const reveil = () => setBusy(false);
+    window.addEventListener("pageshow", reveil);
+    return () => window.removeEventListener("pageshow", reveil);
+  }, []);
+
   useEffect(() => {
     charger();
     // Retour de Qonto : ?qonto=ok | erreur (&detail=…) — puis on nettoie l'URL.
