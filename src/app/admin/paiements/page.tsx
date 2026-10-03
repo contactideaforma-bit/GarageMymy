@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import AdminShell, { ChampAdmin, dateFr, euros, moisFr } from "@/components/admin/AdminShell";
 import ModalShell from "@/components/ModalShell";
+import ConnexionQonto from "@/components/admin/ConnexionQonto";
 import {
   LigneSuiviPaiement, SituationPaiements, enregistrerParametres, envoyerDigestPaiements, lancerCronPaiements, lienPaiementMensualite, lireParametres, lireSituationPaiements,
   pointerMensualitePayee, reactiverAbonnement, relancerMensualite, suspendreAbonnementImpaye, verifierLiensQonto,
@@ -76,6 +77,9 @@ export default function PaiementsPage() {
       {erreur && <p className="badge badge-danger">{erreur}</p>}
       {msg && <p className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-100">{msg}</p>}
 
+      {/* v13.38 — connexion OAuth Qonto (obligatoire pour les liens de paiement) */}
+      <ConnexionQonto />
+
       {/* KPIs */}
       {s && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -88,7 +92,7 @@ export default function PaiementsPage() {
 
       {s && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
-          <span className={`badge ${s.qonto ? "badge-ok" : "badge-warn"}`}>{s.qonto ? "Paiement en ligne Qonto : actif" : "Qonto non configuré (QONTO_LOGIN / QONTO_SECRET_KEY)"}</span>
+          <span className={`badge ${s.qonto ? "badge-ok" : "badge-warn"}`}>{s.qonto ? "Paiement en ligne Qonto : actif" : "Qonto non configuré (voir « Connexion Qonto »)"}</span>
           <span className={`badge ${s.relances.auto ? "badge-ok" : "badge-neutral"}`}>Relances auto : {s.relances.auto ? "ON" : "OFF"}</span>
           <span className={`badge ${s.relances.suspensionAuto ? "badge-ok" : "badge-neutral"}`}>Suspension auto : {s.relances.suspensionAuto ? `J+${s.relances.suspension}` : "OFF"}</span>
           <span>Échéance le {s.relances.jourEcheance} du mois · rappel J+{s.relances.rappel} · relance J+{s.relances.relance} · avertissement J+{s.relances.avertissement} · suspension J+{s.relances.suspension}</span>

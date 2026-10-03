@@ -13,7 +13,7 @@
 // ============================================================
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { creerLienPaiement, qontoConfigure, statutLienPaiement } from "@/lib/qonto";
+import { ErreurQonto, creerLienPaiement, qontoConfigure, statutLienPaiement } from "@/lib/qonto";
 import { envoyerEmailServeur } from "@/lib/mailer";
 import { comptesAdmin, emailsAdminServeur } from "@/lib/supportServeur";
 import type { Parametres } from "@/lib/admin/economie";
@@ -49,12 +49,19 @@ export async function lienPaiementVente(admin: SupabaseClient, v: VenteParcours,
     return { url: v.qonto_url, qonto: true, statut: v.qonto_statut || "open" };
   }
   const m = premiereEcheance(v);
-  const lien = await creerLienPaiement({
-    titre: `${SOCIETE.produit} — ${libelleOffre(v, p)}`,
-    description: `${v.garage_nom} — vente ${v.numero}${Number(v.mise_en_service_ht) ? " (mise en service incluse)" : ""}`,
-    prixHt: m.ht,
-    tauxTva: TVA_VENTE,
-  });
+  let lien: Awaited<ReturnType<typeof creerLienPaiement>>;
+  try {
+    lien = await creerLienPaiement({
+      titre: `${SOCIETE.produit} — ${libelleOffre(v, p)}`,
+      description: `${v.garage_nom} — vente ${v.numero}${Number(v.mise_en_service_ht) ? " (mise en service incluse)" : ""}`,
+      prixHt: m.ht,
+      tauxTva: TVA_VENTE,
+    });
+  } catch (e) {
+    // v13.38 : Qonto pas (encore) connecté → repli sur le lien CB fixe s'il existe.
+    if (e instanceof ErreurQonto && e.status === 503 && p.lienPaiementCb) return { url: p.lienPaiementCb, qonto: false, statut: null };
+    throw e;
+  }
   await admin.from("ventes").update({ qonto_link_id: lien.id, qonto_url: lien.url, qonto_statut: lien.status || "open", paiement_demande: "cb", mode_paiement: "cb" }).eq("id", v.id);
   return { url: lien.url, qonto: true, statut: lien.status || "open" };
 }

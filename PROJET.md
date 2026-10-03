@@ -203,6 +203,16 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Migration `supabase/migration_v94.sql`** : `ventes.qonto_link_id`, `qonto_url`, `qonto_statut`, `paiement_envoye_le`, `paiement_envoye_a`, `paiement_envoye_mode` + index des liens ouverts.
 - ⚠️ Prérequis : IBAN/BIC renseignés dans les paramètres éditeur (sinon le virement ne peut pas être envoyé) ; liens Qonto actifs (`QONTO_LOGIN` / `QONTO_SECRET_KEY`), sinon le lien CB fixe des paramètres est utilisé.
 
+### Ajouté v13.38 — Connexion Qonto en OAuth 2.0 (obligatoire pour les liens de paiement)
+- **Constat** : Qonto refuse la clé API pour les liens de paiement (`401 OAuth2 authentication is required here`) — touchait ventes (v13.37), mensualités (v13.33) et jetons (v13.28).
+- **Portail Qonto** : application « Automatisez vos opérations commerciales » (aucune vérification requise), redirect URI `https://myeasyauto.fr/api/qonto/callback`, portées `offline_access payment_link.read payment_link.write`. Vercel : `QONTO_CLIENT_ID`, `QONTO_CLIENT_SECRET` (+ `QONTO_REDIRECT_URI` facultatif).
+- **`src/lib/qonto.ts`** : `urlAutorisationQonto` (state aléatoire 15 min stocké en base), `finaliserConnexionQonto` (échange du code), `jetonAcces` (jeton 1 h renouvelé 2 min avant expiration ; jeton de renouvellement à usage unique toujours remplacé ; relecture si deux renouvellements simultanés), `etatConnexionQonto`, `deconnecterQonto`. Tous les appels passent en `Bearer` dès que l'OAuth est configuré (repli clé API sinon). Endpoints sandbox gérés (`QONTO_ENV=sandbox`).
+- **Routes** `/api/qonto/connexion` (GET état · POST URL d'autorisation · DELETE déconnexion, éditeur seulement) et `/api/qonto/callback` (retour Qonto → `/admin/paiements?qonto=ok|erreur`).
+- **UI** `src/components/admin/ConnexionQonto.tsx` en tête de `/admin/paiements` : « 🔗 Connecter Qonto », état connecté, Reconnecter / Déconnecter, dernière erreur, rappel du redirect URI exact.
+- Vente : si Qonto n'est pas connecté, repli automatique sur le lien CB fixe des paramètres.
+- **Migration `supabase/migration_v95.sql`** : table `qonto_oauth` (ligne unique, RLS sans politique → clé service uniquement).
+- Le cron quotidien (jours ouvrés) utilise la connexion, ce qui la renouvelle bien avant les 90 jours d'expiration du jeton de renouvellement.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.
