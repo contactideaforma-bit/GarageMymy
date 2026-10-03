@@ -186,6 +186,13 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 - **Accueil public mobile** (`LandingPage.tsx`, `vitrine/FormulesAccueil.tsx`, classe `.lp-carrousel` dans `globals.css`) : menu burger + bouton Connexion, héros resserré (photo 4/3, boutons pleine largeur), chiffres en 2 colonnes, étapes et formules en carrousel à faire glisser, fonctionnalités en liste compacte, barre d'action collante en bas (La démo / Se connecter, safe-area iPhone), pied de page centré. Rendu ordinateur inchangé. Écran de connexion : marges réduites sur téléphone.
 - Aucune migration.
 
+### Ajouté v13.36 — Contraste du thème clair (lisibilité pour tous)
+- **Constat** (capture iPhone, liste Sinistres) : fond, cartes et champs presque de la même couleur → la barre de recherche ne se distinguait pas.
+- **Jetons `html.light`** (`globals.css`) : fond gris-lavande `#e6e8f1` (au lieu de `#f5f6fb`), cartes `--mea-surface` BLANCHES opaques, blocs internes `--mea-surface-2` `#f2f3f8`, champs blancs, bordures renforcées (0,14 / 0,30), textes secondaires et placeholders plus foncés, ombre de carte plus nette. `themeColor` du layout aligné.
+- Champs en thème clair : contour 1,5 px + légère ombre intérieure, focus rose bien visible ; `btn-ghost` blanc détouré.
+- **Loupe automatique** sur toute barre `.field-input` dont le placeholder commence par « Rechercher » (Sinistres, Archives, Documents, Historique, Emails, Flotte, Extranets, Assureurs…).
+- Thème sombre et page d'accueil publique inchangés. Aucune migration.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.
