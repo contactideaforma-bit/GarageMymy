@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { messageErreur } from "@/lib/format";
 import { Expert } from "@/lib/types";
+import DeclarationExpertsModal from "@/components/experts/DeclarationExpertsModal";
 
 const EMPTY = {
   cabinet: "", adresse: "", code_postal: "", ville: "", tel: "", email: "",
@@ -19,6 +20,7 @@ export default function ExpertsView() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormE>({ ...EMPTY });
+  const [declaration, setDeclaration] = useState(false); // v13.40
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,8 +65,22 @@ export default function ExpertsView() {
     ? rows.filter((r) => [r.cabinet, r.expert_nom, r.ville, r.email].filter(Boolean).some((v) => (v as string).toLowerCase().includes(term)))
     : rows;
 
+  const declares = rows.filter((r) => r.declaration_envoyee_le).length;
+
   return (
     <div>
+      {/* v13.40 — se déclarer auprès de tous les cabinets en une fois */}
+      <div className="glass-card mb-4 flex flex-wrap items-center justify-between gap-3 border-2 border-accent-pink/40 p-4">
+        <div className="min-w-0">
+          <div className="font-semibold text-white">📣 Se faire connaître des experts</div>
+          <p className="text-sm text-white/65">
+            Un assistant prépare un email à ton logo avec tes coordonnées, ton Kbis et tes taux horaires (T1, T2, T3, peinture, ingrédients), puis l&apos;envoie à chaque cabinet.
+            {rows.length > 0 && ` ${declares}/${rows.length} cabinet${rows.length > 1 ? "s" : ""} déjà informé${declares > 1 ? "s" : ""}.`}
+          </p>
+        </div>
+        <button onClick={() => setDeclaration(true)} className="btn-primary shrink-0">Me déclarer auprès des experts</button>
+      </div>
+
       <div className="flex items-center justify-between mb-4">
         <input className="field-input max-w-sm" placeholder="Rechercher un cabinet / expert…" value={q} onChange={(e) => setQ(e.target.value)} />
         <button onClick={ouvrirAjout} className="btn-primary">+ Cabinet</button>
@@ -95,7 +111,7 @@ export default function ExpertsView() {
       {/* v11.4 — sans largeur minimale, le tableau se comprimait jusqu'à une
           lettre par colonne sur téléphone au lieu de défiler. */}
       <div className="glass-card overflow-x-auto">
-        <table className="w-full min-w-[44rem] text-sm">
+        <table className="w-full min-w-[50rem] text-sm">
           <thead className="text-left text-white/50">
             <tr>
               <th className="px-5 py-3 font-medium">Cabinet</th>
@@ -104,13 +120,14 @@ export default function ExpertsView() {
               <th className="px-5 py-3 font-medium">Email</th>
               <th className="px-5 py-3 font-medium">Ville</th>
               <th className="px-5 py-3 font-medium">Origine</th>
+              <th className="px-5 py-3 font-medium">Déclaration</th>
               <th className="px-5 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {loading && <tr><td colSpan={7} className="px-5 py-8 text-center text-white/40">Chargement…</td></tr>}
+            {loading && <tr><td colSpan={8} className="px-5 py-8 text-center text-white/40">Chargement…</td></tr>}
             {!loading && filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-5 py-8 text-center text-white/40">Aucun cabinet. Ils s&apos;ajoutent automatiquement depuis les dossiers.</td></tr>
+              <tr><td colSpan={8} className="px-5 py-8 text-center text-white/40">Aucun cabinet. Ils s&apos;ajoutent automatiquement depuis les dossiers.</td></tr>
             )}
             {filtered.map((r) => (
               <tr key={r.id} className="border-t border-white/5 hover:bg-white/5">
@@ -124,6 +141,9 @@ export default function ExpertsView() {
                     {r.source === "auto" ? "Auto" : "Manuel"}
                   </span>
                 </td>
+                <td className="px-5 py-3 text-xs text-white/60">
+                  {r.declaration_envoyee_le ? <span className="text-emerald-300">✓ {new Date(r.declaration_envoyee_le).toLocaleDateString("fr-FR")}</span> : "—"}
+                </td>
                 <td className="px-5 py-3 text-right whitespace-nowrap">
                   <button onClick={() => ouvrirEdition(r)} className="text-accent-pink hover:underline mr-3">Modifier</button>
                   <button onClick={() => supprimer(r.id)} className="text-white/40 hover:text-rose-300">Suppr.</button>
@@ -133,6 +153,8 @@ export default function ExpertsView() {
           </tbody>
         </table>
       </div>
+
+      {declaration && <DeclarationExpertsModal experts={rows} onClose={() => setDeclaration(false)} onEnvoye={load} />}
     </div>
   );
 }

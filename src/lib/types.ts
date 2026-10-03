@@ -135,6 +135,8 @@ export type Expert = {
   expert_email: string | null;
   source: string;
   notes: string | null;
+  /** v13.40 (migration v97) — date du dernier envoi de la déclaration du garage. */
+  declaration_envoyee_le?: string | null;
 };
 
 export type Assureur = {
@@ -282,6 +284,22 @@ export type Entreprise = {
   gard_frais_entree?: number | null;
   gard_frais_sortie?: number | null;
   gard_frais_enlevement?: number | null;
+  // DÉCLARATION AUPRÈS DES EXPERTS (v13.40, migration v97) : taux horaires
+  // HT, ingrédients peinture, Kbis (bucket privé), assurance RC, agréments.
+  taux_t1?: number | null;
+  taux_t2?: number | null;
+  taux_t3?: number | null;
+  taux_peinture?: number | null;
+  ingr_opaque?: number | null;
+  ingr_metal_verni?: number | null;
+  ingr_nacre?: number | null;
+  kbis_path?: string | null;
+  kbis_date?: string | null;
+  rc_assureur?: string | null;
+  rc_police?: string | null;
+  agrements?: string | null;
+  horaires?: string | null;
+  services?: string | null;
 };
 
 // Appareil autorisé à recevoir les notifications push (v42).
