@@ -26,6 +26,7 @@ import StatutBadge from "@/components/StatutBadge";
 import ProgressionDossier from "@/components/ProgressionDossier";
 import GuideProcedure from "@/components/GuideProcedure";
 import BlocAFaire from "@/components/BlocAFaire";
+import RechercheDossier from "@/components/RechercheDossier";
 import ConfigBanner from "@/components/ConfigBanner";
 import { erreurReseau, dateDuCache, memoriser, relire } from "@/lib/horsLigne";
 import RappelSauvegarde from "@/components/RappelSauvegarde";
@@ -265,6 +266,9 @@ export default function DashboardPage() {
       </div>
 
       <ConfigBanner />
+
+      {/* RECHERCHE (v13.35) : aller directement à un dossier, depuis l'accueil. */}
+      <RechercheDossier dossiers={dossiers} loading={loading} />
 
       {/* HUD : les 4 compteurs du garage */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

@@ -815,6 +815,36 @@ html.light body:has(.landing-pro) {
 .lp-input::placeholder { color: #9aa0b8; }
 .lp-btn:disabled { opacity: 0.6; cursor: wait; transform: none; }
 
+/* VERSION MOBILE de l'accueil (v13.35) — carrousel à faire glisser pour
+   les étapes et les formules. Au-delà de 640 px, les classes sm:grid
+   reprennent la main : le rendu ordinateur ne change pas. */
+@media (max-width: 639px) {
+  .lp-carrousel {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 1rem;
+    margin-inline: -1rem;
+    padding: 0.25rem 1rem 0.75rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .lp-carrousel::-webkit-scrollbar { display: none; }
+  .lp-carrousel > * {
+    flex: 0 0 84%;
+    min-width: 0;
+    scroll-snap-align: start;
+  }
+  /* Pas d'effet « soulevé » au toucher sur mobile. */
+  .landing-pro .lp-card-hover:hover,
+  .landing-pro .lp-formule:hover { transform: none; }
+}
+
+/* Barre de recherche du tableau de bord (v13.35) : pas de croix native
+   en plus de la nôtre. */
+#recherche-dossier::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
+
 /* ====================================================================
    CADRAGE (v11.2 → v11.4) — plus rien ne sort de l'écran. INCHANGÉ.
    ⛔ Ne pas remettre overflow-wrap:anywhere en global, ni overflow-x sur

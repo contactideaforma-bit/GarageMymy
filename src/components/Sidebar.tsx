@@ -52,7 +52,7 @@ const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = 
     titre: "Organisation",
     items: [
       { href: "/emails", label: "Emails" },
-      // v13.30 — masqué pendant la pause du service (page toujours accessible par l'URL).
+      // v13.30 — masqué pendant une pause du service (page toujours accessible par l'URL) ; actif par défaut depuis v13.34.
       ...(COURRIERS_POSTE_ACTIFS ? [{ href: "/courriers", label: "Courriers La Poste" }] : []),
       { href: "/planning", label: "Planning réparation" },
       { href: "/agenda", label: "Agenda" },

@@ -35,7 +35,11 @@ export type Abonnement = {
   date_signature: string; date_debut: string; engagement_12: boolean; statut: "actif" | "suspendu" | "resilie";
   date_fin: string | null; commercial_id: string | null; secretaire_id: string | null; notes: string | null;
 };
-export type Mensualite = { id: string; abonnement_id: string; periode: string; montant_ht: number; payee_le: string | null; heures_faites: number | null; notes: string | null };
+export type Mensualite = {
+  id: string; abonnement_id: string; periode: string; montant_ht: number; payee_le: string | null; heures_faites: number | null; notes: string | null;
+  /** v13.33 (migration v93) — suivi des paiements. */
+  echeance?: string | null; relance_niveau?: number | null; relance_le?: string | null; qonto_link_id?: string | null; qonto_url?: string | null; qonto_statut?: string | null; mode_paiement?: string | null;
+};
 export type Reglement = {
   id: string; created_at: string; collaborateur_id: string; abonnement_id: string | null; cle: string | null;
   type: "commission" | "fidelite" | "bonus" | "retrocession" | "reprise" | "autre"; libelle: string; periode: string | null;
@@ -132,3 +136,38 @@ export const LIBELLE_TYPE: Record<Reglement["type"], string> = {
   commission: "Prime de signature", fidelite: "Prime de fidélité", bonus: "Bonus", retrocession: "Rétrocession", reprise: "Reprise", autre: "Autre",
 };
 export const nomCollab = (c?: Collaborateur | null) => (c ? [c.prenom, c.nom].filter(Boolean).join(" ") : "—");
+
+/* ------------------------------------------------------------------
+ *  SUIVI DES PAIEMENTS (v13.33) — /api/admin/paiements
+ * ------------------------------------------------------------------ */
+export type LigneSuiviPaiement = {
+  mensualite: Mensualite; abonnement: Abonnement; email: string | null; owner_id: string | null;
+  echeance: string; joursRetard: number; palierDu: number; etatCompte: string | null; montantTtc: number;
+};
+export type SituationPaiements = {
+  impayes: LigneSuiviPaiement[]; aVenir: LigneSuiviPaiement[];
+  encaisseMois: number; aEncaisserMois: number; enRetard: number;
+  collaborateurs: { id: string; nom: string; email: string | null; total: number; lignes: number; plusAncienne: string | null; enRetard: boolean }[];
+  totalCollaborateurs: number; qonto: boolean; relances: import("./economie").RelancesParams;
+  journal: { id: string; created_at: string; garage_nom: string | null; email: string | null; niveau: number; canal: string; auteur: string | null; ok: boolean; erreur: string | null }[];
+};
+export async function lireSituationPaiements(): Promise<SituationPaiements> {
+  const res = await fetchAuth("/api/admin/paiements");
+  const r = await lireReponse<SituationPaiements>(res);
+  if (!r.ok || !r.data) throw new Error(r.error || "Lecture impossible.");
+  return r.data;
+}
+async function postPaiements<T = unknown>(body: Record<string, unknown>): Promise<T> {
+  const res = await fetchAuth("/api/admin/paiements", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const r = await lireReponse<T>(res);
+  if (!r.ok) throw new Error(r.error || "Opération refusée.");
+  return r.data as T;
+}
+export const lienPaiementMensualite = (mensualite_id: string) => postPaiements<{ url: string; id: string }>({ action: "lien", mensualite_id });
+export const relancerMensualite = (mensualite_id: string, niveau: 1 | 2 | 3 | 4) => postPaiements<{ ok: boolean; email: string; erreur: string | null; suspendu: boolean }>({ action: "relancer", mensualite_id, niveau });
+export const pointerMensualitePayee = (mensualite_id: string, mode?: string, date?: string) => postPaiements<{ ok: boolean; reactive: boolean }>({ action: "payee", mensualite_id, mode, date });
+export const suspendreAbonnementImpaye = (abonnement_id: string) => postPaiements<{ ok: boolean; message: string }>({ action: "suspendre", abonnement_id });
+export const reactiverAbonnement = (abonnement_id: string) => postPaiements<{ ok: boolean }>({ action: "reactiver", abonnement_id });
+export const verifierLiensQonto = () => postPaiements<{ verifies: number; payees: number }>({ action: "verifier_liens" });
+export const envoyerDigestPaiements = () => postPaiements<{ envoye: boolean }>({ action: "digest" });
+export const lancerCronPaiements = () => postPaiements<{ rapport: string[] }>({ action: "cron" });

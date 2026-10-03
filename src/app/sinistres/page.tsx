@@ -256,7 +256,9 @@ export default function SinistresPage() {
     // v13.22 : restauration uniquement au RETOUR d'un dossier ouvert depuis
     // la liste ; via le menu ou après reconnexion, la liste repart propre.
     const e = consommerRetourAttendu(CLE_ETAT_LISTE) ? lireEtatListe(CLE_ETAT_LISTE, ETAT_VIDE) : ETAT_VIDE;
-    setQ(e.q);
+    // v13.35 : « Voir tous les résultats » depuis la recherche du tableau de bord.
+    const qUrl = new URLSearchParams(window.location.search).get("q");
+    setQ(qUrl ?? e.q);
     setFiltreStatut(e.filtreStatut);
     setFiltreExpert(e.filtreExpert);
     setFiltrePart(e.filtrePart);

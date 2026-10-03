@@ -6,7 +6,14 @@
 // classique, cartes blanches fines. Aucune photo de banque d'images : l'appli
 // est illustrée par une maquette de fiche dossier en HTML (volontairement
 // sombre, comme un écran produit, pour contraster avec la page claire).
+//
+// VERSION MOBILE (v13.35) : menu burger dans la barre du haut, héros
+// resserré (photo recadrée, boutons pleine largeur), chiffres en 2 colonnes,
+// étapes et formules en CARROUSEL à faire glisser (.lp-carrousel), fonctions
+// en liste compacte, et barre d'action collante en bas d'écran
+// (Démo / Se connecter). Le rendu ordinateur ne change pas.
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { METIER_INFOS, METIERS_PUBLICS, Metier } from "@/lib/metier";
@@ -207,13 +214,37 @@ function ApercuFicheDossier() {
 
 /* ------------------------------- La page ------------------------------- */
 
+const LIENS_MENU: [string, string][] = [
+  ["#video", "La démo"],
+  ["#fonctions", "Fonctionnalités"],
+  ["#etapes", "Comment ça marche"],
+  ["#formules", "Formules"],
+  ["#facturation-electronique", "Facturation électronique"],
+];
+
+const MAILTO_DEMO = "mailto:contact@myeasyauto.fr?subject=Demande de démonstration — My Easy Auto";
+
 export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => void }) {
+  // Menu mobile (burger) ; fermé par Échap ou au passage en grand écran.
+  const [menu, setMenu] = useState(false);
+  useEffect(() => {
+    if (!menu) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenu(false);
+    const onResize = () => window.innerWidth >= 640 && setMenu(false);
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [menu]);
+
   return (
     <div className="landing-pro min-h-screen">
       {/* ============================ Barre du haut ============================ */}
       <nav className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2.5 sm:py-3">
+          <a href="#" className="flex items-center gap-2.5 sm:gap-3" onClick={() => setMenu(false)}>
             <Image
               src="/logo.png"
               alt="My Easy Auto"
@@ -223,8 +254,29 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               priority
             />
             <span className="text-sm font-semibold tracking-tight">My Easy Auto</span>
+          </a>
+
+          {/* ----- Mobile : connexion + burger ----- */}
+          <div className="flex items-center gap-2 sm:hidden">
+            <a href="#espaces" className="lp-btn !px-3.5 !py-2 text-sm" onClick={() => setMenu(false)}>
+              Connexion
+            </a>
+            <button
+              type="button"
+              onClick={() => setMenu((m) => !m)}
+              aria-expanded={menu}
+              aria-controls="lp-menu-mobile"
+              aria-label={menu ? "Fermer le menu" : "Ouvrir le menu"}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5" aria-hidden="true">
+                {menu ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+              </svg>
+            </button>
           </div>
-          <div className="flex items-center gap-5">
+
+          {/* ----- Grand écran : liens ----- */}
+          <div className="hidden items-center gap-5 sm:flex">
             <a href="#fonctions" className="hidden text-sm text-slate-500 hover:text-slate-900 sm:block">
               Fonctionnalités
             </a>
@@ -239,11 +291,39 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
             </a>
           </div>
         </div>
+
+        {/* Panneau du menu mobile */}
+        {menu && (
+          <div id="lp-menu-mobile" className="border-t border-slate-200 bg-white px-4 pb-4 pt-2 shadow-lg sm:hidden">
+            <ul className="divide-y divide-slate-100">
+              {LIENS_MENU.map(([href, label]) => (
+                <li key={href}>
+                  <a
+                    href={href}
+                    onClick={() => setMenu(false)}
+                    className="flex items-center justify-between py-3.5 text-[15px] font-medium text-slate-700"
+                  >
+                    {label}
+                    <span className="text-slate-300" aria-hidden="true">›</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <a href={MAILTO_DEMO} className="lp-btn-ghost !px-3 text-sm" onClick={() => setMenu(false)}>
+                Demander une démo
+              </a>
+              <a href="#espaces" className="lp-btn !px-3 text-sm" onClick={() => setMenu(false)}>
+                Se connecter
+              </a>
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="mx-auto max-w-6xl px-4">
         {/* ============================== Héros ============================== */}
-        <header className="grid items-center gap-10 py-14 sm:py-20 lg:grid-cols-[1.25fr_1fr] lg:gap-16">
+        <header className="grid items-center gap-7 pb-10 pt-7 sm:gap-10 sm:py-20 lg:grid-cols-[1.25fr_1fr] lg:gap-16">
           <div>
             <span className="lp-chip">Carrosserie · Vitrage · Gestion des sinistres</span>
             <h1 className="mt-4">
@@ -253,23 +333,24 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               </span>
               .
             </h1>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-500">
+            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-slate-500 sm:mt-5 sm:text-base">
               My Easy Auto centralise chaque dossier de sinistre sur une seule page :
               import du chiffrage par IA, documents générés automatiquement, signature
               électronique et relances qui font rentrer l&apos;argent.
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <a href="#video" className="lp-btn">▶ Voir la démo (1 min 30)</a>
-              <a href="mailto:contact@myeasyauto.fr?subject=Demande de démonstration — My Easy Auto" className="lp-btn-ghost">
+            <div className="mt-6 flex flex-col gap-2.5 sm:mt-7 sm:flex-row sm:flex-wrap sm:gap-3">
+              <a href="#video" className="lp-btn w-full sm:w-auto">▶ Voir la démo (1 min 30)</a>
+              <a href={MAILTO_DEMO} className="lp-btn-ghost w-full sm:w-auto">
                 Demander une démonstration
               </a>
             </div>
-            <p className="mt-5 text-xs text-slate-400">
+            <p className="mt-4 text-xs leading-relaxed text-slate-400 sm:mt-5">
               Conçu avec des carrossiers, pour le travail réel de l&apos;atelier — sur ordinateur, tablette et téléphone.{" "}
               <a href="#formules" className="text-violet-700 hover:underline">Voir les formules et les prix</a>
             </p>
           </div>
-          <div className="mx-auto w-full max-w-md lg:max-w-[440px] xl:max-w-[480px] overflow-hidden rounded-2xl border border-black/5 shadow-2xl shadow-violet-900/20">
+          {/* Mobile : photo recadrée (4/3) pour ne pas occuper tout l'écran. */}
+          <div className="mx-auto aspect-[4/3] w-full max-w-md overflow-hidden rounded-2xl border border-black/5 shadow-xl shadow-violet-900/20 sm:aspect-auto sm:shadow-2xl lg:max-w-[440px] xl:max-w-[480px]">
             <Image
               src="/hero-atelier.jpeg"
               alt="My Easy Auto en situation dans l'atelier"
@@ -277,7 +358,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               height={1402}
               priority
               sizes="(min-width: 1280px) 480px, (min-width: 1024px) 440px, 90vw"
-              className="h-auto w-full"
+              className="h-full w-full object-cover object-[50%_30%] sm:h-auto"
             />
           </div>
         </header>
@@ -286,9 +367,9 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
             Présentation de 90 s : du rapport d'expertise à la facture. Fichier
             public/presentation.mp4 (720p, ~5 Mo, encodé pour le web) + affiche
             presentation-poster.jpg ; chargée seulement au clic (preload none). */}
-        <section id="video" className="scroll-mt-20 pb-14 sm:pb-20">
+        <section id="video" className="scroll-mt-20 pb-10 sm:pb-20">
           <div className="lp-card overflow-hidden">
-            <div className="grid items-center gap-6 p-5 sm:p-8 lg:grid-cols-[1.4fr_1fr]">
+            <div className="grid items-center gap-5 p-3 sm:gap-6 sm:p-8 lg:grid-cols-[1.4fr_1fr]">
               <div className="overflow-hidden rounded-2xl bg-slate-900 shadow-xl ring-1 ring-slate-200">
                 <video
                   className="aspect-video w-full"
@@ -306,17 +387,14 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
                   .
                 </video>
               </div>
-              <div>
+              <div className="px-2 pb-2 sm:p-0">
                 <span className="lp-chip">La démo en 1 min 30</span>
                 <h2 className="mt-3">Passer du rapport d&apos;expertise à la facture, en direct.</h2>
                 <p className="mt-3 text-sm leading-relaxed text-slate-500">
                   Un rapport déposé, le chiffrage lu automatiquement, le dossier créé, les documents générés et signés,
                   la relance qui part. Pas de montage : c&apos;est l&apos;application telle que vous l&apos;utiliserez demain.
                 </p>
-                <a
-                  href="mailto:contact@myeasyauto.fr?subject=Demande de démonstration — My Easy Auto"
-                  className="lp-btn-ghost mt-5 inline-block"
-                >
+                <a href={MAILTO_DEMO} className="lp-btn-ghost mt-5 w-full sm:w-auto">
                   Demander une démonstration personnalisée
                 </a>
               </div>
@@ -325,22 +403,22 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
         </section>
 
         {/* ========================== Chiffres clés ========================== */}
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
           {CHIFFRES.map(([chiffre, texte]) => (
-            <div key={chiffre} className="lp-card px-5 py-4">
-              <div className="text-xl font-bold tracking-tight">{chiffre}</div>
+            <div key={chiffre} className="lp-card px-4 py-3.5 sm:px-5 sm:py-4">
+              <div className="text-lg font-bold tracking-tight sm:text-xl">{chiffre}</div>
               <div className="mt-1 text-xs leading-relaxed text-slate-500">{texte}</div>
             </div>
           ))}
         </section>
 
         {/* ======================== Comment ça marche ======================== */}
-        <section id="etapes" className="scroll-mt-20 py-16 sm:py-20">
+        <section id="etapes" className="scroll-mt-20 py-12 sm:py-20">
           <span className="lp-chip">Comment ça marche</span>
           <h2 className="mt-3 max-w-2xl">
             Quatre étapes, du dépôt du rapport au paiement.
           </h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="lp-carrousel mt-6 sm:mt-8 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
             {ETAPES.map((e, i) => (
               <div key={e.titre} className="lp-card lp-card-hover p-5">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full border border-violet-300 bg-violet-50 text-sm font-bold text-violet-700">
@@ -351,22 +429,26 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               </div>
             ))}
           </div>
+          <p className="mt-2 text-center text-xs text-slate-400 sm:hidden">Faites glisser pour voir les 4 étapes →</p>
         </section>
 
         {/* ========================= Fonctionnalités ========================= */}
-        <section id="fonctions" className="scroll-mt-20 pb-16 sm:pb-20">
+        <section id="fonctions" className="scroll-mt-20 pb-12 sm:pb-20">
           <span className="lp-chip">Fonctionnalités</span>
           <h2 className="mt-3 max-w-2xl">
             Une seule application remplace le classeur, le tableur et la pile de papiers.
           </h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Mobile : liste compacte (icône à gauche) ; grand écran : grille de cartes. */}
+          <div className="mt-6 grid gap-2.5 sm:mt-8 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
             {FONCTIONS.map((f) => (
-              <div key={f.titre} className="lp-card lp-card-hover p-5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
+              <div key={f.titre} className="lp-card lp-card-hover flex gap-3.5 p-4 sm:block sm:p-5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
                   <Icone nom={f.icone} />
                 </div>
-                <div className="mt-4 font-semibold">{f.titre}</div>
-                <p className="mt-2 text-sm leading-relaxed text-slate-500">{f.texte}</p>
+                <div className="min-w-0">
+                  <div className="font-semibold sm:mt-4">{f.titre}</div>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-500 sm:mt-2">{f.texte}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -376,23 +458,20 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
         <FormulesAccueil />
 
         {/* ========================= Choix de l'espace ========================= */}
-        <section id="espaces" className="scroll-mt-20 pb-16 sm:pb-20">
+        <section id="espaces" className="scroll-mt-20 pb-12 sm:pb-20">
           <span className="lp-chip">Votre espace</span>
           <h2 className="mt-3 max-w-2xl">Deux métiers, deux espaces dédiés.</h2>
           <p className="mt-3 max-w-2xl text-sm text-slate-500">
             Le vocabulaire, les statuts et les documents s&apos;adaptent à votre activité.
           </p>
-          <div className="mt-8 grid gap-5 sm:grid-cols-2">
+          <div className="mt-6 grid gap-4 sm:mt-8 sm:grid-cols-2 sm:gap-5">
             {METIERS_PUBLICS.map((m) => (
               <EspaceCard key={m} metier={m} onChoisir={onChoisir} />
             ))}
           </div>
           <p className="mt-6 text-center text-xs text-slate-400">
             Les comptes sont créés par l&apos;administrateur —{" "}
-            <a
-              href="mailto:contact@myeasyauto.fr?subject=Demande de démonstration — My Easy Auto"
-              className="text-violet-700 hover:underline"
-            >
+            <a href={MAILTO_DEMO} className="text-violet-700 hover:underline">
               demander une démonstration
             </a>
             .
@@ -400,8 +479,8 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
         </section>
 
         {/* ===================== Note d'information — facturation électronique (v52) ===================== */}
-        <section id="facturation-electronique" className="scroll-mt-20 pb-16 sm:pb-20">
-          <div className="lp-card flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+        <section id="facturation-electronique" className="scroll-mt-20 pb-12 sm:pb-20">
+          <div className="lp-card flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-8">
             <div className="max-w-2xl">
               <span className="lp-chip">Réforme 2026-2027 · Facturation électronique</span>
               <h3 className="mt-2 !text-lg font-semibold">Vos factures sont déjà prêtes pour la facturation électronique.</h3>
@@ -412,15 +491,15 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
                 automatique à votre plateforme arrive avant l&apos;échéance de 2027.
               </p>
             </div>
-            <Link href="/facturation-electronique" className="lp-btn-ghost shrink-0">
+            <Link href="/facturation-electronique" className="lp-btn-ghost w-full shrink-0 sm:w-auto">
               Comprendre ce qui change
             </Link>
           </div>
         </section>
 
         {/* ============================ Bande finale ============================ */}
-        <section className="pb-16 sm:pb-20">
-          <div className="lp-card relative overflow-hidden p-8 text-center sm:p-12">
+        <section className="pb-12 sm:pb-20">
+          <div className="lp-card relative overflow-hidden px-5 py-8 text-center sm:p-12">
             <div
               className="pointer-events-none absolute inset-0 bg-gradient-to-r from-violet-600/10 via-fuchsia-600/5 to-teal-500/10"
               aria-hidden="true"
@@ -431,10 +510,7 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               qu&apos;un long discours : le dossier, les documents et la facture se créent
               devant vous.
             </p>
-            <a
-              href="mailto:contact@myeasyauto.fr?subject=Demande de démonstration — My Easy Auto"
-              className="lp-btn relative mt-6"
-            >
+            <a href={MAILTO_DEMO} className="lp-btn relative mt-6 w-full sm:w-auto">
               Demander une démonstration
             </a>
           </div>
@@ -442,10 +518,10 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
       </div>
 
       {/* ============================== Pied de page ============================== */}
-      <footer className="border-t border-slate-200">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-xs text-slate-400">
+      <footer className="border-t border-slate-200 pb-20 sm:pb-0">
+        <div className="mx-auto flex max-w-6xl flex-col-reverse items-center justify-between gap-3 px-4 py-6 text-center text-xs text-slate-400 sm:flex-row sm:flex-wrap sm:text-left">
           <p>© {new Date().getFullYear()} My Easy Auto — Tous droits réservés</p>
-          <div className="flex flex-wrap gap-x-4 gap-y-1">
+          <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
             <Link href="/contact" className="hover:text-slate-700 hover:underline">Contact</Link>
             <Link href="/mentions-legales" className="hover:text-slate-700 hover:underline">Mentions légales</Link>
             <Link href="/cgu" className="hover:text-slate-700 hover:underline">CGU</Link>
@@ -453,6 +529,18 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
           </div>
         </div>
       </footer>
+
+      {/* Barre d'action collante — MOBILE uniquement (v13.35). */}
+      {!menu && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 pt-2.5 backdrop-blur sm:hidden"
+          style={{ paddingBottom: "calc(0.625rem + env(safe-area-inset-bottom))" }}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <a href="#video" className="lp-btn-ghost !px-3 !py-2.5 text-sm">▶ La démo</a>
+            <a href="#espaces" className="lp-btn !px-3 !py-2.5 text-sm">Se connecter</a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

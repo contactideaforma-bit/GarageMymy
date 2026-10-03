@@ -60,12 +60,12 @@ export default function AdminAccueil() {
           </section>
 
           <section className="grid gap-3 md:grid-cols-3">
-            <Bloc titre="À encaisser" lien="/admin/abonnements" compteur={k.impayees.length} vide="Toutes les mensualités échues sont encaissées.">
+            <Bloc titre="Impayés — à relancer" lien="/admin/paiements" compteur={k.impayees.length} vide="Toutes les mensualités échues sont encaissées.">
               {k.impayees.slice(0, 6).map((m) => (
                 <li key={m.id} className="flex justify-between gap-2 text-sm"><span className="truncate text-white/80">{parAbo.get(m.abonnement_id)?.garage_nom || "—"} · {moisFr(m.periode)}</span><span className="tabular-nums text-rose-300">{euros(m.montant_ht)}</span></li>
               ))}
             </Bloc>
-            <Bloc titre="À payer aux collaborateurs" lien="/admin/reglements" compteur={k.aPayer.length} vide="Rien à payer. Pensez à « Générer le relevé » après le pointage.">
+            <Bloc titre="À payer aux collaborateurs" lien="/admin/paiements" compteur={k.aPayer.length} vide="Rien à payer. Pensez à « Générer le relevé » après le pointage.">
               {Object.entries(k.aPayer.reduce<Record<string, number>>((acc, r) => { acc[r.collaborateur_id] = (acc[r.collaborateur_id] || 0) + Number(r.montant); return acc; }, {})).map(([id, total]) => (
                 <li key={id} className="flex justify-between gap-2 text-sm"><span className="truncate text-white/80">{nomCollab(collabs.find((c) => c.id === id))}</span><span className="tabular-nums text-amber-300">{euros(total)}</span></li>
               ))}
@@ -82,6 +82,7 @@ export default function AdminAccueil() {
             <ol className="list-decimal space-y-1 pl-5 text-sm text-white/70">
               <li>Créez vos <Link href="/admin/collaborateurs" className="text-accent-pink hover:underline">collaborateurs</Link> (commerciaux et chargés de mission).</li>
               <li>Saisissez chaque <Link href="/admin/abonnements" className="text-accent-pink hover:underline">abonnement</Link> de garage en le rattachant à son commercial et son chargé de mission ; pointez les mensualités quand elles sont encaissées.</li>
+              <li>Le <Link href="/admin/paiements" className="text-accent-pink hover:underline">suivi des paiements</Link> relance seul les impayés (rappel → relance → avertissement → suspension), envoie les liens de paiement Qonto et vous rappelle ce que vous devez à vos collaborateurs.</li>
               <li>Chaque début de mois, <Link href="/admin/reglements" className="text-accent-pink hover:underline">générez le relevé</Link> : primes et rétrocessions dues apparaissent, vous les marquez payées après virement.</li>
               <li>Testez vos hypothèses dans le <Link href="/admin/simulateur" className="text-accent-pink hover:underline">simulateur</Link> — ses paramètres sont ceux des relevés.</li>
             </ol>

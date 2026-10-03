@@ -11,6 +11,7 @@ import { lireDocPack } from "@/lib/admin/packDocsServeur";
 import { docsPour, nomFichierDoc } from "@/lib/admin/packDocs";
 import type { MailAttachment } from "@/lib/mailer";
 import { appliquerFinsDeContrat, comptesAPurger, definirEtat, purgerCompte, EtatCompteRow } from "@/lib/admin/comptesServeur";
+import { reactiverSiRegularise } from "@/lib/admin/paiementsServeur";
 import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from "@/lib/admin/economie";
 
 // ============================================================
@@ -476,6 +477,11 @@ export async function POST(req: Request) {
     if (!propre.id) delete propre.id;
     const { data, error } = await admin.from(table).upsert(propre).select("*").single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    // v13.33 — mensualité pointée « payée » : un compte suspendu pour impayé
+    // est réactivé dès que plus rien n'est en retard sur l'abonnement.
+    if (table === "abonnement_mensualites" && propre.payee_le && typeof data?.abonnement_id === "string") {
+      try { await reactiverSiRegularise(admin, data.abonnement_id); } catch { /* best-effort */ }
+    }
     // FICHE COMMERCIALE rattachée à un compte (v10.2) : le compte devient
     // automatiquement « commercial » (app_metadata) — pas besoin du bouton.
     let metierPose: string | null = null;

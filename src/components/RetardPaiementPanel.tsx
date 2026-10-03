@@ -1142,7 +1142,7 @@ function EnvoiModal({ courrier, dossier, numeroFacture, onClose, onConfirmer }: 
   return (
     <ModalShell title={`Envoyer — ${LIBELLE_TYPE_COURRIER[courrier.type]}`} onClose={onClose} maxWidth="max-w-lg">
       <div className="space-y-3">
-        {/* v13.27 — Envoi dématérialisé : La Poste imprime et distribue le PDF (en pause v13.30). */}
+        {/* v13.27 — Envoi dématérialisé : La Poste imprime et distribue le PDF (pause v13.30, reprise v13.34). */}
         {COURRIERS_POSTE_ACTIFS && <>
         <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3">
           <div className="text-sm font-semibold text-white">📮 Envoyer par La Poste depuis l&apos;appli</div>

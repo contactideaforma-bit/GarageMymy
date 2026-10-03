@@ -54,7 +54,7 @@ export default function FormulesAccueil() {
   const remiseMax = Math.max(...CARTES.map((c) => tarifs[c.formule].remiseEngagementPct));
 
   return (
-    <section id="formules" className="scroll-mt-20 pb-16 sm:pb-20">
+    <section id="formules" className="scroll-mt-20 pb-12 sm:pb-20">
       <span className="lp-chip">Formules</span>
       <h2 className="mt-3 max-w-3xl">Une application complète, et un renfort si vous en avez besoin.</h2>
       <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-500">
@@ -63,8 +63,8 @@ export default function FormulesAccueil() {
       </p>
 
       {/* Choix de l'engagement : deux boutons, l'effet est immédiat sur les prix. */}
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <div role="radiogroup" aria-label="Durée d'engagement" className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
+      <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+        <div role="radiogroup" aria-label="Durée d'engagement" className="flex w-full rounded-xl border border-slate-200 bg-white p-1 sm:inline-flex sm:w-auto">
           {[
             { v: true, label: "Engagement 12 mois" },
             { v: false, label: "Sans engagement" },
@@ -75,7 +75,7 @@ export default function FormulesAccueil() {
               role="radio"
               aria-checked={engage === o.v}
               onClick={() => setEngage(o.v)}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition sm:flex-none sm:px-4 sm:py-2 ${
                 engage === o.v ? "bg-violet-600 text-white shadow" : "text-slate-600 hover:bg-slate-50"
               }`}
             >
@@ -90,7 +90,8 @@ export default function FormulesAccueil() {
         </span>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Mobile (v13.35) : carrousel à faire glisser ; grand écran : grille. */}
+      <div className="lp-carrousel mt-6 sm:grid sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
         {CARTES.map((c) => {
           const t = tarifs[c.formule];
           const prix = engage ? t.mensuelEngage : t.mensuel;
@@ -137,6 +138,8 @@ export default function FormulesAccueil() {
           );
         })}
       </div>
+
+      <p className="mt-2 text-center text-xs text-slate-400 sm:hidden">Faites glisser pour comparer les formules →</p>
 
       <p className="mt-3 text-xs text-slate-500">
         Les missions possibles sont les mêmes dans les trois formules Adhésion Service : seul le nombre d&apos;heures

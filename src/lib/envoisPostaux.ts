@@ -7,15 +7,16 @@
 // ====================================================================
 
 /**
- * INTERRUPTEUR DU SERVICE (v13.30).
- * Envoi par La Poste depuis l'appli EN PAUSE : le prestataire d'envoi
- * (Maileva) est à l'arrêt depuis le 23/09/2026 (cyberattaque). Pour
- * réactiver sans toucher au code : variable Vercel
- * NEXT_PUBLIC_COURRIERS_POSTE=1 puis redéploiement.
- * Pendant la pause : boutons masqués, routes d'envoi et d'achat de
+ * INTERRUPTEUR DU SERVICE.
+ * v13.30 : envoi par La Poste mis en PAUSE (Maileva à l'arrêt du 23/09 au
+ * 30/09/2026, cyberattaque). v13.34 : Maileva a repris → service ACTIF par
+ * défaut. Pour remettre en pause sans toucher au code : variable Vercel
+ * NEXT_PUBLIC_COURRIERS_POSTE=0 puis redéploiement (toute autre valeur,
+ * ou absence de variable, = actif).
+ * Pendant une pause : boutons masqués, routes d'envoi et d'achat de
  * jetons fermées ; l'historique, le suivi manuel et les soldes restent.
  */
-export const COURRIERS_POSTE_ACTIFS = process.env.NEXT_PUBLIC_COURRIERS_POSTE === "1";
+export const COURRIERS_POSTE_ACTIFS = process.env.NEXT_PUBLIC_COURRIERS_POSTE !== "0";
 export const MESSAGE_PAUSE_COURRIERS =
   "L'envoi de courriers par La Poste depuis l'appli est momentanément suspendu (incident chez notre partenaire d'envoi postal). Téléchargez le PDF et postez-le vous-même : le suivi manuel reste disponible.";
 

@@ -40,6 +40,32 @@ export type Parametres = {
   iban: string;                                    // coordonnées de paiement affichées au garage
   bic: string;
   lienPaiementCb: string;                          // lien de paiement par carte (Stripe, SumUp…) proposé par le commercial (v10.2)
+  /** v13.33 — SUIVI DES PAIEMENTS : échéance et paliers de relance (jours APRÈS l'échéance). */
+  relances: RelancesParams;
+};
+
+export type RelancesParams = {
+  jourEcheance: number;      // échéance = le N du mois de la période (mensualités payables d'avance) — défaut 5
+  rappel: number;            // J+N après échéance : rappel amical
+  relance: number;           // J+N : relance formelle (fait courir les 15 jours de l'art. 5 des CGV)
+  avertissement: number;     // J+N : dernier avertissement avant suspension
+  suspension: number;        // J+N : suspension (≥ relance + 15, art. 5)
+  auto: boolean;             // relances envoyées automatiquement par le cron
+  suspensionAuto: boolean;   // suspension automatique du compte au palier « suspension »
+  digestEditeur: boolean;    // email quotidien à l'éditeur (impayés, à venir, collaborateurs à payer)
+  delaiCollaborateurs: number; // jours au-delà desquels une ligne « à payer » à un collaborateur est signalée en retard
+};
+
+export const RELANCES_DEFAUT: RelancesParams = {
+  jourEcheance: 5,
+  rappel: 3,
+  relance: 10,
+  avertissement: 20,
+  suspension: 25,
+  auto: true,
+  suspensionAuto: true,
+  digestEditeur: true,
+  delaiCollaborateurs: 30,
 };
 
 export const PARAMETRES_DEFAUT: Parametres = {
@@ -70,6 +96,7 @@ export const PARAMETRES_DEFAUT: Parametres = {
   iban: "",
   bic: "",
   lienPaiementCb: "",
+  relances: RELANCES_DEFAUT,
 };
 
 /** Fusionne des paramètres partiels (venant de la base) avec les défauts. */
@@ -86,6 +113,7 @@ export function fusionnerParametres(p?: Partial<Parametres> | null): Parametres 
     remiseEngagement: { ...PARAMETRES_DEFAUT.remiseEngagement, ...(p.remiseEngagement || {}) },
     bonusAnnuelMensualites: { ...PARAMETRES_DEFAUT.bonusAnnuelMensualites, ...(p.bonusAnnuelMensualites || {}) },
     bonusAnnuelEuros: { ...PARAMETRES_DEFAUT.bonusAnnuelEuros, ...(p.bonusAnnuelEuros || {}) },
+    relances: { ...RELANCES_DEFAUT, ...(p.relances || {}) },
   };
 }
 

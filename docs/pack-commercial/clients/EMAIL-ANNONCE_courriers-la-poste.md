@@ -1,6 +1,6 @@
 # Email d'annonce — Courriers La Poste (My Easy Auto)
 
-> ⏸ **EN ATTENTE** : service suspendu depuis le 23/09/2026 (arrêt du prestataire Maileva). Ne pas envoyer tant que le service n'est pas réactivé dans l'appli.
+> ▶️ **SERVICE RÉACTIVÉ le 01/10/2026** (v13.34) après la pause du 23 au 30/09/2026. L'email peut être envoyé : fixer la [date d'ouverture] à J+30 minimum (préavis CGU art. 11).
 
 À envoyer aux garages clients **au moins 30 jours avant l'ouverture du service** : l'article 8 bis des CGU est nouveau, et l'article 11 prévoit un préavis de 30 jours pour toute modification substantielle.
 
@@ -31,7 +31,7 @@ Une question ? Répondez simplement à cet email ou passez par le menu Assistanc
 Bien cordialement,
 
 Myriam Ayouaz
-My Easy Auto by IDEAFORMA
+My Easy Auto
 contact@myeasyauto.fr
 
 ---

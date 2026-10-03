@@ -34,14 +34,14 @@ Tant mieux : l'application lui fait gagner du temps sur les devis et les facture
 Combien de dossiers de plus de 90 jours avez-vous en ce moment ? Combien d'argent ça représente ? Chaque heure passée au téléphone avec une assurance est une heure de moins à l'atelier. Le chargé de mission fait ça toute la journée, il connaît les interlocuteurs et les procédures.
 
 **« C'est cher. »**
-Un seul dossier de 2 000 € débloqué paie plusieurs mois d'Adhésion. Et le temps est enregistré dans l'application : le garage voit exactement à quoi partent ses heures.
+Un seul dossier de 2 000 € débloqué paie plusieurs mois d'Adhésion Service Plus. Et le temps est enregistré dans l'application : le garage voit exactement à quoi partent ses heures.
 
 **« Qu'est-ce qu'il ne fait pas ? »**
 Pas de comptabilité, pas de paie, pas de signature au nom du garage, pas de maniement de fonds. Il ne prend aucune décision à la place du patron : il fait avancer, il rend compte.
 
 ## Ce qui a été mis à jour
 
-Le mot « secrétaire / secrétariat » a disparu de toute la documentation et de l'application : fiches et plaquettes (sources HTML + PDF), flyer carrossiers, l'ensemble des documents Word du pack commercial et leurs PDF régénérés (argumentaire, guide et kit du commercial, formations, grille de commissions, fiche rentabilité, devis type, avenant, formulaires, procédures internes, contrats et CGV, charte de périmètre, guide collaborateur), et tous les textes visibles de l'application (libellés des formules, e-mails, contrats générés, conversation, compteur d'heures, espace éditeur). Les personnes sont désormais des « chargés de mission », le service est « l'Adhésion Service ».
+Le mot « secrétaire / secrétariat » a été retiré des documents destinés aux garages et aux commerciaux et de l'application : fiches et plaquettes (sources HTML + PDF), flyer carrossiers, l'ensemble des documents Word du pack commercial et leurs PDF régénérés (argumentaire, guide et kit du commercial, formations, grille de commissions, fiche rentabilité, devis type, avenant, formulaires, procédures internes, contrats et CGV, charte de périmètre, guide collaborateur), et tous les textes visibles de l'application (libellés des formules, e-mails, contrats générés, conversation, compteur d'heures, espace éditeur). Les personnes sont désormais des « chargés de mission », le service est « l'Adhésion Service ».
 
 ## Points de vigilance
 

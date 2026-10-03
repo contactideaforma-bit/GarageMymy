@@ -369,7 +369,7 @@ function LoginScreen({
 
   return (
     <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-sm glass-card p-8">
+      <div className="w-full max-w-sm glass-card p-6 sm:p-8">
         <div className="text-center mb-6">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="My Easy Auto" className="mx-auto mb-3 h-20 w-20 rounded-lg border-2 border-white/20" />

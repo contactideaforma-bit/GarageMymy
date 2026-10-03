@@ -6,6 +6,7 @@ import { PALIERS, etatRecouvrement } from "@/lib/recouvrement";
 import { envoyerPush } from "@/lib/pushServeur";
 import { Document, Paiement, Relance } from "@/lib/types";
 import { verifierAchatsEnAttente } from "@/lib/jetonsServeur";
+import { traiterQuotidien } from "@/lib/admin/paiementsServeur";
 
 // RELANCES AUTOMATIQUES (cron quotidien planifié dans vercel.json).
 // Pour chaque facture : échéance dépassée + reste à payer + dossier avec
@@ -52,6 +53,11 @@ async function executer(req: Request) {
   // v13.28 — filet de sécurité : crédite les achats de jetons payés mais
   // jamais vérifiés (garage qui n'est pas revenu sur la page après paiement).
   try { await verifierAchatsEnAttente(admin, null); } catch { /* best-effort */ }
+  // v13.33 — SUIVI DES PAIEMENTS DES ABONNEMENTS (éditeur) : liens Qonto,
+  // relances automatiques, suspension / réactivation, digest à l'éditeur.
+  // Adossé à ce cron (jours ouvrés) pour ne pas ajouter un cron Vercel.
+  let suiviAbonnements: string[] = [];
+  try { suiviAbonnements = await traiterQuotidien(admin); } catch (e) { suiviAbonnements = [`erreur : ${e instanceof Error ? e.message : ""}`]; }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -79,7 +85,7 @@ async function executer(req: Request) {
   }
 
   const factures = docs || [];
-  if (factures.length === 0) return NextResponse.json({ ok: true, examinees: 0, envoyees: 0 });
+  if (factures.length === 0) return NextResponse.json({ ok: true, examinees: 0, envoyees: 0, suiviAbonnements });
 
   const docIds = factures.map((f) => f.id);
   const dossierIds = Array.from(new Set(factures.map((f) => f.dossier_id).filter(Boolean)));
@@ -241,6 +247,7 @@ async function executer(req: Request) {
     envoyees,
     misesEnDemeureAPreparer: aPreparer.length,
     details,
+    suiviAbonnements,
   });
 }
 
