@@ -8,6 +8,7 @@ import { Document, Paiement, Relance } from "@/lib/types";
 import { verifierAchatsEnAttente } from "@/lib/jetonsServeur";
 import { traiterQuotidien } from "@/lib/admin/paiementsServeur";
 import { verifierLiensVentes } from "@/lib/admin/venteServeur";
+import { activerInscriptionsPayees, aviserRenouvellements } from "@/lib/admin/inscriptionServeur";
 
 // RELANCES AUTOMATIQUES (cron quotidien planifié dans vercel.json).
 // Pour chaque facture : échéance dépassée + reste à payer + dossier avec
@@ -61,6 +62,16 @@ async function executer(req: Request) {
   try { suiviAbonnements = await traiterQuotidien(admin); } catch (e) { suiviAbonnements = [`erreur : ${e instanceof Error ? e.message : ""}`]; }
   // v13.37 — ventes payées par lien de paiement (1re échéance d'un nouveau garage).
   try { await verifierLiensVentes(admin); } catch { /* best-effort */ }
+  // v13.41 — INSCRIPTIONS EN LIGNE : une inscription payée (lien Qonto pointé
+  // ci-dessus, ou virement confirmé par l'éditeur) est activée (abonnement +
+  // compte + bienvenue) ; les forfaits annuels reçoivent leur avis de
+  // reconduction 30 jours avant l'échéance (+ lien de paiement) et sont
+  // prolongés de 12 mois une fois le renouvellement payé.
+  try {
+    const n = await activerInscriptionsPayees(admin);
+    if (n) suiviAbonnements.push(`${n} inscription(s) en ligne activée(s)`);
+    suiviAbonnements.push(...(await aviserRenouvellements(admin)));
+  } catch (e) { suiviAbonnements.push(`inscriptions : ${e instanceof Error ? e.message : "erreur"}`); }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

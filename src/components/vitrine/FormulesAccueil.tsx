@@ -115,10 +115,10 @@ export default function FormulesAccueil() {
               </div>
               <div className="mt-4 flex items-baseline gap-1.5">
                 <span className="text-3xl font-bold tracking-tight">{eur(prix)}</span>
-                <span className="text-sm text-slate-500">HT / mois</span>
+                <span className="text-sm text-slate-500">/ mois</span>
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                {engage ? `${eur(autre)} HT sans engagement` : `${eur(autre)} HT avec engagement de 12 mois`}
+                {engage ? `${eur(autre)} sans engagement` : `${eur(autre)} avec engagement de 12 mois`}
               </div>
               <p className="mt-4 text-sm leading-relaxed text-slate-600 lg:min-h-[4.5rem]">{c.pourQui}</p>
               <ul className="mt-4 flex-1 space-y-2 border-t border-slate-100 pt-4">
@@ -141,6 +141,15 @@ export default function FormulesAccueil() {
 
       <p className="mt-2 text-center text-xs text-slate-400 sm:hidden">Faites glisser pour comparer les formules →</p>
 
+      {/* v13.41 — inscription en ligne : le garage s'abonne seul, sans rendez-vous commercial. */}
+      <div className="mt-6 flex flex-col items-center gap-2 rounded-2xl bg-violet-50 p-5 text-center sm:flex-row sm:justify-between sm:text-left">
+        <div>
+          <div className="font-semibold text-slate-900">Vous savez ce qu&apos;il vous faut ? Abonnez-vous en ligne.</div>
+          <div className="text-sm text-slate-600">Vos besoins → la formule conseillée → contrat signé en ligne → paiement sécurisé. Votre compte est créé automatiquement.</div>
+        </div>
+        <Link href="/inscription" className="lp-btn shrink-0">S&apos;abonner en ligne →</Link>
+      </div>
+
       <p className="mt-3 text-xs text-slate-500">
         Les missions possibles sont les mêmes dans les trois formules Adhésion Service : seul le nombre d&apos;heures
         change. Les exemples de chaque carte sont des repères pour choisir.
@@ -152,17 +161,17 @@ export default function FormulesAccueil() {
           <div>
             <div className="font-semibold text-slate-900">Mise en service</div>
             Paramétrage du compte, reprise de vos dossiers en cours et formation à distance :{" "}
-            {eur(params.miseEnService)}&nbsp;HT, <b>offerte</b> avec l&apos;engagement de 12 mois ou l&apos;année payée en une fois.
+            {eur(params.miseEnService)}, <b>offerte</b> avec l&apos;engagement de 12 mois ou l&apos;année payée en une fois.
           </div>
           <div>
             <div className="font-semibold text-slate-900">Vos heures</div>
-            Reportables à 50 % sur le mois suivant. Au-delà du forfait : {eur(params.heureHorsForfait)}&nbsp;HT de
+            Reportables à 50 % sur le mois suivant. Au-delà du forfait : {eur(params.heureHorsForfait)} de
             l&apos;heure, uniquement sur votre accord écrit.
           </div>
           <div>
             <div className="font-semibold text-slate-900">Souplesse</div>
-            Passage à une formule supérieure à tout moment. Pas de jetons, pas d&apos;option cachée. Prix hors
-            taxes, TVA 20 % en sus.
+            Passage à une formule supérieure à tout moment. Pas de jetons, pas d&apos;option cachée. Prix nets :
+            TVA non applicable, art. 293 B du CGI.
           </div>
         </div>
       </div>

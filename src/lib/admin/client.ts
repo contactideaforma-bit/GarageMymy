@@ -28,12 +28,25 @@ export type Vente = {
   prospect_id?: string | null; owner_id?: string | null; paiement_demande?: string | null; paiement_demande_le?: string | null; paiement_confirme_le?: string | null; paiement_valide_le?: string | null;
   /** v13.31 (migration v92) — trace de création du compte garage. */
   compte_cree_le?: string | null; compte_cree_par?: "editeur" | "commercial" | null;
+  /** v13.41 (migration v98) — inscription en ligne. */
+  origine?: "commercial" | "en_ligne" | null; token?: string | null; source_connaissance?: string | null; source_detail?: string | null;
+  formule_conseillee?: string | null; paiement_en_ligne_mode?: "stripe" | "qonto" | "virement" | null;
+  stripe_customer_id?: string | null; stripe_subscription_id?: string | null; stripe_checkout_id?: string | null; stripe_statut?: string | null;
+  contrat_envoye_le?: string | null; activee_le?: string | null; qonto_url?: string | null; qonto_statut?: string | null;
+};
+/** v13.41 — demande de rappel faite depuis le parcours d'inscription. */
+export type DemandeRappel = {
+  id: string; created_at: string; vente_id: string | null; garage_nom: string | null; contact_nom: string | null; tel: string; email: string | null;
+  creneau: string | null; message: string | null; etape: string | null; source_connaissance: string | null; formule_conseillee: string | null;
+  traite_le: string | null; traite_par: string | null; notes: string | null;
 };
 export type Abonnement = {
   id: string; created_at: string; garage_nom: string; garage_email: string | null; garage_owner_id: string | null;
   formule: "essentiel" | "starter" | "confort" | "serenite"; prix_ht: number; remise_pct: number; periodicite: "mensuel" | "annuel"; montant_annuel: number | null; heures: number;
   date_signature: string; date_debut: string; engagement_12: boolean; statut: "actif" | "suspendu" | "resilie";
   date_fin: string | null; commercial_id: string | null; secretaire_id: string | null; notes: string | null;
+  /** v13.41 (migration v98). */
+  origine?: string | null; stripe_subscription_id?: string | null; stripe_customer_id?: string | null; date_renouvellement?: string | null; renouvellement_avise_le?: string | null;
 };
 export type Mensualite = {
   id: string; abonnement_id: string; periode: string; montant_ht: number; payee_le: string | null; heures_faites: number | null; notes: string | null;
@@ -58,7 +71,7 @@ export type CollaborateurDocument = {
   signe_le: string | null; envoye_le: string | null; envoye_a: string | null; notes: string | null;
 };
 
-export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "collaborateur_documents" | "ventes" | "comptes_etat" | "comptes_purges" | "prospects" | "prospect_documents" | "prospect_interactions";
+export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "collaborateur_documents" | "ventes" | "comptes_etat" | "comptes_purges" | "prospects" | "prospect_documents" | "prospect_interactions" | "demandes_rappel";
 export type CompteAuth = { id: string; email: string };
 export type EtatCompteAdmin = {
   owner_id: string; etat: "actif" | "suspendu" | "lecture_seule" | "ferme"; motif: string | null; message: string | null;
@@ -125,6 +138,8 @@ export const envoyerDocsCollaborateur = (args: { collaborateur_id: string; cles:
   post<{ envoyes: number; a: string }>({ action: "envoyer_docs_collaborateur", ...args });
 export const validerVente = (vente_id: string, opts: { date_debut: string; secretaire_id?: string | null; remise_acceptee?: boolean }) =>
   post<{ abonnement_id: string }>({ action: "valider_vente", vente_id, ...opts });
+/** v13.41 — virement constaté / activation forcée d'une inscription en ligne. */
+export const activerInscription = (vente_id: string, reference?: string) => post<{ ok: true; abonnementId: string; compte: boolean; emailEnvoye: boolean }>({ action: "activer_inscription", vente_id, reference: reference || "" });
 export const STATUTS_VENTE: Record<Vente["statut"], { label: string; badge: string }> = {
   declaree: { label: "À valider", badge: "badge badge-warn" },
   validee: { label: "Validée", badge: "badge badge-info" },

@@ -12,7 +12,9 @@ import { STATUTS_PROSPECT } from "@/lib/prospects";
 import { tauxRemplissage } from "@/lib/ficheBesoins";
 import type { Vente } from "@/lib/admin/client";
 
-export const TVA_VENTE = 20;
+/** v13.41 — IDEAFORMA est en franchise en base de TVA (art. 293 B du CGI) : prix nets, pas de TVA. */
+export const TVA_VENTE = 0;
+export const MENTION_TVA = "TVA non applicable, art. 293 B du CGI";
 
 export type CleEtape =
   | "contact"

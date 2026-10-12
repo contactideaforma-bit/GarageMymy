@@ -11,8 +11,9 @@ import AdminShell, { ChampAdmin, dateFr, euros } from "@/components/admin/AdminS
 import ModalShell from "@/components/ModalShell";
 import BoutonRenvoiBienvenue from "@/components/admin/BoutonRenvoiBienvenue";
 import {
-  Abonnement, Collaborateur, Mensualite, ResultatCompteGarage, STATUTS_VENTE, Vente, creerCompteGarage, lireParametres, lireTable, nomCollab, supprimerLigne, upsertLigne, validerVente,
+  Abonnement, Collaborateur, DemandeRappel, Mensualite, ResultatCompteGarage, STATUTS_VENTE, Vente, activerInscription, creerCompteGarage, lireParametres, lireTable, nomCollab, supprimerLigne, upsertLigne, validerVente,
 } from "@/lib/admin/client";
+import { libelleCreneau, libelleSource } from "@/lib/inscription";
 import { PARAMETRES_DEFAUT, Parametres, primeVente } from "@/lib/admin/economie";
 import { MODES_PAIEMENT, VenteContrat } from "@/lib/admin/contratGarage";
 import { telechargerContratPdf } from "@/lib/admin/contratPdf";
@@ -25,6 +26,7 @@ export default function VentesPage() {
   const [collabs, setCollabs] = useState<Collaborateur[]>([]);
   const [abos, setAbos] = useState<Abonnement[]>([]);
   const [mens, setMens] = useState<Mensualite[]>([]);
+  const [rappels, setRappels] = useState<DemandeRappel[]>([]);
   const [p, setP] = useState<Parametres>(PARAMETRES_DEFAUT);
   const [filtre, setFiltre] = useState<Filtre>("a_traiter");
   const [ouverte, setOuverte] = useState<Vente | null>(null);
@@ -38,6 +40,8 @@ export default function VentesPage() {
         lireTable<Vente>("ventes"), lireTable<Collaborateur>("collaborateurs"), lireTable<Abonnement>("abonnements"), lireTable<Mensualite>("abonnement_mensualites"), lireParametres(),
       ]);
       setVentes(v); setCollabs(c); setAbos(a); setMens(m); setP(params);
+      // v13.41 — demandes de rappel (migration v98 ; silencieux si absente).
+      try { setRappels(await lireTable<DemandeRappel>("demandes_rappel")); } catch { setRappels([]); }
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Lecture impossible (migration v55 exécutée ?).");
     } finally {
@@ -77,6 +81,24 @@ export default function VentesPage() {
   }
 
   const nbATraiter = ventes.filter((v) => v.statut === "declaree").length;
+  const rappelsOuverts = rappels.filter((r) => !r.traite_le);
+
+  // v13.41 — inscription en ligne : virement constaté / activation (abonnement + compte + bienvenue).
+  async function activer(v: Vente) {
+    const ref = v.paiement_confirme_le ? "" : window.prompt(`Confirmer le paiement reçu pour ${v.garage_nom} (référence du virement, facultatif) ?\nL'abonnement et le compte du garage seront créés et l'email de bienvenue envoyé.`, "");
+    if (ref === null) return;
+    try {
+      const r = await activerInscription(v.id, ref || "");
+      setMessage(r.compte ? (r.emailEnvoye ? "Inscription activée : compte créé, email de bienvenue envoyé." : "Inscription activée : compte créé, mais l'email de bienvenue n'est pas parti (renvoyer depuis la fiche).") : "Inscription activée (compte déjà existant).");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Activation impossible.");
+    }
+    charger();
+  }
+  async function rappelFait(r: DemandeRappel) {
+    await upsertLigne<DemandeRappel>("demandes_rappel", { id: r.id, traite_le: new Date().toISOString() });
+    charger();
+  }
 
   return (
     <AdminShell
@@ -95,7 +117,32 @@ export default function VentesPage() {
       <p className="text-xs text-white/45">
         Les commerciaux déclarent leurs ventes sur <b className="text-white/70">myeasyauto.fr/vente</b> avec leur code apporteur (fiche Collaborateurs).
         Valider une vente crée l&apos;abonnement (onglet Abonnements) ; les primes suivent le pointage des mensualités encaissées.
+        Les garages peuvent aussi <b className="text-white/70">s&apos;inscrire seuls</b> sur <b className="text-white/70">myeasyauto.fr/inscription</b> : contrat signé en ligne, paiement Stripe (prélèvement mensuel) ou lien Qonto / virement (année) — l&apos;activation est automatique dès le paiement confirmé.
       </p>
+
+      {rappelsOuverts.length > 0 && (
+        <div className="glass-card p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-white">📞 Demandes de rappel ({rappelsOuverts.length})</h2>
+            <span className="text-xs text-white/40">depuis le parcours d&apos;inscription en ligne</span>
+          </div>
+          <div className="mt-2 space-y-2">
+            {rappelsOuverts.map((r) => (
+              <div key={r.id} className="flex flex-wrap items-start justify-between gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <div className="font-semibold text-white">{r.garage_nom || r.contact_nom || r.tel} <span className="font-normal text-white/50">· {dateFr(r.created_at)}</span></div>
+                  <div className="text-xs text-white/70">
+                    {r.contact_nom ? `${r.contact_nom} · ` : ""}<a className="text-accent-teal hover:underline" href={`tel:${r.tel}`}>{r.tel}</a>{r.email ? ` · ${r.email}` : ""} · {libelleCreneau(r.creneau)}
+                    {r.etape ? ` · étape « ${r.etape} »` : ""}{r.formule_conseillee ? ` · formule conseillée : ${p.formules[r.formule_conseillee as Vente["formule"]]?.libelle || r.formule_conseillee}` : ""}{r.source_connaissance ? ` · connu par : ${libelleSource(r.source_connaissance)}` : ""}
+                  </div>
+                  {r.message && <div className="mt-0.5 text-xs text-white/60">« {r.message} »</div>}
+                </div>
+                <button className="text-emerald-300 hover:underline" onClick={() => rappelFait(r)}>Rappel fait ✓</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-sm text-white/40">Chargement…</p>
@@ -114,6 +161,7 @@ export default function VentesPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={st.badge}>{st.label}</span>
+                      {v.origine === "en_ligne" && <span className="badge badge-info">🌐 En ligne</span>}
                       {s?.etat === "fidelisee" && v.statut !== "fidelisee" && <span className="badge badge-ok">Fidélisée ({s.payees} mens.)</span>}
                       {s?.etat === "perdue" && v.statut !== "perdue" && <span className="badge badge-danger">Résiliée</span>}
                       {s?.etat === "en_cours" && <span className="badge badge-neutral">{s.payees}/{p.mensualitesReprise} mensualités encaissées</span>}
@@ -127,16 +175,23 @@ export default function VentesPage() {
                       {" · "}{MODES_PAIEMENT[v.mode_paiement] || v.mode_paiement}
                       {v.paiement_sur_place && <span className="text-emerald-300"> · reçu sur place {euros(v.paiement_montant)} (réf. {v.paiement_reference || "—"})</span>}
                       {v.paiement_demande && !v.paiement_confirme_le && <span className="text-amber-300"> · {v.paiement_demande} demandé au garage</span>}
-                      {v.paiement_confirme_le && <span className={v.paiement_valide_le ? "text-emerald-300" : "text-amber-300"}> · paiement confirmé par le commercial{v.paiement_valide_le ? " ✓ vérifié" : " — À VÉRIFIER"}</span>}
+                      {v.paiement_confirme_le && <span className={v.paiement_valide_le ? "text-emerald-300" : "text-amber-300"}> · paiement confirmé{v.origine === "en_ligne" ? (v.paiement_en_ligne_mode === "stripe" ? " (prélèvement Stripe)" : v.paiement_en_ligne_mode === "qonto" ? " (lien de paiement)" : " (virement)") : " par le commercial"}{v.paiement_valide_le ? " ✓ vérifié" : " — À VÉRIFIER"}</span>}
+                      {v.origine === "en_ligne" && !v.paiement_confirme_le && <span className="text-amber-300"> · en attente du paiement ({v.paiement_en_ligne_mode === "stripe" ? "prélèvement Stripe" : v.paiement_en_ligne_mode === "qonto" ? "lien de paiement" : "virement"})</span>}
+                      {v.origine === "en_ligne" && v.activee_le && <span className="text-emerald-300"> · activée automatiquement le {dateFr(v.activee_le)}</span>}
                       {v.compte_cree_par && <span className="text-accent-teal"> · compte créé {v.compte_cree_par === "commercial" ? "par le commercial" : "par l'éditeur"}{v.compte_cree_le ? ` le ${dateFr(v.compte_cree_le)}` : ""}</span>}
                     </div>
                     <div className="mt-1 text-xs text-white/50">
-                      Commercial : {nomCollab(commercial)} (code {v.code_apporteur}) · prime {euros(prime.total)} à la {prime.mensualiteEcheance}<sup>e</sup> mensualité
+                      {v.origine === "en_ligne"
+                        ? <>Inscription en ligne · connu par : {libelleSource(v.source_connaissance)}{v.source_detail ? ` (${v.source_detail})` : ""}{v.formule_conseillee ? ` · formule conseillée : ${p.formules[v.formule_conseillee as Vente["formule"]]?.libelle || v.formule_conseillee}${v.formule_conseillee === v.formule ? " ✓" : " (autre choix)"}` : ""}{commercial ? ` · apporteur ${nomCollab(commercial)} (code ${v.code_apporteur}) · prime ${euros(prime.total)}` : ""}</>
+                        : <>Commercial : {nomCollab(commercial)} (code {v.code_apporteur}) · prime {euros(prime.total)} à la {prime.mensualiteEcheance}<sup>e</sup> mensualité</>}
                       {" · "}contact {v.contact_nom || "—"} {v.contact_tel || ""} {v.contact_email}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
                     <button className="text-accent-teal hover:underline" onClick={() => setOuverte(v)}>Ouvrir</button>
+                    {v.origine === "en_ligne" && !v.activee_le && v.statut !== "refusee" && (
+                      <button className="text-emerald-300 hover:underline" onClick={() => activer(v)}>{v.paiement_confirme_le ? "Activer (abonnement + compte)" : "Virement reçu → activer"}</button>
+                    )}
                     {v.paiement_confirme_le && !v.paiement_valide_le && (
                       <button className="text-emerald-300 hover:underline" onClick={async () => { await upsertLigne<Vente>("ventes", { id: v.id, paiement_valide_le: new Date().toISOString() }); charger(); }}>Paiement vérifié ✓</button>
                     )}

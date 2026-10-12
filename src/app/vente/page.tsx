@@ -342,7 +342,7 @@ export default function VentePage() {
             <p className="mt-1 text-sm text-slate-500">
               Première échéance : <b>{eur(montantDu)} HT</b>
               {offre.periodicite === "annuel" ? " (année complète)" : " (première mensualité)"}
-              {prix.miseEnService ? ` dont mise en service ${eur(prix.miseEnService)}` : ""}, TVA en sus. Facture émise par IDEAFORMA.
+              {prix.miseEnService ? ` dont mise en service ${eur(prix.miseEnService)}` : ""} — TVA non applicable, art. 293 B du CGI. Facture émise par IDEAFORMA.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {Object.entries(MODES_PAIEMENT).map(([k, l]) => (

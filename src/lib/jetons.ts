@@ -7,11 +7,12 @@
 //  un coût externe réel (timbre + impression), payé à l'envoi.
 // ====================================================================
 
-export const TVA_JETONS = 0.2;
+/** v13.41 — franchise en base de TVA (art. 293 B du CGI) : prix nets. */
+export const TVA_JETONS = 0;
 
 export type PackJetons = { id: string; libelle: string; jetons: number; prixHt: number; mention?: string };
 
-/** Packs vendus. Prix HT ; le TTC est calculé (TVA 20 %). */
+/** Packs vendus. Prix nets (TVA non applicable). */
 export const PACKS_JETONS: PackJetons[] = [
   { id: "decouverte", libelle: "Pack Découverte", jetons: 10, prixHt: 24 },
   { id: "garage", libelle: "Pack Garage", jetons: 50, prixHt: 110, mention: "Le plus choisi" },

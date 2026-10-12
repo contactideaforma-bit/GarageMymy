@@ -115,6 +115,7 @@ const LIENS_NAV: [string, string][] = [
   ["/#fonctions", "Fonctionnalités"],
   ["/#etapes", "Comment ça marche"],
   ["/contact", "Contact"],
+  ["/inscription", "S'abonner en ligne"],
 ];
 
 export function VitrineNav() {

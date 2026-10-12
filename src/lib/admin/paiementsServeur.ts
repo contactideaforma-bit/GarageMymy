@@ -24,7 +24,8 @@ import { Parametres, RelancesParams, fusionnerParametres } from "@/lib/admin/eco
 import { creerLienPaiement, qontoConfigure, statutLienPaiement } from "@/lib/qonto";
 import { SOCIETE } from "@/components/vitrine/societe";
 
-export const TVA_ABONNEMENT = 20;
+/** v13.41 — franchise en base de TVA (art. 293 B du CGI) : les mensualités sont nettes. */
+export const TVA_ABONNEMENT = 0;
 const SITE = () => process.env.NEXT_PUBLIC_SITE_URL || "https://myeasyauto.fr";
 
 export type Niveau = 1 | 2 | 3 | 4;
@@ -72,6 +73,8 @@ export type AbonnementRow = {
   id: string; garage_nom: string; garage_email: string | null; garage_owner_id: string | null; formule: string; statut: string;
   prix_ht: number; periodicite: string; commercial_id: string | null; secretaire_id: string | null;
   date_debut?: string | null; date_fin?: string | null;
+  /** v13.41 — abonnement prélevé automatiquement par Stripe (pas d'appel de paiement). */
+  stripe_subscription_id?: string | null;
 };
 export type LigneSuivi = {
   mensualite: MensualiteRow;
@@ -460,7 +463,7 @@ export async function envoyerAppel(admin: SupabaseClient, mensualiteId: string, 
   const texte = [
     "Bonjour,",
     "",
-    `Votre mensualité ${SOCIETE.produit} de ${mois} pour ${a.garage_nom} arrive à échéance le ${echeanceFr} : ${montantTtc} TTC (${eur(Number(m.montant_ht))} HT + TVA ${TVA_ABONNEMENT} %).`,
+    `Votre mensualité ${SOCIETE.produit} de ${mois} pour ${a.garage_nom} arrive à échéance le ${echeanceFr} : ${montantTtc} (TVA non applicable, art. 293 B du CGI).`,
     "",
     lien ? `👉 Payer en quelques secondes (carte bancaire, Apple Pay) : ${lien}` : "",
     p.iban ? `Ou par virement : IBAN ${p.iban}${p.bic ? ` · BIC ${p.bic}` : ""} — référence « MEA ${a.garage_nom.slice(0, 20)} ${mois} »` : "",
@@ -490,6 +493,8 @@ export async function envoyerAppels(admin: SupabaseClient, sit: Situation): Prom
     const m = l.mensualite;
     if (m.appel_le || (Number(m.relance_niveau) || 0) > 0) continue;
     if (l.abonnement.statut !== "actif" || !l.email) continue;
+    // v13.41 — prélèvement Stripe : la mensualité est prélevée et pointée toute seule (webhook invoice.paid).
+    if (l.abonnement.stripe_subscription_id) continue;
     if (-l.joursRetard > Math.max(0, rp.appelJours)) continue; // pas encore dans la fenêtre
     try {
       const r = await envoyerAppel(admin, m.id, "cron");

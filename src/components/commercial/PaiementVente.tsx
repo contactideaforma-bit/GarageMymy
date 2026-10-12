@@ -18,7 +18,7 @@ import { formatDate, formatDateTime, formatEuros, messageErreur } from "@/lib/fo
 import { telHref } from "@/lib/prospects";
 import { ContexteCommercial, envoyerPaiementVente, lienPaiementVente, majPaiement, verifierPaiementVente } from "@/lib/commercialClient";
 import { SOCIETE } from "@/components/vitrine/societe";
-import { TVA_VENTE, VenteParcours, estPaye, premiereEcheance, referenceVirement } from "@/lib/venteParcours";
+import { MENTION_TVA, VenteParcours, estPaye, premiereEcheance, referenceVirement } from "@/lib/venteParcours";
 
 type Mode = "lien" | "virement";
 
@@ -118,7 +118,7 @@ export default function PaiementVente({ vente: v, ctx, onChanged }: { vente: Ven
         <div className="text-sm font-semibold text-white">Encaisser la 1re échéance</div>
         <div className="text-right">
           <div className="text-xl font-bold tabular-nums text-white">{formatEuros(m.ttc)} TTC</div>
-          <div className="text-[11px] text-white/50">{formatEuros(m.ht)} HT + TVA {TVA_VENTE} %{Number(v.mise_en_service_ht) ? " · mise en service incluse" : ""}</div>
+          <div className="text-[11px] text-white/50">{MENTION_TVA}{Number(v.mise_en_service_ht) ? " · mise en service incluse" : ""}</div>
         </div>
       </div>
 

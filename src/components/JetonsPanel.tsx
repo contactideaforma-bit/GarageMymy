@@ -94,7 +94,7 @@ export default function JetonsPanel({ onSolde }: { onSolde?: (s: number) => void
             {p.mention && <span className="badge badge-info absolute right-2 top-2">{p.mention}</span>}
             <div className="text-sm font-semibold text-white">{p.libelle}</div>
             <div className="text-2xl font-bold text-white">{p.jetons} <span className="text-sm font-normal text-white/60">jetons</span></div>
-            <div className="text-sm text-white/80">{formatEuros(p.prixHt)} HT <span className="text-white/50">· {formatEuros(ttc(p.prixHt))} TTC</span></div>
+            <div className="text-sm text-white/80">{formatEuros(ttc(p.prixHt))} <span className="text-white/50">· TVA non applicable</span></div>
             <div className="text-xs text-white/50">soit {formatEuros(prixUnitaireHt(p))} HT le jeton · ≈ {Math.floor(p.jetons / JETONS_PAR_ENVOI.lrar)} recommandés</div>
           </button>
         ))}
@@ -133,7 +133,7 @@ export default function JetonsPanel({ onSolde }: { onSolde?: (s: number) => void
         <ModalShell title={`Acheter — ${pack.libelle}`} onClose={() => setAchat(null)}>
           <div className="glass-soft p-3 text-sm text-white/85">
             <div className="text-lg font-semibold text-white">{pack.jetons} jetons courriers La Poste</div>
-            <div>{formatEuros(pack.prixHt)} HT · <strong>{formatEuros(ttc(pack.prixHt))} TTC</strong></div>
+            <div><strong>{formatEuros(ttc(pack.prixHt))}</strong> · TVA non applicable, art. 293 B du CGI</div>
             <div className="mt-1 text-xs text-white/55">Paiement sécurisé Qonto : carte bancaire, Apple Pay ou PayPal. Facture adressée par IDEAFORMA (My Easy Auto).</div>
           </div>
           <label className="flex items-start gap-2 text-sm text-white/85">

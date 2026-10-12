@@ -155,7 +155,7 @@ export async function envoyerDemandePaiement(
   const bonjour = `Bonjour${v.contact_nom ? ` ${v.contact_nom}` : ""},`;
   const recap = [
     `Offre : ${libelleOffre(v, p)}${v.engagement_12 ? " (engagement 12 mois)" : ""}`,
-    `Montant : ${eur(m.ht)} HT + TVA ${TVA_VENTE} % (${eur(m.tva)}) = ${eur(m.ttc)} TTC`,
+    `Montant : ${eur(m.ttc)} (TVA non applicable, art. 293 B du CGI)`,
   ];
   const corps =
     args.mode === "lien"

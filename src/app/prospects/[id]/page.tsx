@@ -737,7 +737,7 @@ function VenteDeclaration({ prospect, doc, offre, params, paiementEnLigne, onClo
   return (
     <>
       <p className="text-sm text-white/70">
-        {params.formules[offre.formule].libelle} · {offre.periodicite === "annuel" ? `année en une fois ${formatEuros(prix.montantAnnuel)} HT` : `${formatEuros(prix.mensualite)} HT / mois`}{offre.engagement_12 || offre.periodicite === "annuel" ? " · engagement 12 mois" : ""}. Première échéance : <b className="text-white">{formatEuros(du)} HT</b> (TVA en sus), facturée par IDEAFORMA.
+        {params.formules[offre.formule].libelle} · {offre.periodicite === "annuel" ? `année en une fois ${formatEuros(prix.montantAnnuel)} HT` : `${formatEuros(prix.mensualite)} HT / mois`}{offre.engagement_12 || offre.periodicite === "annuel" ? " · engagement 12 mois" : ""}. Première échéance : <b className="text-white">{formatEuros(du)}</b> (TVA non applicable, art. 293 B du CGI), facturée par IDEAFORMA.
       </p>
       <div>
         <label className="field-label">Comment le garage préfère-t-il régler ?</label>

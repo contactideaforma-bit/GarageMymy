@@ -545,7 +545,7 @@ export function construireSimulationPdf(garageNom: string, formuleRetenue: Formu
 
   para(
     c,
-    "Prix hors taxes, TVA en sus. Chaque formule peut être souscrite de trois façons : sans engagement, avec un engagement de 12 mois (remise sur la mensualité), ou en payant l'année en une fois (remise d'engagement et avantage supplémentaire). La mise en service - paramétrage, import des données, formation à distance - est offerte dès qu'il y a engagement.",
+    "Prix nets, TVA non applicable (art. 293 B du CGI). Chaque formule peut être souscrite de trois façons : sans engagement, avec un engagement de 12 mois (remise sur la mensualité), ou en payant l'année en une fois (remise d'engagement et avantage supplémentaire). La mise en service - paramétrage, import des données, formation à distance - est offerte dès qu'il y a engagement.",
     { taille: 9.2, couleur: GRIS }
   );
 

@@ -12,6 +12,7 @@ import { docsPour, nomFichierDoc } from "@/lib/admin/packDocs";
 import type { MailAttachment } from "@/lib/mailer";
 import { appliquerFinsDeContrat, comptesAPurger, definirEtat, purgerCompte, EtatCompteRow } from "@/lib/admin/comptesServeur";
 import { reactiverSiRegularise } from "@/lib/admin/paiementsServeur";
+import { ErreurInscription, activerInscription } from "@/lib/admin/inscriptionServeur";
 import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from "@/lib/admin/economie";
 
 // ============================================================
@@ -36,7 +37,7 @@ import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes", "collaborateur_documents", "ventes", "comptes_etat", "comptes_purges", "prospects", "prospect_documents", "prospect_interactions"] as const;
+const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes", "collaborateur_documents", "ventes", "comptes_etat", "comptes_purges", "prospects", "prospect_documents", "prospect_interactions", "demandes_rappel"] as const;
 type Table = (typeof TABLES)[number];
 const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   collaborateurs: { col: "nom", asc: true },
@@ -52,6 +53,8 @@ const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   prospect_documents: { col: "created_at", asc: false },
   // v13.1 — journal des contacts, lu par /admin/prospection (suivi éditeur)
   prospect_interactions: { col: "created_at", asc: false },
+  // v13.41 — demandes de rappel du parcours d'inscription en ligne
+  demandes_rappel: { col: "created_at", asc: false },
 };
 
 type Garde = { erreur: NextResponse; admin: null } | { erreur: null; admin: SupabaseClient };
@@ -97,7 +100,7 @@ export async function POST(req: Request) {
   const { admin } = g;
   let body: {
     action?: string; table?: string; row?: Record<string, unknown>; id?: string; valeur?: unknown; abonnement_id?: string;
-    vente_id?: string; date_debut?: string; secretaire_id?: string | null; remise_acceptee?: boolean;
+    vente_id?: string; date_debut?: string; secretaire_id?: string | null; remise_acceptee?: boolean; reference?: string;
     metier?: string; owner_id?: string; etat?: EtatCompteRow["etat"]; message?: string | null; motif?: string | null; fin_le?: string | null; purge_le?: string | null; confirmation?: string;
     collaborateur_id?: string; email?: string; cles?: string[]; contrat_pdf?: string | null; contrat_nom?: string | null;
     saisie?: unknown;
@@ -364,6 +367,28 @@ export async function POST(req: Request) {
     );
     if (!res.ok) return NextResponse.json({ error: res.error || "Envoi impossible." }, { status: 500 });
     return NextResponse.json({ ok: true, envoyes: attachments.length, a: email });
+  }
+
+  // v13.41 — INSCRIPTION EN LIGNE : l'éditeur constate le virement (ou force
+  // l'activation) → vente payée + abonnement + compte + bienvenue, d'un coup.
+  if (body.action === "activer_inscription") {
+    const { data: v } = await admin.from("ventes").select("id,origine,paiement_confirme_le,prix_mensuel_ht,montant_annuel_ht,mise_en_service_ht,periodicite").eq("id", body.vente_id || "").maybeSingle();
+    if (!v) return NextResponse.json({ error: "Inscription introuvable." }, { status: 404 });
+    if (!v.paiement_confirme_le) {
+      const base = v.periodicite === "annuel" ? Number(v.montant_annuel_ht) || 0 : Number(v.prix_mensuel_ht) || 0;
+      await admin.from("ventes").update({
+        paiement_confirme_le: new Date().toISOString(), paiement_valide_le: new Date().toISOString(),
+        paiement_montant: Math.round((base + (Number(v.mise_en_service_ht) || 0)) * 100) / 100,
+        paiement_reference: typeof body.reference === "string" && body.reference.trim() ? body.reference.trim().slice(0, 120) : "Confirmé par l'éditeur",
+      }).eq("id", v.id);
+    }
+    try {
+      const r = await activerInscription(admin, v.id);
+      return NextResponse.json({ ok: true, ...r });
+    } catch (e) {
+      if (e instanceof ErreurInscription) return NextResponse.json({ error: e.message }, { status: e.status });
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Activation impossible." }, { status: 500 });
+    }
   }
 
   if (body.action === "valider_vente") {

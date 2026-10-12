@@ -94,17 +94,17 @@ export default function PageFormule() {
             </div>
             <div className="mt-5 flex items-baseline gap-1.5">
               <span className="text-4xl font-bold tracking-tight">{eur(prix)}</span>
-              <span className="text-sm text-slate-500">HT / mois</span>
+              <span className="text-sm text-slate-500">/ mois</span>
             </div>
             <ul className="mt-4 space-y-2 text-sm text-slate-600">
               {engage ? (
                 <>
-                  <li className="flex gap-2"><Coche />Remise de {t.remiseEngagementPct} % (au lieu de {eur(t.mensuel)} HT sans engagement)</li>
-                  <li className="flex gap-2"><Coche />Mise en service offerte ({eur(t.miseEnService)} HT)</li>
+                  <li className="flex gap-2"><Coche />Remise de {t.remiseEngagementPct} % (au lieu de {eur(t.mensuel)} sans engagement)</li>
+                  <li className="flex gap-2"><Coche />Mise en service offerte ({eur(t.miseEnService)})</li>
                   <li className="flex gap-2">
                     <Coche />
                     <span>
-                      Ou l&apos;année payée en une fois : {eur(t.annuelUnique)} HT
+                      Ou l&apos;année payée en une fois : {eur(t.annuelUnique)}
                       {t.bonusAnnuel > 0 ? ` (${t.bonusAnnuelLibelle})` : ""}
                     </span>
                   </li>
@@ -112,13 +112,14 @@ export default function PageFormule() {
               ) : (
                 <>
                   <li className="flex gap-2"><Coche />Résiliable chaque mois, avec un mois de préavis</li>
-                  <li className="flex gap-2"><Coche />Mise en service : {eur(t.miseEnService)} HT</li>
-                  <li className="flex gap-2"><Coche />Avec engagement de 12 mois : {eur(t.mensuelEngage)} HT / mois</li>
+                  <li className="flex gap-2"><Coche />Mise en service : {eur(t.miseEnService)}</li>
+                  <li className="flex gap-2"><Coche />Avec engagement de 12 mois : {eur(t.mensuelEngage)} / mois</li>
                 </>
               )}
             </ul>
-            <a href="#contact" className="lp-btn mt-5 w-full">Demander à en parler</a>
-            <p className="mt-2 text-center text-xs text-slate-400">Prix hors taxes, TVA 20 % en sus.</p>
+            <Link href={`/inscription?formule=${fiche.slug}`} className="lp-btn mt-5 w-full">S&apos;abonner en ligne</Link>
+            <a href="#contact" className="lp-btn-ghost mt-2 w-full">Demander à en parler</a>
+            <p className="mt-2 text-center text-xs text-slate-400">Prix nets — TVA non applicable, art. 293 B du CGI.</p>
           </div>
         </header>
 
@@ -216,7 +217,7 @@ export default function PageFormule() {
             <div>
               <div className="font-semibold text-slate-900">{service ? "Vos heures" : "Tout est inclus"}</div>
               {service
-                ? `Reportables à 50 % sur le mois suivant. Au-delà du forfait : ${eur(params.heureHorsForfait)} HT de l'heure, uniquement sur votre accord écrit.`
+                ? `Reportables à 50 % sur le mois suivant. Au-delà du forfait : ${eur(params.heureHorsForfait)} de l'heure, uniquement sur votre accord écrit.`
                 : "Utilisateurs, dossiers, documents et stockage illimités. Pas de jetons, pas d'option payante cachée."}
             </div>
           </div>

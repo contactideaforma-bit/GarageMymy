@@ -39,7 +39,7 @@ export type VenteContrat = {
 
 export const MODES_PAIEMENT: Record<string, string> = {
   virement: "Virement bancaire",
-  prelevement: "Prélèvement SEPA mensuel",
+  prelevement: "Prélèvement automatique mensuel (carte ou SEPA)",
   cheque: "Chèque à l'ordre d'IDEAFORMA",
   especes: "Espèces (reçu remis)",
   cb: "Carte bancaire (lien de paiement)",
@@ -64,7 +64,7 @@ export function conditionsParticulieres(v: VenteContrat, p: Parametres): string[
       `Paiement de l'année en une fois : ${eur(v.montant_annuel_ht)} HT (${t.bonusAnnuelLibelle}), soit 12 mois d'abonnement.`
     );
   } else {
-    lignes.push(`Mensualité HT : ${eur(v.prix_mensuel_ht)} (TVA en sus au taux en vigueur), payable d'avance chaque mois.`);
+    lignes.push(`Mensualité : ${eur(v.prix_mensuel_ht)} (TVA non applicable, art. 293 B du CGI), payable d'avance chaque mois.`);
   }
   lignes.push(
     engage
@@ -105,7 +105,7 @@ export function articlesCGV(p: Parametres): { titre: string; texte: string }[] {
     },
     {
       titre: "Article 4 — Prix et paiement",
-      texte: `Les prix sont exprimés hors taxes ; la TVA est appliquée au taux en vigueur au jour de la facturation. Les mensualités sont payables d'avance, à réception de facture, par virement, prélèvement SEPA, chèque, espèces (dans la limite légale, contre reçu) ou carte bancaire. Un paiement remis au commercial ne libère le Client que s'il est établi à l'ordre d'${ed} (chèque) ou versé sur le compte d'${ed} (virement) ; le commercial n'est pas habilité à encaisser en son nom. Le paiement annuel en une fois donne droit à l'avantage indiqué aux conditions particulières et couvre douze mois ; il n'est pas remboursable en cas de résiliation anticipée du fait du Client. Tout retard de paiement entraîne de plein droit des pénalités au taux de trois fois l'intérêt légal et une indemnité forfaitaire de 40 € pour frais de recouvrement (art. L441-10 et D441-5 du Code de commerce). Les prix peuvent être révisés annuellement avec un préavis de deux mois ; le Client engagé conserve son tarif jusqu'au terme de l'engagement.`,
+      texte: `Les prix sont exprimés en euros, nets : ${ed} bénéficie de la franchise en base de TVA (article 293 B du Code général des impôts) ; ses factures portent la mention « TVA non applicable, art. 293 B du CGI ». Si ${ed} venait à être assujettie à la TVA, celle-ci s'ajouterait aux prix nets au taux en vigueur à compter de la date d'assujettissement, après information du Client. Les mensualités sont payables d'avance, à réception de facture, par virement, prélèvement SEPA, chèque, espèces (dans la limite légale, contre reçu) ou carte bancaire. Un paiement remis au commercial ne libère le Client que s'il est établi à l'ordre d'${ed} (chèque) ou versé sur le compte d'${ed} (virement) ; le commercial n'est pas habilité à encaisser en son nom. Le paiement annuel en une fois donne droit à l'avantage indiqué aux conditions particulières et couvre douze mois ; il n'est pas remboursable en cas de résiliation anticipée du fait du Client. Tout retard de paiement entraîne de plein droit des pénalités au taux de trois fois l'intérêt légal et une indemnité forfaitaire de 40 € pour frais de recouvrement (art. L441-10 et D441-5 du Code de commerce). Les prix peuvent être révisés annuellement avec un préavis de deux mois ; le Client engagé conserve son tarif jusqu'au terme de l'engagement.`,
     },
     {
       titre: "Article 5 — Suspension pour impayé",
@@ -157,7 +157,7 @@ export function articlesCGV(p: Parametres): { titre: string; texte: string }[] {
   ];
 }
 
-export const VERSION_CGV = "v2.0 — août 2026";
+export const VERSION_CGV = "v2.1 — octobre 2026";
 
 /** Phrase d'acceptation cochée par le garage sur la page de vente. */
 export const ACCEPTATION_CGV =
