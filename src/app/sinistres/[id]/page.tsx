@@ -28,6 +28,8 @@ import HistoriqueLitige from "@/components/HistoriqueLitige";
 import EmailsDossier from "@/components/EmailsDossier";
 import EnvoisPostauxDossier from "@/components/EnvoisPostauxDossier";
 import RetardPaiementPanel from "@/components/RetardPaiementPanel";
+import FonctionReservee, { BoutonReserve } from "@/components/FonctionReservee";
+import { useFormuleGarage } from "@/lib/formuleGarage";
 import { etatRecouvrement } from "@/lib/recouvrement";
 import MentionsRapport from "@/components/MentionsRapport";
 import HistoriqueEmails from "@/components/HistoriqueEmails";
@@ -138,6 +140,8 @@ export default function DossierDetailPage() {
   const estVitrage = metier === "vitrage";
 
   const [dossier, setDossier] = useState<Dossier | null>(null);
+  // v13.42 — suivi des impayés et des litiges réservés aux formules Adhésion Service
+  const { serviceInclus } = useFormuleGarage();
   const [evenements, setEvenements] = useState<Evenement[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [paiements, setPaiements] = useState<Paiement[]>([]);
@@ -836,20 +840,28 @@ export default function DossierDetailPage() {
                 {archivage || "Archiver (ZIP)"}
               </button>
             )}
-            <button
-              onClick={basculerRetard}
-              className={dossier.retard_paiement ? "btn-primary" : "btn-ghost"}
-              title={dossier.retard_paiement ? "Retard de paiement en cours — cliquer pour en sortir (tout est conservé)" : "Facture impayée ? Passe le dossier en retard de paiement : relances, mise en demeure, journal des appels, rappels et procédure guidée"}
-            >
-              ⏰ {dossier.retard_paiement ? "Retard de paiement" : "Retard de paiement"}
-            </button>
-            <button
-              onClick={basculerLitige}
-              className={dossier.litige ? "btn-danger" : "btn-ghost"}
-              title={dossier.litige ? "Litige en cours — cliquer pour le lever (notes conservées)" : "Dossier bloqué ? Active le mode litige : problème, plan de déblocage et tâches dédiées"}
-            >
-              ⚠️ {dossier.litige ? "Litige en cours" : "Litige"}
-            </button>
+            {serviceInclus ? (
+              <button
+                onClick={basculerRetard}
+                className={dossier.retard_paiement ? "btn-primary" : "btn-ghost"}
+                title={dossier.retard_paiement ? "Retard de paiement en cours — cliquer pour en sortir (tout est conservé)" : "Facture impayée ? Passe le dossier en retard de paiement : relances, mise en demeure, journal des appels, rappels et procédure guidée"}
+              >
+                ⏰ {dossier.retard_paiement ? "Retard de paiement" : "Retard de paiement"}
+              </button>
+            ) : (
+              <BoutonReserve>⏰ Retard de paiement</BoutonReserve>
+            )}
+            {serviceInclus ? (
+              <button
+                onClick={basculerLitige}
+                className={dossier.litige ? "btn-danger" : "btn-ghost"}
+                title={dossier.litige ? "Litige en cours — cliquer pour le lever (notes conservées)" : "Dossier bloqué ? Active le mode litige : problème, plan de déblocage et tâches dédiées"}
+              >
+                ⚠️ {dossier.litige ? "Litige en cours" : "Litige"}
+              </button>
+            ) : (
+              <BoutonReserve>⚠️ Litige</BoutonReserve>
+            )}
             <button onClick={() => setShowEdit(true)} className="btn-ghost">Modifier</button>
             <button onClick={supprimer} className="btn-danger">Supprimer</button>
           </div>
@@ -870,8 +882,11 @@ export default function DossierDetailPage() {
 
       {/* MODE LITIGE (v10.8) : le dossier est bloqué — problème, plan de
           déblocage et tâches dédiées (partagées avec À faire / Conversation). */}
-      {dossier.litige && (
+      {dossier.litige && serviceInclus && (
         <LitigePanel dossier={dossier} onPatch={(patch) => setDossier({ ...dossier, ...patch })} onLever={basculerLitige} />
+      )}
+      {dossier.litige && !serviceInclus && (
+        <FonctionReservee titre="⚠️ Suivi du litige" description="Problème, plan de déblocage, courriers à l'expert et à l'assureur (accord de réparation, mise en demeure de prise de position), compteur des délais légaux, tâches dédiées." />
       )}
 
       {/* LITIGE RÉSOLU (v13.20) : une fois le litige levé, le dossier garde
@@ -888,12 +903,22 @@ export default function DossierDetailPage() {
           <span>
             Facture échue depuis {retardDetecte.retard} j, {formatEuros(retardDetecte.reste)} restent dus.
           </span>
-          <button onClick={basculerRetard} className="btn-primary btn-compact">
-            ⏰ Passer en retard de paiement
-          </button>
+          {serviceInclus ? (
+            <button onClick={basculerRetard} className="btn-primary btn-compact">
+              ⏰ Passer en retard de paiement
+            </button>
+          ) : (
+            <BoutonReserve className="btn-primary btn-compact">Suivi de l&apos;impayé</BoutonReserve>
+          )}
         </div>
       )}
-      {dossier.retard_paiement && (
+      {dossier.retard_paiement && !serviceInclus && (
+        <>
+          <FonctionReservee titre="⏰ Suivi de l'impayé" description="Procédure guidée (relance, mise en demeure, conciliateur, injonction de payer, droit de rétention), courriers prêts à signer, journal des appels, rappels automatiques." />
+          <PaiementsPanel dossier={dossier} onChanged={load} />
+        </>
+      )}
+      {dossier.retard_paiement && serviceInclus && (
         <>
           <RetardPaiementPanel
             dossier={dossier}

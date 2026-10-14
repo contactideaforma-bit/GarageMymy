@@ -20,6 +20,7 @@ import EmailPresentationModal, { TypeEmailProspect } from "@/components/EmailPre
 import JournalProspect from "@/components/JournalProspect";
 import ContactRapideProspect from "@/components/ContactRapideProspect";
 import ParcoursVente from "@/components/commercial/ParcoursVente";
+import SiteInternetProspect from "@/components/commercial/SiteInternetProspect";
 import PaiementVente from "@/components/commercial/PaiementVente";
 import type { CleEtape, VenteParcours } from "@/lib/venteParcours";
 import { formatDate, formatDateTime, formatEuros, messageErreur } from "@/lib/format";
@@ -167,6 +168,7 @@ export default function ProspectPage() {
           <p className="text-sm text-white/50">{[p.adresse, `${p.cp || ""} ${p.ville || ""}`.trim(), p.siren ? `SIREN ${p.siren}` : ""].filter(Boolean).join(" · ")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <SiteInternetProspect p={p} onSave={sauver} />
           <button onClick={() => setPresentation("presentation")} className="btn-ghost btn-compact">✉️ Présentation</button>
           <button onClick={() => setPresentation("rdv")} className="btn-ghost btn-compact">📅 Confirmer un RDV</button>
           <select className="field-input field-compact" value={p.statut} onChange={(e) => sauver({ statut: e.target.value as ProspectStatut })}>
@@ -444,7 +446,7 @@ function FicheForm({ p, onSave, estAdmin, zone }: { p: Prospect; onSave: (patch:
         <C k="cp" label="Code postal" /><C k="ville" label="Ville" />
         <C k="gerant" label="Nom du gérant" /><C k="contact_nom" label="Interlocuteur" />
         <C k="contact_fonction" label="Fonction de l'interlocuteur" /><C k="tel" label="Téléphone" type="tel" />
-        <C k="email" label="Email (identifiant du futur compte)" type="email" /><C k="site" label="Site web" />
+        <C k="email" label="Email (identifiant du futur compte)" type="email" /><C k="site" label="Site web (« aucun » si le garage n&apos;en a pas)" />
         <div>
           <label className="field-label">Origine du contact {zone ? `(zone : ${zone})` : ""}</label>
           <select className="field-input" value={f.origine} onChange={(e) => set("origine", e.target.value as ProspectOrigine)}>

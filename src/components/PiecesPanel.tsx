@@ -199,7 +199,7 @@ export default function PiecesPanel({
 
         {/* L'accord de prise en charge n'apparaît que si le dossier est en mode
             prise en charge (toggle sur la fiche, migration v32). */}
-        {TYPES_PIECES.filter((t) => t.type !== "prise_en_charge" || dossier.mode_pec).map((t) => {
+        {TYPES_PIECES.filter((t) => (t.type !== "prise_en_charge" || dossier.mode_pec) && (t.type !== "accuse_reception" || pieces.some((p) => p.type === "accuse_reception"))).map((t) => {
           const liste = pieces.filter((p) => p.type === t.type);
           const present = liste.length > 0;
           return (

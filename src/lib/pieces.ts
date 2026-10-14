@@ -11,6 +11,9 @@ export const TYPES_PIECES: { type: string; label: string; essentiel: boolean }[]
   // prise en charge (filtré dans PiecesPanel via dossier.mode_pec).
   { type: "prise_en_charge", label: "Accord de prise en charge (rempli)", essentiel: false },
   { type: "autre", label: "Autres pièces", essentiel: false },
+  // v13.42 — AR / preuves de dépôt des recommandés postés (circuit papier) :
+  // alimenté depuis le suivi impayé / litige, affiché seulement s'il y en a.
+  { type: "accuse_reception", label: "Accusés de réception (recommandés)", essentiel: false },
 ];
 
 // L'accord de prise en charge rempli est-il joint au dossier ?

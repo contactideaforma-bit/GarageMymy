@@ -394,6 +394,20 @@ export function prospectVersContrat(p: Prospect, offre: ParametresOffre, prix: {
 ------------------------------------------------------------------ */
 export type LienRecherche = { key: string; label: string; icone: string; url: string; aide: string };
 
+/* v13.42 — « Site internet » de la fiche client : le commercial voit d'un
+   coup d'œil si le garage a déjà un site. `site` vaut une URL, la
+   sentinelle SITE_AUCUN (vérifié : pas de site) ou null (pas encore vérifié). */
+export const SITE_AUCUN = "aucun";
+export type EtatSite = "oui" | "non" | "inconnu";
+export function etatSite(p: Pick<Prospect, "site">): EtatSite {
+  const v = (p.site || "").trim().toLowerCase();
+  if (!v) return "inconnu";
+  return v === SITE_AUCUN ? "non" : "oui";
+}
+export function urlSite(site: string): string {
+  return /^https?:\/\//i.test(site) ? site : `https://${site}`;
+}
+
 export function liensRecherche(p: Pick<Prospect, "nom" | "adresse" | "cp" | "ville" | "siren" | "siret" | "site">): LienRecherche[] {
   const enc = encodeURIComponent;
   const lieu = [p.cp, p.ville].filter(Boolean).join(" ");
@@ -406,10 +420,9 @@ export function liensRecherche(p: Pick<Prospect, "nom" | "adresse" | "cp" | "vil
   if (p.siren) {
     liens.push({ key: "annuaire", label: "Annuaire officiel", icone: "🏛️", url: `https://annuaire-entreprises.data.gouv.fr/entreprise/${enc(p.siren)}`, aide: "Dirigeants, établissements, données INSEE." });
   }
-  if (p.site) {
-    const url = /^https?:\/\//i.test(p.site) ? p.site : `https://${p.site}`;
-    liens.push({ key: "site", label: "Site web", icone: "🌐", url, aide: "Le site du garage." });
-  } else {
+  if (etatSite(p) === "oui") {
+    liens.push({ key: "site", label: "Site web", icone: "🌐", url: urlSite(p.site!), aide: "Le site du garage." });
+  } else if (etatSite(p) === "inconnu") {
     liens.push({ key: "site", label: "Chercher le site", icone: "🌐", url: `https://www.google.com/search?q=${enc(`${p.nom} ${p.ville || ""} site officiel`)}`, aide: "Recherche du site web du garage." });
   }
   return liens;

@@ -63,8 +63,8 @@ import ModalShell from "./ModalShell";
 import SignaturePad from "./SignaturePad";
 import ChampEcheance from "./ChampEcheance";
 import EmailComposer from "./EmailComposer";
-import EnvoiPostalModal from "./EnvoiPostalModal";
-import { COURRIERS_POSTE_ACTIFS } from "@/lib/envoisPostaux";
+import CourrierPapierModal from "./CourrierPapierModal";
+import { arJoint, cloturerTaches, origineAPoster } from "@/lib/courrierPapier";
 
 const ORIGINE_MANUELLE = "recouvrement";
 const ORIGINE_AUTO = "recouvrement:auto";
@@ -103,6 +103,14 @@ export default function RetardPaiementPanel({
   // Modales
   const [courrierModal, setCourrierModal] = useState<{ type: TypeCourrier; courrier?: CourrierRecouvrement; dest?: Dest; tiersNom?: string } | null>(null);
   const [envoiModal, setEnvoiModal] = useState<CourrierRecouvrement | null>(null);
+  const [arModal, setArModal] = useState<CourrierRecouvrement | null>(null);
+  // v13.42 — AR / preuves de dépôt déjà jointes (pièces du dossier de type accuse_reception)
+  const [piecesAR, setPiecesAR] = useState<{ type: string; path: string }[]>([]);
+  const chargerPiecesAR = useCallback(async () => {
+    const { data } = await supabase.from("pieces_dossier").select("type, path").eq("dossier_id", dossierBrut.id).eq("type", "accuse_reception");
+    setPiecesAR((data as { type: string; path: string }[]) || []);
+  }, [dossierBrut.id]);
+  useEffect(() => { chargerPiecesAR(); }, [chargerPiecesAR]);
   const [etapeModal, setEtapeModal] = useState<{ code: string; ref?: string; note?: string; vers?: string; titre?: string; date?: string; edition?: boolean; montant?: number | null; frais?: number | null } | null>(null);
   // v13.14 : ouvrir / fermer un bloc d'étape est LOCAL (sans toucher à l'étape en cours).
   const [ouvertCode, setOuvertCode] = useState<string | null>(null);
@@ -144,7 +152,8 @@ export default function RetardPaiementPanel({
     if (cours.error) {
       if (/relation|courriers_recouvrement|schema/i.test(cours.error.message || "")) setErreur("Migration v70 à exécuter dans Supabase pour les courriers de recouvrement.");
     } else setCourriers((cours.data as CourrierRecouvrement[]) || []);
-    setTaches(rap.lignes.filter((l) => l.origine === ORIGINE_MANUELLE || l.origine === ORIGINE_AUTO));
+    // v13.42 : les tâches « à poster » / « AR à joindre » du circuit papier apparaissent ici aussi.
+    setTaches(rap.lignes.filter((l) => l.origine === ORIGINE_MANUELLE || l.origine === ORIGINE_AUTO || /^(courrier|ar):/.test(l.origine || "")));
     const e = ent.data as (Banque & { nom?: string | null }) | null;
     setGarage(e?.nom || null);
     setBanque(e ? { iban: e.iban, bic: e.bic, tel: e.tel, email: e.email } : null);
@@ -375,7 +384,9 @@ export default function RetardPaiementPanel({
         documentId: c.document_id,
       });
     } catch { /* journal facultatif */ }
-    setEnvoiModal(null);
+    // v13.42 : la modale papier se ferme elle-même (étape AR après un recommandé) ;
+    // la tâche « à poster » laissée en suspens est clôturée.
+    await cloturerTaches(origineAPoster(c.id));
     // La mise en demeure envoyée en recommandé VALIDE l'étape 2 avec son n° de suivi.
     if (c.type === "mise_en_demeure" && canal === "lrar" && !etapesFaites.mise_en_demeure) {
       await marquerEtapeFaite("mise_en_demeure", extra?.date || ymd(), extra?.numero_suivi || null, null);
@@ -445,7 +456,9 @@ export default function RetardPaiementPanel({
               <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, factureDe(c)?.numero)} className="btn-ghost btn-compact">⬇ PDF</button>
               {c.statut !== "envoye" && <button onClick={() => setCourrierModal({ type: c.type, courrier: c })} className="btn-ghost btn-compact">Modifier / signer</button>}
               {c.statut !== "envoye" && <button onClick={() => courrierEnvoyeParEmail(c)} className="btn-ghost btn-compact">✉ Email</button>}
-              {c.statut !== "envoye" && <button onClick={() => setEnvoiModal(c)} className="btn-primary btn-compact">📮 Recommandé / posté</button>}
+              {c.statut !== "envoye" && <button onClick={() => setEnvoiModal(c)} className="btn-primary btn-compact">📮 Imprimer et poster</button>}
+              {c.statut === "envoye" && c.canal_envoi === "lrar" && !arJoint(piecesAR, c.id) && <button onClick={() => setArModal(c)} className="btn-primary btn-compact" title="Photo de la preuve de dépôt / de l'avis de réception, rangée dans les pièces du dossier">📬 Joindre l&apos;AR</button>}
+              {c.statut === "envoye" && c.canal_envoi === "lrar" && arJoint(piecesAR, c.id) && <span className="badge badge-ok" title="Avis de réception / preuve de dépôt dans les pièces du dossier">AR joint</span>}
               <button onClick={() => supprimerCourrier(c)} className="text-xs text-white/40 hover:text-rose-300">Supprimer</button>
             </div>
           </li>
@@ -922,14 +935,23 @@ export default function RetardPaiementPanel({
         />
       )}
 
-      {/* Modale envoi recommandé / posté */}
+      {/* Modale circuit papier : imprimer → poster → confirmer → AR (v13.42) */}
       {envoiModal && (
-        <EnvoiModal
+        <CourrierPapierModal
           courrier={envoiModal}
           dossier={dossier}
           numeroFacture={factureDe(envoiModal)?.numero}
-          onClose={() => setEnvoiModal(null)}
+          onClose={() => { setEnvoiModal(null); chargerPiecesAR(); }}
           onConfirmer={(canal, numero, date) => marquerEnvoye(envoiModal, canal, { numero_suivi: numero, date })}
+        />
+      )}
+      {arModal && (
+        <CourrierPapierModal
+          courrier={arModal}
+          dossier={dossier}
+          numeroFacture={factureDe(arModal)?.numero}
+          mode="ar"
+          onClose={() => { setArModal(null); chargerPiecesAR(); }}
         />
       )}
 
@@ -1112,91 +1134,9 @@ function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture
           <button type="button" onClick={() => generateCourrierRecouvrementPdf(brouillon(), dossier, facture.numero)} className="btn-ghost btn-compact">⬇ Télécharger le PDF</button>
           <button type="button" onClick={() => enregistrer(signer && signature ? "signe" : "brouillon")} disabled={busy !== null} className="btn-ghost btn-compact">Enregistrer</button>
           {!versTiers && <button type="button" onClick={() => enregistrer("email")} disabled={busy !== null} className="btn-ghost btn-compact">✉ Envoyer par email (PDF joint)</button>}
-          <button type="button" onClick={() => enregistrer("lrar")} disabled={busy !== null} className="btn-primary btn-compact">{lrar ? "Signer → envoyer en recommandé" : "Signer → envoyer par courrier"}</button>
+          <button type="button" onClick={() => enregistrer("lrar")} disabled={busy !== null} className="btn-primary btn-compact">{lrar ? "Signer → imprimer et poster en recommandé" : "Signer → imprimer et poster"}</button>
         </div>
       </div>
-    </ModalShell>
-  );
-}
-
-/* ====================================================================
-   Modale « envoi » : le courrier est prêt — on le télécharge / imprime,
-   on le poste, on saisit le n° de suivi du recommandé et la date, puis
-   on confirme. C'est CETTE confirmation qui valide l'étape et programme
-   le rappel.
-==================================================================== */
-
-function EnvoiModal({ courrier, dossier, numeroFacture, onClose, onConfirmer }: {
-  courrier: CourrierRecouvrement;
-  dossier: Dossier;
-  numeroFacture?: string | null;
-  onClose: () => void;
-  onConfirmer: (canal: "lrar" | "courrier" | "remis_en_main", numero: string | null, date: string) => Promise<void>;
-}) {
-  const [canal, setCanal] = useState<"lrar" | "courrier" | "remis_en_main">(["mise_en_demeure", "reclamation_assureur", "mise_en_demeure_retrait", "attribution_gage"].includes(courrier.type) ? "lrar" : "courrier");
-  const [numero, setNumero] = useState(courrier.numero_suivi || "");
-  const [date, setDate] = useState(ymd());
-  const [busy, setBusy] = useState(false);
-  const [laPoste, setLaPoste] = useState(false);
-  const signe = Boolean(courrier.signature) || courrier.statut === "signe";
-  return (
-    <ModalShell title={`Envoyer — ${LIBELLE_TYPE_COURRIER[courrier.type]}`} onClose={onClose} maxWidth="max-w-lg">
-      <div className="space-y-3">
-        {/* v13.27 — Envoi dématérialisé : La Poste imprime et distribue le PDF (pause v13.30, reprise v13.34). */}
-        {COURRIERS_POSTE_ACTIFS && <>
-        <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3">
-          <div className="text-sm font-semibold text-white">📮 Envoyer par La Poste depuis l&apos;appli</div>
-          <p className="mt-0.5 text-xs text-white/65">Le courrier est imprimé et posté pour vous{canal === "lrar" ? " en recommandé AR : n° de recommandé, preuve de dépôt et avis de réception remontent dans le dossier" : ""}. Rien à imprimer, pas de bureau de poste.</p>
-          <button type="button" onClick={() => setLaPoste(true)} className="btn-primary btn-compact mt-2">{canal === "lrar" ? "Envoyer en recommandé AR par La Poste" : "Envoyer par La Poste"}</button>
-        </div>
-        <div className="text-center text-[11px] uppercase tracking-wide text-white/40">— ou envoi manuel —</div>
-        </>}
-        <div className="glass-soft p-3 text-sm text-white/85">
-          <div><strong className="text-white">{courrier.destinataire_nom || courrier.destinataire}</strong>{courrier.destinataire_adresse ? ` — ${courrier.destinataire_adresse.replace(/\n/g, ", ")}` : ""}</div>
-          <div className="text-white/70">Daté du {formatDate(courrier.date_courrier)}{courrier.montant ? ` · ${formatEuros(courrier.montant)}` : ""} · {signe ? (courrier.signature ? "signé au doigt" : "signé (tampon et signature du profil)") : "non signé"}</div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => apercuCourrierRecouvrementPdf(courrier, dossier, numeroFacture)} className="btn-ghost btn-compact">👁 Aperçu</button>
-          <button type="button" onClick={() => generateCourrierRecouvrementPdf(courrier, dossier, numeroFacture)} className="btn-primary btn-compact">⬇ Télécharger le PDF à imprimer</button>
-        </div>
-        <div>
-          <label className="field-label text-[11px]">Mode d&apos;envoi</label>
-          <div className="segment">
-            <button type="button" onClick={() => setCanal("lrar")} className={`segment-btn ${canal === "lrar" ? "actif" : ""}`}>Recommandé AR</button>
-            <button type="button" onClick={() => setCanal("courrier")} className={`segment-btn ${canal === "courrier" ? "actif" : ""}`}>Courrier simple</button>
-            <button type="button" onClick={() => setCanal("remis_en_main")} className={`segment-btn ${canal === "remis_en_main" ? "actif" : ""}`}>Remis en main propre</button>
-          </div>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {canal === "lrar" && <div><label className="field-label text-[11px]">N° du recommandé (suivi La Poste)</label><input className="field-input field-compact w-full font-mono" placeholder="1A 123 456 7890 1" value={numero} onChange={(e) => setNumero(e.target.value)} /></div>}
-          <div><label className="field-label text-[11px]">Date d&apos;envoi</label><input type="date" className="field-input field-compact w-full" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-        </div>
-        {canal === "lrar" && <p className="text-xs text-white/60">Le n° de suivi est conservé avec le courrier et repris dans les pièces de la procédure. Vous pouvez le saisir plus tard en modifiant le courrier.</p>}
-        <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
-          <button type="button" onClick={onClose} className="btn-ghost btn-compact">Plus tard</button>
-          <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onConfirmer(canal, numero.trim() || null, date); } finally { setBusy(false); } }} className="btn-primary btn-compact">{busy ? "Enregistrement…" : "✓ Confirmer l'envoi"}</button>
-        </div>
-      </div>
-      {COURRIERS_POSTE_ACTIFS && laPoste && (
-        <EnvoiPostalModal
-          titre={`La Poste — ${LIBELLE_TYPE_COURRIER[courrier.type]}`}
-          getPdfBase64={() => courrierRecouvrementPdfBase64(courrier, dossier)}
-          nomFichier={nomFichierCourrier(courrier, numeroFacture)}
-          objet={courrier.objet || LIBELLE_TYPE_COURRIER[courrier.type]}
-          destinataireNom={courrier.destinataire_nom || ""}
-          destinataireAdresse={courrier.destinataire_adresse || ""}
-          typeInitial={canal === "lrar" ? "lrar" : "simple"}
-          dossierId={dossier.id}
-          courrierId={courrier.id || null}
-          onClose={() => setLaPoste(false)}
-          onEnvoye={async (e) => {
-            setLaPoste(false);
-            // Le n° de recommandé est attribué à l'impression : il sera reporté
-            // automatiquement sur le courrier au prochain suivi.
-            await onConfirmer(e.type === "lrar" ? "lrar" : "courrier", e.numero_suivi, ymd());
-          }}
-        />
-      )}
     </ModalShell>
   );
 }

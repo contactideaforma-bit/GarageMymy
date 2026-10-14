@@ -30,7 +30,7 @@ export const FICHES: FicheFormule[] = [
       "Signature électronique, relances et suivi des paiements",
     ],
     intro:
-      "Toute l'application My Easy Auto, sans limite d'utilisateurs ni de dossiers. Vous gardez la main sur le suivi de vos sinistres, l'application prépare les documents, rappelle les échéances et relance pour vous.",
+      "Toute l'application My Easy Auto, sans limite d'utilisateurs ni de dossiers. Vous gardez la main sur le suivi de vos sinistres, l'application prépare les documents, rappelle les échéances et relance pour vous. Le suivi des impayés (procédure guidée) et le suivi des litiges sont réservés aux formules Adhésion Service.",
   },
   {
     formule: "starter",
@@ -39,6 +39,7 @@ export const FICHES: FicheFormule[] = [
     pourQui: "Quelques dossiers bloqués, litiges ou impayés vous prennent du temps chaque mois.",
     inclus: [
       "Tout Essentiel",
+      "Suivi des impayés et suivi des litiges dans l'appli (procédures guidées, courriers prêts à signer)",
       "Un chargé de mission pour vos dossiers compliqués",
       "Reprise des dossiers qui traînent",
       "Relances des assurances, des experts et des clients",

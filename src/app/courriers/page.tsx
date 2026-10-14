@@ -115,7 +115,7 @@ export default function CourriersPage() {
 
       {!COURRIERS_POSTE_ACTIFS && (
         <div className="mb-6 rounded-lg border-2 border-amber-400/50 bg-amber-500/15 px-4 py-3 text-sm text-amber-100">
-          <strong>Service en pause.</strong> {MESSAGE_PAUSE_COURRIERS} Vos jetons éventuels restent sur votre compte.
+          <strong>Service bientôt disponible.</strong> {MESSAGE_PAUSE_COURRIERS} Vos jetons éventuels restent sur votre compte.
         </div>
       )}
 

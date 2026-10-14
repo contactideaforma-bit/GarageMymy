@@ -9,16 +9,19 @@
 /**
  * INTERRUPTEUR DU SERVICE.
  * v13.30 : envoi par La Poste mis en PAUSE (Maileva à l'arrêt du 23/09 au
- * 30/09/2026, cyberattaque). v13.34 : Maileva a repris → service ACTIF par
- * défaut. Pour remettre en pause sans toucher au code : variable Vercel
- * NEXT_PUBLIC_COURRIERS_POSTE=0 puis redéploiement (toute autre valeur,
- * ou absence de variable, = actif).
+ * 30/09/2026). v13.34 : réactivé par défaut. v13.42 : de nouveau MASQUÉ
+ * par défaut tant que le compte Maileva d'IDEAFORMA (contrat + identifiants
+ * API) n'est pas opérationnel : les courriers suivent le circuit papier
+ * (imprimer → poster → confirmer → photo de l'AR, cf. lib/courrierPapier).
+ * Pour réactiver sans toucher au code : variable Vercel
+ * NEXT_PUBLIC_COURRIERS_POSTE=1 puis redéploiement (absente ou autre
+ * valeur = masqué).
  * Pendant une pause : boutons masqués, routes d'envoi et d'achat de
  * jetons fermées ; l'historique, le suivi manuel et les soldes restent.
  */
-export const COURRIERS_POSTE_ACTIFS = process.env.NEXT_PUBLIC_COURRIERS_POSTE !== "0";
+export const COURRIERS_POSTE_ACTIFS = process.env.NEXT_PUBLIC_COURRIERS_POSTE === "1";
 export const MESSAGE_PAUSE_COURRIERS =
-  "L'envoi de courriers par La Poste depuis l'appli est momentanément suspendu (incident chez notre partenaire d'envoi postal). Téléchargez le PDF et postez-le vous-même : le suivi manuel reste disponible.";
+  "L'envoi de courriers par La Poste depuis l'appli n'est pas encore disponible. Imprimez le courrier et postez-le vous-même : l'appli vous guide (impression, recommandé, confirmation, photo de l'accusé de réception) et garde le suivi dans le dossier.";
 
 export type TypeEnvoiPostal = "simple" | "lrar";
 

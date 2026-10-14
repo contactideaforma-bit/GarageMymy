@@ -25,8 +25,8 @@ import { apercuCourrierRecouvrementPdf, courrierRecouvrementPdfBase64, generateC
 import ModalShell from "./ModalShell";
 import SignaturePad from "./SignaturePad";
 import EmailComposer from "./EmailComposer";
-import EnvoiPostalModal from "./EnvoiPostalModal";
-import { COURRIERS_POSTE_ACTIFS } from "@/lib/envoisPostaux";
+import CourrierPapierModal, { CanalPapier } from "./CourrierPapierModal";
+import { arJoint, cloturerTaches, origineAPoster } from "@/lib/courrierPapier";
 
 const TYPES: TypeCourrierLitige[] = ["accord_reparation_expert", "position_assureur"];
 
@@ -37,24 +37,27 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
   const [annuaire, setAnnuaire] = useState<Parameters<typeof completerDossierDepuisAnnuaire>[1]>({});
   const [modal, setModal] = useState<{ type: TypeCourrierLitige; courrier?: CourrierRecouvrement } | null>(null);
   const [email, setEmail] = useState<CourrierRecouvrement | null>(null);
-  const [envoi, setEnvoi] = useState<{ courrier: CourrierRecouvrement; canal: string; numero: string } | null>(null);
+  const [envoi, setEnvoi] = useState<CourrierRecouvrement | null>(null);
+  const [arModal, setArModal] = useState<CourrierRecouvrement | null>(null);
+  const [piecesAR, setPiecesAR] = useState<{ type: string; path: string }[]>([]);
   const [erreur, setErreur] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [laPoste, setLaPoste] = useState<CourrierRecouvrement | null>(null);
   const dossier = useMemo(() => completerDossierDepuisAnnuaire(dossierBrut, annuaire), [dossierBrut, annuaire]);
 
   const charger = useCallback(async () => {
     const d = dossierBrut;
     const parNom = (table: string, col: string, nom: string | null | undefined) =>
       nom && nom.trim() ? supabase.from(table).select("*").ilike(col, nom.trim()).limit(1).maybeSingle() : Promise.resolve({ data: null });
-    const [c, p, e, ass, exp] = await Promise.all([
+    const [c, p, e, ass, exp, ar] = await Promise.all([
       supabase.from("courriers_recouvrement").select("*").eq("dossier_id", d.id).in("type", TYPES).order("created_at", { ascending: false }),
       chargerPhotos(d.id),
       supabase.from("entreprise").select("nom, gard_tarif_jour").limit(1).maybeSingle(),
       parNom("assureurs", "nom", d.assureur),
       parNom("experts", "cabinet", d.cabinet_expert),
+      supabase.from("pieces_dossier").select("type, path").eq("dossier_id", d.id).eq("type", "accuse_reception"),
     ]);
     setCourriers((c.data as CourrierRecouvrement[]) || []);
+    setPiecesAR((ar.data as { type: string; path: string }[]) || []);
     setPhotos(p.photos.filter((x) => x.moment === "entree"));
     setGarage((e.data as { nom: string | null; gard_tarif_jour: number | null } | null) || null);
     setAnnuaire({ assureur: (ass.data as never) || null, expert: (exp.data as never) || null });
@@ -75,13 +78,14 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
     } catch { /* journal facultatif */ }
   }
 
-  async function marquerEnvoye(c: CourrierRecouvrement, canal: string, numero?: string | null) {
-    const patch: Record<string, unknown> = { statut: "envoye", envoye_le: new Date().toISOString(), canal_envoi: canal };
+  async function marquerEnvoye(c: CourrierRecouvrement, canal: string, numero?: string | null, date?: string | null) {
+    const patch: Record<string, unknown> = { statut: "envoye", envoye_le: date ? new Date(date).toISOString() : new Date().toISOString(), canal_envoi: canal };
     if (numero) patch.numero_suivi = numero;
     let { error } = await supabase.from("courriers_recouvrement").update(patch).eq("id", c.id);
     if (error && numero && /numero_suivi|column/i.test(error.message || "")) { delete patch.numero_suivi; ({ error } = await supabase.from("courriers_recouvrement").update(patch).eq("id", c.id)); }
-    if (error) { setErreur(messageErreur(error)); return; }
+    if (error) { setErreur(messageErreur(error)); throw new Error(messageErreur(error)); }
     await journaliser(c, canal, numero);
+    await cloturerTaches(origineAPoster(c.id));
     const jours = c.delai_jours || 8;
     try {
       await ajouterRappel({
@@ -91,7 +95,6 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
       setInfo(`Envoi enregistré — rappel programmé à J+${jours}.`);
       setTimeout(() => setInfo(null), 5000);
     } catch { /* rappel facultatif */ }
-    setEnvoi(null);
     charger();
   }
 
@@ -140,19 +143,10 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
                 <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">⬇ PDF</button>
                 {c.statut !== "envoye" && <button onClick={() => setModal({ type: c.type as TypeCourrierLitige, courrier: c })} className="btn-ghost btn-compact">Modifier</button>}
                 {c.statut !== "envoye" && <button onClick={() => setEmail(c)} className="btn-ghost btn-compact">✉ Email</button>}
-                {COURRIERS_POSTE_ACTIFS && c.statut !== "envoye" && <button onClick={() => setLaPoste(c)} className="btn-primary btn-compact" title="La Poste imprime et distribue le courrier">📮 Envoyer par La Poste</button>}
-                {c.statut !== "envoye" && <button onClick={() => setEnvoi({ courrier: c, canal: c.type === "position_assureur" ? "lrar" : "courrier", numero: "" })} className={COURRIERS_POSTE_ACTIFS ? "btn-ghost btn-compact" : "btn-primary btn-compact"}>{COURRIERS_POSTE_ACTIFS ? "Posté moi-même" : "📮 Posté"}</button>}
+                {c.statut !== "envoye" && <button onClick={() => setEnvoi(c)} className="btn-primary btn-compact">📮 Imprimer et poster</button>}
+                {c.statut === "envoye" && c.canal_envoi === "lrar" && !arJoint(piecesAR, c.id) && <button onClick={() => setArModal(c)} className="btn-primary btn-compact" title="Photo de la preuve de dépôt / de l'avis de réception, rangée dans les pièces du dossier">📬 Joindre l&apos;AR</button>}
+                {c.statut === "envoye" && c.canal_envoi === "lrar" && arJoint(piecesAR, c.id) && <span className="badge badge-ok">AR joint</span>}
               </div>
-              {envoi?.courrier.id === c.id && (
-                <div className="flex w-full flex-wrap items-end gap-2 rounded-lg bg-white/5 p-2">
-                  <div className="segment">
-                    {(["lrar", "courrier", "remis_en_main"] as const).map((k) => <button key={k} type="button" className={`segment-btn ${envoi.canal === k ? "actif" : ""}`} onClick={() => setEnvoi({ ...envoi, canal: k })}>{k === "lrar" ? "Recommandé AR" : k === "courrier" ? "Courrier simple" : "Remis en main propre"}</button>)}
-                  </div>
-                  {envoi.canal === "lrar" && <input className="field-input field-compact w-48 font-mono" placeholder="N° du recommandé" value={envoi.numero} onChange={(e) => setEnvoi({ ...envoi, numero: e.target.value })} />}
-                  <button className="btn-primary btn-compact" onClick={() => marquerEnvoye(c, envoi.canal, envoi.numero.trim() || null)}>✓ Confirmer l&apos;envoi</button>
-                  <button className="btn-ghost btn-compact" onClick={() => setEnvoi(null)}>Annuler</button>
-                </div>
-              )}
             </li>
           ))}
         </ul>
@@ -171,25 +165,22 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
             setCourriers((prev) => (prev.some((x) => x.id === c.id) ? prev.map((x) => (x.id === c.id ? c : x)) : [c, ...prev]));
             setModal(null);
             if (action === "email") setEmail(c);
-            if (action === "poster") setEnvoi({ courrier: c, canal: c.type === "position_assureur" ? "lrar" : "courrier", numero: "" });
+            if (action === "poster") setEnvoi(c);
           }}
         />
       )}
 
-      {COURRIERS_POSTE_ACTIFS && laPoste && (
-        <EnvoiPostalModal
-          titre={`La Poste — ${LIBELLE_COURRIER_LITIGE[laPoste.type as TypeCourrierLitige]}`}
-          getPdfBase64={() => courrierRecouvrementPdfBase64(laPoste, dossier)}
-          nomFichier={nomFichierCourrier(laPoste, dossier.numero_sinistre)}
-          objet={laPoste.objet || LIBELLE_COURRIER_LITIGE[laPoste.type as TypeCourrierLitige]}
-          destinataireNom={laPoste.destinataire_nom || ""}
-          destinataireAdresse={laPoste.destinataire_adresse || ""}
-          typeInitial={laPoste.type === "position_assureur" ? "lrar" : "simple"}
-          dossierId={dossier.id}
-          courrierId={laPoste.id}
-          onClose={() => setLaPoste(null)}
-          onEnvoye={async (e) => { const c = laPoste; setLaPoste(null); await marquerEnvoye(c, e.type === "lrar" ? "lrar" : "courrier", e.numero_suivi); }}
+      {envoi && (
+        <CourrierPapierModal
+          courrier={envoi}
+          dossier={dossier}
+          numeroFacture={dossier.numero_sinistre}
+          onClose={() => { setEnvoi(null); charger(); }}
+          onConfirmer={(canal: CanalPapier, numero, date) => marquerEnvoye(envoi, canal, numero, date)}
         />
+      )}
+      {arModal && (
+        <CourrierPapierModal courrier={arModal} dossier={dossier} numeroFacture={dossier.numero_sinistre} mode="ar" onClose={() => { setArModal(null); charger(); }} />
       )}
 
       {email && (
@@ -201,7 +192,7 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
           defaultBody={`Bonjour,\n\nVeuillez trouver ci-joint ${email.type === "position_assureur" ? "une mise en demeure de prendre position" : "notre demande d'accord de réparation et de conservation des preuves, accompagnée des photographies d'état du véhicule"} concernant le dossier ${dossier.numero_sinistre || ""} (véhicule ${dossier.immatriculation || ""}).\n\nCordialement.`}
           piecesJointes={piecesEmail(email)}
           onClose={() => setEmail(null)}
-          onSent={async () => { const c = email; setEmail(null); await marquerEnvoye(c, "email"); }}
+          onSent={async () => { const c = email; setEmail(null); try { await marquerEnvoye(c, "email"); } catch { /* erreur déjà affichée */ } }}
         />
       )}
     </div>
@@ -288,7 +279,7 @@ function CourrierLitigeModal({ type, existant, dossier, garage, nbPhotos, joursI
           <button type="button" onClick={() => generateCourrierRecouvrementPdf(brouillon(), dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">⬇ Télécharger</button>
           <button type="button" onClick={() => enregistrer("enregistrer")} disabled={busy !== null} className="btn-ghost btn-compact">Enregistrer</button>
           <button type="button" onClick={() => enregistrer("email")} disabled={busy !== null} className="btn-ghost btn-compact">✉ Envoyer par email{type === "accord_reparation_expert" && nbPhotos ? ` (+${Math.min(12, nbPhotos)} photos)` : " (PDF joint)"}</button>
-          <button type="button" onClick={() => enregistrer("poster")} disabled={busy !== null} className="btn-primary btn-compact">{type === "position_assureur" ? "Signer → envoyer en recommandé" : "Signer → poster"}</button>
+          <button type="button" onClick={() => enregistrer("poster")} disabled={busy !== null} className="btn-primary btn-compact">{type === "position_assureur" ? "Signer → imprimer et poster en recommandé" : "Signer → imprimer et poster"}</button>
         </div>
       </div>
     </ModalShell>
