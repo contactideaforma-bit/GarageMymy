@@ -107,3 +107,69 @@ export const APPLICATION: string[] = [
   "Envoi des documents depuis votre propre boîte mail",
   "Utilisateurs, dossiers, documents et stockage illimités",
 ];
+
+/* ============================================================
+   COMPARATEUR DES OFFRES (v13.42) — ce qui est disponible ou non
+   dans chaque formule. `true` = inclus, `false` = non disponible,
+   une chaîne = valeur affichée (ex. « 10 h »). Les prix ne sont pas
+   ici (grille). L'ordre des colonnes suit FORMULES_ORDRE.
+   ============================================================ */
+
+export const FORMULES_ORDRE: Formule[] = ["essentiel", "starter", "confort", "serenite"];
+export const NOM_COURT: Record<Formule, string> = { essentiel: "Essentiel", starter: "Plus", confort: "Premium", serenite: "Ultimate" };
+
+export type ValeurComparatif = boolean | string;
+export type LigneComparatif = { libelle: string; aide?: string; valeurs: Record<Formule, ValeurComparatif> };
+export type GroupeComparatif = { titre: string; sousTitre?: string; lignes: LigneComparatif[] };
+
+const TOUS = (v: ValeurComparatif = true): Record<Formule, ValeurComparatif> => ({ essentiel: v, starter: v, confort: v, serenite: v });
+const SERVICE = (): Record<Formule, ValeurComparatif> => ({ essentiel: false, starter: true, confort: true, serenite: true });
+
+export const COMPARATIF: GroupeComparatif[] = [
+  {
+    titre: "L'application",
+    sousTitre: "Identique dans toutes les formules, sans limite d'utilisateurs ni de dossiers.",
+    lignes: [
+      { libelle: "Import du rapport d'expertise par IA, dossier pré-rempli", valeurs: TOUS() },
+      { libelle: "Devis, factures, ordres de réparation, cessions de créance, PV de restitution", valeurs: TOUS() },
+      { libelle: "Signature électronique à l'atelier ou par lien", valeurs: TOUS() },
+      { libelle: "Relances graduées, suivi des paiements et de la banque", valeurs: TOUS() },
+      { libelle: "Planning des réparations, commandes de pièces, véhicules de prêt", valeurs: TOUS() },
+      { libelle: "Envoi des documents depuis votre propre boîte mail", valeurs: TOUS() },
+      { libelle: "Photos d'état, pièces du dossier, archives, sauvegarde", valeurs: TOUS() },
+      { libelle: "Utilisateurs, dossiers, documents et stockage", valeurs: TOUS("Illimités") },
+    ],
+  },
+  {
+    titre: "Dossiers bloqués",
+    sousTitre: "Les outils de l'application pour sortir les impayés et les litiges, avec l'appui du chargé de mission.",
+    lignes: [
+      { libelle: "Suivi des impayés : procédure guidée (relance, mise en demeure, conciliateur, injonction de payer, droit de rétention)", valeurs: SERVICE() },
+      { libelle: "Courriers prêts à signer, journal des appels, rappels automatiques", valeurs: SERVICE() },
+      { libelle: "Suivi des litiges : plan de déblocage, courriers à l'expert et à l'assureur, délais légaux", valeurs: SERVICE() },
+      { libelle: "Recommandés : circuit guidé (impression, n° de suivi, accusé de réception rangé dans le dossier)", valeurs: SERVICE() },
+    ],
+  },
+  {
+    titre: "Chargé de mission",
+    sousTitre: "Spécialisé dans les dossiers de sinistres, à distance, aux horaires ouvrés. Les missions sont les mêmes : seul le temps change.",
+    lignes: [
+      { libelle: "Temps par mois", valeurs: { essentiel: false, starter: "10 h", confort: "20 h", serenite: "40 h" } },
+      { libelle: "Reprise des dossiers qui traînent", valeurs: SERVICE() },
+      { libelle: "Appels et relances aux assurances, aux experts et aux clients", valeurs: SERVICE() },
+      { libelle: "Suivi des litiges et des impayés jusqu'à l'encaissement", valeurs: { essentiel: false, starter: "Ponctuel", confort: true, serenite: true } },
+      { libelle: "Création des dossiers depuis le rapport d'expertise", valeurs: { essentiel: false, starter: false, confort: true, serenite: true } },
+      { libelle: "Suivi administratif des sinistres au quotidien, contrôle du chiffrage", valeurs: { essentiel: false, starter: false, confort: false, serenite: true } },
+      { libelle: "Heures non consommées reportables à 50 %", valeurs: SERVICE() },
+    ],
+  },
+  {
+    titre: "Conditions",
+    lignes: [
+      { libelle: "Sans engagement (un mois de préavis) ou engagement de 12 mois", valeurs: TOUS() },
+      { libelle: "Mise en service offerte avec l'engagement de 12 mois", valeurs: TOUS() },
+      { libelle: "Passage à une formule supérieure à tout moment", valeurs: TOUS() },
+      { libelle: "Prix nets, TVA non applicable (art. 293 B du CGI)", valeurs: TOUS() },
+    ],
+  },
+];

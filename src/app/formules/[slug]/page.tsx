@@ -14,6 +14,7 @@ import FormulaireContact from "@/components/vitrine/FormulaireContact";
 import { tarifFormule } from "@/lib/admin/economie";
 import { eur, useGrille } from "@/components/vitrine/useGrille";
 import { APPLICATION, FICHES, JAMAIS, MISSIONS, ficheParSlug } from "@/components/vitrine/formules";
+import ComparateurFormules from "@/components/vitrine/ComparateurFormules";
 
 function Coche({ className = "text-violet-600" }: { className?: string }) {
   return (
@@ -220,6 +221,15 @@ export default function PageFormule() {
                 ? `Reportables à 50 % sur le mois suivant. Au-delà du forfait : ${eur(params.heureHorsForfait)} de l'heure, uniquement sur votre accord écrit.`
                 : "Utilisateurs, dossiers, documents et stockage illimités. Pas de jetons, pas d'option payante cachée."}
             </div>
+          </div>
+        </section>
+
+        {/* ============================ Comparateur (v13.42) ============================ */}
+        <section id="comparateur" className="mt-10 scroll-mt-20">
+          <h2 className="!text-xl text-slate-900">Comparer les formules</h2>
+          <p className="mt-1 text-sm text-slate-500">Ce qui est inclus dans chaque formule, {engage ? "avec engagement de 12 mois" : "sans engagement"}. Votre formule est surlignée.</p>
+          <div className="mt-4">
+            <ComparateurFormules params={params} engage={engage} surligner={fiche.formule} />
           </div>
         </section>
 

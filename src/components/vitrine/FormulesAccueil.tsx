@@ -17,6 +17,7 @@ import Link from "next/link";
 import { tarifFormule } from "@/lib/admin/economie";
 import { eur, useGrille } from "./useGrille";
 import { FICHES } from "./formules";
+import ComparateurFormules from "./ComparateurFormules";
 
 const CARTES = FICHES;
 
@@ -140,6 +141,20 @@ export default function FormulesAccueil() {
       </div>
 
       <p className="mt-2 text-center text-xs text-slate-400 sm:hidden">Faites glisser pour comparer les formules →</p>
+
+      {/* v13.42 — comparateur : ce qui est disponible ou non dans chaque formule. */}
+      <details id="comparateur" className="group mt-6 scroll-mt-20">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-900 hover:border-violet-300">
+          <span>Comparer les formules en détail — ce qui est inclus, ce qui ne l&apos;est pas</span>
+          <span className="text-violet-600 transition group-open:rotate-45" aria-hidden="true">＋</span>
+        </summary>
+        <div className="mt-3">
+          <ComparateurFormules params={params} engage={engage} />
+          <p className="mt-2 text-xs text-slate-500">
+            Le suivi des impayés et le suivi des litiges (procédures guidées, courriers prêts à signer, recommandés) sont réservés aux formules Adhésion Service : ce sont les outils du chargé de mission, et les vôtres.
+          </p>
+        </div>
+      </details>
 
       {/* v13.41 — inscription en ligne : le garage s'abonne seul, sans rendez-vous commercial. */}
       <div className="mt-6 flex flex-col items-center gap-2 rounded-2xl bg-violet-50 p-5 text-center sm:flex-row sm:justify-between sm:text-left">
