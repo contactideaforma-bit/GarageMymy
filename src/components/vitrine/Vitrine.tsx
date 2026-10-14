@@ -8,6 +8,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { SOCIETE, ADRESSE_COMPLETE } from "./societe";
+import MyMyMascotte from "@/components/MyMyMascotte";
 
 /* ----------------------------- Icônes ----------------------------- */
 
@@ -215,6 +216,8 @@ export function PageVitrine({
         <div className="space-y-5">{children}</div>
       </div>
       <VitrineFooter />
+      {/* MY-MY (v13.43) : mascotte animée, sans balade sur les pages de lecture. */}
+      <MyMyMascotte mode="vitrine" balade={false} />
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useMetier } from "@/components/MetierProvider";
+import MyMyMascotte from "@/components/MyMyMascotte";
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import {
   ActionMyMy,
@@ -388,24 +389,15 @@ export default function MyMyChat() {
         </div>
       )}
 
-      {/* ---------- Bouton flottant (mascotte) ---------- */}
+      {/* ---------- Mascotte animée (v13.43) : remplace le bouton rond ----------
+          Elle suit la souris des yeux, réagit au clic (petit saut puis ouverture
+          du chat), donne des astuces liées à la page et se balade parfois. */}
       {!ouvert && (
-        <div className="fixed bottom-4 right-4 z-40 flex items-end gap-2 sm:bottom-5 sm:right-5">
-          {coucou && (
-            <div className="mymy-bulle mb-3 max-w-[180px] rounded-2xl rounded-br-sm px-3 py-2 text-xs shadow-lg">
-              Coucou, je suis MY-MY ! Une question sur un dossier ?
-            </div>
-          )}
-          <button
-            onClick={ouvrir}
-            aria-label="Ouvrir l'assistant MY-MY"
-            title="MY-MY — ton assistant"
-            className="mymy-bouton group relative h-14 w-14 rounded-full bg-white transition hover:-translate-y-0.5 active:translate-y-0.5"
-          >
-            <Image src="/mymy-avatar.png" alt="MY-MY" width={56} height={56} className="rounded-full p-1 transition group-hover:scale-105" />
-            <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400" />
-          </button>
-        </div>
+        <MyMyMascotte
+          mode="appli"
+          onOuvrir={ouvrir}
+          messageInitial={coucou ? "Coucou, je suis MY-MY ! Une question sur un dossier ? Clique sur moi." : null}
+        />
       )}
     </>
   );

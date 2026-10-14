@@ -253,6 +253,13 @@ STRIPE_WEBHOOK_SECRET=whsec_...      # v13.41 — webhook /api/stripe/webhook
 - **Vidéo** : `docs/video/captures-v13.42/` (13 captures existantes renommées et indexées, 5 à refaire après déploiement) + `docs/video/Prompt-NotebookLM-video-MyEasyAuto.md` (prompts vidéo / audio / 1 min, style clair violet-rose cohérent avec le site).
 - ⚠️ À faire côté IDEA : exécuter `supabase/migration_v99.sql` ; retirer (ou mettre à `0`) l'éventuelle variable `NEXT_PUBLIC_COURRIERS_POSTE` sur Vercel.
 
+### Ajouté v13.43 — MY-MY mascotte animée et interactive (site vitrine + appli)
+- **`src/components/MyMyMascotte.tsx`** : MY-MY redessiné en **SVG vectoriel** (console rose, écran crème, croix, touches, boutons, bras et jambes filaires), chaque partie animée séparément (CSS `mymy-masc-*` en fin de `globals.css`, `transform-box: fill-box`). Comportements : **les yeux et sourcils suivent la souris** (pointeur fin ; au doigt elle regarde le point touché puis revient), clignement, respiration, salut de la main ; **réactions au clic** (cycle `REACTIONS_CLIC` : coucou, chatouilles, saut, toupie, bouderie au 5e, clin d'œil au 6e) ; **balade** le long du bas de l'écran (ordinateur ≥ 1024 px uniquement, jamais si un champ a le focus, jamais avec `prefers-reduced-motion`), **cachette** (sort par la droite, ressurgit à gauche avec « Bouh ! ») ; **bulles d'astuces** (texte + lien optionnel via `router.push`, fermeture ×) toutes les 35-80 s (vitrine) / 60-120 s (appli). Props : `mode` (`vitrine` | `appli`), `onOuvrir`, `messageInitial`, `balade`.
+- **Textes** dans `src/lib/mymyMascotte.ts` : `ASTUCES_VITRINE`, astuces appli **par route** (`astucesPourRoute(pathname)` : sinistres, factures, devis, planning, agenda, clients, véhicules, courriers, archives, rentabilité, prospects, extranets + générales), `REACTIONS_CLIC`, `SURPRISES`, `TAQUINERIES` (survol long), `tirerAuHasard`.
+- **Appli** (`MyMyChat.tsx`) : la mascotte **remplace le bouton rond** en bas à droite ; un clic = petit saut puis ouverture du chat (`ouvrir`) ; 5 clics rapides = réactions ludiques ; le « coucou » de première visite (`mymy-vu`) passe par `messageInitial`. Balade rare (12 %) avec retour à la maison. Toujours absente de `/sinistres/[id]` et `/conversation`.
+- **Vitrine** : `LandingPage.tsx` (balade active) et `PageVitrine` (`vitrine/Vitrine.tsx`, `balade={false}` sur les pages de lecture / contact). Bulle claire forcée (`mymy-masc-bulle--claire`).
+- Aucune migration. Aperçu autonome fourni à IDEA (`apercu-mymy.html`) et validé avant intégration.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

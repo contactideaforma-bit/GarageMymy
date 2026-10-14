@@ -1195,3 +1195,58 @@ html.alliance .al-table td { padding: 0.55rem 0.7rem; line-height: 1.35; }
 html.alliance .glass-card > .titre-section { margin-bottom: 0.25rem; }
 html.alliance .field-label { margin-bottom: 0.35rem; }
 html.alliance .badge { padding: 0.2rem 0.6rem; }
+
+/* =====================================================================
+   MY-MY MASCOTTE ANIMÉE (v13.43) — composants/MyMyMascotte.tsx
+   Chaque partie du SVG (torse, yeux, bras, jambes) est animée séparément.
+   transform-box: fill-box permet de pivoter autour d'un point du dessin.
+   ===================================================================== */
+.mymy-masc-corps { -webkit-tap-highlight-color: transparent; border: 0; }
+.mymy-masc-svg { display: block; filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.22)); }
+.mymy-masc-torse { transform-box: fill-box; transform-origin: 50% 100%; animation: mymy-respire 3.2s ease-in-out infinite; }
+.mymy-masc-oeil { transform-box: fill-box; transform-origin: center; animation: mymy-cligne 4.6s infinite; }
+.mymy-masc-oeil--ferme { transform: scaleY(0.12) !important; animation: none; }
+.mymy-masc-bras, .mymy-masc-jambe { transform-box: fill-box; }
+.mymy-masc-bras--g { transform-origin: 100% 0; }
+.mymy-masc-bras--d { transform-origin: 0 0; }
+.mymy-masc-jambe--g, .mymy-masc-jambe--d { transform-origin: 50% 0; }
+.mymy-masc--coucou .mymy-masc-bras--d { animation: mymy-salut 0.5s ease-in-out 3; }
+.mymy-masc--saut .mymy-masc-corps { animation: mymy-saut 0.5s ease-out; }
+.mymy-masc--chatouille .mymy-masc-corps { animation: mymy-chatouille 0.18s ease-in-out 6; }
+.mymy-masc--tourne .mymy-masc-corps { animation: mymy-tourne 0.9s ease-in-out; }
+.mymy-masc--boude .mymy-masc-torse { animation: mymy-boude 1.4s ease-in-out; }
+.mymy-masc--surprise .mymy-masc-corps { animation: mymy-saut 0.6s ease-out 2; }
+.mymy-masc--clin .mymy-masc-bras--g { animation: mymy-salut 0.5s ease-in-out 2; }
+.mymy-masc--marche .mymy-masc-jambe--g { animation: mymy-pas 0.36s ease-in-out infinite; }
+.mymy-masc--marche .mymy-masc-jambe--d { animation: mymy-pas 0.36s ease-in-out infinite reverse; }
+.mymy-masc--marche .mymy-masc-bras--g { animation: mymy-balance 0.36s ease-in-out infinite reverse; }
+.mymy-masc--marche .mymy-masc-bras--d { animation: mymy-balance 0.36s ease-in-out infinite; }
+.mymy-masc--marche .mymy-masc-torse { animation: mymy-trotte 0.36s ease-in-out infinite; }
+.mymy-masc-corps:hover .mymy-masc-svg { filter: drop-shadow(0 10px 18px rgba(236, 72, 153, 0.35)); }
+/* Pastille « en ligne » (mode appli) */
+.mymy-masc-badge {
+  position: absolute; top: 2px; right: 0; width: 14px; height: 14px; border-radius: 9999px;
+  background: #34d399; border: 2px solid #fff; box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.35);
+}
+/* Bulle d'astuce : s'appuie sur .mymy-bulle (couleurs du thème) */
+.mymy-masc-bulle { width: max-content; max-width: min(240px, 70vw); padding: 0.55rem 0.75rem; animation: mymy-pop 0.25s cubic-bezier(0.2, 1.4, 0.4, 1); }
+.mymy-masc-bulle--claire { background-color: #fff !important; color: #1f2937 !important; border: 1px solid #e5e7eb; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important; }
+.mymy-masc-fermer {
+  position: absolute; top: 2px; right: 6px; font-size: 16px; line-height: 1; opacity: 0.5; background: none; border: 0; cursor: pointer; color: inherit;
+}
+.mymy-masc-fermer:hover { opacity: 1; }
+@keyframes mymy-respire { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.025) translateY(-1px); } }
+@keyframes mymy-cligne { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@keyframes mymy-salut { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-70deg); } }
+@keyframes mymy-saut { 0% { transform: translateY(0); } 40% { transform: translateY(-34px); } 100% { transform: translateY(0); } }
+@keyframes mymy-chatouille { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(6deg) translateX(3px); } }
+@keyframes mymy-tourne { 0% { transform: rotate(0); } 100% { transform: rotate(360deg); } }
+@keyframes mymy-boude { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px) rotate(-4deg); } 60% { transform: translateX(6px) rotate(4deg); } }
+@keyframes mymy-pas { 0%, 100% { transform: rotate(-22deg); } 50% { transform: rotate(22deg); } }
+@keyframes mymy-balance { 0%, 100% { transform: rotate(-16deg); } 50% { transform: rotate(16deg); } }
+@keyframes mymy-trotte { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes mymy-pop { from { opacity: 0; transform: translateY(6px) scale(0.9); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .mymy-masc-torse, .mymy-masc-oeil, .mymy-masc--marche .mymy-masc-jambe--g, .mymy-masc--marche .mymy-masc-jambe--d,
+  .mymy-masc--marche .mymy-masc-bras--g, .mymy-masc--marche .mymy-masc-bras--d { animation: none !important; }
+}

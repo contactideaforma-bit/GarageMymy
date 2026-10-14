@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import MyMyMascotte from "@/components/MyMyMascotte";
 import Link from "next/link";
 import { METIER_INFOS, METIERS_PUBLICS, Metier } from "@/lib/metier";
 import FormulesAccueil from "@/components/vitrine/FormulesAccueil";
@@ -541,6 +542,8 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
           </div>
         </div>
       )}
+      {/* MY-MY (v13.43) : la mascotte animée se promène sur la page d'accueil. */}
+      <MyMyMascotte mode="vitrine" />
     </div>
   );
 }
