@@ -64,7 +64,7 @@ export default function VentePage() {
 
   const prix = useMemo(() => (params ? prixVente(offre.formule, { engagement12: offre.engagement_12, periodicite: offre.periodicite, remiseSupp: offre.remise_supp_pct }, params) : null), [params, offre]);
   const prime = useMemo(
-    () => (params && prix ? primeVente(offre.formule, { engagement12: offre.engagement_12 || offre.periodicite === "annuel", periodicite: offre.periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite }, params) : null),
+    () => (params && prix ? primeVente(offre.formule, { engagement12: offre.engagement_12 || offre.periodicite === "annuel", periodicite: offre.periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, params) : null),
     [params, prix, offre]
   );
   const grille = useMemo(() => (params ? grilleTarifs(params) : []), [params]);
@@ -79,6 +79,8 @@ export default function VentePage() {
         prix_mensuel_ht: prix.mensualite,
         montant_annuel_ht: prix.montantAnnuel,
         mise_en_service_ht: prix.miseEnService,
+        lancement_pct: prix.lancement.pct,
+        lancement_mois: prix.lancement.mois,
         mode_paiement: paiement.mode_paiement,
         date_debut_souhaitee: offre.date_debut_souhaitee || null,
         signataire_nom: contrat.signataire_nom,
@@ -87,7 +89,7 @@ export default function VentePage() {
       }
     : null;
 
-  const montantDu = prix ? (offre.periodicite === "annuel" ? (prix.montantAnnuel || 0) : prix.mensualite) + prix.miseEnService : 0;
+  const montantDu = prix ? (offre.periodicite === "annuel" ? (prix.montantAnnuel || 0) : prix.lancement.mensualiteLancement) + prix.miseEnService : 0;
 
   async function verifierCode() {
     setErreur(null);

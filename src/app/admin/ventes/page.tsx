@@ -154,7 +154,7 @@ export default function VentesPage() {
             const st = STATUTS_VENTE[v.statut] || STATUTS_VENTE.declaree;
             const s = suivi.get(v.id);
             const commercial = collabs.find((c) => c.id === v.collaborateur_id);
-            const prime = primeVente(v.formule, { engagement12: v.engagement_12, periodicite: v.periodicite, mensualiteFacturee: v.montant_annuel_ht != null ? v.montant_annuel_ht / 12 : v.prix_mensuel_ht }, p);
+            const prime = primeVente(v.formule, { engagement12: v.engagement_12, periodicite: v.periodicite, mensualiteFacturee: v.montant_annuel_ht != null ? v.montant_annuel_ht / 12 : v.prix_mensuel_ht, lancementPct: v.lancement_pct, lancementMois: v.lancement_mois }, p);
             return (
               <div key={v.id} className="glass-card p-3 sm:p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">

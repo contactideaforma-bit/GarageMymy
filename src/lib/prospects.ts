@@ -359,7 +359,7 @@ export function reponseTexte(v: unknown): string {
 }
 
 /** Fiche prospect → contrat (VenteContrat de contratGarage.ts). */
-export function prospectVersContrat(p: Prospect, offre: ParametresOffre, prix: { mensualite: number; montantAnnuel: number | null; miseEnService: number }, code?: string | null) {
+export function prospectVersContrat(p: Prospect, offre: ParametresOffre, prix: { mensualite: number; montantAnnuel: number | null; miseEnService: number; lancement?: { pct: number; mois: number } }, code?: string | null) {
   return {
     garage_nom: p.nom,
     garage_siret: p.siret || p.siren,
@@ -377,6 +377,8 @@ export function prospectVersContrat(p: Prospect, offre: ParametresOffre, prix: {
     prix_mensuel_ht: prix.mensualite,
     montant_annuel_ht: prix.montantAnnuel,
     mise_en_service_ht: prix.miseEnService,
+    lancement_pct: prix.lancement?.pct || 0,
+    lancement_mois: prix.lancement?.mois || 0,
     mode_paiement: offre.mode_paiement || "virement",
     date_debut_souhaitee: offre.date_debut_souhaitee || null,
     signataire_nom: p.contact_nom || p.gerant,

@@ -14,7 +14,7 @@
 // ============================================================
 
 import { SupabaseClient } from "@supabase/supabase-js";
-import { montantMensualite } from "@/lib/offreLancement";
+import { finRemiseLancement, montantMensualite } from "@/lib/offreLancement";
 import { randomBytes } from "crypto";
 import { envoyerEmailServeur } from "@/lib/mailer";
 import { comptesAdmin, tousLesComptes } from "@/lib/supportServeur";
@@ -282,6 +282,9 @@ export async function creerCompteManuel(admin: SupabaseClient, s: SaisieCompteMa
     const dateDebut = s.offre.date_debut || premierDuMois(new Date());
     const prixMensuel = prix.montantAnnuel != null ? r2(prix.montantAnnuel / 12) : prix.mensualite;
     const remisePct = r2(100 - (prixMensuel / p.formules[formule].prix) * 100);
+    // v13.44 — offre de lancement (automatique pendant sa validité, mensuel : N premières mensualités remisées).
+    const lancementPct = prix.lancement.pct;
+    const lancementFin = lancementPct > 0 && periodicite === "mensuel" ? finRemiseLancement(dateDebut, prix.lancement.mois) : null;
     const { data: abo, error } = await admin
       .from("abonnements")
       .insert({
@@ -300,13 +303,16 @@ export async function creerCompteManuel(admin: SupabaseClient, s: SaisieCompteMa
         statut: "actif",
         commercial_id: s.offre.commercial_id || null,
         secretaire_id: s.offre.secretaire_id || null,
-        notes: [`Compte créé de A à Z depuis l'espace éditeur.`, s.offre.notes || ""].filter(Boolean).join(" "),
+        lancement_pct: lancementPct,
+        lancement_fin: lancementFin,
+        lancement_code: prix.lancement.code,
+        notes: [`Compte créé de A à Z depuis l'espace éditeur.`, prix.lancement.pct > 0 ? `Offre de lancement −${prix.lancement.pct} %.` : "", s.offre.notes || ""].filter(Boolean).join(" "),
       })
       .select("id")
       .single();
     if (error || !abo) throw new ErreurCompte(error?.message || "Création de l'abonnement impossible.", 500);
     abonnementId = abo.id;
-    const lignes = lignesMensualites(abo.id, periodicite, dateDebut, prixMensuel, prix.montantAnnuel);
+    const lignes = lignesMensualites(abo.id, periodicite, dateDebut, prixMensuel, prix.montantAnnuel, { pct: lancementPct, fin: lancementFin });
     if (lignes.length) await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });
   }
 

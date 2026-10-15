@@ -135,6 +135,10 @@ export async function POST(req: Request) {
       prix_mensuel_ht: prix.mensualite,
       montant_annuel_ht: prix.montantAnnuel,
       mise_en_service_ht: prix.miseEnService,
+      // v13.44 — offre de lancement (automatique pendant sa validité)
+      lancement_pct: prix.lancement.pct,
+      lancement_mois: prix.lancement.mois,
+      lancement_code: prix.lancement.code,
       date_debut_souhaitee: texte(offre.date_debut_souhaitee, 10) || null,
       mode_paiement: ["virement", "prelevement", "cheque", "especes", "cb"].includes(mode) ? mode : paiementDemande === "cb" ? "cb" : "virement",
       paiement_sur_place: false,
@@ -159,7 +163,7 @@ export async function POST(req: Request) {
       const comptes = await comptesAdmin(admin);
       const expediteurId = comptes[0]?.id;
       if (expediteurId) {
-        const prime = collab ? primeVente(formule, { engagement12: engagement_12, periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite }, p) : null;
+        const prime = collab ? primeVente(formule, { engagement12: engagement_12, periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, p) : null;
         const qui = collab ? `${[collab.prenom, collab.nom].filter(Boolean).join(" ")} (code ${collab.code_apporteur || "—"})` : "l'éditeur";
         await envoyerEmailServeur(
           {

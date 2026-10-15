@@ -135,13 +135,13 @@ export async function activerInscription(admin: SupabaseClient, venteId: string)
   if (!abonnementId) {
     const formule = vente.formule as Formule;
     const engagement = Boolean(vente.engagement_12) || vente.periodicite === "annuel";
-    const prix = prixVente(formule, { engagement12: engagement, periodicite: vente.periodicite as "mensuel" | "annuel", remiseSupp: 0 }, p);
+    const prix = prixVente(formule, { engagement12: engagement, periodicite: vente.periodicite as "mensuel" | "annuel", remiseSupp: 0, lancement: Number(vente.lancement_pct) > 0 }, p);
     const dateDebut = premierDuMois(new Date());
     // v13.44 — offre de lancement : en annuel le montant payé est celui enregistré sur la vente (déjà remisé) ;
     // en mensuel le prix reste le plein tarif, les N premières mensualités sont remisées (lancement_fin).
-    const lancementPct = vente.periodicite === "mensuel" ? Number(vente.lancement_pct) || 0 : 0;
+    const lancementPct = Number(vente.lancement_pct) || 0;
     const lancementMois = Number(vente.lancement_mois) || 0;
-    const lancementFin = lancementPct > 0 && lancementMois > 0 ? finRemiseLancement(dateDebut, lancementMois) : null;
+    const lancementFin = lancementPct > 0 && lancementMois > 0 && vente.periodicite === "mensuel" ? finRemiseLancement(dateDebut, lancementMois) : null;
     const montantAnnuel = prix.montantAnnuel != null ? (Number(vente.montant_annuel_ht) || prix.montantAnnuel) : null;
     const prixMensuel = montantAnnuel != null ? r2(montantAnnuel / 12) : prix.mensualite;
     const remisePct = r2(100 - (prixMensuel / p.formules[formule].prix) * 100);

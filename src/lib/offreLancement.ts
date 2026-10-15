@@ -45,13 +45,13 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 export const mensualiteLancement = (mensualite: number, pct: number = OFFRE_LANCEMENT.pct): number => r2(mensualite * (1 - pct / 100));
 
 /** Économie totale sur la période (mensuel) : mois × remise. */
-export const economieLancement = (mensualite: number, o: OffreLancement = OFFRE_LANCEMENT): number => r2(mensualite * (o.pct / 100) * o.mois);
+export const economieLancement = (mensualite: number, o: Pick<OffreLancement, "pct" | "mois"> = OFFRE_LANCEMENT): number => r2(mensualite * (o.pct / 100) * o.mois);
 
 /**
  * Montant de l'année payée en une fois, remise de lancement déduite : la
  * remise porte sur les `mois` premières mensualités engagées.
  */
-export const annuelLancement = (montantAnnuel: number, mensuelEngage: number, o: OffreLancement = OFFRE_LANCEMENT): number =>
+export const annuelLancement = (montantAnnuel: number, mensuelEngage: number, o: Pick<OffreLancement, "pct" | "mois"> = OFFRE_LANCEMENT): number =>
   r2(Math.max(0, montantAnnuel - economieLancement(mensuelEngage, o)));
 
 /** Dernière période (1er du mois, AAAA-MM-01) couverte par la remise, à partir du mois de début. */

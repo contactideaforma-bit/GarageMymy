@@ -6,6 +6,8 @@
 //  et grille apporteurs d'affaires v1.1 (−15 %) du 25/08/2026.
 // ============================================================
 
+import { OFFRE_LANCEMENT, annuelLancement, economieLancement, mensualiteLancement, offreActive } from "@/lib/offreLancement";
+
 export type Formule = "essentiel" | "starter" | "confort" | "serenite";
 export const FORMULES: Formule[] = ["essentiel", "starter", "confort", "serenite"];
 
@@ -181,19 +183,40 @@ export function grilleTarifs(p: Parametres): TarifFormule[] {
  * paiement annuel, le montant total. `remiseSupp` = remise commerciale
  * supplémentaire en % (accordée exceptionnellement, validée par l'éditeur).
  */
+export type PrixVente = {
+  /** Mensualité de référence (plein tarif de la vente, après engagement et remise supp.). */
+  mensualite: number;
+  /** Année payée en une fois : montant à payer, offre de lancement déjà déduite le cas échéant. */
+  montantAnnuel: number | null;
+  remiseTotalePct: number;
+  miseEnService: number;
+  /**
+   * v13.44 — OFFRE DE LANCEMENT (−20 % pendant 3 mois jusqu'au 15/11/2026),
+   * appliquée automatiquement à toute vente conclue pendant sa validité,
+   * en ligne comme par un commercial. `pct` = 0 si l'offre n'est pas active.
+   * En mensuel : les `mois` premières mensualités valent `mensualiteLancement`.
+   */
+  lancement: { pct: number; mois: number; mensualiteLancement: number; code: string | null };
+};
+
 export function prixVente(
   f: Formule,
-  opts: { engagement12: boolean; periodicite: Periodicite; remiseSupp?: number },
+  opts: { engagement12: boolean; periodicite: Periodicite; remiseSupp?: number; /** forcer l'offre de lancement (true/false) ; par défaut : selon la date du jour */ lancement?: boolean; now?: Date },
   p: Parametres
-): { mensualite: number; montantAnnuel: number | null; remiseTotalePct: number; miseEnService: number } {
+): PrixVente {
   const t = tarifFormule(f, p);
   const engage = opts.engagement12 || opts.periodicite === "annuel";
   const base = engage ? t.mensuelEngage : t.mensuel;
   const supp = Math.min(100, Math.max(0, opts.remiseSupp || 0));
   const mensualite = r2(base * (1 - supp / 100));
-  const montantAnnuel = opts.periodicite === "annuel" ? r2((t.annuelBase - t.bonusAnnuel) * (1 - supp / 100)) : null;
+  let montantAnnuel = opts.periodicite === "annuel" ? r2((t.annuelBase - t.bonusAnnuel) * (1 - supp / 100)) : null;
   const remiseTotalePct = r2(100 - ((montantAnnuel != null ? montantAnnuel / 12 : mensualite) / t.mensuel) * 100);
-  return { mensualite, montantAnnuel, remiseTotalePct, miseEnService: engage ? 0 : p.miseEnService };
+  const actif = opts.lancement ?? offreActive(opts.now);
+  const lancement = actif
+    ? { pct: OFFRE_LANCEMENT.pct, mois: OFFRE_LANCEMENT.mois, mensualiteLancement: mensualiteLancement(mensualite, OFFRE_LANCEMENT.pct), code: OFFRE_LANCEMENT.code }
+    : { pct: 0, mois: 0, mensualiteLancement: mensualite, code: null };
+  if (actif && montantAnnuel != null) montantAnnuel = annuelLancement(montantAnnuel, mensualite, OFFRE_LANCEMENT);
+  return { mensualite, montantAnnuel, remiseTotalePct, miseEnService: engage ? 0 : p.miseEnService, lancement };
 }
 
 /**
@@ -211,20 +234,23 @@ export function prixVente(
  */
 export function ratioPrime(
   f: Formule,
-  opts: { engagement12: boolean; periodicite?: Periodicite; mensualiteFacturee: number },
+  opts: { engagement12: boolean; periodicite?: Periodicite; mensualiteFacturee: number; /** v13.44 — offre de lancement accordée (neutralisée : elle ne réduit pas la prime) */ lancementPct?: number | null; lancementMois?: number | null },
   p: Parametres
 ): number {
   const t = tarifFormule(f, p);
   const engage = opts.engagement12 || opts.periodicite === "annuel";
   const reference = engage ? t.mensuelEngage : t.mensuel;
-  // Année en une fois : la mensualité facturée intègre l'avantage annuel — on le neutralise.
-  const facturee = opts.periodicite === "annuel" ? opts.mensualiteFacturee + t.bonusAnnuel / 12 : opts.mensualiteFacturee;
+  // Année en une fois : la mensualité facturée intègre l'avantage annuel (et l'offre de lancement) — on les neutralise.
+  let facturee = opts.periodicite === "annuel" ? opts.mensualiteFacturee + t.bonusAnnuel / 12 : opts.mensualiteFacturee;
+  if (opts.periodicite === "annuel" && Number(opts.lancementPct) > 0) {
+    facturee += economieLancement(reference, { pct: Number(opts.lancementPct), mois: Number(opts.lancementMois) || OFFRE_LANCEMENT.mois }) / 12;
+  }
   return reference > 0 ? Math.min(1, Math.max(0, facturee / reference)) : 1;
 }
 
 export function primeVente(
   f: Formule,
-  opts: { engagement12: boolean; periodicite?: Periodicite; mensualiteFacturee: number },
+  opts: { engagement12: boolean; periodicite?: Periodicite; mensualiteFacturee: number; lancementPct?: number | null; lancementMois?: number | null },
   p: Parametres
 ): { prime: number; bonus: number; total: number; mensualiteEcheance: number; mensualitesReprise: number } {
   const pf = p.formules[f];
@@ -339,6 +365,8 @@ export type AbonnementCalc = {
   statut: "actif" | "suspendu" | "resilie";
   commercial_id: string | null;
   secretaire_id: string | null;
+  /** v13.44 — offre de lancement accordée (ne réduit pas les primes). */
+  lancement_pct?: number | null;
 };
 export type MensualiteCalc = { abonnement_id: string; periode: string; montant_ht: number; payee_le: string | null; heures_faites?: number | null };
 export type CollaborateurCalc = { id: string; type: "commercial" | "secretaire"; taux_horaire?: number | null; taux_retrocession?: number | null };
@@ -379,7 +407,7 @@ export function lignesDues(
     const f0 = p.formules[a.formule];
     const ratio = ratioPrime(
       a.formule,
-      { engagement12: a.engagement_12, periodicite: a.periodicite || "mensuel", mensualiteFacturee: Number(a.prix_ht) || f0.prix },
+      { engagement12: a.engagement_12, periodicite: a.periodicite || "mensuel", mensualiteFacturee: Number(a.prix_ht) || f0.prix, lancementPct: a.lancement_pct },
       p
     );
     const plancher = p.formules.essentiel.primeSignature;

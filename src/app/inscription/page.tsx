@@ -23,8 +23,8 @@ import { FICHES } from "@/components/vitrine/formules";
 import DemandeRappel from "@/components/vitrine/DemandeRappel";
 import SignaturePad from "@/components/SignaturePad";
 import { lireReponse } from "@/lib/apiClient";
-import { Formule, Parametres, Periodicite, fusionnerParametres, grilleTarifs, prixVente, tarifFormule } from "@/lib/admin/economie";
-import { DATE_FIN_LIBELLE, OFFRE_LANCEMENT, annuelLancement, mensualiteLancement, offreActive } from "@/lib/offreLancement";
+import { Formule, Parametres, Periodicite, fusionnerParametres, grilleTarifs, prixVente } from "@/lib/admin/economie";
+import { DATE_FIN_LIBELLE, OFFRE_LANCEMENT, annuelLancement, mensualiteLancement } from "@/lib/offreLancement";
 import { QUESTIONS_BESOINS } from "@/lib/admin/ventePublic";
 import { ACCEPTATION_CGV, VenteContrat, articlesCGV, conditionsParticulieres } from "@/lib/admin/contratGarage";
 import { ACCEPTATION_CGU, VERSION_CGU, articlesCGU } from "@/lib/admin/cgu";
@@ -94,9 +94,9 @@ function Inscription() {
   const formule: Formule = offre.formule || reco.formule;
   const grille = useMemo(() => (params ? grilleTarifs(params) : []), [params]);
   const prix = useMemo(() => (params ? prixVente(formule, { engagement12: offre.engagement_12, periodicite: offre.periodicite, remiseSupp: 0 }, params) : null), [params, formule, offre]);
-  // v13.44 — offre de lancement (−20 % / 3 mois jusqu'au 15/11/2026) : appliquée automatiquement, le serveur fait foi.
-  const lancement = offreActive() ? OFFRE_LANCEMENT : null;
-  const montantAnnuel = prix && prix.montantAnnuel != null && params && lancement ? annuelLancement(prix.montantAnnuel, tarifFormule(formule, params).mensuelEngage, lancement) : prix?.montantAnnuel ?? null;
+  // v13.44 — offre de lancement (−20 % / 3 mois jusqu'au 15/11/2026) : appliquée automatiquement par prixVente, le serveur fait foi.
+  const lancement = prix && prix.lancement.pct > 0 ? prix.lancement : null;
+  const montantAnnuel = prix?.montantAnnuel ?? null;
   const options = useMemo(() => optionsPaiement(offre.periodicite, dispo), [offre.periodicite, dispo]);
   const modeChoisi: ModeEnLigne = mode && options.some((o) => o.mode === mode) ? mode : (options.find((o) => o.recommande) || options[0])?.mode || "virement";
 

@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { finRemiseLancement } from "@/lib/offreLancement";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
 import { estAdminServeur, tousLesComptes, comptesAdmin } from "@/lib/supportServeur";
 import { envoyerEmailServeur } from "@/lib/mailer";
 import { randomBytes } from "crypto";
-import { ErreurCompte, SaisieCompteManuel, creerCompteDepuisAbonnement, creerCompteDepuisVente, creerCompteManuel, renvoyerBienvenueDepuisAbonnement, renvoyerBienvenueDepuisVente } from "@/lib/admin/compteGarageServeur";
+import { ErreurCompte, SaisieCompteManuel, creerCompteDepuisAbonnement, creerCompteDepuisVente, creerCompteManuel, lignesMensualites, renvoyerBienvenueDepuisAbonnement, renvoyerBienvenueDepuisVente } from "@/lib/admin/compteGarageServeur";
 import { emailBienvenueCommercialHtml, emailBienvenueCommercialTexte, sujetBienvenueCommercial, emailDocsCollaborateurHtml, emailDocsCollaborateurTexte, sujetDocsCollaborateur } from "@/lib/admin/emailCollaborateur";
 import { lireDocPack } from "@/lib/admin/packDocsServeur";
 import { docsPour, nomFichierDoc } from "@/lib/admin/packDocs";
@@ -400,8 +401,13 @@ export async function POST(req: Request) {
     const engagement = Boolean(v.engagement_12) || v.periodicite === "annuel";
     // Remise exceptionnelle : appliquée seulement si l'éditeur l'accepte.
     const remiseSupp = body.remise_acceptee ? Number(v.remise_supp_pct) || 0 : 0;
-    const prix = prixVente(formule, { engagement12: engagement, periodicite: v.periodicite, remiseSupp }, p);
+    // v13.44 — l'offre de lancement est celle ENREGISTRÉE sur la vente à la signature (pas la date de validation).
+    const lancementVente = Number(v.lancement_pct) > 0;
+    const prix = prixVente(formule, { engagement12: engagement, periodicite: v.periodicite, remiseSupp, lancement: lancementVente }, p);
     const dateDebut = body.date_debut || v.date_debut_souhaitee || premierDuMois(new Date());
+    const lancementPct = Number(v.lancement_pct) || 0;
+    const lancementMois = Number(v.lancement_mois) || 0;
+    const lancementFin = lancementPct > 0 && lancementMois > 0 && v.periodicite === "mensuel" ? finRemiseLancement(dateDebut, lancementMois) : null;
     const prixMensuel = prix.montantAnnuel != null ? Math.round((prix.montantAnnuel / 12) * 100) / 100 : prix.mensualite;
     const remisePct = Math.round((100 - (prixMensuel / p.formules[formule].prix) * 100) * 100) / 100;
     const { data: abo, error: eAbo } = await admin
@@ -415,6 +421,9 @@ export async function POST(req: Request) {
         periodicite: v.periodicite,
         montant_annuel: prix.montantAnnuel,
         heures: p.formules[formule].heures,
+        lancement_pct: lancementPct,
+        lancement_fin: lancementFin,
+        lancement_code: lancementVente ? v.lancement_code || null : null,
         date_signature: (v.signe_le || v.created_at).slice(0, 10),
         date_debut: dateDebut,
         engagement_12: engagement,
@@ -426,25 +435,8 @@ export async function POST(req: Request) {
       .select("id")
       .single();
     if (eAbo || !abo) return NextResponse.json({ error: eAbo?.message || "Création de l'abonnement impossible." }, { status: 500 });
-    // Mensualités (même logique que generer_mensualites)
-    const d = new Date(dateDebut);
-    const m0 = new Date(d.getFullYear(), d.getMonth(), 1);
-    const lignes: { abonnement_id: string; periode: string; montant_ht: number; notes?: string }[] = [];
-    if (v.periodicite === "annuel") {
-      const total = Number(prix.montantAnnuel) || prixMensuel * 12;
-      const part = Math.floor((total / 12) * 100) / 100;
-      for (let i = 0; i < 12; i++) {
-        lignes.push({ abonnement_id: abo.id, periode: premierDuMois(m0), montant_ht: i === 11 ? Math.round((total - part * 11) * 100) / 100 : part, notes: "Forfait annuel" });
-        m0.setMonth(m0.getMonth() + 1);
-      }
-    } else {
-      const fin = new Date();
-      if (m0 > fin) lignes.push({ abonnement_id: abo.id, periode: premierDuMois(m0), montant_ht: prixMensuel });
-      while (m0 <= fin) {
-        lignes.push({ abonnement_id: abo.id, periode: premierDuMois(m0), montant_ht: prixMensuel });
-        m0.setMonth(m0.getMonth() + 1);
-      }
-    }
+    // Mensualités (même logique que generer_mensualites) — v13.44 : remisées pendant l'offre de lancement.
+    const lignes = lignesMensualites(abo.id, v.periodicite, dateDebut, prixMensuel, prix.montantAnnuel, { pct: lancementPct, fin: lancementFin });
     if (lignes.length) await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });
     // v13.31 — le commercial a pu créer le compte AVANT la validation : on
     // garde le statut « compte créé » et on rattache l'abonnement au compte.

@@ -170,6 +170,10 @@ export async function POST(req: Request) {
     prix_mensuel_ht: prix.mensualite,
     montant_annuel_ht: prix.montantAnnuel,
     mise_en_service_ht: prix.miseEnService,
+    // v13.44 — offre de lancement (automatique pendant sa validité)
+    lancement_pct: prix.lancement.pct,
+    lancement_mois: prix.lancement.mois,
+    lancement_code: prix.lancement.code,
     date_debut_souhaitee: texte(body.date_debut_souhaitee, 10) || null,
     mode_paiement,
     paiement_sur_place: Boolean(body.paiement_sur_place),
@@ -200,7 +204,7 @@ export async function POST(req: Request) {
     const comptes = await comptesAdmin(admin);
     const expediteurId = comptes[0]?.id;
     if (expediteurId) {
-      const prime = primeVente(formule, { engagement12: engagement_12, periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite }, p);
+      const prime = primeVente(formule, { engagement12: engagement_12, periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, p);
       const resume = [
         `Vente ${numero} déclarée par ${[c.prenom, c.nom].filter(Boolean).join(" ")} (code ${code})`,
         `Garage : ${garage_nom}${ligne.garage_ville ? ` — ${ligne.garage_ville}` : ""} · ${ligne.contact_nom || ""} ${ligne.contact_tel || ""} ${contact_email}`,

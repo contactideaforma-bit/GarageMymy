@@ -72,7 +72,7 @@ export default function ProspectPage() {
   const params = ctx?.parametres;
   const prix = useMemo(() => (params ? prixVente(offre.formule, { engagement12: offre.engagement_12, periodicite: offre.periodicite, remiseSupp: offre.remise_supp_pct }, params) : null), [params, offre]);
   const prime = useMemo(
-    () => (params && prix && ctx?.collaborateur ? primeVente(offre.formule, { engagement12: offre.engagement_12 || offre.periodicite === "annuel", periodicite: offre.periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite }, params) : null),
+    () => (params && prix && ctx?.collaborateur ? primeVente(offre.formule, { engagement12: offre.engagement_12 || offre.periodicite === "annuel", periodicite: offre.periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, params) : null),
     [params, prix, offre, ctx]
   );
   const contrat = useMemo(() => (p && prix ? prospectVersContrat(p, offre, prix, ctx?.collaborateur?.code_apporteur) : null), [p, prix, offre, ctx]);
@@ -728,7 +728,7 @@ function VenteDeclaration({ prospect, doc, offre, params, paiementEnLigne, onClo
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const prix = prixVente(offre.formule, { engagement12: offre.engagement_12, periodicite: offre.periodicite, remiseSupp: offre.remise_supp_pct }, params);
-  const du = (offre.periodicite === "annuel" ? prix.montantAnnuel || 0 : prix.mensualite) + prix.miseEnService;
+  const du = (offre.periodicite === "annuel" ? prix.montantAnnuel || 0 : prix.lancement.mensualiteLancement) + prix.miseEnService;
   async function go() {
     setBusy(true); setErr(null);
     try {
@@ -739,7 +739,7 @@ function VenteDeclaration({ prospect, doc, offre, params, paiementEnLigne, onClo
   return (
     <>
       <p className="text-sm text-white/70">
-        {params.formules[offre.formule].libelle} · {offre.periodicite === "annuel" ? `année en une fois ${formatEuros(prix.montantAnnuel)} HT` : `${formatEuros(prix.mensualite)} HT / mois`}{offre.engagement_12 || offre.periodicite === "annuel" ? " · engagement 12 mois" : ""}. Première échéance : <b className="text-white">{formatEuros(du)}</b> (TVA non applicable, art. 293 B du CGI), facturée par IDEAFORMA.
+        {params.formules[offre.formule].libelle} · {offre.periodicite === "annuel" ? `année en une fois ${formatEuros(prix.montantAnnuel)}` : `${formatEuros(prix.mensualite)} / mois`}{offre.engagement_12 || offre.periodicite === "annuel" ? " · engagement 12 mois" : ""}{prix.lancement.pct > 0 ? ` · offre de lancement −${prix.lancement.pct} %${offre.periodicite === "annuel" ? " déduite" : ` sur les ${prix.lancement.mois} premières mensualités`}` : ""}. Première échéance : <b className="text-white">{formatEuros(du)}</b> (TVA non applicable, art. 293 B du CGI), facturée par IDEAFORMA.
       </p>
       <div>
         <label className="field-label">Comment le garage préfère-t-il régler ?</label>
