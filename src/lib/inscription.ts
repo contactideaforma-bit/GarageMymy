@@ -145,6 +145,9 @@ export type InscriptionPublique = {
   engagement_12: boolean;
   prix_mensuel_ht: number;
   montant_annuel_ht: number | null;
+  /** v13.44 — offre de lancement accordée (0 = aucune). */
+  lancement_pct?: number;
+  lancement_mois?: number;
   mise_en_service_ht: number;
   paiement_en_ligne_mode: ModeEnLigne | null;
   paye: boolean;

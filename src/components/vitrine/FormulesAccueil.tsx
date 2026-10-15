@@ -3,21 +3,25 @@
 // ============================================================
 //  FORMULES — section de la page d'accueil publique (v13.26).
 //
-//  Objectif : des prix CLAIRS, sans pression. Pas de compte à rebours,
-//  pas de « meilleure offre » : le visiteur choisit l'engagement, lit ce
+//  Objectif : des prix CLAIRS. Le visiteur choisit l'engagement, lit ce
 //  que chaque formule change, et trouve les conditions en une ligne.
+//  v13.44 — OFFRE DE LANCEMENT (−20 % pendant 3 mois jusqu'au 15/11/2026) :
+//  bandeau + compte à rebours au-dessus des cartes, prix remisé sur
+//  chaque carte ; tout disparaît automatiquement après la date.
 //
 //  Les prix viennent de la même grille que le contrat (economie.ts) : la
 //  grille par défaut s'affiche tout de suite, puis celle enregistrée par
 //  l'éditeur (/api/tarifs) la remplace si elle diffère.
 // ============================================================
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { tarifFormule } from "@/lib/admin/economie";
 import { eur, useGrille } from "./useGrille";
 import { FICHES } from "./formules";
 import ComparateurFormules from "./ComparateurFormules";
+import OffreLancement from "./OffreLancement";
+import { OFFRE_LANCEMENT, annuelLancement, mensualiteLancement, offreActive } from "@/lib/offreLancement";
 
 const CARTES = FICHES;
 
@@ -53,6 +57,9 @@ export default function FormulesAccueil() {
     [params],
   );
   const remiseMax = Math.max(...CARTES.map((c) => tarifs[c.formule].remiseEngagementPct));
+  // v13.44 — offre de lancement (rendue côté client pour ne pas figer l'heure du serveur).
+  const [lancement, setLancement] = useState(false);
+  useEffect(() => setLancement(offreActive()), []);
 
   return (
     <section id="formules" className="scroll-mt-20 pb-12 sm:pb-20">
@@ -62,6 +69,8 @@ export default function FormulesAccueil() {
         Toutes les formules donnent accès à toute l&apos;application, avec utilisateurs, dossiers et documents
         illimités. Ce qui change, c&apos;est le temps d&apos;un chargé de mission pour débloquer vos dossiers.
       </p>
+
+      <OffreLancement variante="formules" />
 
       {/* Choix de l'engagement : deux boutons, l'effet est immédiat sur les prix. */}
       <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
@@ -114,13 +123,29 @@ export default function FormulesAccueil() {
                   {t.heures > 0 ? `${t.heures} h / mois de chargé de mission` : "Application seule"}
                 </span>
               </div>
-              <div className="mt-4 flex items-baseline gap-1.5">
-                <span className="text-3xl font-bold tracking-tight">{eur(prix)}</span>
-                <span className="text-sm text-slate-500">/ mois</span>
-              </div>
-              <div className="mt-1 text-xs text-slate-500">
-                {engage ? `${eur(autre)} sans engagement` : `${eur(autre)} avec engagement de 12 mois`}
-              </div>
+              {lancement ? (
+                <>
+                  <div className="mt-4 flex items-baseline gap-1.5">
+                    <span className="text-3xl font-bold tracking-tight text-fuchsia-700">{eur(mensualiteLancement(prix, OFFRE_LANCEMENT.pct))}</span>
+                    <span className="text-sm text-slate-500">/ mois</span>
+                    <span className="ml-1 rounded-full bg-fuchsia-600 px-2 py-0.5 text-[11px] font-bold text-white">−{OFFRE_LANCEMENT.pct} %</span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    les {OFFRE_LANCEMENT.mois} premiers mois, puis <b className="text-slate-700">{eur(prix)} / mois</b>
+                    {engage ? ` · ${eur(autre)} sans engagement` : ` · ${eur(autre)} avec engagement de 12 mois`}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="mt-4 flex items-baseline gap-1.5">
+                    <span className="text-3xl font-bold tracking-tight">{eur(prix)}</span>
+                    <span className="text-sm text-slate-500">/ mois</span>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    {engage ? `${eur(autre)} sans engagement` : `${eur(autre)} avec engagement de 12 mois`}
+                  </div>
+                </>
+              )}
               <p className="mt-4 text-sm leading-relaxed text-slate-600 lg:min-h-[4.5rem]">{c.pourQui}</p>
               <ul className="mt-4 flex-1 space-y-2 border-t border-slate-100 pt-4">
                 {c.inclus.map((i) => (
@@ -183,6 +208,12 @@ export default function FormulesAccueil() {
             Reportables à 50 % sur le mois suivant. Au-delà du forfait : {eur(params.heureHorsForfait)} de
             l&apos;heure, uniquement sur votre accord écrit.
           </div>
+          {lancement && (
+            <div className="md:col-span-3">
+              <div className="font-semibold text-fuchsia-700">Offre de lancement</div>
+              −{OFFRE_LANCEMENT.pct} % sur les {OFFRE_LANCEMENT.mois} premières mensualités de toute inscription en ligne faite avant le 15 novembre 2026, avec ou sans engagement. Année payée en une fois : la même remise est déduite du montant annuel (ex. {CARTES[0] ? `${eur(annuelLancement(tarifs[CARTES[0].formule].annuelUnique, tarifs[CARTES[0].formule].mensuelEngage))} au lieu de ${eur(tarifs[CARTES[0].formule].annuelUnique)}` : ""}). La mise en service n&apos;est pas concernée.
+            </div>
+          )}
           <div>
             <div className="font-semibold text-slate-900">Souplesse</div>
             Passage à une formule supérieure à tout moment. Pas de jetons, pas d&apos;option cachée. Prix nets :

@@ -14,6 +14,7 @@
 // ============================================================
 
 import { SupabaseClient } from "@supabase/supabase-js";
+import { montantMensualite } from "@/lib/offreLancement";
 import { randomBytes } from "crypto";
 import { envoyerEmailServeur } from "@/lib/mailer";
 import { comptesAdmin, tousLesComptes } from "@/lib/supportServeur";
@@ -156,7 +157,7 @@ export async function envoyerBienvenue(
 }
 
 /** Lignes de mensualités d'un abonnement (même logique que generer_mensualites / valider_vente). */
-export function lignesMensualites(abonnementId: string, periodicite: "mensuel" | "annuel", dateDebut: string, prixMensuel: number, montantAnnuel: number | null) {
+export function lignesMensualites(abonnementId: string, periodicite: "mensuel" | "annuel", dateDebut: string, prixMensuel: number, montantAnnuel: number | null, lancement?: { pct?: number | null; fin?: string | null } | null) {
   const d = new Date(dateDebut);
   const m0 = new Date(d.getFullYear(), d.getMonth(), 1);
   const lignes: { abonnement_id: string; periode: string; montant_ht: number; notes?: string }[] = [];
@@ -169,9 +170,12 @@ export function lignesMensualites(abonnementId: string, periodicite: "mensuel" |
     }
   } else {
     const fin = new Date();
-    if (m0 > fin) lignes.push({ abonnement_id: abonnementId, periode: premierDuMois(m0), montant_ht: prixMensuel });
+    // v13.44 — offre de lancement : mensualités remisées jusqu'à lancement_fin.
+    const montant = (periode: string) => montantMensualite(prixMensuel, periode, lancement);
+    const note = (periode: string) => (lancement?.pct && montant(periode) !== prixMensuel ? { notes: `Offre de lancement −${lancement.pct} %` } : {});
+    if (m0 > fin) lignes.push({ abonnement_id: abonnementId, periode: premierDuMois(m0), montant_ht: montant(premierDuMois(m0)), ...note(premierDuMois(m0)) });
     while (m0 <= fin) {
-      lignes.push({ abonnement_id: abonnementId, periode: premierDuMois(m0), montant_ht: prixMensuel });
+      lignes.push({ abonnement_id: abonnementId, periode: premierDuMois(m0), montant_ht: montant(premierDuMois(m0)), ...note(premierDuMois(m0)) });
       m0.setMonth(m0.getMonth() + 1);
     }
   }

@@ -19,6 +19,7 @@ import MyMyMascotte from "@/components/MyMyMascotte";
 import Link from "next/link";
 import { METIER_INFOS, METIERS_PUBLICS, Metier } from "@/lib/metier";
 import FormulesAccueil from "@/components/vitrine/FormulesAccueil";
+import OffreLancement from "@/components/vitrine/OffreLancement";
 
 /* ------------------------------ Contenus ------------------------------ */
 
@@ -119,7 +120,20 @@ const ICONES = {
     <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Zm6 4 5-5m-2.5 9.5L15 12m-6.5 6L15 11.5" />
   ),
   check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
+  // v13.44 — bandeau sous le héros
+  chrono: <path d="M12 8v5l3 2M9 3h6M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z" />,
+  equipe: <path d="M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-8 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-4 9a4 4 0 0 1 8 0m0 0a4 4 0 0 1 8 0" />,
+  barres: <path d="M5 20v-6m7 6V9m7 11V4" />,
+  bouclier: <path d="M12 3 5 6v5c0 5 3 8.5 7 10 4-1.5 7-5 7-10V6l-7-3Zm-3 9 2 2 4-4" />,
 };
+
+/** v13.44 — bandeau « ce que vous y gagnez », sous le héros (maquette du 15/10/2026). */
+const ATOUTS: { titre: string; icone: keyof typeof ICONES }[] = [
+  { titre: "Gagnez\u00a0du temps", icone: "chrono" },
+  { titre: "Structurez votre atelier", icone: "equipe" },
+  { titre: "Suivez votre activité en temps réel", icone: "barres" },
+  { titre: "Une solution fiable et intuitive", icone: "bouclier" },
+];
 
 function Icone({ nom, className = "h-5 w-5" }: { nom: keyof typeof ICONES; className?: string }) {
   return (
@@ -322,10 +336,18 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
         )}
       </nav>
 
-      <div className="mx-auto max-w-6xl px-4">
-        {/* ============================== Héros ============================== */}
-        <header className="grid items-center gap-7 pb-10 pt-7 sm:gap-10 sm:py-20 lg:grid-cols-[1.25fr_1fr] lg:gap-16">
-          <div>
+      {/* ============================== Héros (v13.44) ==============================
+          Maquette du 15/10/2026 : atelier rose néon en fond (photo floutée), titre
+          à gauche, téléphones + mascotte à droite (public/hero-lancement.jpg),
+          offre de lancement avec compte à rebours, bandeau des 4 atouts. */}
+      <header className="relative overflow-hidden">
+        <div className="absolute inset-0 -z-10">
+          <Image src="/hero-fond.jpg" alt="" fill priority sizes="100vw" className="object-cover object-center" aria-hidden="true" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white/85 via-white/55 to-fuchsia-100/20" />
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-[#f6f7fb] to-transparent" />
+        </div>
+        <div className="mx-auto grid max-w-6xl items-center gap-6 px-4 pb-8 pt-8 sm:gap-10 sm:pt-14 lg:grid-cols-[1.05fr_1fr] lg:gap-10 lg:pb-12">
+          <div className="relative z-10">
             <span className="lp-chip">Carrosserie · Vitrage · Gestion des sinistres</span>
             <h1 className="mt-4">
               Du rapport d&apos;expertise à l&apos;encaissement,{" "}
@@ -334,7 +356,8 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
               </span>
               .
             </h1>
-            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-slate-500 sm:mt-5 sm:text-base">
+            <span className="mt-2 block h-1.5 w-24 rounded-full bg-gradient-to-r from-fuchsia-600 to-violet-600" aria-hidden="true" />
+            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-slate-600 sm:mt-5 sm:text-base">
               My Easy Auto centralise chaque dossier de sinistre sur une seule page :
               import du chiffrage par IA, documents générés automatiquement, signature
               électronique et relances qui font rentrer l&apos;argent.
@@ -345,25 +368,39 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
                 Demander une démonstration
               </a>
             </div>
-            <p className="mt-4 text-xs leading-relaxed text-slate-400 sm:mt-5">
+            <OffreLancement variante="hero" />
+            <p className="mt-4 text-xs leading-relaxed text-slate-500 sm:mt-5">
               Conçu avec des carrossiers, pour le travail réel de l&apos;atelier — sur ordinateur, tablette et téléphone.{" "}
               <a href="#formules" className="text-violet-700 hover:underline">Voir les formules et les prix</a>
             </p>
           </div>
-          {/* Mobile : photo recadrée (4/3) pour ne pas occuper tout l'écran. */}
-          <div className="mx-auto aspect-[4/3] w-full max-w-md overflow-hidden rounded-2xl border border-black/5 shadow-xl shadow-violet-900/20 sm:aspect-auto sm:shadow-2xl lg:max-w-[440px] xl:max-w-[480px]">
+          <div className="relative mx-auto w-full max-w-md lg:max-w-none">
             <Image
-              src="/hero-atelier.jpeg"
-              alt="My Easy Auto en situation dans l'atelier"
-              width={1122}
-              height={1402}
+              src="/hero-lancement.jpg"
+              alt="My Easy Auto sur téléphone, avec la mascotte MY-MY, dans un atelier de carrosserie"
+              width={911}
+              height={823}
               priority
-              sizes="(min-width: 1280px) 480px, (min-width: 1024px) 440px, 90vw"
-              className="h-full w-full object-cover object-[50%_30%] sm:h-auto"
+              sizes="(min-width: 1024px) 560px, 90vw"
+              className="h-auto w-full [mask-image:linear-gradient(to_right,transparent,black_18%,black)] lg:[mask-image:linear-gradient(to_right,transparent,black_22%,black)]"
             />
           </div>
-        </header>
+        </div>
+        <div className="mx-auto max-w-6xl px-4 pb-10 sm:pb-14">
+          <div className="grid grid-cols-2 divide-slate-200 rounded-2xl border border-white/70 bg-white/85 shadow-lg shadow-fuchsia-900/5 backdrop-blur sm:grid-cols-4 sm:divide-x">
+            {ATOUTS.map((a) => (
+              <div key={a.titre} className="flex flex-col items-center gap-2 px-3 py-4 text-center sm:py-5">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-fuchsia-50 text-fuchsia-600">
+                  <Icone nom={a.icone} className="h-5 w-5" />
+                </span>
+                <span className="text-sm font-semibold leading-snug text-slate-800">{a.titre}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </header>
 
+      <div className="mx-auto max-w-6xl px-4">
         {/* ============================ Vidéo (v12.7) ============================
             Présentation de 90 s : du rapport d'expertise à la facture. Fichier
             public/presentation.mp4 (720p, ~5 Mo, encodé pour le web) + affiche

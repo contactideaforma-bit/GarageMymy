@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabaseAdmin";
-import { FORMULES, Formule, Parametres, fusionnerParametres, prixVente } from "@/lib/admin/economie";
+import { FORMULES, Formule, Parametres, fusionnerParametres, prixVente, tarifFormule } from "@/lib/admin/economie";
+import { OFFRE_LANCEMENT, annuelLancement, offreActive } from "@/lib/offreLancement";
 import type { ParametresPublics } from "@/lib/admin/ventePublic";
 import { recommanderFormule, SOURCES_CONNAISSANCE, CRENEAUX_RAPPEL, type Besoins, type ModeEnLigne } from "@/lib/inscription";
 import { qontoConfigure } from "@/lib/qonto";
@@ -155,6 +156,9 @@ export async function POST(req: Request) {
     const periodicite = body.periodicite === "annuel" ? "annuel" : "mensuel";
     const engagement_12 = periodicite === "annuel" || Boolean(body.engagement_12);
     const prix = prixVente(formule, { engagement12: engagement_12, periodicite, remiseSupp: 0 }, p);
+    // v13.44 — offre de lancement (−20 % / 3 mois) : accordée automatiquement si l'inscription est faite avant la date de fin.
+    const lancement = offreActive() ? OFFRE_LANCEMENT : null;
+    const montantAnnuel = prix.montantAnnuel != null && lancement ? annuelLancement(prix.montantAnnuel, tarifFormule(formule, p).mensuelEngage, lancement) : prix.montantAnnuel;
     const d = dispo(p);
     let mode = texte(body.paiement_en_ligne_mode, 20) as ModeEnLigne;
     if (periodicite === "mensuel") mode = mode === "stripe" && d.stripe ? "stripe" : "virement";
@@ -199,7 +203,10 @@ export async function POST(req: Request) {
       periodicite,
       remise_supp_pct: 0,
       prix_mensuel_ht: prix.mensualite,
-      montant_annuel_ht: prix.montantAnnuel,
+      montant_annuel_ht: montantAnnuel,
+      lancement_pct: lancement ? lancement.pct : 0,
+      lancement_mois: lancement ? lancement.mois : 0,
+      lancement_code: lancement ? lancement.code : null,
       mise_en_service_ht: prix.miseEnService,
       date_debut_souhaitee: texte(body.date_debut_souhaitee, 10) || null,
       mode_paiement: mode === "stripe" ? "prelevement" : mode === "qonto" ? "cb" : "virement",

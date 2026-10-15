@@ -17,6 +17,7 @@
 // ============================================================
 
 import { SupabaseClient } from "@supabase/supabase-js";
+import { montantMensualite } from "@/lib/offreLancement";
 import { envoyerEmailServeur } from "@/lib/mailer";
 import { comptesAdmin, emailsAdminServeur, tousLesComptes } from "@/lib/supportServeur";
 import { definirEtat } from "@/lib/admin/comptesServeur";
@@ -432,7 +433,7 @@ export async function prolongerMensualites(admin: SupabaseClient): Promise<numbe
     const lignes: { abonnement_id: string; periode: string; montant_ht: number }[] = [];
     let p = moisSuivant(der.periode);
     while (p <= limite && (!fin || p <= fin) && lignes.length < 3) {
-      lignes.push({ abonnement_id: a.id, periode: p, montant_ht: Number(a.prix_ht) || 0 });
+      lignes.push({ abonnement_id: a.id, periode: p, montant_ht: montantMensualite(Number(a.prix_ht) || 0, p, { pct: (a as { lancement_pct?: number | null }).lancement_pct, fin: (a as { lancement_fin?: string | null }).lancement_fin }) });
       p = moisSuivant(p);
     }
     if (!lignes.length) continue;

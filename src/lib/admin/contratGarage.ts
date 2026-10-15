@@ -11,6 +11,7 @@
 // ============================================================
 
 import { SOCIETE, ADRESSE_COMPLETE } from "@/components/vitrine/societe";
+import { mensualiteLancement } from "@/lib/offreLancement";
 import { Formule, Parametres, Periodicite, prixVente, tarifFormule } from "./economie";
 
 export type VenteContrat = {
@@ -35,6 +36,9 @@ export type VenteContrat = {
   signataire_nom?: string | null;
   signataire_qualite?: string | null;
   code_apporteur?: string | null;
+  /** v13.44 — offre de lancement accordée (0 = aucune). */
+  lancement_pct?: number | null;
+  lancement_mois?: number | null;
 };
 
 export const MODES_PAIEMENT: Record<string, string> = {
@@ -59,12 +63,19 @@ export function conditionsParticulieres(v: VenteContrat, p: Parametres): string[
   if (engage) lignes.push(`Engagement ferme de 12 mois : remise de ${t.remiseEngagementPct} % → ${eur(t.mensuelEngage)} HT par mois.`);
   else lignes.push("Sans engagement : résiliable à tout moment avec un préavis d'un mois (fin de mois).");
   if (Number(v.remise_supp_pct) > 0) lignes.push(`Remise commerciale exceptionnelle : ${v.remise_supp_pct} % (sous réserve de validation par IDEAFORMA).`);
+  const lancementPct = Number(v.lancement_pct) || 0;
+  const lancementMois = Number(v.lancement_mois) || 0;
   if (v.periodicite === "annuel") {
     lignes.push(
-      `Paiement de l'année en une fois : ${eur(v.montant_annuel_ht)} HT (${t.bonusAnnuelLibelle}), soit 12 mois d'abonnement.`
+      `Paiement de l'année en une fois : ${eur(v.montant_annuel_ht)} HT (${t.bonusAnnuelLibelle}${lancementPct > 0 ? `, offre de lancement −${lancementPct} % sur ${lancementMois} mois déduite` : ""}), soit 12 mois d'abonnement.`
     );
   } else {
     lignes.push(`Mensualité : ${eur(v.prix_mensuel_ht)} (TVA non applicable, art. 293 B du CGI), payable d'avance chaque mois.`);
+    if (lancementPct > 0 && lancementMois > 0) {
+      lignes.push(
+        `Offre de lancement : remise de ${lancementPct} % sur les ${lancementMois} premières mensualités, soit ${eur(mensualiteLancement(Number(v.prix_mensuel_ht) || 0, lancementPct))} HT par mois, puis ${eur(v.prix_mensuel_ht)} HT par mois. Cette remise ne modifie ni la durée d'engagement ni les autres conditions.`
+      );
+    }
   }
   lignes.push(
     engage

@@ -11,6 +11,7 @@ import type { Prospect, ProspectDocument } from "@/lib/prospects";
 import { STATUTS_PROSPECT } from "@/lib/prospects";
 import { tauxRemplissage } from "@/lib/ficheBesoins";
 import type { Vente } from "@/lib/admin/client";
+import { mensualiteLancement } from "@/lib/offreLancement";
 
 /** v13.41 — IDEAFORMA est en franchise en base de TVA (art. 293 B du CGI) : prix nets, pas de TVA. */
 export const TVA_VENTE = 0;
@@ -59,8 +60,10 @@ export type VenteParcours = Vente & {
 const arrondi = (n: number) => Math.round(n * 100) / 100;
 
 /** Montant de la 1re échéance (mensualité ou année + mise en service), HT et TTC. */
-export function premiereEcheance(v: Pick<Vente, "periodicite" | "montant_annuel_ht" | "prix_mensuel_ht" | "mise_en_service_ht">): { ht: number; tva: number; ttc: number } {
-  const base = v.periodicite === "annuel" ? Number(v.montant_annuel_ht) || 0 : Number(v.prix_mensuel_ht) || 0;
+export function premiereEcheance(v: Pick<Vente, "periodicite" | "montant_annuel_ht" | "prix_mensuel_ht" | "mise_en_service_ht"> & { lancement_pct?: number | null }): { ht: number; tva: number; ttc: number } {
+  // v13.44 — offre de lancement : la 1re mensualité est remisée (le montant annuel l'est déjà en base).
+  const pct = v.periodicite === "annuel" ? 0 : Number(v.lancement_pct) || 0;
+  const base = v.periodicite === "annuel" ? Number(v.montant_annuel_ht) || 0 : mensualiteLancement(Number(v.prix_mensuel_ht) || 0, pct);
   const ht = arrondi(base + (Number(v.mise_en_service_ht) || 0));
   const tva = arrondi(ht * (TVA_VENTE / 100));
   return { ht, tva, ttc: arrondi(ht + tva) };

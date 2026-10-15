@@ -33,6 +33,8 @@ export type Vente = {
   formule_conseillee?: string | null; paiement_en_ligne_mode?: "stripe" | "qonto" | "virement" | null;
   stripe_customer_id?: string | null; stripe_subscription_id?: string | null; stripe_checkout_id?: string | null; stripe_statut?: string | null;
   contrat_envoye_le?: string | null; activee_le?: string | null; qonto_url?: string | null; qonto_statut?: string | null;
+  /** v13.44 (migration v100) — offre de lancement accordée à la signature. */
+  lancement_pct?: number | null; lancement_mois?: number | null; lancement_code?: string | null;
 };
 /** v13.41 — demande de rappel faite depuis le parcours d'inscription. */
 export type DemandeRappel = {
@@ -47,6 +49,8 @@ export type Abonnement = {
   date_fin: string | null; commercial_id: string | null; secretaire_id: string | null; notes: string | null;
   /** v13.41 (migration v98). */
   origine?: string | null; stripe_subscription_id?: string | null; stripe_customer_id?: string | null; date_renouvellement?: string | null; renouvellement_avise_le?: string | null;
+  /** v13.44 (migration v100) — offre de lancement : % et dernière période remisée. */
+  lancement_pct?: number | null; lancement_fin?: string | null; lancement_code?: string | null;
 };
 export type Mensualite = {
   id: string; abonnement_id: string; periode: string; montant_ht: number; payee_le: string | null; heures_faites: number | null; notes: string | null;

@@ -8,6 +8,7 @@
 // ============================================================
 
 import { Suspense, useCallback, useEffect, useState } from "react";
+import { mensualiteLancement } from "@/lib/offreLancement";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { VitrineNav, VitrineFooter } from "@/components/vitrine/Vitrine";
@@ -77,7 +78,8 @@ function Merci() {
   }
 
   const fiche = ins ? FICHES.find((f) => f.formule === ins.formule) : null;
-  const montant = ins ? (ins.periodicite === "annuel" ? ins.montant_annuel_ht || 0 : ins.prix_mensuel_ht) + ins.mise_en_service_ht : 0;
+  // v13.44 — offre de lancement : la 1re mensualité est remisée (l'annuel est déjà remisé).
+  const montant = ins ? (ins.periodicite === "annuel" ? ins.montant_annuel_ht || 0 : mensualiteLancement(ins.prix_mensuel_ht, Number(ins.lancement_pct) || 0)) + ins.mise_en_service_ht : 0;
 
   return (
     <div className="landing-pro min-h-screen">
@@ -92,6 +94,7 @@ function Merci() {
           <div className="lp-card mt-6 p-6 sm:p-8">
             <div className="text-sm text-slate-500">Contrat n° {ins.numero} · {ins.garage_nom}</div>
             <div className="mt-1 text-lg font-semibold text-slate-800">{fiche?.nom || ins.formule} — {ins.periodicite === "annuel" ? `année en une fois ${eur(ins.montant_annuel_ht)}` : `${eur(ins.prix_mensuel_ht)} / mois`}{ins.engagement_12 ? " · engagement 12 mois" : " · sans engagement"}</div>
+            {Number(ins.lancement_pct) > 0 && <div className="mt-1 text-sm font-semibold text-fuchsia-700">Offre de lancement : −{ins.lancement_pct} % {ins.periodicite === "annuel" ? "déjà déduits du montant annuel" : `sur vos ${ins.lancement_mois} premières mensualités`}.</div>}
             <div className="text-xs text-slate-500">{MENTION_TVA}</div>
 
             <ol className="mt-5 space-y-2 text-sm">

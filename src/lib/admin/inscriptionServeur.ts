@@ -28,6 +28,7 @@ import { rattacherPaiementsVentes } from "@/lib/admin/paiementsServeur";
 import { ErreurQonto, creerLienPaiement, qontoConfigure, statutLienPaiement } from "@/lib/qonto";
 import { abonnementDeFacture, creerSessionAbonnement, lireSession, stripeConfigure, type FactureStripe, type SessionCheckout } from "@/lib/stripe";
 import { premiereEcheance, referenceVirement, type VenteParcours } from "@/lib/venteParcours";
+import { OFFRE_LANCEMENT, finRemiseLancement, mensualiteLancement } from "@/lib/offreLancement";
 import { libelleCreneau, libelleSource, type InscriptionPublique, type ModeEnLigne } from "@/lib/inscription";
 
 export class ErreurInscription extends Error {
@@ -107,6 +108,8 @@ export function resumePublic(v: VenteLigne, p: Parametres): InscriptionPublique 
     prix_mensuel_ht: Number(v.prix_mensuel_ht) || 0,
     montant_annuel_ht: v.montant_annuel_ht == null ? null : Number(v.montant_annuel_ht),
     mise_en_service_ht: Number(v.mise_en_service_ht) || 0,
+    lancement_pct: Number(v.lancement_pct) || 0,
+    lancement_mois: Number(v.lancement_mois) || 0,
     paiement_en_ligne_mode: v.paiement_en_ligne_mode || null,
     paye: Boolean(v.paiement_confirme_le),
     activee: Boolean(v.activee_le),
@@ -134,7 +137,13 @@ export async function activerInscription(admin: SupabaseClient, venteId: string)
     const engagement = Boolean(vente.engagement_12) || vente.periodicite === "annuel";
     const prix = prixVente(formule, { engagement12: engagement, periodicite: vente.periodicite as "mensuel" | "annuel", remiseSupp: 0 }, p);
     const dateDebut = premierDuMois(new Date());
-    const prixMensuel = prix.montantAnnuel != null ? r2(prix.montantAnnuel / 12) : prix.mensualite;
+    // v13.44 — offre de lancement : en annuel le montant payé est celui enregistré sur la vente (déjà remisé) ;
+    // en mensuel le prix reste le plein tarif, les N premières mensualités sont remisées (lancement_fin).
+    const lancementPct = vente.periodicite === "mensuel" ? Number(vente.lancement_pct) || 0 : 0;
+    const lancementMois = Number(vente.lancement_mois) || 0;
+    const lancementFin = lancementPct > 0 && lancementMois > 0 ? finRemiseLancement(dateDebut, lancementMois) : null;
+    const montantAnnuel = prix.montantAnnuel != null ? (Number(vente.montant_annuel_ht) || prix.montantAnnuel) : null;
+    const prixMensuel = montantAnnuel != null ? r2(montantAnnuel / 12) : prix.mensualite;
     const remisePct = r2(100 - (prixMensuel / p.formules[formule].prix) * 100);
     const d = new Date(dateDebut);
     const renouvellement = vente.periodicite === "annuel" ? premierDuMois(new Date(d.getFullYear() + 1, d.getMonth(), 1)) : null;
@@ -147,8 +156,11 @@ export async function activerInscription(admin: SupabaseClient, venteId: string)
         prix_ht: prixMensuel,
         remise_pct: remisePct,
         periodicite: vente.periodicite,
-        montant_annuel: prix.montantAnnuel,
+        montant_annuel: montantAnnuel,
         heures: p.formules[formule].heures,
+        lancement_pct: lancementPct,
+        lancement_fin: lancementFin,
+        lancement_code: Number(vente.lancement_pct) > 0 ? vente.lancement_code || OFFRE_LANCEMENT.code : null,
         date_signature: (vente.signe_le || vente.created_at || new Date().toISOString()).slice(0, 10),
         date_debut: dateDebut,
         engagement_12: engagement,
@@ -158,13 +170,13 @@ export async function activerInscription(admin: SupabaseClient, venteId: string)
         stripe_customer_id: vente.stripe_customer_id || null,
         stripe_subscription_id: vente.stripe_subscription_id || null,
         date_renouvellement: renouvellement,
-        notes: `Inscription en ligne ${vente.numero || ""} · paiement : ${vente.paiement_en_ligne_mode || vente.mode_paiement}${vente.source_connaissance ? ` · connu par : ${libelleSource(vente.source_connaissance)}` : ""}.`,
+        notes: `Inscription en ligne ${vente.numero || ""} · paiement : ${vente.paiement_en_ligne_mode || vente.mode_paiement}${vente.source_connaissance ? ` · connu par : ${libelleSource(vente.source_connaissance)}` : ""}${Number(vente.lancement_pct) > 0 ? ` · offre de lancement −${vente.lancement_pct} % (${vente.periodicite === "annuel" ? "déduite du montant annuel" : `${lancementMois} premières mensualités`})` : ""}.`,
       })
       .select("id")
       .single();
     if (error || !abo) throw new ErreurInscription(error?.message || "Création de l'abonnement impossible.", 500);
     abonnementId = abo.id as string;
-    const lignes = lignesMensualites(abonnementId, vente.periodicite as "mensuel" | "annuel", dateDebut, prixMensuel, prix.montantAnnuel);
+    const lignes = lignesMensualites(abonnementId, vente.periodicite as "mensuel" | "annuel", dateDebut, prixMensuel, montantAnnuel, { pct: lancementPct, fin: lancementFin });
     if (lignes.length) await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });
     await admin.from("ventes").update({ abonnement_id: abonnementId, statut: "validee", validee_le: new Date().toISOString() }).eq("id", vente.id);
   }
@@ -208,9 +220,11 @@ export async function demarrerStripe(admin: SupabaseClient, v: VenteLigne, p: Pa
     email: v.contact_email,
     garageNom: v.garage_nom,
     libelleOffre: `${libelleFormule(v.formule, p)}${engage ? " (engagement 12 mois)" : ""}`,
+    formule: v.formule,
     mensualite: Number(v.prix_mensuel_ht) || 0,
     miseEnService: Number(v.mise_en_service_ht) || 0,
     engagement12: engage,
+    lancement: Number(v.lancement_pct) > 0 ? { code: v.lancement_code || OFFRE_LANCEMENT.code, pct: Number(v.lancement_pct), mois: Number(v.lancement_mois) || OFFRE_LANCEMENT.mois, libelle: OFFRE_LANCEMENT.libelle } : null,
     successUrl: `${base}/inscription/merci?token=${encodeURIComponent(v.token || "")}&stripe=ok`,
     cancelUrl: `${base}/inscription/merci?token=${encodeURIComponent(v.token || "")}&stripe=annule`,
   });
@@ -354,7 +368,7 @@ export async function envoyerConfirmationInscription(admin: SupabaseClient, v: V
   const suivi = `${siteUrl()}/inscription/merci?token=${encodeURIComponent(v.token || "")}`;
   const modeTxt =
     v.paiement_en_ligne_mode === "stripe"
-      ? `Prélèvement automatique chaque mois de ${eur(v.prix_mensuel_ht)}${Number(v.mise_en_service_ht) ? ` (+ ${eur(v.mise_en_service_ht)} de mise en service, une seule fois)` : ""}.`
+      ? `Prélèvement automatique chaque mois de ${eur(v.prix_mensuel_ht)}${Number(v.lancement_pct) > 0 && v.periodicite === "mensuel" ? ` (offre de lancement : ${eur(mensualiteLancement(Number(v.prix_mensuel_ht) || 0, Number(v.lancement_pct)))} les ${Number(v.lancement_mois) || OFFRE_LANCEMENT.mois} premiers mois)` : ""}${Number(v.mise_en_service_ht) ? ` (+ ${eur(v.mise_en_service_ht)} de mise en service, une seule fois)` : ""}.`
       : v.paiement_en_ligne_mode === "qonto"
       ? `Paiement en ligne sécurisé de ${eur(m.ttc)} (année complète${Number(v.mise_en_service_ht) ? " + mise en service" : ""}).`
       : `Virement de ${eur(m.ttc)} — IBAN ${p.iban || "(voir facture)"}${p.bic ? ` · BIC ${p.bic}` : ""} · référence « ${referenceVirement(v)} ».`;
@@ -364,6 +378,7 @@ export async function envoyerConfirmationInscription(admin: SupabaseClient, v: V
     `Merci pour votre inscription à ${SOCIETE.produit} (n° ${v.numero}). Vous trouverez ci-joint votre contrat d'abonnement signé électroniquement le ${v.signe_le ? new Date(v.signe_le).toLocaleString("fr-FR") : ""}.`,
     ``,
     `Votre formule : ${lib} — ${v.periodicite === "annuel" ? `année en une fois ${eur(v.montant_annuel_ht)}` : `${eur(v.prix_mensuel_ht)} par mois`}${v.engagement_12 ? " · engagement 12 mois" : " · sans engagement"}. TVA non applicable, art. 293 B du CGI.`,
+    Number(v.lancement_pct) > 0 ? `Offre de lancement : −${v.lancement_pct} % ${v.periodicite === "annuel" ? "déjà déduits du montant annuel" : `sur vos ${Number(v.lancement_mois) || OFFRE_LANCEMENT.mois} premières mensualités`}, appliquée automatiquement.` : "",
     `Paiement : ${modeTxt}`,
     urlPaiement && !v.paiement_confirme_le ? `Pour régler maintenant : ${urlPaiement}` : "",
     ``,

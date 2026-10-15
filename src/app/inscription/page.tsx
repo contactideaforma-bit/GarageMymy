@@ -23,7 +23,8 @@ import { FICHES } from "@/components/vitrine/formules";
 import DemandeRappel from "@/components/vitrine/DemandeRappel";
 import SignaturePad from "@/components/SignaturePad";
 import { lireReponse } from "@/lib/apiClient";
-import { Formule, Parametres, Periodicite, fusionnerParametres, grilleTarifs, prixVente } from "@/lib/admin/economie";
+import { Formule, Parametres, Periodicite, fusionnerParametres, grilleTarifs, prixVente, tarifFormule } from "@/lib/admin/economie";
+import { DATE_FIN_LIBELLE, OFFRE_LANCEMENT, annuelLancement, mensualiteLancement, offreActive } from "@/lib/offreLancement";
 import { QUESTIONS_BESOINS } from "@/lib/admin/ventePublic";
 import { ACCEPTATION_CGV, VenteContrat, articlesCGV, conditionsParticulieres } from "@/lib/admin/contratGarage";
 import { ACCEPTATION_CGU, VERSION_CGU, articlesCGU } from "@/lib/admin/cgu";
@@ -93,6 +94,9 @@ function Inscription() {
   const formule: Formule = offre.formule || reco.formule;
   const grille = useMemo(() => (params ? grilleTarifs(params) : []), [params]);
   const prix = useMemo(() => (params ? prixVente(formule, { engagement12: offre.engagement_12, periodicite: offre.periodicite, remiseSupp: 0 }, params) : null), [params, formule, offre]);
+  // v13.44 — offre de lancement (−20 % / 3 mois jusqu'au 15/11/2026) : appliquée automatiquement, le serveur fait foi.
+  const lancement = offreActive() ? OFFRE_LANCEMENT : null;
+  const montantAnnuel = prix && prix.montantAnnuel != null && params && lancement ? annuelLancement(prix.montantAnnuel, tarifFormule(formule, params).mensuelEngage, lancement) : prix?.montantAnnuel ?? null;
   const options = useMemo(() => optionsPaiement(offre.periodicite, dispo), [offre.periodicite, dispo]);
   const modeChoisi: ModeEnLigne = mode && options.some((o) => o.mode === mode) ? mode : (options.find((o) => o.recommande) || options[0])?.mode || "virement";
 
@@ -105,16 +109,20 @@ function Inscription() {
         periodicite: offre.periodicite,
         remise_supp_pct: 0,
         prix_mensuel_ht: prix.mensualite,
-        montant_annuel_ht: prix.montantAnnuel,
+        montant_annuel_ht: montantAnnuel,
         mise_en_service_ht: prix.miseEnService,
         mode_paiement: modeChoisi === "stripe" ? "prelevement" : modeChoisi === "qonto" ? "cb" : "virement",
         date_debut_souhaitee: offre.date_debut_souhaitee || null,
+        lancement_pct: lancement ? lancement.pct : 0,
+        lancement_mois: lancement ? lancement.mois : 0,
         signataire_nom: contrat.signataire_nom,
         signataire_qualite: contrat.signataire_qualite,
         code_apporteur: g.code_apporteur.trim().toUpperCase() || null,
       }
     : null;
-  const premiereEcheance = prix ? (offre.periodicite === "annuel" ? prix.montantAnnuel || 0 : prix.mensualite) + prix.miseEnService : 0;
+  const premiereEcheance = prix
+    ? (offre.periodicite === "annuel" ? montantAnnuel || 0 : lancement ? mensualiteLancement(prix.mensualite, lancement.pct) : prix.mensualite) + prix.miseEnService
+    : 0;
 
   const setGf = (k: keyof typeof g) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setG((x) => ({ ...x, [k]: e.target.value }));
   const indexEtape = ETAPES_INSCRIPTION.findIndex((e) => e.cle === etape);
@@ -308,6 +316,13 @@ function Inscription() {
             </ul>
             <p className="mt-3 text-xs text-slate-500">Vous restez libre de choisir une autre formule ; vous pourrez changer plus tard (CGV, article 12).</p>
 
+            {lancement && (
+              <div className="mt-4 flex flex-col gap-1 rounded-xl border-2 border-fuchsia-500 bg-fuchsia-50 px-4 py-3 text-sm text-slate-800 sm:flex-row sm:items-center sm:justify-between">
+                <div><b className="text-fuchsia-700">{OFFRE_LANCEMENT.libelle}</b> — appliquée automatiquement à votre inscription.</div>
+                <div className="text-xs text-slate-600">Valable jusqu&apos;au {DATE_FIN_LIBELLE}, sur toutes les formules.</div>
+              </div>
+            )}
+
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {grille.map((t) => {
                 const fiche = ficheDe(t.formule);
@@ -321,9 +336,9 @@ function Inscription() {
                       <span className="text-xs text-slate-500">{t.heures ? `${t.heures} h / mois` : "appli seule"}</span>
                     </div>
                     <div className="mt-2 text-sm text-slate-600">
-                      <div>{eur(t.mensuel)} / mois sans engagement</div>
-                      <div className="font-semibold text-violet-700">{eur(t.mensuelEngage)} / mois avec engagement 12 mois (−{t.remiseEngagementPct} %)</div>
-                      <div className="text-xs text-slate-500">Année en une fois : {eur(t.annuelUnique)} ({t.bonusAnnuelLibelle})</div>
+                      <div>{eur(t.mensuel)} / mois sans engagement{lancement && <> — <b className="text-fuchsia-700">{eur(mensualiteLancement(t.mensuel, lancement.pct))}</b> les {lancement.mois} premiers mois</>}</div>
+                      <div className="font-semibold text-violet-700">{eur(t.mensuelEngage)} / mois avec engagement 12 mois (−{t.remiseEngagementPct} %){lancement && <> — <span className="text-fuchsia-700">{eur(mensualiteLancement(t.mensuelEngage, lancement.pct))}</span> les {lancement.mois} premiers mois</>}</div>
+                      <div className="text-xs text-slate-500">Année en une fois : {lancement ? <><s>{eur(t.annuelUnique)}</s> <b className="text-fuchsia-700">{eur(annuelLancement(t.annuelUnique, t.mensuelEngage, lancement))}</b></> : eur(t.annuelUnique)} ({t.bonusAnnuelLibelle})</div>
                     </div>
                     {fiche && <p className="mt-2 text-xs text-slate-500">{fiche.pourQui}</p>}
                   </button>
@@ -367,7 +382,7 @@ function Inscription() {
             <h2 className="!text-lg font-semibold">Le paiement</h2>
             <p className="mt-1 text-sm text-slate-500">
               Première échéance : <b className="text-slate-800">{eur(premiereEcheance)}</b>
-              {offre.periodicite === "annuel" ? " (année complète)" : " (première mensualité)"}
+              {offre.periodicite === "annuel" ? " (année complète)" : lancement ? ` (première mensualité, offre de lancement −${lancement.pct} % déduite)` : " (première mensualité)"}
               {prix.miseEnService ? `, dont mise en service ${eur(prix.miseEnService)}` : ""} — {MENTION_TVA}. Facture émise par {SOCIETE.editeur} au nom de {SOCIETE.produit}.
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">

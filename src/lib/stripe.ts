@@ -78,19 +78,86 @@ export type SessionCheckout = { id: string; url: string | null; status: string |
  * Session Checkout « abonnement » : une ligne récurrente mensuelle (prix
  * créé à la volée) + éventuellement une ligne unique (mise en service).
  */
+/* ------------------------------------------------------------------
+ *  OFFRE DE LANCEMENT (v13.44) — coupon Stripe « repeating » : −X % pendant
+ *  N mois, limité aux PRODUITS d'abonnement (jamais à la mise en service).
+ *  Pour que le coupon puisse viser l'abonnement, les 4 formules existent
+ *  comme produits Stripe à identifiant FIXE (créés à la volée une fois).
+ * ------------------------------------------------------------------ */
+export const PRODUITS_ABONNEMENT: Record<string, { id: string; nom: string }> = {
+  essentiel: { id: "mea_essentiel", nom: "My Easy Auto — ESSENTIEL" },
+  starter: { id: "mea_service_plus", nom: "My Easy Auto — ADHÉSION SERVICE PLUS" },
+  confort: { id: "mea_service_premium", nom: "My Easy Auto — ADHÉSION SERVICE PREMIUM" },
+  serenite: { id: "mea_service_ultimate", nom: "My Easy Auto — ADHÉSION SERVICE ULTIMATE" },
+};
+
+const dejaLa = (e: unknown) => e instanceof ErreurStripe && /already exists|existe déjà|resource_already_exists/i.test(e.message);
+
+/** Crée (une fois) les produits d'abonnement à identifiant fixe. Silencieux s'ils existent. */
+export async function assurerProduitsAbonnement(): Promise<void> {
+  for (const p of Object.values(PRODUITS_ABONNEMENT)) {
+    try {
+      await appel("GET", `/products/${p.id}`);
+    } catch {
+      try {
+        await appel("POST", "/products", { id: p.id, name: p.nom, description: "Abonnement mensuel · TVA non applicable, art. 293 B du CGI" });
+      } catch (e) {
+        if (!dejaLa(e)) throw e;
+      }
+    }
+  }
+}
+
+/** Crée (une fois) le coupon de lancement, limité aux produits d'abonnement. Renvoie son identifiant. */
+export async function assurerCouponLancement(o: { code: string; pct: number; mois: number; libelle: string }): Promise<string> {
+  const id = `${o.code}-${o.pct}-${o.mois}M`;
+  try {
+    await appel("GET", `/coupons/${id}`);
+    return id;
+  } catch {
+    /* à créer */
+  }
+  await assurerProduitsAbonnement();
+  try {
+    await appel("POST", "/coupons", {
+      id,
+      name: o.libelle.slice(0, 40),
+      percent_off: o.pct,
+      duration: "repeating",
+      duration_in_months: o.mois,
+      applies_to: { products: Object.values(PRODUITS_ABONNEMENT).map((p) => p.id) },
+    });
+  } catch (e) {
+    if (!dejaLa(e)) throw e;
+  }
+  return id;
+}
+
 export async function creerSessionAbonnement(args: {
   venteId: string;
   numero: string;
   email: string;
   garageNom: string;
   libelleOffre: string;
+  /** Clé de formule (essentiel/starter/confort/serenite) → produit Stripe fixe (v13.44). */
+  formule?: string;
   mensualite: number;         // € nets
   miseEnService: number;      // € nets, 0 si offerte
   engagement12: boolean;
+  /** v13.44 — offre de lancement : coupon « −pct % pendant mois mois » sur l'abonnement seul. */
+  lancement?: { code: string; pct: number; mois: number; libelle: string } | null;
   successUrl: string;
   cancelUrl: string;
 }): Promise<SessionCheckout> {
   const centimes = (n: number) => Math.round(Math.max(0, n) * 100);
+  const produit = args.formule ? PRODUITS_ABONNEMENT[args.formule] : undefined;
+  let coupon: string | null = null;
+  if (args.lancement && args.lancement.pct > 0 && args.lancement.mois > 0) {
+    coupon = await assurerCouponLancement(args.lancement);
+  } else if (produit) {
+    await assurerProduitsAbonnement();
+  }
+  const descriptionAbo = `Abonnement mensuel · ${args.garageNom}${args.engagement12 ? " · engagement 12 mois" : " · sans engagement"} · TVA non applicable, art. 293 B du CGI`;
   const lignes: Record<string, unknown>[] = [
     {
       quantity: 1,
@@ -98,7 +165,9 @@ export async function creerSessionAbonnement(args: {
         currency: "eur",
         unit_amount: centimes(args.mensualite),
         recurring: { interval: "month" },
-        product_data: { name: `My Easy Auto — ${args.libelleOffre}`, description: `Abonnement mensuel · ${args.garageNom}${args.engagement12 ? " · engagement 12 mois" : " · sans engagement"} · TVA non applicable, art. 293 B du CGI` },
+        ...(produit
+          ? { product: produit.id }
+          : { product_data: { name: `My Easy Auto — ${args.libelleOffre}`, description: descriptionAbo } }),
       },
     },
   ];
@@ -122,10 +191,11 @@ export async function creerSessionAbonnement(args: {
         description: `${args.libelleOffre} — ${args.garageNom} (${args.numero})`,
         metadata: { vente_id: args.venteId, numero: args.numero, garage: args.garageNom.slice(0, 200) },
       },
-      metadata: { vente_id: args.venteId, numero: args.numero },
+      metadata: { vente_id: args.venteId, numero: args.numero, ...(coupon ? { lancement: coupon } : {}) },
       success_url: args.successUrl,
       cancel_url: args.cancelUrl,
       allow_promotion_codes: false,
+      ...(coupon ? { discounts: [{ coupon }] } : {}),
     },
     `checkout-${args.venteId}-${Date.now()}`
   );

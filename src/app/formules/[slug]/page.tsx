@@ -6,12 +6,13 @@
 //  clair, factuel, sans pression. Prix issus de la grille (useGrille).
 // ============================================================
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { VitrineNav, VitrineFooter } from "@/components/vitrine/Vitrine";
 import FormulaireContact from "@/components/vitrine/FormulaireContact";
 import { tarifFormule } from "@/lib/admin/economie";
+import { DATE_FIN_LIBELLE, OFFRE_LANCEMENT, mensualiteLancement, offreActive } from "@/lib/offreLancement";
 import { eur, useGrille } from "@/components/vitrine/useGrille";
 import { APPLICATION, FICHES, JAMAIS, MISSIONS, ficheParSlug } from "@/components/vitrine/formules";
 import ComparateurFormules from "@/components/vitrine/ComparateurFormules";
@@ -29,6 +30,9 @@ export default function PageFormule() {
   const fiche = ficheParSlug(String(slug || ""));
   const params = useGrille();
   const [engage, setEngage] = useState(true);
+  // v13.44 — offre de lancement, évaluée côté navigateur.
+  const [lancementActif, setLancementActif] = useState(false);
+  useEffect(() => setLancementActif(offreActive()), []);
 
   if (!fiche) {
     return (
@@ -46,6 +50,7 @@ export default function PageFormule() {
   const t = tarifFormule(fiche.formule, params);
   const service = t.heures > 0;
   const prix = engage ? t.mensuelEngage : t.mensuel;
+  const lancement = lancementActif;
 
   return (
     <div className="landing-pro min-h-screen">
@@ -93,10 +98,21 @@ export default function PageFormule() {
                 </button>
               ))}
             </div>
-            <div className="mt-5 flex items-baseline gap-1.5">
-              <span className="text-4xl font-bold tracking-tight">{eur(prix)}</span>
-              <span className="text-sm text-slate-500">/ mois</span>
-            </div>
+            {lancement ? (
+              <>
+                <div className="mt-5 flex flex-wrap items-baseline gap-1.5">
+                  <span className="text-4xl font-bold tracking-tight text-fuchsia-700">{eur(mensualiteLancement(prix, OFFRE_LANCEMENT.pct))}</span>
+                  <span className="text-sm text-slate-500">/ mois</span>
+                  <span className="rounded-full bg-fuchsia-600 px-2 py-0.5 text-[11px] font-bold text-white">−{OFFRE_LANCEMENT.pct} % pendant {OFFRE_LANCEMENT.mois} mois</span>
+                </div>
+                <div className="mt-1 text-sm text-slate-600">puis {eur(prix)} / mois · offre de lancement valable jusqu&apos;au {DATE_FIN_LIBELLE}, appliquée automatiquement à l&apos;inscription en ligne.</div>
+              </>
+            ) : (
+              <div className="mt-5 flex items-baseline gap-1.5">
+                <span className="text-4xl font-bold tracking-tight">{eur(prix)}</span>
+                <span className="text-sm text-slate-500">/ mois</span>
+              </div>
+            )}
             <ul className="mt-4 space-y-2 text-sm text-slate-600">
               {engage ? (
                 <>
