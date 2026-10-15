@@ -100,12 +100,15 @@ export default function PageFormule() {
             </div>
             {lancement ? (
               <>
-                <div className="mt-5 flex flex-wrap items-baseline gap-1.5">
-                  <span className="text-4xl font-bold tracking-tight text-fuchsia-700">{eur(mensualiteLancement(prix, OFFRE_LANCEMENT.pct))}</span>
-                  <span className="text-sm text-slate-500">/ mois</span>
-                  <span className="rounded-full bg-fuchsia-600 px-2 py-0.5 text-[11px] font-bold text-white">−{OFFRE_LANCEMENT.pct} % pendant {OFFRE_LANCEMENT.mois} mois</span>
+                <div className="mt-5 rounded-xl border border-fuchsia-200 bg-fuchsia-50/70 p-4">
+                  <span className="inline-block rounded-full bg-gradient-to-r from-fuchsia-600 to-violet-600 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-white">Offre de lancement · −{OFFRE_LANCEMENT.pct} % pendant {OFFRE_LANCEMENT.mois} mois</span>
+                  <div className="mt-2 text-sm text-slate-500"><s>{eur(prix)} / mois</s></div>
+                  <div className="flex flex-wrap items-baseline gap-x-1.5">
+                    <span className="whitespace-nowrap text-4xl font-bold leading-none tracking-tight text-fuchsia-700">{eur(mensualiteLancement(prix, OFFRE_LANCEMENT.pct))}</span>
+                    <span className="text-sm text-slate-500">/ mois</span>
+                  </div>
+                  <div className="mt-2 text-sm text-slate-600">les {OFFRE_LANCEMENT.mois} premiers mois, puis <b className="text-slate-800">{eur(prix)} / mois</b>. Valable jusqu&apos;au {DATE_FIN_LIBELLE}, appliquée automatiquement.</div>
                 </div>
-                <div className="mt-1 text-sm text-slate-600">puis {eur(prix)} / mois · offre de lancement valable jusqu&apos;au {DATE_FIN_LIBELLE}, appliquée automatiquement à l&apos;inscription en ligne.</div>
               </>
             ) : (
               <div className="mt-5 flex items-baseline gap-1.5">

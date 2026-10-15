@@ -111,8 +111,13 @@ export default function FormulesAccueil() {
               key={c.formule}
               href={`/formules/${c.slug}`}
               aria-label={`Voir le détail de la formule ${c.nom}`}
-              className="lp-card lp-formule flex flex-col p-5 text-inherit no-underline"
+              className="lp-card lp-formule relative flex flex-col overflow-hidden p-5 text-inherit no-underline"
             >
+              {lancement && (
+                <div className="-mx-5 -mt-5 mb-4 bg-gradient-to-r from-fuchsia-600 to-violet-600 px-5 py-1.5 text-center text-[11px] font-bold uppercase tracking-wider text-white">
+                  Offre de lancement · −{OFFRE_LANCEMENT.pct} %
+                </div>
+              )}
               <div className="font-semibold">{c.nom}</div>
               <div className="mt-2">
                 <span
@@ -124,17 +129,17 @@ export default function FormulesAccueil() {
                 </span>
               </div>
               {lancement ? (
-                <>
-                  <div className="mt-4 flex items-baseline gap-1.5">
-                    <span className="text-3xl font-bold tracking-tight text-fuchsia-700">{eur(mensualiteLancement(prix, OFFRE_LANCEMENT.pct))}</span>
-                    <span className="text-sm text-slate-500">/ mois</span>
-                    <span className="ml-1 rounded-full bg-fuchsia-600 px-2 py-0.5 text-[11px] font-bold text-white">−{OFFRE_LANCEMENT.pct} %</span>
+                <div className="mt-4 rounded-xl border border-fuchsia-200 bg-fuchsia-50/70 px-3 py-2.5">
+                  <div className="text-xs text-slate-500"><s>{eur(prix)} / mois</s></div>
+                  <div className="flex flex-wrap items-baseline gap-x-1.5">
+                    <span className="whitespace-nowrap text-2xl font-bold leading-tight tracking-tight text-fuchsia-700">{eur(mensualiteLancement(prix, OFFRE_LANCEMENT.pct))}</span>
+                    <span className="whitespace-nowrap text-sm text-slate-500">/ mois</span>
                   </div>
-                  <div className="mt-1 text-xs text-slate-500">
-                    les {OFFRE_LANCEMENT.mois} premiers mois, puis <b className="text-slate-700">{eur(prix)} / mois</b>
-                    {engage ? ` · ${eur(autre)} sans engagement` : ` · ${eur(autre)} avec engagement de 12 mois`}
+                  <div className="mt-1.5 text-xs leading-snug text-slate-600">
+                    les {OFFRE_LANCEMENT.mois} premiers mois, puis <b className="whitespace-nowrap text-slate-800">{eur(prix)} / mois</b>
                   </div>
-                </>
+                  <div className="mt-0.5 text-xs text-slate-400">{engage ? `${eur(autre)} sans engagement` : `${eur(autre)} avec engagement de 12 mois`}</div>
+                </div>
               ) : (
                 <>
                   <div className="mt-4 flex items-baseline gap-1.5">
