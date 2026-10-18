@@ -1250,3 +1250,10 @@ html.alliance .badge { padding: 0.2rem 0.6rem; }
   .mymy-masc-torse, .mymy-masc-oeil, .mymy-masc--marche .mymy-masc-jambe--g, .mymy-masc--marche .mymy-masc-jambe--d,
   .mymy-masc--marche .mymy-masc-bras--g, .mymy-masc--marche .mymy-masc-bras--d { animation: none !important; }
 }
+
+/* SEO (v13.45) — accueil rendu côté serveur (AuthGate) : sur un appareil
+   qui a déjà une session (html[data-session]), la vitrine reste masquée
+   pendant la reconnexion et « Chargement… » s'affiche à sa place. */
+.chargement-ssr { display: none; }
+html[data-session] .chargement-ssr { display: flex; }
+html[data-session] .accueil-ssr { display: none; }

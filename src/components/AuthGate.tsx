@@ -221,6 +221,28 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
+  // SEO (v13.45) — ACCUEIL : pendant le chargement, la vitrine est rendue
+  // dès le serveur (Google voyait seulement « Chargement… »). Elle est
+  // masquée par CSS si l'appareil a une session (html[data-session], posé
+  // dans layout.tsx), et le message « Chargement… » s'affiche à sa place.
+  // Même arbre React qu'à l'état « déconnecté » : pas de remontage.
+  const accueil = pathname === "/";
+  if (accueil && (etat === "chargement" || (isSupabaseConfigured && etat === "deconnecte" && !espace))) {
+    const enChargement = etat === "chargement";
+    return (
+      <>
+        {enChargement ? (
+          <div className="chargement-ssr min-h-screen items-center justify-center">
+            <p className="text-white/50 text-sm">Chargement…</p>
+          </div>
+        ) : null}
+        <div className={enChargement ? "accueil-ssr" : undefined}>
+          <LandingPage onChoisir={setEspace} />
+        </div>
+      </>
+    );
+  }
+
   if (etat === "chargement") {
     return (
       <div className="flex min-h-screen items-center justify-center">
