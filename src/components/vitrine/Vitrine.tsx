@@ -114,7 +114,8 @@ export function Marque({ taille = 36 }: { taille?: number }) {
 
 const LIENS_NAV: [string, string][] = [
   ["/fonctionnalites", "Fonctionnalités"],
-  ["/#etapes", "Comment ça marche"],
+  ["/#formules", "Formules & tarifs"],
+  ["/#comparateur", "Comparer"],
   ["/contact", "Contact"],
   ["/inscription", "S'abonner en ligne"],
 ];

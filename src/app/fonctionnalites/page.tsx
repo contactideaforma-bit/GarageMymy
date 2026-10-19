@@ -125,7 +125,7 @@ export default function PageFonctionnalites() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/contact" className="lp-btn-ghost !border-white !bg-white !text-violet-700">Demander une démo</Link>
-            <Link href="/#formules" className="lp-btn-ghost !border-white/60 !bg-transparent !text-white hover:!bg-white/10">Voir les formules et les prix</Link>
+            <Link href="/#comparateur" className="lp-btn-ghost !border-white/60 !bg-transparent !text-white hover:!bg-white/10">Comparer les formules et les prix</Link>
           </div>
         </section>
       </main>

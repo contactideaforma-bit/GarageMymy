@@ -174,19 +174,20 @@ export default function FormulesAccueil() {
 
       <p className="mt-2 text-center text-xs text-slate-400 sm:hidden">Faites glisser pour comparer les formules →</p>
 
-      {/* v13.42 — comparateur : ce qui est disponible ou non dans chaque formule. */}
-      <details id="comparateur" className="group mt-6 scroll-mt-20">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm font-semibold text-slate-900 hover:border-violet-300">
-          <span>Comparer les formules en détail — ce qui est inclus, ce qui ne l&apos;est pas</span>
-          <span className="text-violet-600 transition group-open:rotate-45" aria-hidden="true">＋</span>
-        </summary>
-        <div className="mt-3">
+      {/* v13.42 — comparateur ; v13.48 : affiché EN CLAIR (plus de bloc replié), avec son propre titre. */}
+      <div id="comparateur" className="mt-10 scroll-mt-20 sm:mt-14">
+        <span className="lp-chip">Comparer les formules</span>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
+          <h3 className="!text-xl text-slate-900 sm:!text-2xl">Ce qui est inclus dans chaque formule, ligne par ligne</h3>
+          <p className="text-sm text-slate-500">Prix {engage ? "avec engagement de 12 mois" : "sans engagement"} · colonnes cliquables</p>
+        </div>
+        <div className="mt-4">
           <ComparateurFormules params={params} engage={engage} />
           <p className="mt-2 text-xs text-slate-500">
             Le suivi des impayés et le suivi des litiges (procédures guidées, courriers prêts à signer, recommandés) sont réservés aux formules Adhésion Service : ce sont les outils du chargé de mission, et les vôtres.
           </p>
         </div>
-      </details>
+      </div>
 
       {/* v13.41 — inscription en ligne : le garage s'abonne seul, sans rendez-vous commercial. */}
       <div className="mt-6 flex flex-col items-center gap-2 rounded-2xl bg-violet-50 p-5 text-center sm:flex-row sm:justify-between sm:text-left">
