@@ -41,6 +41,8 @@ import DemandesPanel from "@/components/DemandesPanel";
 import CommandesPanel from "@/components/CommandesPanel";
 import SignatureDocModal from "@/components/SignatureDocModal";
 import ModalShell from "@/components/ModalShell";
+import InfosPlaqueModal, { BoutonInfosPlaque } from "@/components/InfosPlaqueModal";
+import { dossierDepuisInfos } from "@/lib/infosPlaque";
 import TransfertGarantiePanel from "@/components/TransfertGarantiePanel";
 import { lignesDepuisChiffrage } from "@/lib/documents";
 import { reanalyserChiffrage } from "@/lib/extraction";
@@ -140,6 +142,7 @@ export default function DossierDetailPage() {
   const estVitrage = metier === "vitrage";
 
   const [dossier, setDossier] = useState<Dossier | null>(null);
+  const [infosPlaque, setInfosPlaque] = useState(false); // v13.47
   // v13.42 — suivi des impayés et des litiges réservés aux formules Adhésion Service
   const { serviceInclus } = useFormuleGarage();
   const [evenements, setEvenements] = useState<Evenement[]>([]);
@@ -817,9 +820,13 @@ export default function DossierDetailPage() {
                 <span className="font-medium text-white/85">{dossier.marque_modele}</span>
               )}
               {dossier.immatriculation && (
-                <span className="rounded border border-white/25 bg-white/10 px-1.5 py-0.5 font-mono text-xs uppercase tracking-wider text-white/85">
-                  {dossier.immatriculation}
-                </span>
+                <>
+                  <span className="rounded border border-white/25 bg-white/10 px-1.5 py-0.5 font-mono text-xs uppercase tracking-wider text-white/85">
+                    {dossier.immatriculation}
+                  </span>
+                  {/* v13.47 — carte d'identité du véhicule d'après sa plaque */}
+                  <BoutonInfosPlaque onClick={() => setInfosPlaque(true)} />
+                </>
               )}
               {dossier.client_nom && (
                 <>
@@ -1514,6 +1521,21 @@ export default function DossierDetailPage() {
           }/signer/${emailSignature.token}\n\nLa signature se fait en 30 secondes, directement depuis votre téléphone.\n\nCordialement.`}
           onClose={() => setEmailSignature(null)}
           onSent={load}
+        />
+      )}
+      {infosPlaque && dossier.immatriculation && (
+        <InfosPlaqueModal
+          immat={dossier.immatriculation}
+          libelleAppliquer="Compléter le dossier avec ces infos"
+          onClose={() => setInfosPlaque(false)}
+          onAppliquer={async (r) => {
+            const maj = dossierDepuisInfos(r.infos, dossier);
+            if (Object.keys(maj).length) {
+              const { error } = await supabase.from("dossiers").update(maj).eq("id", dossier.id);
+              if (error) throw error;
+              load();
+            }
+          }}
         />
       )}
     </div>

@@ -23,6 +23,8 @@ import TransfertFlotteModal from "@/components/flotte/TransfertFlotteModal";
 import { deposerDocumentFlotte } from "@/lib/flotte";
 import { CarteGriseExtraite, champsManquants, vehiculeDepuisCarteGrise } from "@/lib/carteGrise";
 import { normaliserImmat } from "@/lib/flotteTransfert";
+import InfosPlaqueModal, { BoutonInfosPlaque } from "@/components/InfosPlaqueModal";
+import { vehiculeDepuisInfos } from "@/lib/infosPlaque";
 
 type Filtre = "tous" | "loues" | "disponibles" | "sinistres" | "alertes";
 
@@ -47,6 +49,7 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
     completion?: { manquants: (keyof FlotteVehicule)[]; lusSurCarteGrise: number };
   } | null>(null);
   const [transfert, setTransfert] = useState(false);
+  const [infosPlaque, setInfosPlaque] = useState<FlotteVehicule | null>(null);
   const [locModal, setLocModal] = useState<{ vehicule: FlotteVehicule; type: string } | null>(null);
   const [analyseCg, setAnalyseCg] = useState(false);
   const [cgError, setCgError] = useState<string | null>(null);
@@ -270,6 +273,7 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
               <tr key={v.id} className="border-t border-white/5 hover:bg-white/5">
                 <td className="px-5 py-3">
                   <Link href={`/flotte/${v.id}`} className="font-medium text-white hover:underline">{v.immatriculation}</Link>
+                  <BoutonInfosPlaque className="ml-2" onClick={() => setInfosPlaque(v)} />
                   <div className="text-xs text-white/50">
                     {v.marque_modele || "—"}
                     {v.conducteur ? ` · ${v.conducteur}` : ""}
@@ -391,6 +395,20 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
             // Un véhicule créé s'ouvre directement sur sa fiche (documents, assurance…).
             if (creation) router.push(`/flotte/${id}`);
             else load();
+          }}
+        />
+      )}
+      {infosPlaque && (
+        <InfosPlaqueModal
+          immat={infosPlaque.immatriculation}
+          onClose={() => setInfosPlaque(null)}
+          onAppliquer={async (r) => {
+            const maj = vehiculeDepuisInfos(r.infos, infosPlaque);
+            if (Object.keys(maj).length) {
+              const { error } = await supabase.from("flotte_vehicules").update(maj).eq("id", infosPlaque.id);
+              if (error) throw error;
+              load();
+            }
           }}
         />
       )}

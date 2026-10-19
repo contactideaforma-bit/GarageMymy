@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import InfosPlaqueModal, { BoutonInfosPlaque } from "@/components/InfosPlaqueModal";
+import { vehiculeDepuisInfos } from "@/lib/infosPlaque";
 import { Dossier, FlotteDocument, FlotteEntretien, FlotteMiseADispo, FlottePhoto, FlotteVehicule } from "@/lib/types";
 import { formatDate, messageErreur } from "@/lib/format";
 import {
@@ -41,6 +43,7 @@ export default function FicheVehiculePage() {
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState(false);
   const [nouveau, setNouveau] = useState<string | null>(null);
+  const [infosPlaque, setInfosPlaque] = useState(false); // v13.47
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -95,6 +98,7 @@ export default function FicheVehiculePage() {
           <Link href={retour.href} className="text-xs text-white/40 hover:underline">← {retour.label}</Link>
           <h1 className="titre-page flex flex-wrap items-center gap-2">
             <span>{vehicule.immatriculation}</span>
+            <BoutonInfosPlaque onClick={() => setInfosPlaque(true)} />
             {enCours ? (
               <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${enCours.type === "location" ? "bg-violet-100 text-violet-700" : "bg-sky-100 text-sky-700"}`}>
                 {enCours.type === "location" ? "Loué" : "Prêté"} à {enCours.conducteur_nom || "—"}
@@ -176,6 +180,20 @@ export default function FicheVehiculePage() {
 
       {edit && (
         <VehiculeForm vehicule={vehicule} onClose={() => setEdit(false)} onSaved={() => { setEdit(false); load(); }} />
+      )}
+      {infosPlaque && (
+        <InfosPlaqueModal
+          immat={vehicule.immatriculation}
+          onClose={() => setInfosPlaque(false)}
+          onAppliquer={async (r) => {
+            const maj = vehiculeDepuisInfos(r.infos, vehicule);
+            if (Object.keys(maj).length) {
+              const { error } = await supabase.from("flotte_vehicules").update(maj).eq("id", vehicule.id);
+              if (error) throw error;
+              load();
+            }
+          }}
+        />
       )}
       {nouveau && (
         <MiseADispoModal

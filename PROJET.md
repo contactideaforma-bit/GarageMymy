@@ -24,6 +24,8 @@ ANTHROPIC_MODEL=claude-sonnet-4-6   # optionnel
 # À venir : RESEND_API_KEY (envoi de mails)
 STRIPE_SECRET_KEY=sk_live_...        # v13.41 — prélèvement mensuel des inscriptions en ligne
 STRIPE_WEBHOOK_SECRET=whsec_...      # v13.41 — webhook /api/stripe/webhook
+PLAQUE_API_TOKEN=...                 # v13.47 — infos véhicule par plaque (api-plaque-immatriculation.com)
+PLAQUE_API_FOURNISSEUR=api-plaque-immatriculation  # ou apiplaqueimmatriculation
 ```
 
 ### Migrations SQL (à exécuter dans l'ordre si base neuve)
@@ -279,6 +281,13 @@ STRIPE_WEBHOOK_SECRET=whsec_...      # v13.41 — webhook /api/stripe/webhook
 - **Carte grise** (`lib/carteGrise.ts`, nouveau) : `nettoyerCarteGrise` côté serveur (immat SIV `AA-123-AA` / FNI `1234 AB 56`, VIN = 17 caractères sans I/O/Q sinon null, dates validées, marque en majuscules, modèle sans la marque répétée, civilités retirées du titulaire) ; la route renvoie `{ data, manquants }` et refuse (422) une lecture sans immat ni VIN. Prompt renforcé (n'invente rien → null).
 - **Nouveau parcours** « Ajouter par carte grise » (`FlotteListe`) : analyse → **le véhicule est créé immédiatement** (photo rangée dans ses documents) → `VehiculeForm` s'ouvre en mode `completion` : bandeau vert, champs non lus marqués « ● à compléter » (liste `CHAMPS_A_COMPLETER` : VIN, énergie, titulaire, couleur, km, assurance, police, échéance, prochain CT, conducteur…), boutons « Plus tard » (ouvre la fiche) / « Enregistrer et ouvrir la fiche ». Si l'immat est déjà dans la flotte (tous onglets), proposition d'ouvrir la fiche existante au lieu d'un doublon. Immat illisible → ancien comportement (formulaire pré-rempli, pas de création auto).
 - `COMPTES_FLOTTE_HORS_GARAGE` (`lib/flotte.ts`) : ajout de `contact.crm13014@gmail.com`.
+
+### Ajouté v13.47 — Infos plaque : la carte d'identité du véhicule d'après son immatriculation (migration v101) — **MASQUÉ**
+- ⚠️ **Masqué pour l'instant** (décision IDEA 19/10/2026 : pas d'abonnement API payant tant que c'est facultatif). Interrupteur `INFOS_PLAQUE_ACTIF` dans `lib/infosPlaque.ts` (`false`, ou `NEXT_PUBLIC_INFOS_PLAQUE=1` sur Vercel pour l'allumer sans toucher au code) : boutons invisibles, route en 404. La migration v101 peut attendre l'activation. Pour activer plus tard : souscrire un pack, poser `PLAQUE_API_TOKEN` (+ `PLAQUE_API_FOURNISSEUR`), exécuter la migration, allumer l'interrupteur.
+- **Principe** : bouton « 🔍 Infos plaque » à côté de chaque immatriculation (liste de la flotte, fiche `/flotte/[id]`, en-tête du dossier sinistre) → fenêtre `InfosPlaqueModal` (`src/components/InfosPlaqueModal.tsx`) : marque, modèle, version, énergie, 1ère mise en circulation, VIN, couleur, carrosserie, boîte, puissances, cylindrée, places, CO₂, classe env., poids, type mine. Bouton « Compléter la fiche / le dossier avec ces infos » : ne remplit **que les champs vides** (`vehiculeDepuisInfos` / `dossierDepuisInfos` dans `lib/infosPlaque.ts`).
+- **Serveur** : `GET /api/infos-plaque?immat=…[&force=1]` (auth obligatoire) → `lib/infosPlaqueServeur.ts`. Fournisseur choisi par `PLAQUE_API_FOURNISSEUR` + clé `PLAQUE_API_TOKEN` : `api-plaque-immatriculation` (défaut, GET `…/api/v1/fr?plaque=&token=`) ou `apiplaqueimmatriculation` (POST `…/plaque?immatriculation=&token=&pays=FR`). Un adaptateur unique `normaliserReponse` lit les deux formats (alias de champs, codes énergie SIV et numériques, dates FR/US). Erreurs parlantes : clé refusée, quota atteint, plaque inconnue (404), délai (504), **501 si la clé n'est pas configurée** (message qui dit quoi faire).
+- **Cache partagé** (`supabase/migration_v101.sql`) : table `infos_plaque` (clé = plaque normalisée, données normalisées + brut, 180 j) écrite uniquement par le serveur (service role), lisible par tout compte connecté — une même plaque consultée par deux garages ne coûte qu'une requête. Journal `infos_plaque_requetes` (owner_id, immat, depuis_cache) pour suivre la consommation par garage. « Actualiser » force une nouvelle requête.
+- Variables documentées dans `.env.local.example`. Sans clé : tout le reste de l'appli fonctionne, la fenêtre explique seulement que le service n'est pas configuré.
 
 ## Ce qu'il reste à faire
 
