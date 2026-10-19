@@ -12,6 +12,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   ) => ({ url: `${SITE_URL}${chemin}`, lastModified: maj, changeFrequency, priority });
   return [
     page("/", 1, "weekly"),
+    page("/fonctionnalites", 0.9, "weekly"),
     ...FICHES.map((f) => page(`/formules/${f.slug}`, 0.8)),
     page("/inscription", 0.8),
     page("/contact", 0.7),

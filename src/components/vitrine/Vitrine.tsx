@@ -113,7 +113,7 @@ export function Marque({ taille = 36 }: { taille?: number }) {
 /* --------------------------- Barre du haut --------------------------- */
 
 const LIENS_NAV: [string, string][] = [
-  ["/#fonctions", "Fonctionnalités"],
+  ["/fonctionnalites", "Fonctionnalités"],
   ["/#etapes", "Comment ça marche"],
   ["/contact", "Contact"],
   ["/inscription", "S'abonner en ligne"],

@@ -163,3 +163,38 @@ export function messageErreur(err: unknown, fallback = "Erreur lors de l'enregis
   }
   return brut;
 }
+
+/**
+ * v13.47 — Mise en forme d'une immatriculation PENDANT la frappe :
+ * « aa345bb » → « AA-345-BB », « 1234ab56 » (ancien format) → « 1234 AB 56 ».
+ * Tolérante : tant que la saisie est incomplète on n'ajoute un tiret qu'au
+ * moment où le bloc suivant commence (« AA » reste « AA », « AA3 » → « AA-3 »).
+ * Une plaque qui ne colle à aucun format (étrangère, WW…) est renvoyée en
+ * majuscules telle quelle, sans rien casser.
+ */
+export function formaterSaisieImmat(brut: string): string {
+  const s = (brut || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!s) return "";
+  // SIV (depuis 2009) : AA-123-BB
+  let m = s.match(/^([A-Z]{1,2})(\d{0,3})([A-Z]{0,2})(.*)$/);
+  if (m && /^[A-Z]/.test(s)) {
+    const [, l1, ch, l2, reste] = m;
+    if (reste) return s; // trop long / format inconnu : on laisse brut
+    if (!ch) return l2 ? s : l1; // « AA » ou « AAA » (lettres seules) : tel quel
+    if (l1.length < 2) return s;
+    return `${l1}-${ch}${l2 ? "-" + l2 : ""}`;
+  }
+  // FNI (avant 2009) : 1234 AB 56
+  m = s.match(/^(\d{1,4})([A-Z]{0,3})(\d{0,3})(.*)$/);
+  if (m && /^\d/.test(s)) {
+    const [, n1, le, n2, reste] = m;
+    if (reste) return s;
+    return n1 + (le ? " " + le : "") + (n2 ? " " + n2 : "");
+  }
+  return s;
+}
+
+/** Clé de comparaison d'une immatriculation (sans tirets/espaces, majuscules). */
+export function cleImmatriculation(s: string | null | undefined): string {
+  return (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}

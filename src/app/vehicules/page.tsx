@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
-import { messageErreur } from "@/lib/format";
+import { messageErreur, formaterSaisieImmat } from "@/lib/format";
 import { Dossier, Vehicule } from "@/lib/types";
 import ConfigBanner from "@/components/ConfigBanner";
 
@@ -125,7 +125,7 @@ export default function VehiculesPage() {
         <div className="glass-card p-5 mb-5">
           <h3 className="font-semibold text-white mb-3">Nouveau véhicule (hors dossier sinistre)</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <input className="field-input" placeholder="Immatriculation" value={form.immatriculation} onChange={(e) => set("immatriculation", e.target.value)} />
+            <input className="field-input" placeholder="Immatriculation" value={form.immatriculation} onChange={(e) => set("immatriculation", formaterSaisieImmat(e.target.value))} />
             <input className="field-input" placeholder="Marque et modèle" value={form.marque_modele} onChange={(e) => set("marque_modele", e.target.value)} />
             <input className="field-input" placeholder="Propriétaire" value={form.proprietaire} onChange={(e) => set("proprietaire", e.target.value)} />
           </div>

@@ -163,7 +163,7 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
     if (recherche) {
       const q = recherche.toLowerCase();
       const hay = `${v.immatriculation} ${v.marque_modele || ""} ${v.conducteur || ""} ${v.locataire || ""}`.toLowerCase();
-      if (!hay.includes(q)) return false;
+      if (!hay.includes(q) && !normaliserImmat(v.immatriculation).includes(normaliserImmat(q))) return false;
     }
     if (filtre === "loues") return v.loue;
     if (filtre === "disponibles") return !v.loue;

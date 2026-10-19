@@ -289,6 +289,16 @@ PLAQUE_API_FOURNISSEUR=api-plaque-immatriculation  # ou apiplaqueimmatriculation
 - **Cache partagé** (`supabase/migration_v101.sql`) : table `infos_plaque` (clé = plaque normalisée, données normalisées + brut, 180 j) écrite uniquement par le serveur (service role), lisible par tout compte connecté — une même plaque consultée par deux garages ne coûte qu'une requête. Journal `infos_plaque_requetes` (owner_id, immat, depuis_cache) pour suivre la consommation par garage. « Actualiser » force une nouvelle requête.
 - Variables documentées dans `.env.local.example`. Sans clé : tout le reste de l'appli fonctionne, la fenêtre explique seulement que le service n'est pas configuré.
 
+### Ajouté v13.47 (suite) — Saisie des plaques mise en forme automatiquement
+- `formaterSaisieImmat` (`lib/format.ts`) : pendant la frappe, « aa345bb » → « AA-345-BB », ancien format « 1234ab56 » → « 1234 AB 56 », plaque hors format laissée en majuscules. Branché sur tous les champs d'immatriculation : `VehiculeForm` (flotte), `DossierForm` (dossier sinistre, + normalisation à l'enregistrement donc aussi pour les valeurs issues de l'extraction IA), `/vehicules`, `NouveauControleModal` (mode expert). `cleImmatriculation` = clé de comparaison sans tirets. La recherche de la flotte ignore désormais tirets/espaces.
+- Site vitrine : mention « Prix net — TVA non applicable (art. 293 B du CGI) » sous chaque prix (accueil, fiche formule, comparateur) — IDEAFORMA en franchise en base.
+
+### Ajouté v13.48 — Page publique « Toutes les fonctionnalités » + comparatif face à un DMS classique
+- **Pourquoi** : l'appli est un DMS carrosserie complet (planning, factures, compta, rentabilité, Factur-X, flotte…) mais le site ne parlait que de sinistres et d'impayés — on se sous-vendait face aux éditeurs historiques (ex. CileaMastercar). Positionnement : « un logiciel de gestion complet pour la carrosserie, et des gens derrière ».
+- **Source unique** `src/components/vitrine/fonctionnalites.ts` : `DOMAINES` (9 domaines, ~55 fonctions réellement livrées, badges « Adhésion Service » et « Nouveau ») + `COMPARATIF` (15 critères, verdicts oui/partiel/non, formulé prudemment face à la *catégorie* DMS, pas à un produit nommé ; les points où ils sont devant — interfaces chiffrage/DARVA, ancienneté — sont écrits).
+- **Page** `/fonctionnalites` (`src/app/fonctionnalites/page.tsx`, rendu serveur, layout SEO `metaPage`) : en-tête, sommaire par domaine, cartes `lp-card`, tableau comparatif, appel à la démo. Lien « Fonctionnalités » de la barre vitrine → `/fonctionnalites` ; bouton « Voir les N fonctionnalités » sous les 6 cartes de l'accueil ; sitemap priorité 0.9.
+- Règle d'entretien : toute nouvelle feature livrée s'ajoute dans `fonctionnalites.ts` (jamais annoncer ce qui n'existe pas).
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

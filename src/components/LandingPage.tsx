@@ -20,6 +20,7 @@ import Link from "next/link";
 import { METIER_INFOS, METIERS_PUBLICS, Metier } from "@/lib/metier";
 import FormulesAccueil from "@/components/vitrine/FormulesAccueil";
 import OffreLancement from "@/components/vitrine/OffreLancement";
+import { DOMAINES } from "@/components/vitrine/fonctionnalites";
 
 /* ------------------------------ Contenus ------------------------------ */
 
@@ -45,6 +46,8 @@ const ETAPES = [
       "Relances graduées et automatiques, suivi des paiements, rapprochement bancaire : chaque matin, l'appli vous dit quoi faire pour être payé.",
   },
 ];
+
+const NB_FONCTIONS = DOMAINES.reduce((n, d) => n + d.fonctions.length, 0);
 
 const FONCTIONS: { titre: string; texte: string; icone: keyof typeof ICONES }[] = [
   {
@@ -489,6 +492,12 @@ export default function LandingPage({ onChoisir }: { onChoisir: (m: Metier) => v
                 </div>
               </div>
             ))}
+          </div>
+          {/* v13.48 — la vitrine ne montre que 6 cartes : renvoi vers l'inventaire complet. */}
+          <div className="mt-6 text-center sm:mt-8">
+            <Link href="/fonctionnalites" className="lp-btn-ghost">
+              Voir les {NB_FONCTIONS} fonctionnalités et le comparatif avec un DMS classique
+            </Link>
           </div>
         </section>
 

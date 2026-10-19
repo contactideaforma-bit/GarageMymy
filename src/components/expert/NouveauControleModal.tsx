@@ -16,7 +16,7 @@ import Icone from "@/components/expert/Icone";
 import { BadgeStatutExpert, Champ, Erreur } from "@/components/expert/ui";
 import { chargerDossiers, chargerGarages, creerDossier } from "@/lib/expertise/data";
 import { DossierExpert, GarageExpert } from "@/lib/expertise/types";
-import { formatDate, messageErreur } from "@/lib/format";
+import { formatDate, messageErreur, formaterSaisieImmat } from "@/lib/format";
 
 const cle = (s: string | null | undefined) => (s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
@@ -84,7 +84,7 @@ export default function NouveauControleModal({ onClose }: { onClose: () => void 
     }
   }
 
-  const champ = (k: keyof typeof f) => ({ value: f[k], onChange: (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: e.target.value }) });
+  const champ = (k: keyof typeof f) => ({ value: f[k], onChange: (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [k]: k === "immatriculation" ? formaterSaisieImmat(e.target.value) : e.target.value }) });
 
   return (
     <ModalShell title="Nouveau contrôle de devis" onClose={() => !enCours && onClose()} maxWidth="max-w-2xl">

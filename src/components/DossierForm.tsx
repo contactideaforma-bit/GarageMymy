@@ -19,7 +19,7 @@ import {
 import FilePicker from "@/components/FilePicker";
 import { Dossier, Entreprise } from "@/lib/types";
 import { clausesDepuisProfil } from "@/lib/garanties";
-import { STATUTS_ORDRE, addJoursOuvres, formatEuros, libelleStatut, ymd } from "@/lib/format";
+import { STATUTS_ORDRE, addJoursOuvres, formatEuros, libelleStatut, ymd, formaterSaisieImmat } from "@/lib/format";
 import { TVA_DEFAUT, ttc } from "@/lib/tva";
 import { genNumeroOR } from "@/lib/atelier";
 import { useMetier } from "@/components/MetierProvider";
@@ -131,7 +131,7 @@ function Field({
   return (
     <div>
       <label className="field-label">{label}</label>
-      <input type={type} className="field-input" value={value} placeholder={placeholder} onChange={(e) => onChange(name, e.target.value)} />
+      <input type={type} className="field-input" value={value} placeholder={placeholder} onChange={(e) => onChange(name, name === "immatriculation" ? formaterSaisieImmat(e.target.value) : e.target.value)} />
     </div>
   );
 }
@@ -468,7 +468,7 @@ export default function DossierForm({
       }
 
       const payload = {
-        immatriculation: form.immatriculation || null,
+        immatriculation: formaterSaisieImmat(form.immatriculation) || null, // v13.47 — toujours AA-123-BB en base (y compris via extraction IA)
         marque_modele: form.marque_modele || null,
         numero_serie: form.numero_serie || null,
         premiere_circulation: form.premiere_circulation || null,

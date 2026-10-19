@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { FlotteVehicule } from "@/lib/types";
-import { messageErreur } from "@/lib/format";
+import { messageErreur, formaterSaisieImmat } from "@/lib/format";
 import { TYPES_CONTRAT_ASSURANCE, deposerDocumentFlotte } from "@/lib/flotte";
 import ModalShell from "@/components/ModalShell";
 
@@ -149,7 +149,7 @@ export default function VehiculeForm({
           type={type}
           className={`field-input ${aCompleter ? "ring-1 ring-amber-300/70" : ""}`}
           value={String(f[k] ?? "")}
-          onChange={(e) => set(k, e.target.value)}
+          onChange={(e) => set(k, k === "immatriculation" ? formaterSaisieImmat(e.target.value) : e.target.value)}
           placeholder={placeholder}
         />
       </div>
