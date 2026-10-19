@@ -45,6 +45,14 @@ export const metadata: Metadata = {
     title: "My Easy Auto",
     statusBarStyle: "default",
   },
+  // Google Search Console (v13.49) : balise <meta name="google-site-verification">
+  // rendue seulement si NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION est définie sur
+  // Vercel (valeur = le jeton donné par Search Console, méthode « Balise HTML »).
+  // Si la propriété est validée par DNS (méthode recommandée), la variable
+  // est inutile et aucune balise n'est émise.
+  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } }
+    : {}),
 };
 
 // Données structurées (Schema.org) : l'éditeur et le logiciel.
