@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { nettoyerCarteGrise } from "@/lib/carteGrise";
 
 // Extraction IA d'une CARTE GRISE (photo ou PDF) → JSON pour pré-remplir
 // l'ajout d'un véhicule (flotte du garage).
@@ -31,7 +32,7 @@ Extrais les champs suivants et renvoie UNIQUEMENT un objet JSON valide (aucun te
   "numero_formule": string|null          // numéro de formule (en bas, ex. 2019AB12345)
 }
 
-Règles : n'invente rien ; corrige l'orientation/qualité mentalement ; l'immatriculation en MAJUSCULES avec tirets ; les dates au format AAAA-MM-JJ.`;
+Règles : n'invente rien ; corrige l'orientation/qualité mentalement ; l'immatriculation en MAJUSCULES avec tirets (ancien format FNI : "1234 AB 56" → garde tel quel) ; les dates au format AAAA-MM-JJ ; la marque (D.1) en toutes lettres (ex. "RENAULT", "PEUGEOT", "MERCEDES-BENZ"), le modèle (D.3) tel qu'écrit sans répéter la marque ; le titulaire C.1 sans les mentions "M.", "MME", "MLLE" et sans l'adresse ; le VIN (E) fait exactement 17 caractères sans I, O ni Q — si tu doutes d'un caractère, renvoie null plutôt qu'une valeur fausse. Les champs des formats ancien (FNI, carte verte) ou des cartes grises étrangères sont acceptés quand ils sont lisibles.`;
 
 export async function POST(req: NextRequest) {
   // SÉCURITÉ : analyse réservée aux utilisateurs connectés (crédits IA).
@@ -95,7 +96,15 @@ export async function POST(req: NextRequest) {
     if (!match) {
       return NextResponse.json({ error: "Carte grise illisible : réessaie avec une photo plus nette." }, { status: 422 });
     }
-    return NextResponse.json({ data: JSON.parse(match[0]) });
+    let brut: Record<string, unknown>;
+    try { brut = JSON.parse(match[0]); } catch {
+      return NextResponse.json({ error: "Carte grise illisible : réessaie avec une photo plus nette." }, { status: 422 });
+    }
+    const { data, manquants } = nettoyerCarteGrise(brut);
+    if (!data.immatriculation && !data.numero_serie) {
+      return NextResponse.json({ error: "Ni l'immatriculation ni le numéro de série n'ont pu être lus. Reprends la photo à plat, bien éclairée, carte entière dans le cadre." }, { status: 422 });
+    }
+    return NextResponse.json({ data, manquants });
   } catch (err: unknown) {
     const anyErr = err as { status?: number; message?: string };
     const overloaded =

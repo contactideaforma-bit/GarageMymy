@@ -18,6 +18,7 @@ export default function VehiculeForm({
   prefill,
   documentInitial,
   horsGarage = false,
+  completion,
   onClose,
   onSaved,
 }: {
@@ -27,6 +28,11 @@ export default function VehiculeForm({
   documentInitial?: { fichier: File; type: string };
   /** Le formulaire est ouvert depuis l'onglet « Flotte hors garage ». */
   horsGarage?: boolean;
+  /**
+   * v13.46 — mode « compléter » après une création par carte grise : le
+   * véhicule existe déjà, on met en avant les champs restés vides.
+   */
+  completion?: { manquants: (keyof FlotteVehicule)[]; lusSurCarteGrise: number };
   onClose: () => void;
   onSaved: (id: string) => void;
 }) {
@@ -130,15 +136,36 @@ export default function VehiculeForm({
 
   // Fonction (pas un composant) : un composant défini dans le rendu serait
   // recréé à chaque frappe et le champ perdrait le focus.
-  const champ = (k: keyof typeof f, label: string, type = "text", placeholder?: string) => (
-    <div key={k}>
-      <label className="field-label">{label}</label>
-      <input type={type} className="field-input" value={String(f[k] ?? "")} onChange={(e) => set(k, e.target.value)} placeholder={placeholder} />
-    </div>
-  );
+  const manquants = new Set<string>(completion?.manquants || []);
+  const champ = (k: keyof typeof f, label: string, type = "text", placeholder?: string) => {
+    const aCompleter = manquants.has(k) && !String(f[k] ?? "").trim();
+    return (
+      <div key={k}>
+        <label className="field-label">
+          {label}
+          {aCompleter && <span className="ml-1 text-amber-300" title="Non lu sur la carte grise : à compléter">● à compléter</span>}
+        </label>
+        <input
+          type={type}
+          className={`field-input ${aCompleter ? "ring-1 ring-amber-300/70" : ""}`}
+          value={String(f[k] ?? "")}
+          onChange={(e) => set(k, e.target.value)}
+          placeholder={placeholder}
+        />
+      </div>
+    );
+  };
 
   return (
-    <ModalShell title={vehicule ? `Modifier ${vehicule.immatriculation}` : horsGarage ? "Ajouter un véhicule hors garage" : "Ajouter un véhicule à la flotte"} onClose={onClose} maxWidth="max-w-3xl">
+    <ModalShell title={completion && vehicule ? `${vehicule.immatriculation} créé — compléter la fiche` : vehicule ? `Modifier ${vehicule.immatriculation}` : horsGarage ? "Ajouter un véhicule hors garage" : "Ajouter un véhicule à la flotte"} onClose={onClose} maxWidth="max-w-3xl">
+      {completion && (
+        <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/15 px-3 py-2 text-sm text-emerald-100">
+          Véhicule créé à partir de la carte grise ({completion.lusSurCarteGrise} champ{completion.lusSurCarteGrise > 1 ? "s" : ""} lu{completion.lusSurCarteGrise > 1 ? "s" : ""}, photo rangée dans ses documents).
+          {completion.manquants.length > 0
+            ? <> Les champs marqués <span className="text-amber-300">● à compléter</span> n&apos;ont pas pu être lus ou ne figurent pas sur la carte grise : renseigne-les si tu les connais, puis « Enregistrer ». Tu peux aussi « Plus tard » : la fiche s&apos;ouvre et tout reste modifiable.</>
+            : <> Tout a été lu : vérifie et enregistre.</>}
+        </div>
+      )}
       <Section titre="Identité">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {champ("immatriculation", "Immatriculation *", "text", "AB-123-CD")}
@@ -210,8 +237,8 @@ export default function VehiculeForm({
 
       {error && <div className="rounded-lg border border-rose-400/30 bg-rose-500/15 px-3 py-2 text-sm text-rose-200">{error}</div>}
       <div className="flex justify-end gap-3">
-        <button onClick={onClose} className="btn-ghost">Annuler</button>
-        <button onClick={save} disabled={saving} className="btn-primary">{saving ? "Enregistrement…" : "Enregistrer"}</button>
+        <button onClick={onClose} className="btn-ghost">{completion ? "Plus tard" : "Annuler"}</button>
+        <button onClick={save} disabled={saving} className="btn-primary">{saving ? "Enregistrement…" : completion ? "Enregistrer et ouvrir la fiche" : "Enregistrer"}</button>
       </div>
     </ModalShell>
   );

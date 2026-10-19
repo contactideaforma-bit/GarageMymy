@@ -71,7 +71,10 @@ export function estSinistre(v: FlotteVehicule, dossierActif: Dossier | null): bo
 
 
 /** Comptes qui voient l'onglet « Flotte hors garage » (véhicules au nom de tiers). */
-export const COMPTES_FLOTTE_HORS_GARAGE = ["latelierdesaintjoseph@gmail.com"];
+export const COMPTES_FLOTTE_HORS_GARAGE = [
+  "latelierdesaintjoseph@gmail.com",
+  "contact.crm13014@gmail.com", // v13.46 — nouveau garage du même client (transfert de sa flotte hors garage)
+];
 
 export function aFlotteHorsGarage(email?: string | null): boolean {
   if (!email) return false;

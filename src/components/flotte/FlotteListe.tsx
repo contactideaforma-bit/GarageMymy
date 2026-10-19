@@ -19,6 +19,10 @@ import StatCard from "@/components/StatCard";
 import ConfigBanner from "@/components/ConfigBanner";
 import VehiculeForm from "@/components/flotte/VehiculeForm";
 import MiseADispoModal from "@/components/flotte/MiseADispoModal";
+import TransfertFlotteModal from "@/components/flotte/TransfertFlotteModal";
+import { deposerDocumentFlotte } from "@/lib/flotte";
+import { CarteGriseExtraite, champsManquants, vehiculeDepuisCarteGrise } from "@/lib/carteGrise";
+import { normaliserImmat } from "@/lib/flotteTransfert";
 
 type Filtre = "tous" | "loues" | "disponibles" | "sinistres" | "alertes";
 
@@ -39,7 +43,10 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
     vehicule?: FlotteVehicule;
     prefill?: Partial<FlotteVehicule>;
     document?: { fichier: File; type: string };
+    /** v13.46 — véhicule tout juste créé par carte grise : on propose de compléter. */
+    completion?: { manquants: (keyof FlotteVehicule)[]; lusSurCarteGrise: number };
   } | null>(null);
+  const [transfert, setTransfert] = useState(false);
   const [locModal, setLocModal] = useState<{ vehicule: FlotteVehicule; type: string } | null>(null);
   const [analyseCg, setAnalyseCg] = useState(false);
   const [cgError, setCgError] = useState<string | null>(null);
@@ -69,7 +76,10 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
     load();
   }
 
-  // Photo de la carte grise → extraction IA → formulaire pré-rempli
+  // Photo de la carte grise → extraction IA → le véhicule est CRÉÉ tout de
+  // suite (photo rangée dans ses documents) → on propose de compléter à la
+  // main ce qui n'a pas été lu (v13.46). Si l'immatriculation est déjà dans
+  // la flotte, on ouvre la fiche existante au lieu de créer un doublon.
   async function importerCarteGrise(file: File) {
     setAnalyseCg(true);
     setCgError(null);
@@ -77,57 +87,44 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetchAuth("/api/extract-carte-grise", { method: "POST", body: fd });
-      const rep = await lireReponse<{ data: unknown }>(res);
+      const rep = await lireReponse<{ data: CarteGriseExtraite }>(res);
       if (!rep.ok || !rep.data) throw new Error(rep.error || "Échec de l'analyse.");
-      const d = rep.data.data as {
-        immatriculation?: string | null;
-        marque?: string | null;
-        modele?: string | null;
-        numero_serie?: string | null;
-        premiere_circulation?: string | null;
-        date_certificat?: string | null;
-        titulaire?: string | null;
-        cotitulaire?: string | null;
-        titulaire_adresse?: string | null;
-        energie?: string | null;
-        puissance_fiscale?: number | null;
-        puissance_kw?: number | null;
-        genre?: string | null;
-        carrosserie?: string | null;
-        places?: number | null;
-        ptac?: number | null;
-        couleur?: string | null;
-        numero_formule?: string | null;
-      };
-      // Tout ce qui n'a pas de champ dédié va dans les notes, pour ne rien perdre.
-      const notes = [
-        d.titulaire ? `Titulaire carte grise : ${d.titulaire}${d.cotitulaire ? ` (co-titulaire ${d.cotitulaire})` : ""}` : "",
-        d.titulaire_adresse ? `Adresse titulaire : ${d.titulaire_adresse}` : "",
-        d.puissance_fiscale != null ? `${d.puissance_fiscale} CV fiscaux` : "",
-        d.puissance_kw != null ? `${d.puissance_kw} kW` : "",
-        d.genre ? `Genre ${d.genre}` : "",
-        d.carrosserie ? `Carrosserie ${d.carrosserie}` : "",
-        d.places != null ? `${d.places} places` : "",
-        d.ptac != null ? `PTAC ${d.ptac} kg` : "",
-        d.date_certificat ? `Carte grise établie le ${d.date_certificat}` : "",
-        d.numero_formule ? `N° de formule ${d.numero_formule}` : "",
-      ].filter(Boolean).join("\n");
+      const d = rep.data.data;
+      const prefill = vehiculeDepuisCarteGrise(d, { horsGarage });
+      const lus = Object.values(d).filter((x) => x != null && x !== "").length;
+
+      // Immatriculation illisible : pas de création automatique, on laisse la
+      // main avec le formulaire pré-rempli (le VIN et le reste sont conservés).
+      if (!prefill.immatriculation) {
+        setEditModal({ prefill, document: { fichier: file, type: "carte_grise" } });
+        return;
+      }
+
+      // Doublon ? (même immatriculation, tous onglets confondus)
+      const cle = normaliserImmat(prefill.immatriculation);
+      const { data: tous } = await supabase.from("flotte_vehicules").select("id, immatriculation, hors_garage");
+      const existant = ((tous as { id: string; immatriculation: string; hors_garage: boolean | null }[]) || [])
+        .find((x) => normaliserImmat(x.immatriculation) === cle);
+      if (existant) {
+        if (confirm(`${prefill.immatriculation} est déjà dans ${existant.hors_garage ? "la flotte hors garage" : "la flotte du garage"}. Ouvrir sa fiche ?`)) {
+          router.push(`/flotte/${existant.id}`);
+        }
+        return;
+      }
+
+      // Création immédiate.
+      const payload = { ...prefill, immatriculation: prefill.immatriculation.toUpperCase() };
+      const { data: cree, error: e1 } = await supabase.from("flotte_vehicules").insert(payload).select("*").single();
+      if (e1) throw e1;
+      const vehicule = cree as FlotteVehicule;
+      try {
+        await deposerDocumentFlotte({ vehiculeId: vehicule.id, type: "carte_grise", fichier: file, nom: "Carte grise (analysée)" });
+      } catch { /* document non rangé : le véhicule existe quand même */ }
+      await load();
+
       setEditModal({
-        prefill: {
-          immatriculation: d.immatriculation || "",
-          marque_modele: [d.marque, d.modele].filter(Boolean).join(" ") || null,
-          vin: d.numero_serie || null,
-          date_mise_circulation: d.premiere_circulation || null,
-          carburant: d.energie || null,
-          couleur: d.couleur || null,
-          titulaire_cg: d.titulaire || null,
-          cg_ok: Boolean(d.immatriculation),
-          commentaire: d.puissance_fiscale != null ? `${d.puissance_fiscale} CV${d.energie ? ` · ${d.energie}` : ""}` : null,
-          notes: notes || null,
-        },
-        // La photo de la carte grise est conservée : elle sera rangée dans
-        // les documents du véhicule dès l'enregistrement.
-        document: { fichier: file, type: "carte_grise" },
+        vehicule,
+        completion: { manquants: champsManquants(vehicule), lusSurCarteGrise: lus },
       });
     } catch (err: unknown) {
       setCgError(messageErreur(err, "Analyse impossible : réessaie avec une photo plus nette."));
@@ -205,6 +202,9 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
             {analyseCg ? "Analyse de la carte grise…" : "Ajouter par carte grise"}
           </button>
           <button onClick={() => setEditModal({})} className="btn-primary">+ Véhicule</button>
+          <button onClick={() => setTransfert(true)} className="btn-ghost" title="Exporter cette flotte en ZIP ou importer celle d'un autre compte">
+            Transférer ⇄
+          </button>
         </div>
       </div>
       <ConfigBanner />
@@ -261,7 +261,7 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
               <tr>
                 <td colSpan={6} className="px-5 py-8 text-center text-white/40">
                   {vehicules.length === 0
-                    ? "Aucun véhicule dans la flotte. Ajoute ta première voiture avec « + Véhicule »."
+                    ? "Aucun véhicule dans la flotte. Ajoute ta première voiture avec « + Véhicule », par carte grise, ou importe un export d'un autre compte avec « Transférer »."
                     : "Rien pour ce filtre."}
                 </td>
               </tr>
@@ -378,14 +378,28 @@ export default function FlotteListe({ horsGarage = false }: { horsGarage?: boole
           prefill={editModal.prefill}
           documentInitial={editModal.document}
           horsGarage={horsGarage}
-          onClose={() => setEditModal(null)}
+          completion={editModal.completion}
+          onClose={() => {
+            const cree = editModal.completion && editModal.vehicule;
+            setEditModal(null);
+            // « Plus tard » après une création par carte grise : on ouvre quand même la fiche.
+            if (cree) router.push(`/flotte/${editModal.vehicule!.id}`);
+          }}
           onSaved={(id) => {
-            const creation = !editModal.vehicule;
+            const creation = !editModal.vehicule || Boolean(editModal.completion);
             setEditModal(null);
             // Un véhicule créé s'ouvre directement sur sa fiche (documents, assurance…).
             if (creation) router.push(`/flotte/${id}`);
             else load();
           }}
+        />
+      )}
+      {transfert && (
+        <TransfertFlotteModal
+          horsGarage={horsGarage}
+          nbVehicules={vehicules.length}
+          onClose={() => setTransfert(false)}
+          onImported={() => load()}
         />
       )}
       {locModal && (
