@@ -54,6 +54,7 @@ export default function ComparateurFormules({ params, engage, surligner, compact
                   <Link href={`/formules/${slugDe(f)}`} className="block text-inherit no-underline">
                     <div className="text-sm font-semibold text-slate-900">{f === "essentiel" ? "Essentiel" : `Adhésion Service ${NOM_COURT[f]}`}</div>
                     <div className="mt-1 text-xl font-bold tracking-tight text-slate-900">{eur(prix)}<span className="text-xs font-normal text-slate-500"> / mois</span></div>
+                    <div className="text-[10px] text-slate-400">net, TVA non applicable</div>
                     <div className="text-[11px] text-slate-500">{t.heures > 0 ? `${t.heures} h / mois de chargé de mission` : "Application seule"}</div>
                   </Link>
                 </th>

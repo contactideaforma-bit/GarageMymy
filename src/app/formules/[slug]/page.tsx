@@ -108,12 +108,16 @@ export default function PageFormule() {
                     <span className="text-sm text-slate-500">/ mois</span>
                   </div>
                   <div className="mt-2 text-sm text-slate-600">les {OFFRE_LANCEMENT.mois} premiers mois, puis <b className="text-slate-800">{eur(prix)} / mois</b>. Valable jusqu&apos;au {DATE_FIN_LIBELLE}, appliquée automatiquement.</div>
+                  <div className="mt-0.5 text-[11px] text-slate-400">Prix net — TVA non applicable (art. 293 B du CGI)</div>
                 </div>
               </>
             ) : (
-              <div className="mt-5 flex items-baseline gap-1.5">
-                <span className="text-4xl font-bold tracking-tight">{eur(prix)}</span>
-                <span className="text-sm text-slate-500">/ mois</span>
+              <div className="mt-5">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-4xl font-bold tracking-tight">{eur(prix)}</span>
+                  <span className="text-sm text-slate-500">/ mois</span>
+                </div>
+                <div className="mt-0.5 text-[11px] text-slate-400">Prix net — TVA non applicable (art. 293 B du CGI)</div>
               </div>
             )}
             <ul className="mt-4 space-y-2 text-sm text-slate-600">

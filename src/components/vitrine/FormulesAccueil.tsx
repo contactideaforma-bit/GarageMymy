@@ -139,6 +139,7 @@ export default function FormulesAccueil() {
                     les {OFFRE_LANCEMENT.mois} premiers mois, puis <b className="whitespace-nowrap text-slate-800">{eur(prix)} / mois</b>
                   </div>
                   <div className="mt-0.5 text-xs text-slate-400">{engage ? `${eur(autre)} sans engagement` : `${eur(autre)} avec engagement de 12 mois`}</div>
+                  <div className="mt-0.5 text-[11px] text-slate-400">Prix net — TVA non applicable (art. 293 B du CGI)</div>
                 </div>
               ) : (
                 <>
@@ -149,6 +150,7 @@ export default function FormulesAccueil() {
                   <div className="mt-1 text-xs text-slate-500">
                     {engage ? `${eur(autre)} sans engagement` : `${eur(autre)} avec engagement de 12 mois`}
                   </div>
+                  <div className="mt-0.5 text-[11px] text-slate-400">Prix net — TVA non applicable (art. 293 B du CGI)</div>
                 </>
               )}
               <p className="mt-4 text-sm leading-relaxed text-slate-600 lg:min-h-[4.5rem]">{c.pourQui}</p>
