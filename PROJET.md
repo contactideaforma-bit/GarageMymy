@@ -299,6 +299,12 @@ PLAQUE_API_FOURNISSEUR=api-plaque-immatriculation  # ou apiplaqueimmatriculation
 - **Page** `/fonctionnalites` (`src/app/fonctionnalites/page.tsx`, rendu serveur, layout SEO `metaPage`) : en-tête, sommaire par domaine, cartes `lp-card`, tableau comparatif, appel à la démo. Lien « Fonctionnalités » de la barre vitrine → `/fonctionnalites` ; bouton « Voir les N fonctionnalités » sous les 6 cartes de l'accueil ; sitemap priorité 0.9.
 - Règle d'entretien : toute nouvelle feature livrée s'ajoute dans `fonctionnalites.ts` (jamais annoncer ce qui n'existe pas).
 
+### Ajouté v13.49 — Fiche récap du dossier (copier / WhatsApp / Messages / mail)
+- Bouton **« 📋 Fiche récap »** en tête de la fiche dossier (`/sinistres/[id]`, premier bouton de la rangée d'actions) → `FicheRecapModal` (`src/components/FicheRecapModal.tsx`).
+- Logique pure `lib/ficheRecap.ts` : `sectionsRecap` (Client : nom, tél, email · Véhicule : marque/modèle, immat, VIN · Sinistre : n°, date, assurance, n° de police, tél assurance · Expertise : cabinet, expert, tél, email, date · Montant : HT et TTC, **d'après la dernière facture si elle existe, sinon le montant HT du rapport × TVA du dossier**, source affichée) ; `texteRecap` (texte brut lisible, titre « Dossier n° — immat », sections en majuscules) ; `liensPartage` (`wa.me/<n° international>?text=`, `sms:<n°>?&body=` qui marche iPhone et Android, `mailto:`).
+- Fenêtre : cartes par section avec case à cocher pour exclure une section du texte partagé (ex. ne pas envoyer le montant au client), tél/email cliquables, aperçu du texte, choix du destinataire (libre / client / expert → pré-remplit le numéro), boutons WhatsApp · Messages · Mail · **Copier la fiche** (presse-papiers, repli `execCommand`).
+- Inventaire public `fonctionnalites.ts` mis à jour (badge Nouveau).
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

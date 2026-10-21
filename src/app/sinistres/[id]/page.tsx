@@ -42,6 +42,7 @@ import CommandesPanel from "@/components/CommandesPanel";
 import SignatureDocModal from "@/components/SignatureDocModal";
 import ModalShell from "@/components/ModalShell";
 import InfosPlaqueModal, { BoutonInfosPlaque } from "@/components/InfosPlaqueModal";
+import FicheRecapModal from "@/components/FicheRecapModal";
 import { dossierDepuisInfos } from "@/lib/infosPlaque";
 import TransfertGarantiePanel from "@/components/TransfertGarantiePanel";
 import { lignesDepuisChiffrage } from "@/lib/documents";
@@ -143,6 +144,7 @@ export default function DossierDetailPage() {
 
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [infosPlaque, setInfosPlaque] = useState(false); // v13.47
+  const [ficheRecap, setFicheRecap] = useState(false); // v13.49
   // v13.42 — suivi des impayés et des litiges réservés aux formules Adhésion Service
   const { serviceInclus } = useFormuleGarage();
   const [evenements, setEvenements] = useState<Evenement[]>([]);
@@ -842,6 +844,10 @@ export default function DossierDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {/* v13.49 — toutes les infos du dossier en un coup d'œil, à copier ou envoyer. */}
+            <button onClick={() => setFicheRecap(true)} className="btn-ghost" title="Client, véhicule, sinistre, expert, assurance, montants : tout sur un écran, à copier ou envoyer par WhatsApp / Messages / mail">
+              📋 Fiche récap
+            </button>
             {(dossier.statut === "paye" || dossier.statut === "cloture") && !dossier.archive && (
               <button onClick={() => setArchiveModal(true)} disabled={Boolean(archivage)} className="btn-ghost">
                 {archivage || "Archiver (ZIP)"}
@@ -1523,6 +1529,7 @@ export default function DossierDetailPage() {
           onSent={load}
         />
       )}
+      {ficheRecap && <FicheRecapModal dossier={dossier} documents={documents} onClose={() => setFicheRecap(false)} />}
       {infosPlaque && dossier.immatriculation && (
         <InfosPlaqueModal
           immat={dossier.immatriculation}

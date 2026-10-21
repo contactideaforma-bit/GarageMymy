@@ -29,6 +29,7 @@ export const DOMAINES: Domaine[] = [
       { titre: "Photos d'état avant / après", texte: "Prises depuis le téléphone, horodatées, rangées dans le dossier et exportables en PDF pour l'expert ou le client." },
       { titre: "Prochaine action suggérée", texte: "Sur chaque dossier, l'appli propose la suite logique : relancer l'expert, envoyer la facture, demander l'accord…" },
       { titre: "Recherche instantanée", texte: "Une plaque, un nom, un numéro de sinistre : le dossier s'ouvre depuis le tableau de bord." },
+      { titre: "Fiche récap à partager", texte: "Client, véhicule, sinistre, expert, assurance, montants sur un écran ; un bouton copie le tout, un autre l'envoie par WhatsApp, Messages ou mail au client ou à l'expert.", nouveau: true },
       { titre: "Bris de glace et calibrage ADAS", texte: "Suivi spécifique des dossiers vitrage, avec le calibrage en attente signalé." },
     ],
   },
