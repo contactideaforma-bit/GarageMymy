@@ -8,6 +8,7 @@ import { messageErreur } from "@/lib/format";
 import { Evenement, Dossier } from "@/lib/types";
 import ConfigBanner from "@/components/ConfigBanner";
 import { useZoneVisible } from "@/lib/cadreMobile";
+import { useEstMobile } from "@/lib/mobile";
 
 function startOfDay(d: Date) { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
@@ -18,12 +19,12 @@ function ymd(d: Date) {
 }
 const JOURS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
-const CAT: Record<string, { label: string; cls: string }> = {
-  rdv_client: { label: "Client", cls: "from-accent-violet/40 to-accent-violet/20" },
-  rdv_expert: { label: "Expert", cls: "from-accent-teal/40 to-accent-teal/20" },
+const CAT: Record<string, { label: string; cls: string; point: string }> = {
+  rdv_client: { label: "Client", cls: "from-accent-violet/40 to-accent-violet/20", point: "#8b5cf6" },
+  rdv_expert: { label: "Expert", cls: "from-accent-teal/40 to-accent-teal/20", point: "#14b8a6" },
   // v41 : rendez-vous créé depuis un rappel du bloc « À faire ».
-  rappel: { label: "Rappel", cls: "from-amber-400/40 to-amber-400/20" },
-  autre: { label: "Autre", cls: "from-white/20 to-white/10" },
+  rappel: { label: "Rappel", cls: "from-amber-400/40 to-amber-400/20", point: "#f59e0b" },
+  autre: { label: "Autre", cls: "from-white/20 to-white/10", point: "#9ca3af" },
 };
 
 export default function AgendaPage() {
@@ -34,6 +35,12 @@ export default function AgendaPage() {
   // Vue MOIS par défaut : meilleure visibilité d'ensemble.
   const [vue, setVue] = useState<"semaine" | "mois">("mois");
   const [ref, setRef] = useState<Date>(startOfDay(new Date()));
+  // v13.50 — AGENDA MOBILE : le mois devient une grille COMPACTE (jour + points
+  // de couleur) et le jour choisi s'affiche en liste lisible dessous ; la
+  // semaine devient une liste jour par jour. Les chips à 10 px dans 7
+  // colonnes se cassaient lettre par lettre sur téléphone.
+  const mobile = useEstMobile();
+  const [jourSel, setJourSel] = useState<string>(ymd(new Date()));
 
   // modal RDV
   const [open, setOpen] = useState(false);
@@ -129,8 +136,22 @@ export default function AgendaPage() {
       : ref.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
   function naviguer(dir: number) {
-    setRef((r) => (vue === "semaine" ? addDays(r, dir * 7) : addMonths(r, dir)));
+    setRef((r) => {
+      const suivant = vue === "semaine" ? addDays(r, dir * 7) : addMonths(r, dir);
+      // Le jour sélectionné suit la période (1er du mois / lundi de la semaine).
+      setJourSel(ymd(vue === "semaine" ? lundi(suivant) : new Date(suivant.getFullYear(), suivant.getMonth(), 1)));
+      return suivant;
+    });
   }
+  function aujourdhui() {
+    const t = startOfDay(new Date());
+    setRef(t);
+    setJourSel(ymd(t));
+  }
+  const libelleJour = (k: string) => {
+    const [y, m, d] = k.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  };
 
   // Véhicule · immatriculation · client du dossier rattaché : sans ça, un
   // « Envoyer la facture » ne dit pas de quel dossier il s'agit.
@@ -157,9 +178,48 @@ export default function AgendaPage() {
     );
   }
 
+  /** Ligne d'événement LISIBLE (mobile) : heure, titre, dossier, catégorie. */
+  function EventRow({ ev }: { ev: Evenement }) {
+    const cat = CAT[ev.categorie || "autre"] || CAT.autre;
+    const ctx = contexteDossier(ev);
+    return (
+      <button type="button" onClick={() => clicEvent(ev)} className="ligne-liste" disabled={!ev.dossier_id} title={cat.label}>
+        <span className="flex w-12 shrink-0 flex-col items-center">
+          <span className="text-sm font-semibold tabular-nums" style={{ color: "var(--mea-texte)" }}>{heure(ev)}</span>
+          <span className="mt-1 h-2 w-2 rounded-full" style={{ background: cat.point }} aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium leading-snug" style={{ color: "var(--mea-texte)" }}>{ev.titre}</span>
+          {(ctx || ev.avec_qui) && (
+            <span className="block truncate text-xs" style={{ color: "var(--mea-texte-3)" }}>{ctx || ev.avec_qui}</span>
+          )}
+        </span>
+        {ev.dossier_id && <span aria-hidden style={{ color: "var(--mea-texte-3)" }}>›</span>}
+      </button>
+    );
+  }
+
+  /** Liste du jour sélectionné (mobile, sous la grille du mois). */
+  const listeJour = (k: string) => {
+    const items = parJour[k] || [];
+    return (
+      <div className="mt-3">
+        <div className="mb-1.5 flex items-center justify-between px-1">
+          <span className="text-sm font-semibold capitalize" style={{ color: "var(--mea-texte)" }}>{libelleJour(k)}</span>
+          <button type="button" onClick={() => ouvrir(k)} className="chip">+ RDV</button>
+        </div>
+        {items.length === 0 ? (
+          <p className="rounded-xl px-3 py-4 text-center text-sm" style={{ background: "var(--mea-surface-2)", color: "var(--mea-texte-3)" }}>Rien de prévu ce jour.</p>
+        ) : (
+          <div className="groupe-liste">{items.map((ev) => <EventRow key={ev.id} ev={ev} />)}</div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3 lg:mb-6">
         <h1 className="titre-page">Agenda</h1>
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-xl border border-white/10 bg-white/5 p-1">
@@ -178,13 +238,72 @@ export default function AgendaPage() {
           <button onClick={() => naviguer(-1)} className="btn-ghost py-1 px-3 text-sm">‹ Préc.</button>
           <div className="text-center">
             <div className="font-semibold text-white capitalize">{titrePeriode}</div>
-            <button onClick={() => setRef(startOfDay(new Date()))} className="text-xs text-accent-pink hover:underline">Aujourd&apos;hui</button>
+            <button onClick={aujourdhui} className="text-xs text-accent-pink hover:underline">Aujourd&apos;hui</button>
           </div>
           <button onClick={() => naviguer(1)} className="btn-ghost py-1 px-3 text-sm">Suiv. ›</button>
         </div>
 
         {loading ? (
           <p className="text-white/40">Chargement…</p>
+        ) : mobile && vue === "semaine" ? (
+          /* ----- MOBILE · SEMAINE : liste jour par jour ----- */
+          <div className="space-y-3">
+            {semaine.map((j, i) => {
+              const k = ymd(j);
+              const items = parJour[k] || [];
+              const isToday = k === ymd(new Date());
+              return (
+                <div key={i}>
+                  <div className="mb-1 flex items-center justify-between px-1">
+                    <span className={`text-sm font-semibold ${isToday ? "text-accent-pink" : ""}`} style={isToday ? undefined : { color: "var(--mea-texte)" }}>
+                      {JOURS[i]} {j.getDate()}{isToday ? " · aujourd'hui" : ""}
+                    </span>
+                    <button type="button" onClick={() => ouvrir(k)} className="text-xs" style={{ color: "var(--mea-texte-3)" }}>＋ RDV</button>
+                  </div>
+                  {items.length === 0 ? (
+                    <div className="rounded-xl px-3 py-2 text-xs" style={{ background: "var(--mea-surface-2)", color: "var(--mea-texte-3)" }}>—</div>
+                  ) : (
+                    <div className="groupe-liste">{items.map((ev) => <EventRow key={ev.id} ev={ev} />)}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : mobile ? (
+          /* ----- MOBILE · MOIS : grille compacte + liste du jour choisi ----- */
+          <div>
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {JOURS.map((d) => <div key={d} className="text-center text-[11px] font-semibold" style={{ color: "var(--mea-texte-3)" }}>{d}</div>)}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {moisDays.map((j, i) => {
+                const k = ymd(j);
+                const items = parJour[k] || [];
+                const isToday = k === ymd(new Date());
+                const inMonth = j.getMonth() === ref.getMonth();
+                const sel = k === jourSel;
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setJourSel(k)}
+                    className={`cal-jour ${sel ? "sel" : ""} ${isToday ? "auj" : ""} ${inMonth ? "" : "hors"}`}
+                    aria-pressed={sel}
+                    aria-label={`${libelleJour(k)}${items.length ? `, ${items.length} rendez-vous` : ""}`}
+                  >
+                    <span className="num">{j.getDate()}</span>
+                    <span className="points" aria-hidden>
+                      {items.slice(0, 3).map((ev) => (
+                        <i key={ev.id} style={{ background: (CAT[ev.categorie || "autre"] || CAT.autre).point }} />
+                      ))}
+                      {items.length > 3 && <em>+</em>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {listeJour(jourSel)}
+          </div>
         ) : vue === "semaine" ? (
           <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
             {semaine.map((j, i) => {

@@ -1430,3 +1430,21 @@ html[data-session] .accueil-ssr { display: none; }
   }
   .entete-dossier-mobile { background-color: color-mix(in srgb, var(--mea-fond) 92%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 }
+
+/* ---------- Agenda mobile (v13.50) : grille du mois compacte ---------- */
+.cal-jour {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px;
+  min-height: 3.1rem; padding: 0.35rem 0 0.3rem; border-radius: 0.7rem;
+  border: 1px solid transparent; background-color: var(--mea-surface-2); color: var(--mea-texte);
+  -webkit-tap-highlight-color: transparent;
+}
+.cal-jour .num { font-size: 0.85rem; font-weight: 600; line-height: 1; }
+.cal-jour.hors { opacity: 0.38; }
+.cal-jour.auj .num { color: var(--mea-neon-texte); }
+.cal-jour.sel { background-color: var(--mea-neon-fond-2); border-color: var(--mea-neon-bordure); box-shadow: var(--mea-lueur); }
+.cal-jour .points { display: flex; align-items: center; gap: 2px; height: 6px; }
+.cal-jour .points i { display: block; width: 5px; height: 5px; border-radius: 9999px; }
+.cal-jour .points em { font-size: 9px; line-height: 6px; font-style: normal; color: var(--mea-texte-3); }
+@media (max-width: 1023px) {
+  .ligne-liste:disabled { opacity: 1; }
+}
