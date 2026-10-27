@@ -13,13 +13,13 @@ import BoutonActualiser from "@/components/BoutonActualiser";
 import Salutation from "@/components/Salutation";
 import Link from "next/link";
 import BandeauCompte from "@/components/BandeauCompte";
+import BarreMobile from "@/components/mobile/BarreMobile";
 import { estRoutePublique } from "@/lib/routesPubliques";
 import { annulerRetourAttendu } from "@/lib/filtresListe";
 import { estRouteExpert } from "@/lib/expertise/acces";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
   // NOTIFICATIONS PUSH (v42) : on ré-enregistre le service worker à chaque
@@ -72,58 +72,28 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           fin du contrat, fermeture — piloté depuis l'espace éditeur. */}
       <BandeauCompte />
       <div className="lg:flex min-h-screen">
-      {/* Barre du haut (mobile uniquement) — fond opaque pour que le
-          contenu ne soit pas visible derrière en défilant */}
-      <div className="lg:hidden sticky top-0 z-30 p-3 topbar-mobile">
-        <div className="glass-card glass-blur flex items-center gap-3 px-3 py-2">
-          <button
-            onClick={() => setOpen(true)}
-            aria-label="Ouvrir le menu"
-            className="btn-ghost btn-compact px-2.5 text-lg leading-none"
-          >
-            ☰
-          </button>
-          <Link href="/" aria-label="Tableau de bord" title="Retour au tableau de bord" className="flex min-w-0 items-center gap-2">
-            <Image src="/logo.png" alt="" width={28} height={28} className="shrink-0" />
+      {/* COQUE MOBILE (v13.50) : plus de tiroir ☰ sur téléphone — la
+          navigation passe par la barre d'onglets du bas (BarreMobile) et
+          l'onglet « Plus ». En haut, une barre fine : logo → accueil,
+          salutation, actualiser. */}
+      <div className="lg:hidden sticky top-0 z-30 px-3 py-1.5 topbar-mobile">
+        <div className="flex items-center gap-2.5 px-1 py-1">
+          <Link href="/" aria-label="Tableau de bord" title="Retour au tableau de bord" className="flex min-w-0 flex-1 items-center gap-2">
+            <Image src="/logo.png" alt="" width={30} height={30} className="shrink-0" />
             <Salutation />
           </Link>
-          {/* v13.21 : recharger la page (mobile). */}
           <BoutonActualiser inline />
         </div>
       </div>
 
-      {/* Fond sombre (mobile, quand le tiroir est ouvert) */}
-      {open && (
-        <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-md"
-          onClick={() => setOpen(false)}
-        />
-      )}
-
-      {/* Tiroir / barre latérale. Sur grand écran (v10.6) : dans le FLUX de
-          la page — sa hauteur est celle de SON contenu (self-start, h-auto),
-          plus de bas épinglé ni de défilement interne : elle défile AVEC la
-          page. Sur mobile, le tiroir reste plein écran et défile lui-même. */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 p-3 transition-transform duration-200
-          lg:static lg:h-auto lg:self-start lg:z-auto lg:translate-x-0 lg:shrink-0
-          ${open ? "translate-x-0" : "-translate-x-full"}`}
-      >
-        <div className="relative h-full overflow-y-auto lg:h-auto lg:overflow-visible">
-          {/* Bouton fermer (mobile) */}
-          <button
-            onClick={() => setOpen(false)}
-            aria-label="Fermer le menu"
-            className="lg:hidden absolute right-2 top-2 z-10 btn-ghost btn-compact px-2.5 text-lg leading-none"
-          >
-            ×
-          </button>
-          <Sidebar onNavigate={() => setOpen(false)} />
-        </div>
+      {/* Barre latérale (grand écran seulement, v10.6 : dans le FLUX de la
+          page, hauteur = son contenu, défile avec la page). */}
+      <aside className="hidden w-64 shrink-0 self-start p-3 lg:block">
+        <Sidebar />
       </aside>
 
         {/* Contenu */}
-        <main className="min-w-0 flex-1 p-3 sm:p-4 lg:p-6">{children}</main>
+        <main className="contenu-appli min-w-0 flex-1 p-3 sm:p-4 lg:p-6">{children}</main>
       </div>
       {/* MY-MY (v9.5) : l'assistant du garage, en bas à droite de toutes les pages. */}
       <MyMyChat />
@@ -131,6 +101,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <TableauxFluides />
       {/* v12.7 : remonter en haut dès qu'on a défilé. */}
       <BoutonHaut />
+      {/* v13.50 : barre d'onglets du bas + raccourcis + recherche (téléphone / tablette). */}
+      <BarreMobile />
     </div>
   );
 }

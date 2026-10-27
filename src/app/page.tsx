@@ -31,6 +31,7 @@ import ConfigBanner from "@/components/ConfigBanner";
 import { erreurReseau, dateDuCache, memoriser, relire } from "@/lib/horsLigne";
 import RappelSauvegarde from "@/components/RappelSauvegarde";
 import { euroRecuperes } from "@/lib/recouvrement";
+import { ouvrirRecherche } from "@/lib/mobile";
 
 /** Copie locale du tableau de bord (mode dégradé, v47). */
 const CLE_CACHE_DASHBOARD = "tableau-de-bord";
@@ -245,7 +246,7 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3 lg:mb-6">
         <div className="min-w-0">
           <h1 className="titre-page">Tableau de bord</h1>
           {copieLocale && (
@@ -262,16 +263,70 @@ export default function DashboardPage() {
             })}
           </p>
         </div>
-        <Link href="/import" className="btn-primary">{t.importer}</Link>
+        <Link href="/import" className="btn-primary hidden lg:inline-flex">{t.importer}</Link>
       </div>
 
       <ConfigBanner />
 
-      {/* RECHERCHE (v13.35) : aller directement à un dossier, depuis l'accueil. */}
-      <RechercheDossier dossiers={dossiers} loading={loading} />
+      {/* ----- MOBILE (v13.50) : recherche plein écran + actions rapides sous le pouce ----- */}
+      <div className="mobile-seulement mb-3 space-y-3">
+        <button type="button" className="faux-champ" onClick={() => ouvrirRecherche("ouvrir")} aria-label="Rechercher un dossier">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5 shrink-0" aria-hidden>
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3.5-3.5" />
+          </svg>
+          <span className="truncate">Plaque, client, n° de sinistre…</span>
+        </button>
+        <div className="grid grid-cols-4 gap-2">
+          <Link href="/import" className="action-client principal">
+            <span className="ico" aria-hidden>📄</span>
+            <span>Nouveau</span>
+          </Link>
+          <button type="button" className="action-client" onClick={() => ouvrirRecherche("photos")}>
+            <span className="ico" aria-hidden>📸</span>
+            <span>Photos</span>
+          </button>
+          <button type="button" className="action-client" onClick={() => ouvrirRecherche("contact")}>
+            <span className="ico" aria-hidden>📞</span>
+            <span>Contacter</span>
+          </button>
+          <Link href="/agenda" className="action-client">
+            <span className="ico" aria-hidden>📅</span>
+            <span>Agenda</span>
+          </Link>
+        </div>
+        {/* Les 4 compteurs, compacts, deux par ligne. */}
+        <div className="grid grid-cols-2 gap-2">
+          <Link href="/vehicules" className="kpi-mobile">
+            <span className="etiquette">🚗 Au garage</span>
+            <span className="val">{presentsCount}</span>
+            <span className="sous">véhicules présents</span>
+          </Link>
+          <Link href="/sinistres" className="kpi-mobile">
+            <span className="etiquette">📁 En cours</span>
+            <span className="val">{enCours.length}</span>
+            <span className="sous">{formatEuros(totalEnCoursHt)} HT</span>
+          </Link>
+          <Link href="/factures" className="kpi-mobile">
+            <span className="etiquette">🧾 Facturé ce mois</span>
+            <span className="val">{formatEuros(totalMoisHt)}</span>
+            <span className="sous">HT · {formatEuros(totalMois)} TTC</span>
+          </Link>
+          <Link href="/finance" className="kpi-mobile">
+            <span className="etiquette">💶 Encaissé ce mois</span>
+            <span className="val">{formatEuros(encaisseMois)}</span>
+            <span className="sous">reste dû {formatEuros(resteEncaisser)}</span>
+          </Link>
+        </div>
+      </div>
 
-      {/* HUD : les 4 compteurs du garage */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* RECHERCHE (v13.35) : aller directement à un dossier, depuis l'accueil (grand écran). */}
+      <div className="bureau-seulement">
+        <RechercheDossier dossiers={dossiers} loading={loading} />
+      </div>
+
+      {/* HUD : les 4 compteurs du garage (grand écran) */}
+      <div className="bureau-seulement grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Link href="/vehicules">
           <StatCard accent="teal" icone="🚗" label="Véhicules au garage" value={String(presentsCount)} hint="actuellement présents" />
         </Link>
@@ -330,7 +385,7 @@ export default function DashboardPage() {
           synchronisées avec l'onglet Conversation. */}
       <BlocAFaire dossiers={dossiers} loading={loading} />
 
-      <div className="space-y-6">
+      <div className="space-y-3 lg:space-y-6">
         <section className="glass-card anim-apparition">
           <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
             <h2 className="titre-section">Dossiers en cours</h2>
@@ -357,7 +412,7 @@ export default function DashboardPage() {
               {!loading && enCours.length === 0 && (
                 <p className="py-4 text-center text-sm text-white/40">Aucun dossier en cours.</p>
               )}
-              {enCours.map((d) => (
+              {enCours.slice(0, 6).map((d) => (
                 <button
                   key={`m-${d.id}`}
                   type="button"
@@ -392,6 +447,9 @@ export default function DashboardPage() {
                   </div>
                 </button>
               ))}
+              {!loading && enCours.length > 6 && (
+                <Link href="/sinistres" className="chip block text-center">Voir les {enCours.length} dossiers en cours →</Link>
+              )}
             </div>
 
             {/* ----- ÉCRAN LARGE : tableau à colonnes fixes ----- */}
@@ -479,7 +537,7 @@ export default function DashboardPage() {
               {aVenir.length === 0 && <p className="text-sm text-white/40">Aucun événement.</p>}
               <ul className="space-y-1.5">{aVenir.slice(0, 5).map((e) => renderEvenement(e))}</ul>
             </div>
-            <div>
+            <div className="bureau-seulement">
               <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-white/40">
                 Passés
               </div>
@@ -489,8 +547,10 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Guide du processus sinistre (repliable) */}
-        <GuideProcedure />
+        {/* Guide du processus sinistre (repliable) — grand écran seulement : sur téléphone, l'accueil reste une page d'action. */}
+        <div className="bureau-seulement">
+          <GuideProcedure />
+        </div>
       </div>
     </div>
   );

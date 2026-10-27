@@ -22,6 +22,8 @@ import StatutBadge from "@/components/StatutBadge";
 import ProgressionDossier from "@/components/ProgressionDossier";
 import ConfigBanner from "@/components/ConfigBanner";
 import StatCard from "@/components/StatCard";
+import Feuille from "@/components/mobile/Feuille";
+import { useEstMobile } from "@/lib/mobile";
 import { ouvrirFichier } from "@/lib/storage";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
@@ -206,6 +208,8 @@ export default function SinistresPage() {
   // toujours visible : la recherche, le tri, et des pastilles rappelant les
   // filtres actifs.
   const [filtresOuverts, setFiltresOuverts] = useState(false);
+  // v13.50 : sur téléphone, le panneau de filtres monte dans une feuille.
+  const mobile = useEstMobile();
 
   // Date de la copie locale affichée quand le réseau est absent (v47).
   const [copieLocale, setCopieLocale] = useState<string | null>(null);
@@ -257,8 +261,11 @@ export default function SinistresPage() {
     // la liste ; via le menu ou après reconnexion, la liste repart propre.
     const e = consommerRetourAttendu(CLE_ETAT_LISTE) ? lireEtatListe(CLE_ETAT_LISTE, ETAT_VIDE) : ETAT_VIDE;
     // v13.35 : « Voir tous les résultats » depuis la recherche du tableau de bord.
-    const qUrl = new URLSearchParams(window.location.search).get("q");
+    const params = new URLSearchParams(window.location.search);
+    const qUrl = params.get("q");
     setQ(qUrl ?? e.q);
+    // v13.50 : « + Dossier manuel » depuis les actions rapides mobiles.
+    if (params.get("nouveau") === "1") setShowForm(true);
     setFiltreStatut(e.filtreStatut);
     setFiltreExpert(e.filtreExpert);
     setFiltrePart(e.filtrePart);
@@ -449,6 +456,99 @@ export default function SinistresPage() {
     exporterXlsx(`suivi-dossiers-${jour}`, "Suivi dossiers", colonnes, lignes);
   }
 
+  // Contenu du panneau de filtres (partagé grand écran / feuille mobile).
+  const panneauFiltres = (
+    <>
+      <div>
+        <label className="field-label text-[11px]">Statut</label>
+        <select
+          className="field-input field-compact"
+          value={filtreStatut}
+          onChange={(e) => setFiltreStatut(e.target.value)}
+        >
+          <option value="">Tous les statuts</option>
+          {statutsPresents.map((st) => (
+            <option key={st} value={st}>{libelleStatut(st, metier)}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="field-label text-[11px]">Cabinet d&apos;expert</label>
+        <select
+          className="field-input field-compact"
+          value={filtreExpert}
+          onChange={(e) => setFiltreExpert(e.target.value)}
+        >
+          <option value="">Tous les cabinets</option>
+          {expertsPresents.map((e) => (
+            <option key={e} value={e}>{e}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="field-label text-[11px]">Particularité</label>
+        <select
+          className="field-input field-compact"
+          value={filtrePart}
+          onChange={(e) => setFiltrePart(e.target.value)}
+        >
+          <option value="">Toutes</option>
+          {catalogue.map((p) => (
+            <option key={p.id} value={p.id}>{p.nom}</option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="field-label text-[11px]">Litige</label>
+        <select
+          className="field-input field-compact"
+          value={filtreLitige}
+          onChange={(e) => setFiltreLitige(e.target.value)}
+          title="Dossiers en litige (mode litige activé sur la fiche)"
+        >
+          <option value="">Tous les dossiers</option>
+          <option value="oui">⚠ En litige</option>
+          <option value="non">Sans litige</option>
+          <option value="retard">⏰ Retard de paiement</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="field-label text-[11px]">Période</label>
+        <select
+          className="field-input field-compact"
+          value={champDate}
+          onChange={(e) => setChampDate(e.target.value as "date_sinistre" | "created_at")}
+          title="Sur quelle date porte la période"
+        >
+          <option value="date_sinistre">sur la date du sinistre</option>
+          <option value="created_at">sur la date d&apos;ajout</option>
+        </select>
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <input
+            type="date"
+            className="field-input field-compact"
+            value={du}
+            onChange={(e) => setDu(e.target.value)}
+            title="Du"
+          />
+          <span className="text-[11px] text-white/35">au</span>
+          <input
+            type="date"
+            className="field-input field-compact"
+            value={au}
+            onChange={(e) => setAu(e.target.value)}
+            title="Au"
+          />
+        </div>
+      </div>
+
+    </>
+  );
+
   return (
     <div>
       {/* En-tête : sur téléphone, action principale en pleine largeur puis
@@ -465,14 +565,14 @@ export default function SinistresPage() {
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <button
             onClick={() => setShowForm(true)}
-            className="btn-primary col-span-2 sm:col-span-1 sm:order-last"
+            className="btn-primary sm:order-last"
           >
             + {t.ajouter}
           </button>
           <button
             onClick={exporterExcel}
             disabled={visibles.length === 0}
-            className="btn-ghost truncate disabled:cursor-not-allowed disabled:opacity-40"
+            className="btn-ghost bureau-seulement truncate disabled:cursor-not-allowed disabled:opacity-40"
             title="Exporter le tableau de suivi au format Excel"
           >
             <span className="sm:hidden">⬇ Excel</span>
@@ -484,8 +584,13 @@ export default function SinistresPage() {
 
       <ConfigBanner />
 
-      {/* Synthèse de la sélection courante */}
-      <div className="mb-3 grid grid-cols-2 gap-2 sm:mb-4 sm:gap-3 lg:grid-cols-3">
+      {/* Synthèse de la sélection courante — une ligne sur téléphone (v13.50) */}
+      <p className="mobile-seulement mb-2 text-xs" style={{ color: "var(--mea-texte-3)" }}>
+        <span className="font-semibold" style={{ color: "var(--mea-texte)" }}>{visibles.length}</span> affiché{visibles.length > 1 ? "s" : ""} ·{" "}
+        <span className="font-semibold" style={{ color: "var(--mea-texte)" }}>{enCours}</span> en cours ·{" "}
+        <span className="font-semibold" style={{ color: "var(--mea-texte)" }}>{formatEuros(totalHT)}</span> HT
+      </p>
+      <div className="bureau-seulement mb-3 grid grid-cols-2 gap-2 sm:mb-4 sm:gap-3 lg:grid-cols-3">
         <StatCard label="DOSSIERS AFFICHES" value={String(visibles.length)} accent="violet" />
         <StatCard label="EN COURS" value={String(enCours)} hint="non clôturés" accent="pink" />
         {/* Pleine largeur sous les deux autres : plus de carte esseulée. */}
@@ -565,6 +670,20 @@ export default function SinistresPage() {
         )}
       </div>
 
+      {/* v13.50 — MOBILE : les statuts en puces défilantes, un tap pour filtrer. */}
+      <div className="mobile-seulement chips-defilantes mb-2">
+        <button type="button" className={`chip ${!filtreStatut && !filtreLitige ? "actif" : ""}`} onClick={() => { setFiltreStatut(""); setFiltreLitige(""); }}>
+          Tous
+        </button>
+        {statutsPresents.map((st) => (
+          <button key={st} type="button" className={`chip ${filtreStatut === st ? "actif" : ""}`} onClick={() => setFiltreStatut(filtreStatut === st ? "" : st)}>
+            {libelleStatut(st, metier)}
+          </button>
+        ))}
+        <button type="button" className={`chip ${filtreLitige === "oui" ? "actif" : ""}`} onClick={() => setFiltreLitige(filtreLitige === "oui" ? "" : "oui")}>⚠ Litige</button>
+        <button type="button" className={`chip ${filtreLitige === "retard" ? "actif" : ""}`} onClick={() => setFiltreLitige(filtreLitige === "retard" ? "" : "retard")}>⏰ Retard</button>
+      </div>
+
       {/* Pastilles des filtres actifs — on voit ce qui est appliqué même
           quand le panneau est replié, et on le retire d'un clic. */}
       {nbFiltres > 0 && !filtresOuverts && (
@@ -586,99 +705,31 @@ export default function SinistresPage() {
         </div>
       )}
 
-      {/* Panneau des filtres (replié par défaut) */}
-      {filtresOuverts && (
+      {/* Panneau des filtres (replié par défaut) : en ligne sur grand écran,
+          dans une FEUILLE du bas sur téléphone (v13.50). */}
+      {filtresOuverts && !mobile && (
         <div className="glass-soft mb-3 grid grid-cols-1 gap-2 rounded-xl p-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <label className="field-label text-[11px]">Statut</label>
-            <select
-              className="field-input field-compact"
-              value={filtreStatut}
-              onChange={(e) => setFiltreStatut(e.target.value)}
-            >
-              <option value="">Tous les statuts</option>
-              {statutsPresents.map((st) => (
-                <option key={st} value={st}>{libelleStatut(st, metier)}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="field-label text-[11px]">Cabinet d&apos;expert</label>
-            <select
-              className="field-input field-compact"
-              value={filtreExpert}
-              onChange={(e) => setFiltreExpert(e.target.value)}
-            >
-              <option value="">Tous les cabinets</option>
-              {expertsPresents.map((e) => (
-                <option key={e} value={e}>{e}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="field-label text-[11px]">Particularité</label>
-            <select
-              className="field-input field-compact"
-              value={filtrePart}
-              onChange={(e) => setFiltrePart(e.target.value)}
-            >
-              <option value="">Toutes</option>
-              {catalogue.map((p) => (
-                <option key={p.id} value={p.id}>{p.nom}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="field-label text-[11px]">Litige</label>
-            <select
-              className="field-input field-compact"
-              value={filtreLitige}
-              onChange={(e) => setFiltreLitige(e.target.value)}
-              title="Dossiers en litige (mode litige activé sur la fiche)"
-            >
-              <option value="">Tous les dossiers</option>
-              <option value="oui">⚠ En litige</option>
-              <option value="non">Sans litige</option>
-              <option value="retard">⏰ Retard de paiement</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="field-label text-[11px]">Période</label>
-            <select
-              className="field-input field-compact"
-              value={champDate}
-              onChange={(e) => setChampDate(e.target.value as "date_sinistre" | "created_at")}
-              title="Sur quelle date porte la période"
-            >
-              <option value="date_sinistre">sur la date du sinistre</option>
-              <option value="created_at">sur la date d&apos;ajout</option>
-            </select>
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <input
-                type="date"
-                className="field-input field-compact"
-                value={du}
-                onChange={(e) => setDu(e.target.value)}
-                title="Du"
-              />
-              <span className="text-[11px] text-white/35">au</span>
-              <input
-                type="date"
-                className="field-input field-compact"
-                value={au}
-                onChange={(e) => setAu(e.target.value)}
-                title="Au"
-              />
-            </div>
-          </div>
+          {panneauFiltres}
         </div>
       )}
+      {filtresOuverts && mobile && (
+        <Feuille
+          titre={`Filtres${nbFiltres ? ` (${nbFiltres})` : ""}`}
+          onClose={() => setFiltresOuverts(false)}
+          pied={
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" className="btn-ghost" onClick={reinitialiser}>Tout effacer</button>
+              <button type="button" className="btn-primary" onClick={() => setFiltresOuverts(false)}>Voir {visibles.length} dossier{visibles.length > 1 ? "s" : ""}</button>
+            </div>
+          }
+        >
+          <div className="grid grid-cols-1 gap-3 pt-1">{panneauFiltres}</div>
+        </Feuille>
+      )}
 
-      {/* ---------- MOBILE : une carte par dossier (le tableau débordait) ---------- */}
+      {/* ---------- MOBILE (v13.50) : une carte PLATE et dense par dossier ----------
+          Plaque en capsule + client en gras, véhicule dessous, montant à droite,
+          badges sur leur ligne, avancement pleine largeur. Zone tactile entière. */}
       <div className="space-y-2 sm:hidden">
         {loading && <p className="py-6 text-center text-sm text-white/40">Chargement…</p>}
         {!loading && visibles.length === 0 && (
@@ -690,40 +741,42 @@ export default function SinistresPage() {
           <button
             key={d.id}
             onClick={() => ouvrirDossier(d.id)}
-            className="glass-card block w-full p-3 text-left"
+            className="carte-dossier-mobile block w-full text-left"
           >
             <div className="flex items-start justify-between gap-2">
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-white">
-                  {d.client_nom || "—"}
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  {d.immatriculation && (
+                    <span className="shrink-0 rounded border px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-wider" style={{ borderColor: "var(--mea-bordure-2)", background: "var(--mea-surface-2)", color: "var(--mea-texte)" }}>
+                      {d.immatriculation}
+                    </span>
+                  )}
+                  <span className="truncate text-sm font-semibold text-white">{d.client_nom || "—"}</span>
                 </span>
-                <span className="block truncate text-xs text-white/55">
-                  {d.marque_modele || "—"}
-                  {d.immatriculation ? ` · ${d.immatriculation}` : ""}
+                <span className="mt-0.5 block truncate text-xs text-white/55">
+                  {d.marque_modele || "Véhicule non renseigné"}
+                  {d.numero_sinistre ? ` · n° ${d.numero_sinistre}` : ""}
+                  {formatDate(d.date_sinistre) !== "—" ? ` · ${formatDate(d.date_sinistre)}` : ""}
                 </span>
               </span>
               <span className="shrink-0 text-right tabular-nums">
-                <span className="block text-sm font-semibold text-white">
-                  {formatEuros(d.montant)} HT
-                </span>
-                <span className="block text-[11px] text-accent-teal">
-                  {formatEuros(montantTtc(d))} TTC
-                </span>
+                <span className="block text-sm font-semibold text-white">{formatEuros(d.montant)}</span>
+                <span className="block text-[10px] text-white/45">HT</span>
               </span>
             </div>
 
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <StatutBadge statut={d.statut} />
-                    {d.litige && (
-                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700" title="Mode litige activé sur la fiche">
-                        ⚠ Litige
-                      </span>
-                    )}
-                    {d.retard_paiement && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800" title="Retard de paiement — relances en cours">
-                        ⏰ Retard
-                      </span>
-                    )}
+              {d.litige && (
+                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700" title="Mode litige activé sur la fiche">
+                  ⚠ Litige
+                </span>
+              )}
+              {d.retard_paiement && (
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800" title="Retard de paiement — relances en cours">
+                  ⏰ Retard
+                </span>
+              )}
               <BadgeMentions dossier={d} />
               {aUneNote(d) && <PastilleNote note={d.note} />}
               {d.mode_cession && (
@@ -731,7 +784,7 @@ export default function SinistresPage() {
                   Cession
                 </span>
               )}
-              {(partsParDossier[d.id] || []).map((p) => (
+              {(partsParDossier[d.id] || []).slice(0, 2).map((p) => (
                 <span
                   key={p.id}
                   className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${badgeParticularite(p.couleur)}`}
@@ -741,13 +794,7 @@ export default function SinistresPage() {
               ))}
             </div>
 
-            {/* Référence puis barre d'avancement PLEINE LARGEUR : côte à côte,
-                le pourcentage venait se superposer au numéro de dossier. */}
-            <div className="mt-2 truncate text-[11px] text-white/35">
-              {d.numero_sinistre || "sans n°"}
-              {formatDate(d.date_sinistre) !== "—" ? ` · ${formatDate(d.date_sinistre)}` : ""}
-            </div>
-            <div className="mt-1.5">
+            <div className="mt-2">
               <ProgressionDossier statut={d.statut} size="sm" />
             </div>
           </button>

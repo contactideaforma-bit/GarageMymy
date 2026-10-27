@@ -17,7 +17,7 @@ import Salutation from "@/components/Salutation";
 import BoutonActualiser from "@/components/BoutonActualiser";
 import { COURRIERS_POSTE_ACTIFS } from "@/lib/envoisPostaux";
 
-const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
+export const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
   {
     titre: "Pilotage",
     items: [

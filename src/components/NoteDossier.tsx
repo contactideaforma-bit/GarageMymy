@@ -281,8 +281,8 @@ export default function NoteDossier({
     return createPortal(
       <button
         onClick={() => setOuvert(true)}
-        className="fixed bottom-4 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition hover:brightness-110 active:translate-y-0.5 sm:bottom-6 sm:right-6"
-        style={{ backgroundColor: "#ec4899", border: "2px solid #9d174d", boxShadow: "0 4px 0 #9d174d" }}
+        className="fixed right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition hover:brightness-110 active:translate-y-0.5 sm:right-6"
+        style={{ bottom: "calc(1rem + var(--mea-barre-bas, 0px))", backgroundColor: "#ec4899", border: "2px solid #9d174d", boxShadow: "0 4px 0 #9d174d" }}
         title={
           actifs.length > 0
             ? `Note du dossier · ${actifs.length} rappel(s) en cours`

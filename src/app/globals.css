@@ -1257,3 +1257,176 @@ html.alliance .badge { padding: 0.2rem 0.6rem; }
 .chargement-ssr { display: none; }
 html[data-session] .chargement-ssr { display: flex; }
 html[data-session] .accueil-ssr { display: none; }
+
+/* ====================================================================
+   COQUE MOBILE « version appli » (v13.50)
+   Sur téléphone et tablette (< 1024 px), l'appli n'est plus le site en
+   plus petit : barre d'onglets en bas, feuilles qui montent du bas,
+   tuiles d'actions, listes tactiles de 44 px minimum, surfaces PLATES
+   (moins de verre et d'ombres), même charte aurora / rose néon et même
+   clair / sombre. Tout passe par les jetons --mea-* : rien à surcharger
+   pour le thème clair.
+   `--mea-barre-bas` = hauteur réservée à la barre du bas ; les bulles
+   flottantes (note de dossier, mascotte, remonter en haut) s'en servent
+   pour ne pas passer dessous.
+==================================================================== */
+:root { --mea-barre-bas: 0px; }
+@media (max-width: 1023px) {
+  :root { --mea-barre-bas: calc(4rem + env(safe-area-inset-bottom)); }
+  main.contenu-appli { padding-bottom: calc(var(--mea-barre-bas) + 1.25rem); }
+  .mymy-masc { bottom: calc(var(--mea-barre-bas) + 6px) !important; }
+  /* Surfaces plates : une ombre fine suffit, le relief ne sert à rien au doigt. */
+  .glass-card, .glass-soft { box-shadow: 0 1px 2px var(--mea-ombre); }
+  .glass-card:hover, .glass-soft:hover { transform: none; }
+  /* Masqué sur mobile : ce qui n'a pas sa place sur un petit écran. */
+  .bureau-seulement { display: none !important; }
+}
+@media (min-width: 1024px) {
+  .mobile-seulement { display: none !important; }
+}
+
+/* ---------- Barre d'onglets du bas ---------- */
+.barre-mobile {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 45;
+  padding-bottom: env(safe-area-inset-bottom);
+  background-color: var(--mea-surface-opaque);
+  border-top: 1px solid var(--mea-bordure-2);
+  box-shadow: 0 -6px 24px var(--mea-ombre);
+}
+.barre-mobile-item {
+  display: flex; flex: 1 1 0; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; height: 4rem; min-width: 0;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.01em;
+  color: var(--mea-texte-3);
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+.barre-mobile-item svg { width: 24px; height: 24px; }
+.barre-mobile-item.actif { color: var(--mea-neon-texte); }
+.barre-mobile-item.actif svg { filter: drop-shadow(0 0 6px rgba(236, 72, 153, 0.45)); }
+.barre-mobile-plus {
+  width: 3.4rem; height: 3.4rem; margin-top: -1.5rem; border-radius: 9999px;
+  display: flex; align-items: center; justify-content: center; color: #fff;
+  background: linear-gradient(135deg, var(--mea-violet), var(--mea-neon));
+  box-shadow: var(--mea-lueur-forte), 0 6px 16px rgba(0, 0, 0, 0.25);
+  border: 3px solid var(--mea-surface-opaque);
+}
+.barre-mobile-item:active .barre-mobile-plus { transform: scale(0.94); }
+
+/* ---------- Feuille du bas ---------- */
+.feuille-voile { position: fixed; inset: 0; z-index: 60; background: rgba(5, 7, 18, 0.5); backdrop-filter: blur(2px); }
+.feuille {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 61;
+  display: flex; flex-direction: column;
+  max-height: 92dvh;
+  background-color: var(--mea-surface-opaque);
+  color: var(--mea-texte);
+  border-top-left-radius: 1.25rem; border-top-right-radius: 1.25rem;
+  border-top: 1px solid var(--mea-bordure-2);
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -10px 40px var(--mea-ombre);
+  animation: feuille-monte 0.22s ease-out;
+}
+.feuille-pleine { top: 0; max-height: none; border-radius: 0; border-top: 0; animation: feuille-fondu 0.18s ease-out; }
+.feuille-poignee { width: 2.5rem; height: 4px; margin: 0.6rem auto 0.3rem; border-radius: 9999px; background: var(--mea-bordure-2); }
+@keyframes feuille-monte { from { transform: translateY(28px); opacity: 0.5; } to { transform: none; opacity: 1; } }
+@keyframes feuille-fondu { from { opacity: 0; } to { opacity: 1; } }
+@media (min-width: 640px) {
+  .feuille:not(.feuille-pleine) { left: 50%; right: auto; width: min(32rem, 96vw); transform: translateX(-50%); }
+  .feuille-pleine { left: 50%; right: auto; top: 2rem; bottom: 2rem; width: min(36rem, 96vw); transform: translateX(-50%); border-radius: 1.25rem; border: 1px solid var(--mea-bordure-2); }
+}
+
+/* ---------- Tuiles d'actions, listes tactiles, puces ---------- */
+.tuile-action {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem;
+  min-height: 5.75rem; padding: 0.85rem; text-align: left;
+  border-radius: 1rem; border: 1px solid var(--mea-bordure);
+  background-color: var(--mea-surface-2); color: var(--mea-texte);
+  -webkit-tap-highlight-color: transparent; transition: transform 0.1s;
+}
+.tuile-action:active { transform: scale(0.97); }
+.tuile-action .ico, .tuile-ico {
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  width: 2.25rem; height: 2.25rem; border-radius: 0.75rem; font-size: 1.15rem;
+  background-color: var(--mea-neon-fond);
+}
+.tuile-action .lib { font-size: 0.85rem; font-weight: 600; line-height: 1.15; }
+.tuile-action .sous { font-size: 0.7rem; line-height: 1.2; color: var(--mea-texte-3); }
+.groupe-liste { overflow: hidden; border-radius: 1rem; border: 1px solid var(--mea-bordure); background-color: var(--mea-surface); }
+.ligne-liste {
+  display: flex; align-items: center; gap: 0.75rem; width: 100%; min-height: 3.25rem;
+  padding: 0.7rem 0.9rem; text-align: left; color: var(--mea-texte);
+  -webkit-tap-highlight-color: transparent;
+}
+.ligne-liste:active { background-color: var(--mea-surface-2); }
+.groupe-liste > .ligne-liste + .ligne-liste,
+.groupe-liste > * + .ligne-liste,
+.groupe-liste > .ligne-liste + * { border-top: 1px solid var(--mea-bordure); }
+.chips-defilantes {
+  display: flex; gap: 0.4rem; overflow-x: auto; padding: 2px 2px 4px;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-snap-type: x proximity;
+}
+.chips-defilantes::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto; white-space: nowrap; border-radius: 9999px; padding: 0.42rem 0.8rem;
+  font-size: 0.78rem; font-weight: 600; line-height: 1;
+  border: 1px solid var(--mea-bordure-2); background-color: var(--mea-surface-2); color: var(--mea-texte-2);
+  -webkit-tap-highlight-color: transparent; scroll-snap-align: start;
+}
+.chip.actif { background-color: var(--mea-neon-fond-2); border-color: var(--mea-neon-bordure); color: var(--mea-neon-texte); box-shadow: var(--mea-lueur); }
+
+/* ---------- Tableau de bord mobile ---------- */
+.kpi-mobile {
+  display: block; padding: 0.7rem 0.8rem; border-radius: 0.9rem;
+  border: 1px solid var(--mea-bordure); background-color: var(--mea-surface); color: var(--mea-texte);
+}
+.kpi-mobile .etiquette { font-size: 0.6rem; }
+.kpi-mobile .val { display: block; margin-top: 0.15rem; font-family: var(--font-titre); font-size: 1.25rem; font-weight: 700; line-height: 1.1; letter-spacing: -0.01em; }
+.kpi-mobile .sous { display: block; margin-top: 0.15rem; font-size: 0.68rem; color: var(--mea-texte-3); }
+.faux-champ {
+  display: flex; align-items: center; gap: 0.6rem; width: 100%; padding: 0.75rem 0.9rem;
+  border-radius: 1rem; border: 1px solid var(--mea-bordure-2); background-color: var(--mea-surface);
+  color: var(--mea-texte-3); font-size: 0.95rem; text-align: left;
+}
+
+/* ---------- Fiche dossier mobile : en-tête collant + onglets ---------- */
+.entete-dossier-mobile {
+  position: sticky; top: 3.1rem; z-index: 25; margin: 0.6rem -0.75rem 0;
+  padding: 0.15rem 0.75rem 0; background-color: var(--mea-fond);
+  border-bottom: 1px solid var(--mea-bordure);
+}
+.onglets-dossier { display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; }
+.onglets-dossier::-webkit-scrollbar { display: none; }
+.onglet-dossier {
+  flex: 1 0 auto; padding: 0.55rem 0.7rem; font-size: 0.8rem; font-weight: 600; white-space: nowrap;
+  color: var(--mea-texte-3); border-bottom: 2px solid transparent; -webkit-tap-highlight-color: transparent;
+}
+.onglet-dossier.actif { color: var(--mea-neon-texte); border-bottom-color: var(--mea-neon); }
+.actions-client { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.4rem; }
+.action-client {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.2rem;
+  min-height: 3.6rem; border-radius: 0.85rem; font-size: 0.66rem; font-weight: 600;
+  border: 1px solid var(--mea-bordure); background-color: var(--mea-surface); color: var(--mea-texte-2);
+  -webkit-tap-highlight-color: transparent;
+}
+.action-client .ico { font-size: 1.15rem; line-height: 1; }
+.action-client:active { background-color: var(--mea-surface-2); }
+.action-client.desactive { opacity: 0.35; pointer-events: none; }
+.action-client.principal { background-color: var(--mea-neon-fond); border-color: var(--mea-neon-bordure); color: var(--mea-neon-texte); }
+.carte-dossier-mobile {
+  padding: 0.75rem 0.85rem; border-radius: 1rem;
+  border: 1px solid var(--mea-bordure); background-color: var(--mea-surface);
+  -webkit-tap-highlight-color: transparent;
+}
+.carte-dossier-mobile:active { background-color: var(--mea-surface-2); }
+.feuille-actions > * { width: 100%; justify-content: center; text-align: center; }
+/* Barre du haut mobile (v13.50) : fine, floutée, le contenu passe dessous sans transparaître. */
+@media (max-width: 1023px) {
+  .topbar-mobile {
+    background-color: color-mix(in srgb, var(--mea-fond) 82%, transparent);
+    -webkit-backdrop-filter: var(--mea-flou);
+    backdrop-filter: var(--mea-flou);
+    border-bottom: 1px solid var(--mea-bordure);
+  }
+  .entete-dossier-mobile { background-color: color-mix(in srgb, var(--mea-fond) 92%, transparent); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+}

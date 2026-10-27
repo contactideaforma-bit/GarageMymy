@@ -31,8 +31,33 @@ import CameraModal from "@/components/CameraModal";
  * Chaque cliché est horodaté et rangé sous son angle : à la sortie, on
  * compare deux fois le même cadrage.
  */
-export default function PhotosEtatPanel({ dossier }: { dossier: Dossier }) {
+export default function PhotosEtatPanel({
+  dossier,
+  deplie = false,
+  lancerAuMontage = false,
+}: {
+  dossier: Dossier;
+  /** v13.50 — forcer le bloc ouvert (onglet Photos de la fiche mobile). */
+  deplie?: boolean;
+  /** v13.50 — raccourci « Photos du véhicule » : l'appareil photo s'ouvre tout seul. */
+  lancerAuMontage?: boolean;
+}) {
   const { plie, basculerPliage } = usePliage("dossier.photosEtat", true);
+  const lance = useRef(false);
+  useEffect(() => {
+    if (deplie && plie) basculerPliage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deplie, plie]);
+  useEffect(() => {
+    if (!lancerAuMontage || lance.current) return;
+    lance.current = true;
+    const t = window.setTimeout(() => {
+      ouvrirCapture(ANGLES[0]);
+      setEnchainement(true); // tour complet du véhicule, angle après angle
+    }, 450);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lancerAuMontage]);
   const [photos, setPhotos] = useState<PhotoEtat[]>([]);
   const [dispo, setDispo] = useState(true);
   const [moment, setMoment] = useState<string>("entree");

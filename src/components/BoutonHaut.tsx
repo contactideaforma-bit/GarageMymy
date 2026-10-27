@@ -28,7 +28,7 @@ export default function BoutonHaut() {
       aria-label="Remonter en haut de la page"
       title="Remonter en haut"
       className="bouton-haut fixed right-4 z-30 flex h-10 w-10 items-center justify-center rounded-full text-lg transition hover:-translate-y-0.5 sm:right-5"
-      style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom))" }}
+      style={{ bottom: "calc(5.5rem + env(safe-area-inset-bottom) + var(--mea-barre-bas, 0px))" }}
     >
       ↑
     </button>

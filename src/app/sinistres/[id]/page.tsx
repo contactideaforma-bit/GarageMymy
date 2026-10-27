@@ -73,6 +73,9 @@ import ConfigBanner from "@/components/ConfigBanner";
 import Accordeon from "@/components/Accordeon";
 import ParticularitesPanel from "@/components/ParticularitesPanel";
 import NoteDossier from "@/components/NoteDossier";
+import Feuille from "@/components/mobile/Feuille";
+import ContactClient from "@/components/mobile/ContactClient";
+import { lienTel, lienSms, lienWhatsApp, noterRecent } from "@/lib/mobile";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
 import { labelTypeVitrage, labelNatureIntervention } from "@/lib/vitrage";
@@ -121,6 +124,21 @@ function Card({
   );
 }
 
+/** Onglets de la fiche sur TÉLÉPHONE (v13.50). Sur grand écran, tout reste
+ *  affiché dans l'ordre habituel ; sur mobile, seul le groupe de l'onglet
+ *  actif est visible — sans réordonner ni dupliquer les panneaux. */
+type OngletFiche = "resume" | "docs" | "finance" | "photos" | "plus";
+const ONGLETS_FICHE: { cle: OngletFiche; label: string }[] = [
+  { cle: "resume", label: "Résumé" },
+  { cle: "docs", label: "Documents" },
+  { cle: "finance", label: "Finance" },
+  { cle: "photos", label: "Photos" },
+  { cle: "plus", label: "Plus" },
+];
+function Grp({ g, actif, children }: { g: OngletFiche; actif: OngletFiche; children: React.ReactNode }) {
+  return <div className={actif === g ? "space-y-3 sm:space-y-4" : "hidden space-y-3 sm:space-y-4 lg:block"}>{children}</div>;
+}
+
 /** Copie locale d'une fiche dossier (mode dégradé, v47). */
 type CopieDossier = {
   dossier: Dossier | null;
@@ -145,6 +163,27 @@ export default function DossierDetailPage() {
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [infosPlaque, setInfosPlaque] = useState(false); // v13.47
   const [ficheRecap, setFicheRecap] = useState(false); // v13.49
+  // v13.50 — fiche mobile : onglet courant, menu « ⋯ », feuille de contact client.
+  const [onglet, setOnglet] = useState<OngletFiche>("resume");
+  const [menuMobile, setMenuMobile] = useState(false);
+  const [contactMobile, setContactMobile] = useState(false);
+  const [cameraAuto, setCameraAuto] = useState(false);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const o = params.get("onglet") as OngletFiche | null;
+    if (o && ONGLETS_FICHE.some((x) => x.cle === o)) setOnglet(o);
+    if (params.get("camera") === "1") setCameraAuto(true);
+    if (params.get("recap") === "1") setFicheRecap(true);
+  }, []);
+  // Dossiers récents de l'appareil (recherche mobile).
+  useEffect(() => {
+    if (!dossier) return;
+    noterRecent({
+      id: dossier.id,
+      titre: dossier.client_nom || dossier.immatriculation || "Dossier",
+      sous: [dossier.marque_modele, dossier.immatriculation, dossier.numero_sinistre ? `n° ${dossier.numero_sinistre}` : ""].filter(Boolean).join(" · "),
+    });
+  }, [dossier?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // v13.42 — suivi des impayés et des litiges réservés aux formules Adhésion Service
   const { serviceInclus } = useFormuleGarage();
   const [evenements, setEvenements] = useState<Evenement[]>([]);
@@ -776,10 +815,49 @@ export default function DossierDetailPage() {
       .filter(Boolean)
       .join(", ");
 
+  // Actions de l'en-tête : en ligne sur grand écran, dans le menu « ⋯ » sur téléphone (v13.50).
+  const actionsDossier = (
+    <>
+      {/* v13.49 — toutes les infos du dossier en un coup d'œil, à copier ou envoyer. */}
+      <button onClick={() => setFicheRecap(true)} className="btn-ghost" title="Client, véhicule, sinistre, expert, assurance, montants : tout sur un écran, à copier ou envoyer par WhatsApp / Messages / mail">
+        📋 Fiche récap
+      </button>
+      {(dossier.statut === "paye" || dossier.statut === "cloture") && !dossier.archive && (
+        <button onClick={() => setArchiveModal(true)} disabled={Boolean(archivage)} className="btn-ghost">
+          {archivage || "Archiver (ZIP)"}
+        </button>
+      )}
+      {serviceInclus ? (
+        <button
+          onClick={basculerRetard}
+          className={dossier.retard_paiement ? "btn-primary" : "btn-ghost"}
+          title={dossier.retard_paiement ? "Retard de paiement en cours — cliquer pour en sortir (tout est conservé)" : "Facture impayée ? Passe le dossier en retard de paiement : relances, mise en demeure, journal des appels, rappels et procédure guidée"}
+        >
+          ⏰ {dossier.retard_paiement ? "Retard de paiement" : "Retard de paiement"}
+        </button>
+      ) : (
+        <BoutonReserve>⏰ Retard de paiement</BoutonReserve>
+      )}
+      {serviceInclus ? (
+        <button
+          onClick={basculerLitige}
+          className={dossier.litige ? "btn-danger" : "btn-ghost"}
+          title={dossier.litige ? "Litige en cours — cliquer pour le lever (notes conservées)" : "Dossier bloqué ? Active le mode litige : problème, plan de déblocage et tâches dédiées"}
+        >
+          ⚠️ {dossier.litige ? "Litige en cours" : "Litige"}
+        </button>
+      ) : (
+        <BoutonReserve>⚠️ Litige</BoutonReserve>
+      )}
+      <button onClick={() => setShowEdit(true)} className="btn-ghost">Modifier</button>
+      <button onClick={supprimer} className="btn-danger">Supprimer</button>
+    </>
+  );
+
   return (
     <div className="space-y-3 sm:space-y-4">
-      {/* En-tête */}
-      <div>
+      {/* En-tête (grand écran) */}
+      <div className="bureau-seulement">
         <Link href="/sinistres" className="text-sm text-accent-pink hover:underline">← {t.dossiers}</Link>
         <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -843,41 +921,54 @@ export default function DossierDetailPage() {
               )}
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {/* v13.49 — toutes les infos du dossier en un coup d'œil, à copier ou envoyer. */}
-            <button onClick={() => setFicheRecap(true)} className="btn-ghost" title="Client, véhicule, sinistre, expert, assurance, montants : tout sur un écran, à copier ou envoyer par WhatsApp / Messages / mail">
-              📋 Fiche récap
-            </button>
-            {(dossier.statut === "paye" || dossier.statut === "cloture") && !dossier.archive && (
-              <button onClick={() => setArchiveModal(true)} disabled={Boolean(archivage)} className="btn-ghost">
-                {archivage || "Archiver (ZIP)"}
-              </button>
-            )}
-            {serviceInclus ? (
-              <button
-                onClick={basculerRetard}
-                className={dossier.retard_paiement ? "btn-primary" : "btn-ghost"}
-                title={dossier.retard_paiement ? "Retard de paiement en cours — cliquer pour en sortir (tout est conservé)" : "Facture impayée ? Passe le dossier en retard de paiement : relances, mise en demeure, journal des appels, rappels et procédure guidée"}
-              >
-                ⏰ {dossier.retard_paiement ? "Retard de paiement" : "Retard de paiement"}
-              </button>
-            ) : (
-              <BoutonReserve>⏰ Retard de paiement</BoutonReserve>
-            )}
-            {serviceInclus ? (
-              <button
-                onClick={basculerLitige}
-                className={dossier.litige ? "btn-danger" : "btn-ghost"}
-                title={dossier.litige ? "Litige en cours — cliquer pour le lever (notes conservées)" : "Dossier bloqué ? Active le mode litige : problème, plan de déblocage et tâches dédiées"}
-              >
-                ⚠️ {dossier.litige ? "Litige en cours" : "Litige"}
-              </button>
-            ) : (
-              <BoutonReserve>⚠️ Litige</BoutonReserve>
-            )}
-            <button onClick={() => setShowEdit(true)} className="btn-ghost">Modifier</button>
-            <button onClick={supprimer} className="btn-danger">Supprimer</button>
+          <div className="bureau-seulement flex flex-wrap gap-2">{actionsDossier}</div>
+        </div>
+      </div>
+
+      {/* ----- MOBILE (v13.50) : identité compacte, actions client sous le pouce, onglets ----- */}
+      <div className="mobile-seulement">
+        <div className="flex items-center gap-2">
+          <Link href="/sinistres" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg" style={{ background: "var(--mea-surface-2)", color: "var(--mea-texte-2)" }} aria-label={`Retour : ${t.dossiers}`}>←</Link>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              {dossier.immatriculation && (
+                <span className="shrink-0 rounded border px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-wider" style={{ borderColor: "var(--mea-bordure-2)", background: "var(--mea-surface-2)", color: "var(--mea-texte)" }}>
+                  {dossier.immatriculation}
+                </span>
+              )}
+              <span className="truncate text-base font-semibold" style={{ color: "var(--mea-texte)" }}>{dossier.client_nom || "Client à renseigner"}</span>
+            </div>
+            <div className="truncate text-xs" style={{ color: "var(--mea-texte-3)" }}>
+              {dossier.marque_modele || "Véhicule à renseigner"} · n° {dossier.numero_sinistre || "—"}
+            </div>
           </div>
+          <button type="button" onClick={() => setMenuMobile(true)} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xl leading-none" style={{ background: "var(--mea-surface-2)", color: "var(--mea-texte)" }} aria-label="Autres actions">⋯</button>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <StatutBadge statut={dossier.statut} />
+          {dossier.mode_cession && <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-700">CESSION</span>}
+          {dossier.mode_pec && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">PRISE EN CHARGE</span>}
+          {dossier.litige && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700">⚠ LITIGE</span>}
+          {dossier.retard_paiement && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">⏰ RETARD</span>}
+        </div>
+        <div className="mt-2"><ProgressionDossier statut={dossier.statut} size="sm" /></div>
+        <div className="actions-client mt-3">
+          <a href={lienTel(dossier.client_tel) || "#"} className={`action-client ${lienTel(dossier.client_tel) ? "" : "desactive"}`}><span className="ico" aria-hidden>📞</span>Appeler</a>
+          <a href={lienSms(dossier.client_tel) || "#"} className={`action-client ${lienSms(dossier.client_tel) ? "" : "desactive"}`}><span className="ico" aria-hidden>💬</span>SMS</a>
+          <a href={lienWhatsApp(dossier.client_tel) || "#"} target="_blank" rel="noreferrer" className={`action-client ${lienWhatsApp(dossier.client_tel) ? "" : "desactive"}`}><span className="ico" aria-hidden>🟢</span>WhatsApp</a>
+          <button type="button" onClick={() => setFicheRecap(true)} className="action-client"><span className="ico" aria-hidden>📋</span>Récap</button>
+          <button type="button" onClick={() => setOnglet("photos")} className="action-client principal"><span className="ico" aria-hidden>📸</span>Photos</button>
+        </div>
+      </div>
+      {/* Onglets COLLANTS (mobile) : hors du bloc précédent, sinon le sticky
+          s'arrête à la fin de son parent. */}
+      <div className="mobile-seulement entete-dossier-mobile">
+        <div className="onglets-dossier" role="tablist">
+          {ONGLETS_FICHE.map((o) => (
+            <button key={o.cle} type="button" role="tab" aria-selected={onglet === o.cle} className={`onglet-dossier ${onglet === o.cle ? "actif" : ""}`} onClick={() => setOnglet(o.cle)}>
+              {o.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -943,6 +1034,7 @@ export default function DossierDetailPage() {
         </>
       )}
 
+      <Grp g="resume" actif={onglet}>
       {/* Pipeline */}
       {/* Avancement : TOUJOURS déplié — c'est le repère du dossier. */}
       <section className="glass-card p-3 sm:p-4">
@@ -1139,7 +1231,9 @@ export default function DossierDetailPage() {
       <Card title="Particularités du dossier">
         <ParticularitesPanel dossierId={dossier.id} />
       </Card>
+      </Grp>
 
+      <Grp g="docs" actif={onglet}>
       {/* Documents du dossier : devis, facture, OR, cession, restitution —
           générés automatiquement à l'import, conformes au chiffrage,
           modifiables et signables (à l'écran ou à distance) */}
@@ -1307,39 +1401,57 @@ export default function DossierDetailPage() {
           />
         </div>
       </Accordeon>
+      </Grp>
 
       {/* Commande de pièces (suivi non bloquant) */}
-      <CommandesPanel dossier={dossier} />
+      <Grp g="plus" actif={onglet}><CommandesPanel dossier={dossier} /></Grp>
 
       {/* Finance : paiements & relances (déjà en haut de page en retard de paiement) */}
-      {!dossier.retard_paiement && <PaiementsPanel dossier={dossier} onChanged={load} />}
+      <Grp g="finance" actif={onglet}>
+        {!dossier.retard_paiement && <PaiementsPanel dossier={dossier} onChanged={load} />}
+        {dossier.retard_paiement && (
+          <p className="mobile-seulement text-sm" style={{ color: "var(--mea-texte-3)" }}>
+            Retard de paiement en cours : le suivi de l&apos;impayé et les paiements sont en haut de la fiche.
+          </p>
+        )}
+      </Grp>
 
       {/* Demandes de documents complémentaires (assurance / expert) */}
-      <DemandesPanel dossier={dossier} demandes={demandes} pieces={pieces} onChanged={load} />
+      <Grp g="docs" actif={onglet}>
+        <DemandesPanel dossier={dossier} demandes={demandes} pieces={pieces} onChanged={load} />
 
-      {/* Emails envoyés depuis l'appli sur ce dossier (v13.21) — relire ce qui est parti. */}
-      <EmailsDossier dossierId={dossier.id} />
+        {/* Emails envoyés depuis l'appli sur ce dossier (v13.21) — relire ce qui est parti. */}
+        <EmailsDossier dossierId={dossier.id} />
 
-      {/* Courriers papier envoyés par La Poste (v13.27, en pause v13.30). */}
-      <EnvoisPostauxDossier dossier={dossier} />
+        {/* Courriers papier envoyés par La Poste (v13.27, en pause v13.30). */}
+        <EnvoisPostauxDossier dossier={dossier} />
+      </Grp>
 
       {/* Véhicule de prêt & transfert de garantie */}
-      <TransfertGarantiePanel dossier={dossier} onChanged={load} />
+      <Grp g="plus" actif={onglet}>
+        <TransfertGarantiePanel dossier={dossier} onChanged={load} />
 
-      {/* Pièces du dossier (checklist) — placé en fin de fiche (v7.0) */}
-      {/* Lien de suivi envoyé au client (v48) */}
-      <PartageSuiviPanel dossier={dossier} />
+        {/* Lien de suivi envoyé au client (v48) */}
+        <PartageSuiviPanel dossier={dossier} />
+      </Grp>
 
       {/* État du véhicule en photos (v47) : juste avant les pièces, parce
-          que c'est le même geste — on documente le dossier. */}
-      <PhotosEtatPanel dossier={dossier} />
+          que c'est le même geste — on documente le dossier. Sur mobile :
+          onglet Photos, bloc déplié, appareil photo direct depuis le raccourci. */}
+      <Grp g="photos" actif={onglet}>
+        <PhotosEtatPanel dossier={dossier} deplie={onglet === "photos"} lancerAuMontage={cameraAuto} />
+      </Grp>
 
-      <PiecesPanel dossier={dossier} pieces={pieces} onChanged={load} />
+      {/* Pièces du dossier (checklist) — placé en fin de fiche (v7.0) */}
+      <Grp g="docs" actif={onglet}>
+        <PiecesPanel dossier={dossier} pieces={pieces} onChanged={load} />
+
+        {/* Historique des emails partis depuis l'appli (v11.6) */}
+        <HistoriqueEmails dossierId={dossier.id} />
+      </Grp>
 
       {/* Événements liés */}
-      {/* Historique des emails partis depuis l'appli (v11.6) */}
-      <HistoriqueEmails dossierId={dossier.id} />
-
+      <Grp g="plus" actif={onglet}>
       <Card title="Événements liés à ce dossier">
         {/* v11.7 — 4 colonnes égales serraient le champ date (largeur naturelle
             d'un datetime-local) : on passe par 2 colonnes avant le grand écran. */}
@@ -1368,6 +1480,18 @@ export default function DossierDetailPage() {
           ))}
         </ul>
       </Card>
+      </Grp>
+
+      {/* v13.50 — menu « ⋯ » de la fiche mobile : les actions de l'en-tête. */}
+      {menuMobile && (
+        <Feuille titre={`Dossier ${dossier.numero_sinistre || "sans numéro"}`} onClose={() => setMenuMobile(false)}>
+          <div className="feuille-actions grid grid-cols-2 gap-2 pt-1" onClick={() => setMenuMobile(false)}>{actionsDossier}</div>
+          <button type="button" className="chip mt-3 w-full text-center" onClick={() => { setMenuMobile(false); setContactMobile(true); }}>
+            📞 Contacter le client (appel, SMS, WhatsApp, e-mail)
+          </button>
+        </Feuille>
+      )}
+      {contactMobile && <ContactClient dossier={dossier} onClose={() => setContactMobile(false)} onRecap={() => setFicheRecap(true)} />}
 
       {showEdit && (
         <DossierForm dossier={dossier} onClose={() => setShowEdit(false)} onSaved={load} />
