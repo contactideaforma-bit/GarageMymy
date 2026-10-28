@@ -142,7 +142,7 @@ export default function ExpertsView() {
             note={r.notes}
             etiquettes={
               <>
-                <span className="etiquette-contact">{r.source === "auto" ? "Créé depuis un dossier" : "Saisi à la main"}</span>
+                <span className="etiquette-contact">{r.source === "auto" ? "Créé depuis un dossier" : r.source === "mutualise" ? "Base mutualisée" : "Saisi à la main"}</span>
                 {r.declaration_envoyee_le ? (
                   <span className="etiquette-contact ok" title="Déclaration du garage envoyée à ce cabinet"><Ico n="check" /> Référencé le {new Date(r.declaration_envoyee_le).toLocaleDateString("fr-FR")}</span>
                 ) : (

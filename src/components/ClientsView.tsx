@@ -122,7 +122,7 @@ export default function ClientsView() {
               </>
             }
             note={c.notes}
-            etiquettes={<span className="etiquette-contact">{c.source === "auto" ? "Créé depuis un dossier" : "Saisi à la main"}</span>}
+            etiquettes={<span className="etiquette-contact">{c.source === "auto" ? "Créé depuis un dossier" : c.source === "mutualise" ? "Base mutualisée" : "Saisi à la main"}</span>}
             onModifier={() => ouvrirEdition(c)}
             onSupprimer={() => supprimer(c.id)}
           />

@@ -213,7 +213,7 @@ export default function AssureursView() {
             note={r.notes}
             etiquettes={
               <>
-                <span className="etiquette-contact">{r.source === "auto" ? "Créé depuis un dossier" : "Saisi à la main"}</span>
+                <span className="etiquette-contact">{r.source === "auto" ? "Créé depuis un dossier" : r.source === "mutualise" ? "Base mutualisée" : "Saisi à la main"}</span>
                 {!r.siren && <span className="etiquette-contact warn" title="Nécessaire pour la facture électronique">SIREN manquant</span>}
               </>
             }
