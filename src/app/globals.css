@@ -1525,3 +1525,60 @@ html:not(.light) .etiquette-contact.warn { color: #fcd34d; }
   .annuaire-barre > .relative { flex-basis: 100%; }
   .annuaire-barre > .flex { margin-left: auto; }
 }
+
+/* ---------- FICHE DOSSIER : identité « d'un coup d'œil » (v13.54) ---------- */
+.identite-dossier { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+@media (min-width: 1024px) { .identite-dossier { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 639px) { .identite-dossier { grid-template-columns: minmax(0, 1fr); } }
+.tuile-info {
+  min-width: 0; padding: 0.7rem 0.85rem 0.6rem; border-radius: 0.9rem;
+  background-color: var(--mea-surface); border: 1px solid var(--mea-bordure);
+}
+.tuile-info-large { grid-column: 1 / -1; }
+@media (min-width: 1024px) { .tuile-info-large { grid-column: span 2; } }
+.tuile-info h4 { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mea-texte-3); }
+.tuile-info dl { display: flex; flex-direction: column; gap: 0.15rem; }
+.tuile-info-ligne { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; min-height: 1.35rem; }
+.tuile-info-ligne dt { flex-shrink: 0; font-size: 0.72rem; color: var(--mea-texte-3); }
+.tuile-info-ligne dd { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; font-size: 0.82rem; font-weight: 500; color: var(--mea-texte); }
+.tuile-info-lien { color: var(--mea-texte); text-decoration: underline; text-decoration-color: var(--mea-bordure-2); text-underline-offset: 3px; }
+.tuile-info-lien:hover { color: var(--mea-neon-texte); text-decoration-color: currentColor; }
+.tuile-info-bouton { border-radius: 9999px; padding: 0.2rem 0.6rem; font-size: 0.7rem; font-weight: 600; border: 1px solid var(--mea-bordure-2); color: var(--mea-texte-2); background-color: var(--mea-surface-2); white-space: nowrap; }
+.tuile-info-bouton:hover { color: var(--mea-neon-texte); border-color: var(--mea-neon-bordure); }
+.tuile-info-bouton-principal { background-color: var(--mea-neon-fond); border-color: var(--mea-neon-bordure); color: var(--mea-neon-texte); }
+.tuile-vehicule { display: flex; gap: 0.85rem; align-items: flex-start; }
+.tuile-vehicule-photo { width: 9.5rem; flex-shrink: 0; }
+.tuile-vehicule-photo figure { margin: 0; }
+.tuile-vehicule-photo figcaption { display: none; }
+.tuile-vehicule-photo img { max-height: 6.5rem !important; }
+@media (max-width: 639px) { .tuile-vehicule { flex-direction: column; } .tuile-vehicule-photo { width: 100%; } .tuile-vehicule-photo img { max-height: 8rem !important; } }
+.plaque {
+  display: inline-block; border-radius: 0.35rem; padding: 0.15rem 0.5rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  border: 1.5px solid var(--mea-bordure-2); background-color: var(--mea-surface-2); color: var(--mea-texte);
+}
+
+/* ---------- AIDE MY-MY : l'avatar qui guide (v13.54) ---------- */
+.aide-mymy { display: flex; align-items: flex-start; gap: 0.6rem; }
+.aide-mymy-avatar { position: relative; flex-shrink: 0; border-radius: 9999px; box-shadow: var(--mea-lueur); }
+.aide-mymy-pastille { position: absolute; right: -2px; top: -2px; display: flex; height: 1.1rem; width: 1.1rem; align-items: center; justify-content: center; border-radius: 9999px; background: var(--mea-neon); color: #fff; font-size: 0.7rem; font-weight: 800; }
+.aide-mymy-bulle {
+  position: relative; flex: 1; min-width: 0; padding: 0.7rem 0.85rem; border-radius: 1rem; border-top-left-radius: 0.25rem;
+  background-color: var(--mea-surface-opaque); border: 1px solid var(--mea-neon-bordure); box-shadow: var(--mea-lueur); color: var(--mea-texte);
+}
+.aide-mymy-titre { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--mea-neon-texte); }
+.aide-mymy-phrase { margin-top: 0.15rem; font-size: 0.95rem; font-weight: 500; line-height: 1.35; }
+.aide-mymy-fermer { flex-shrink: 0; width: 1.6rem; height: 1.6rem; border-radius: 9999px; color: var(--mea-texte-3); font-size: 1rem; line-height: 1; }
+.aide-mymy-fermer:hover { background-color: var(--mea-surface-2); }
+.aide-mymy-gestes { margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.aide-mymy-gestes li { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.82rem; line-height: 1.35; color: var(--mea-texte-2); }
+.aide-mymy-gestes .num { flex-shrink: 0; display: inline-flex; width: 1.2rem; height: 1.2rem; align-items: center; justify-content: center; border-radius: 9999px; background: var(--mea-neon-fond-2); color: var(--mea-neon-texte); font-size: 0.68rem; font-weight: 700; margin-top: 1px; }
+.aide-mymy-mini { align-self: center; border-radius: 9999px; padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 600; color: var(--mea-neon-texte); background: var(--mea-neon-fond); border: 1px solid var(--mea-neon-bordure); }
+.journal-recours { display: flex; flex-direction: column; gap: 0; }
+.journal-recours li { display: flex; gap: 0.6rem; padding: 0.4rem 0; border-top: 1px solid var(--mea-bordure); font-size: 0.8rem; }
+.journal-recours li:first-child { border-top: 0; }
+.journal-recours .ico { flex-shrink: 0; width: 1.3rem; text-align: center; }
+.journal-recours .quand { flex-shrink: 0; width: 7.5rem; font-variant-numeric: tabular-nums; color: var(--mea-texte-3); font-size: 0.72rem; padding-top: 2px; }
+.journal-recours .quoi { min-width: 0; flex: 1; color: var(--mea-texte); }
+.journal-recours .detail { display: block; font-size: 0.72rem; color: var(--mea-texte-3); }
+@media (max-width: 639px) { .journal-recours li { flex-wrap: wrap; } .journal-recours .quand { width: auto; } }

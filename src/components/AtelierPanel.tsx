@@ -23,7 +23,7 @@ import ModalShell from "@/components/ModalShell";
 import { useMetier } from "@/components/MetierProvider";
 
 // Documents de l'atelier créables depuis la barre d'actions du bloc parent.
-export type TypeDocAtelier = "or" | "cession" | "restitution";
+export type TypeDocAtelier = "or" | "cession" | "restitution" | "cession_signer";
 
 // Libellé du document d'ordre selon le métier.
 // Exporté : la barre d'actions de « Documents du dossier » l'utilise aussi.
@@ -97,6 +97,16 @@ export default function AtelierPanel({
     if (!ouvrir) return;
     if (ouvrir === "or") setModal({ kind: "or" });
     else if (ouvrir === "cession") setModal({ kind: "cession" });
+    // v13.54 — ouvrir la cession EXISTANTE pour la faire signer (mode cession, garde-fou facture).
+    else if (ouvrir === "cession_signer") {
+      // Relecture fraîche : la cession vient peut-être d'être créée par la fiche.
+      supabase.from("cessions_creance").select("*").eq("dossier_id", dossier.id).order("created_at", { ascending: false }).limit(1).maybeSingle()
+        .then(({ data }) => {
+          const c = (data as CessionCreance | null) || cessions[0];
+          if (c) setCessions((prev) => (prev.some((x) => x.id === c.id) ? prev : [c, ...prev]));
+          setModal({ kind: "cession", cession: c || undefined });
+        });
+    }
     else setModal({ kind: "restitution" });
     onOuvert?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps

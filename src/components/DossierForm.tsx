@@ -598,7 +598,7 @@ export default function DossierForm({
                 })
                 .join("\n");
             // Toutes les erreurs REMONTENT : l'UI promet la génération auto
-            // (OR + devis + facture + cession) — un échec doit se voir.
+            // (OR + devis + facture) — un échec doit se voir.
             // v13.15 : clauses de garantie figées d'après le profil du garage.
             const { data: entG } = await supabase.from("entreprise").select("garantie_retention, garantie_abandon, garantie_gage, garantie_gage_delai, garantie_gage_seuil, gard_tarif_jour").limit(1).maybeSingle();
             const orPayload: Record<string, unknown> = {
@@ -618,15 +618,8 @@ export default function DossierForm({
             if (eOr) throw new Error(`Ordre de réparation non créé : ${eOr.message}`);
             await creerDocument("devis", newId, lignes, tauxTva);
             await creerDocument("facture", newId, lignes, tauxTva);
-            // Cession de créance prête à signer (montant = TTC du chiffrage)
-            const totauxAuto = computeTotaux(lignes, tauxTva);
-            const { error: eCess } = await supabase.from("cessions_creance").insert({
-              dossier_id: newId,
-              date_cession: ymd(),
-              montant: totauxAuto.ttc,
-              signataire_nom: form.client_nom || null,
-            });
-            if (eCess) throw new Error(`Cession de créance non créée : ${eCess.message}`);
+            // v13.54 — plus de cession de créance générée d'office : elle est
+            // créée à l'activation du mode « Cession » sur la fiche dossier.
 
             // Rappel automatique : envoyer la facture 3 jours ouvrés plus tard
             const dateEnvoi = addJoursOuvres(new Date(), 3);

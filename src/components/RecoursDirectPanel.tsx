@@ -22,7 +22,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Assureur, CourrierRecouvrement, Document, Dossier, PieceDossier } from "@/lib/types";
-import { formatDate, formatEuros, messageErreur, ymd } from "@/lib/format";
+import { formatDate, formatDateTime, formatEuros, messageErreur, ymd } from "@/lib/format";
 import { montantTtc } from "@/lib/tva";
 import { ajouterRappel } from "@/lib/ardoise";
 import { lireRole } from "@/lib/conversation";
@@ -31,9 +31,10 @@ import { fichierBase64 } from "@/lib/storage";
 import { labelPiece } from "@/lib/pieces";
 import { arJoint, cloturerTaches, origineAPoster } from "@/lib/courrierPapier";
 import {
-  ETAPES_RECOURS, ETAPE_PAR_COURRIER, LIBELLE_COURRIER_RECOURS, type EtapeRecours, type TypeCourrierRecours,
-  calculerRecours, cibleAssureurAdverse, etapeRecours, indexEtapeRecours, joursDepuis, modeleCourrierRecours,
+  ETAPES_RECOURS, ETAPE_PAR_COURRIER, ICONE_EVENEMENT, LIBELLE_COURRIER_RECOURS, type EtapeRecours, type LigneJournalRecours, type TypeCourrierRecours,
+  aideRecours, calculerRecours, chargerJournalRecours, cibleAssureurAdverse, etapeRecours, indexEtapeRecours, journaliserRecours, joursDepuis, modeleCourrierRecours,
 } from "@/lib/recours";
+import AideMyMy from "./AideMyMy";
 import { apercuCourrierRecouvrementPdf, courrierRecouvrementPdfBase64, documentPdfBase64Auto, generateCourrierRecouvrementPdf, nomFichierCourrier, nomFichierDocument } from "@/lib/pdf";
 import ModalShell from "./ModalShell";
 import SignaturePad from "./SignaturePad";
@@ -69,15 +70,19 @@ export default function RecoursDirectPanel({
   const [erreur, setErreur] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [enregistre, setEnregistre] = useState(false);
+  const [journal, setJournal] = useState<LigneJournalRecours[]>([]);
+  const [journalOuvert, setJournalOuvert] = useState(false);
 
   /* ----------------------------- Chargement ----------------------------- */
   const charger = useCallback(async () => {
-    const [c, a, e, ar] = await Promise.all([
+    const [c, a, e, ar, j] = await Promise.all([
       supabase.from("courriers_recouvrement").select("*").eq("dossier_id", dossier.id).in("type", TYPES).order("created_at", { ascending: false }),
       supabase.from("assureurs").select("*").order("nom"),
       supabase.from("entreprise").select("nom, adresse, code_postal, ville, siret").limit(1).maybeSingle(),
       supabase.from("pieces_dossier").select("type, path").eq("dossier_id", dossier.id).eq("type", "accuse_reception"),
+      chargerJournalRecours(dossier.id),
     ]);
+    setJournal(j);
     setCourriers((c.data as CourrierRecouvrement[]) || []);
     setAssureurs((a.data as Assureur[]) || []);
     setGarage((e.data as Garage | null) || null);
@@ -93,7 +98,14 @@ export default function RecoursDirectPanel({
     setErreur(null);
     setEnregistre(true);
     setTimeout(() => setEnregistre(false), 1800);
-  }, [dossier.id]);
+    // Trace lisible de ce qui vient d'être renseigné.
+    const LIB: Record<string, string> = { recours_tiers_nom: "tiers", recours_tiers_immat: "plaque du tiers", recours_tiers_assureur: "assureur adverse", recours_tiers_assureur_email: "e-mail assureur", recours_tiers_assureur_tel: "tél. assureur", recours_tiers_assureur_adresse: "adresse assureur", recours_tiers_police: "n° de police", recours_sinistre_adverse: "n° de sinistre adverse", recours_date_constat: "date du constat", recours_part_responsabilite: "part de responsabilité", recours_vetuste: "vétusté", recours_notes: "notes" };
+    const champs = Object.entries(patch).filter(([k]) => LIB[k]).map(([k, v]) => `${LIB[k]} : ${v === null || v === "" ? "—" : String(v)}`);
+    if (champs.length) {
+      await journaliserRecours({ dossierId: dossier.id, evenement: "tiers", etape: dossier.recours_etape, titre: "Informations mises à jour", details: champs.join(" · "), auteur: lireRole() });
+      chargerJournalRecours(dossier.id).then(setJournal);
+    }
+  }, [dossier.id, dossier.recours_etape]);
   const enAttente = useRef<Partial<Dossier>>({});
   const champ = (patch: Partial<Dossier>) => {
     onPatch(patch);
@@ -135,20 +147,32 @@ export default function RecoursDirectPanel({
   const rapport = pieces.find((p) => p.type === "rapport_definitif");
   const joursImmo = dossier.date_expertise ? Math.max(0, Math.floor((Date.now() - new Date(dossier.date_expertise).getTime()) / 86400000)) : null;
 
-  async function passerEtape(cle: EtapeRecours) {
+  async function passerEtape(cle: EtapeRecours, titre?: string) {
+    if (cle === dossier.recours_etape) return;
     const patch: Partial<Dossier> = { recours_etape: cle };
     if (cle === "regle") patch.recours_resolu_le = new Date().toISOString();
     onPatch(patch);
     const { error } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
-    if (error) setErreur(messageErreur(error));
+    if (error) { setErreur(messageErreur(error)); return; }
+    await journaliserRecours({ dossierId: dossier.id, evenement: cle === "regle" ? "regle" : "etape", etape: cle, titre: titre || (cle === "regle" ? "Réglé par l'assureur adverse" : `Étape : ${etapeRecours(cle).label}`), auteur: lireRole() });
+    chargerJournalRecours(dossier.id).then(setJournal);
   }
 
   /** Le prochain courrier à produire selon l'étape. */
+  const mandatSigne = Boolean(mandat && mandat.statut !== "brouillon");
   const prochainType: TypeCourrierRecours | null =
-    idx === 0 ? (mandat ? "recours_direct" : "mandat_recours")
+    idx === 0 ? (mandatSigne ? "recours_direct" : "mandat_recours")
     : idx === 1 ? "relance_recours"
     : idx === 2 ? "mise_en_demeure_recours"
     : null;
+  const aide = aideRecours(dossier.recours_etape, {
+    mandatSigne, constat: Boolean(constat), rapport: Boolean(rapport), facture: Boolean(facture),
+    assureurRenseigne: Boolean(dossier.recours_tiers_assureur && (dossier.recours_tiers_assureur_email || dossier.recours_tiers_assureur_adresse)),
+    joursDepuisRecours,
+  });
+  const actionAide = () => {
+    if (prochainType) setModal({ type: prochainType });
+  };
 
   /* ----------------------------- Envois ------------------------------- */
   async function journaliser(c: CourrierRecouvrement, canal: string, numero?: string | null) {
@@ -169,6 +193,11 @@ export default function RecoursDirectPanel({
     if (error) { setErreur(messageErreur(error)); throw new Error(messageErreur(error)); }
     await journaliser(c, canal, numero);
     await cloturerTaches(origineAPoster(c.id));
+    await journaliserRecours({
+      dossierId: dossier.id, evenement: "courrier", etape: dossier.recours_etape, auteur: lireRole(),
+      titre: `${LIBELLE_COURRIER_RECOURS[c.type as TypeCourrierRecours]} → ${c.destinataire_nom || "assureur adverse"}`,
+      details: `${canal === "lrar" ? `Recommandé AR${numero ? ` n° ${numero}` : ""}` : canal === "email" ? "Par e-mail" : canal === "remis_en_main" ? "Remis en main propre" : "Courrier simple"}${c.montant ? ` · ${formatEuros(c.montant)} réclamés` : ""}`,
+    });
     // L'étape du dossier avance avec le courrier envoyé.
     const cible = ETAPE_PAR_COURRIER[c.type as TypeCourrierRecours];
     if (indexEtapeRecours(cible) > idx) await passerEtape(cible);
@@ -232,27 +261,27 @@ export default function RecoursDirectPanel({
           );
         })}
       </ol>
-      <div className="mt-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="font-semibold text-white">{etape.label}</span>
-          {recoursEnvoye && joursDepuisRecours !== null && etape.cle !== "regle" && (
-            <span className={`badge ${joursDepuisRecours >= 30 ? "badge-danger" : joursDepuisRecours >= 15 ? "badge-warn" : "badge-info"}`}>Recours envoyé il y a {joursDepuisRecours} j</span>
-          )}
-        </div>
-        <p className="mt-1 text-xs text-white/65">{etape.conseil}</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {prochainType && (
-            <button onClick={() => setModal({ type: prochainType })} className="btn-primary btn-compact">
-              {prochainType === "mandat_recours" ? "✍️ Faire signer le mandat au client" : prochainType === "recours_direct" ? "📄 Préparer la lettre de recours" : prochainType === "relance_recours" ? "🔁 Préparer la relance" : "⚖ Préparer la mise en demeure (recommandé)"}
-            </button>
-          )}
-          {etape.cle === "mise_en_demeure" && (
-            <a href="https://www.mediation-assurance.org/" target="_blank" rel="noreferrer" className="btn-ghost btn-compact" onClick={() => passerEtape("mediateur")}>🌐 Saisir le Médiateur de l&apos;assurance</a>
-          )}
-          {etape.cle !== "regle" && <button onClick={() => passerEtape("regle")} className="btn-ghost btn-compact">✓ Réglé par l&apos;assureur</button>}
-        </div>
-        {!constat && <p className="mt-2 text-xs text-amber-200/90">Constat amiable absent des pièces du dossier : c&apos;est LA preuve de la responsabilité du tiers. Ajoutez-le dans « Pièces du dossier ».</p>}
+      {/* MY-MY guide : une phrase, trois gestes, un bouton. */}
+      <div className="mt-3">
+        <AideMyMy
+          aide={aide}
+          cle="recours"
+          onAction={prochainType && aide.bouton ? actionAide : undefined}
+          compteur={recoursEnvoye && joursDepuisRecours !== null && etape.cle !== "regle" ? `Recours envoyé il y a ${joursDepuisRecours} j` : undefined}
+        />
       </div>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {prochainType && !aide.bouton && (
+          <button onClick={() => setModal({ type: prochainType })} className="btn-ghost btn-compact">
+            {prochainType === "mandat_recours" ? "✍️ Faire signer le mandat" : prochainType === "recours_direct" ? "📄 Préparer la lettre de recours" : prochainType === "relance_recours" ? "🔁 Préparer la relance" : "⚖ Préparer la mise en demeure"}
+          </button>
+        )}
+        {etape.cle === "mise_en_demeure" && (
+          <a href="https://www.mediation-assurance.org/" target="_blank" rel="noreferrer" className="btn-ghost btn-compact" onClick={() => passerEtape("mediateur", "Médiateur de l'assurance saisi")}>🌐 Saisir le Médiateur de l&apos;assurance</a>
+        )}
+        {etape.cle !== "regle" && <button onClick={() => passerEtape("regle")} className="btn-ghost btn-compact">✓ Réglé par l&apos;assureur</button>}
+      </div>
+      {!constat && <p className="mt-2 text-xs text-amber-200/90">Constat amiable absent des pièces du dossier : c&apos;est LA preuve de la responsabilité du tiers. Ajoutez-le dans « Pièces du dossier » (une photo suffit).</p>}
 
       {/* ---------- Tiers responsable ---------- */}
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -349,6 +378,15 @@ export default function RecoursDirectPanel({
         )}
       </div>
 
+      {/* ---------- Historique : chaque action laisse une trace ---------- */}
+      <div className="mt-4 border-t border-white/10 pt-3">
+        <button type="button" onClick={() => setJournalOuvert((o) => !o)} className="flex w-full items-center justify-between gap-2 text-left" aria-expanded={journalOuvert}>
+          <span className="text-xs font-semibold uppercase tracking-wide text-white/60">Historique du recours <span className="badge badge-neutral ml-1">{journal.length}</span></span>
+          <span className="text-xs text-white/40">{journalOuvert ? "▲ replier" : "▼ voir tout"}</span>
+        </button>
+        <JournalRecours lignes={journalOuvert ? journal : journal.slice(0, 3)} />
+      </div>
+
       {modal && (
         <CourrierRecoursModal
           type={modal.type}
@@ -364,9 +402,9 @@ export default function RecoursDirectPanel({
           onSaved={async (c, action) => {
             setCourriers((prev) => (prev.some((x) => x.id === c.id) ? prev.map((x) => (x.id === c.id ? c : x)) : [c, ...prev]));
             setModal(null);
-            if (c.type === "mandat_recours" && c.statut === "signe" && idx === 0) {
-              // Mandat signé : l'étape « mandat » est acquise, on passe au recours.
-              await passerEtape("mandat");
+            if (c.type === "mandat_recours" && c.statut === "signe") {
+              await journaliserRecours({ dossierId: dossier.id, evenement: "mandat", etape: dossier.recours_etape, titre: `Mandat de recouvrement signé par ${c.signataire_nom || dossier.client_nom || "le client"}`, details: `Assureur visé : ${c.destinataire_nom || "—"}`, auteur: lireRole() });
+              chargerJournalRecours(dossier.id).then(setJournal);
               setInfo("Mandat signé et enregistré — préparez maintenant la lettre de recours.");
               setTimeout(() => setInfo(null), 5000);
             }
@@ -399,6 +437,25 @@ export default function RecoursDirectPanel({
 }
 
 /* ====================================================================== */
+
+/** Liste lisible du journal (panneau actif ET historique après résolution). */
+export function JournalRecours({ lignes }: { lignes: LigneJournalRecours[] }) {
+  if (lignes.length === 0) return <p className="mt-1 text-xs text-white/40">Aucune action enregistrée pour l&apos;instant.</p>;
+  return (
+    <ul className="journal-recours mt-1">
+      {lignes.map((l) => (
+        <li key={l.id}>
+          <span className="ico" aria-hidden>{ICONE_EVENEMENT[l.evenement] || "•"}</span>
+          <span className="quand">{formatDateTime(l.created_at)}</span>
+          <span className="quoi">
+            {l.titre}
+            {l.details && <span className="detail">{l.details}</span>}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 function CourrierRecoursModal({ type, existant, dossier, garage, calcul, numeroFacture, dateRecours, joursImmobilisation, piecesJointes, onClose, onSaved }: {
   type: TypeCourrierRecours;

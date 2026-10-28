@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import PhotoVehicule from "@/components/PhotoVehicule";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
@@ -25,6 +24,11 @@ import { calculeProchaineAction } from "@/lib/actions";
 import SuggestionAction from "@/components/SuggestionAction";
 import LitigePanel from "@/components/LitigePanel";
 import RecoursDirectPanel from "@/components/RecoursDirectPanel";
+import IdentiteDossier from "@/components/IdentiteDossier";
+import HistoriqueRecours from "@/components/HistoriqueRecours";
+import { journaliserRecours } from "@/lib/recours";
+import { lireRole } from "@/lib/conversation";
+import { montantTtc } from "@/lib/tva";
 import HistoriqueLitige from "@/components/HistoriqueLitige";
 import EmailsDossier from "@/components/EmailsDossier";
 import EnvoisPostauxDossier from "@/components/EnvoisPostauxDossier";
@@ -55,8 +59,7 @@ import { labelPiece } from "@/lib/pieces";
 import { estFactureExterne } from "@/lib/reprise";
 import { FactureExterneModal } from "@/components/FactureExterne";
 import { fermerOnglet, libelleOnglet, ouvrirOnglet } from "@/lib/onglets";
-import { formatEuros, formatDate, formatDateTime, messageErreur } from "@/lib/format";
-import { montantTtc, tauxTva } from "@/lib/tva";
+import { formatEuros, formatDate, formatDateTime, messageErreur, ymd } from "@/lib/format";
 import { badgeStatutDoc, controlerRapport, labelStatutDoc, modeParDefaut } from "@/lib/documents";
 import ModePaiementModal from "@/components/ModePaiementModal";
 import { apercuDocumentPdf, cessionPdfBase64, documentPdfBase64Auto, nomFichierDocument, nomFichierSur, ordreReparationPdfBase64, ribPdfBase64, telechargerFacturx } from "@/lib/pdf";
@@ -79,16 +82,6 @@ import ContactClient from "@/components/mobile/ContactClient";
 import { lienTel, lienSms, lienWhatsApp, noterRecent } from "@/lib/mobile";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
-import { labelTypeVitrage, labelNatureIntervention } from "@/lib/vitrage";
-
-function InfoRow({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div className="flex justify-between gap-4 py-2 border-b border-white/5 last:border-0">
-      <span className="shrink-0 text-sm text-white/50">{label}</span>
-      <span className="min-w-0 break-words text-sm font-medium text-white text-right">{value || "—"}</span>
-    </div>
-  );
-}
 
 // Clé de mémorisation stable, dérivée du titre du bloc.
 function cleBloc(titre: string): string {
@@ -215,6 +208,8 @@ export default function DossierDetailPage() {
 
   // composer email (devis/facture)
   const [emailDoc, setEmailDoc] = useState<Document | null>(null);
+  // v13.54 — facture à envoyer alors que la cession n'est pas signée.
+  const [alerteCession, setAlerteCession] = useState<Document | null>(null);
   // FACTURE EXTÉRIEURE (v13.0) : "nouveau" = ajout ; un Document = correction.
   const [factureExterne, setFactureExterne] = useState<Document | "nouveau" | null>(null);
   // facture en attente du choix du mode de paiement (avant génération du PDF)
@@ -354,6 +349,20 @@ export default function DossierDetailPage() {
     if (error) {
       setDossier(dossier);
       alert("Impossible de changer le mode cession (migrations v15 et v32 exécutées ?).");
+      return;
+    }
+    // v13.54 — la cession n'est plus générée à l'import : elle naît ICI, à
+    // l'activation du mode, prête à signer (montant = TTC de la facture,
+    // sinon du chiffrage), et on propose tout de suite la signature.
+    if (next && cessions.length === 0) {
+      const facture = documents.find((d) => d.type === "facture");
+      const montant = facture?.total_ttc != null ? Number(facture.total_ttc) : montantTtc(dossier);
+      const { error: eCess } = await supabase.from("cessions_creance").insert({
+        dossier_id: dossier.id, date_cession: ymd(), montant: montant || null, signataire_nom: dossier.client_nom || null,
+      });
+      if (eCess) alert(messageErreur(eCess, "Cession de créance non créée."));
+      await load();
+      setAtelierModal("cession_signer");
     }
   }
 
@@ -383,7 +392,17 @@ export default function DossierDetailPage() {
     if (error) {
       setDossier(dossier);
       alert("Impossible de changer le mode recours direct (migration v103 exécutée ?).");
+      return;
     }
+    // Trace : ouverture / réouverture / levée (migration v104).
+    const deja = Boolean(dossier.recours_depuis);
+    await journaliserRecours({
+      dossierId: dossier.id, auteur: lireRole(),
+      evenement: next ? (deja ? "reouverture" : "ouverture") : "levee",
+      etape: next ? patch.recours_etape || null : dossier.recours_etape || null,
+      titre: next ? (deja ? "Recours direct rouvert" : "Recours direct ouvert") : dossier.recours_etape === "regle" ? "Recours clos après règlement" : "Recours direct levé",
+      details: next ? `Client non responsable — réclamation à l'assureur du responsable${dossier.recours_tiers_assureur ? ` (${dossier.recours_tiers_assureur})` : ""}` : null,
+    });
   }
 
   // Référence / n° de l'accord de prise en charge (enregistrée à la sortie du champ)
@@ -746,6 +765,8 @@ export default function DossierDetailPage() {
   // cas normal → expert + client ; cession de créance OU prise en charge →
   // expert + assurance (le garage est payé directement).
   const enCession = Boolean(dossier.mode_cession) || cessions.some((c) => c.statut === "signe");
+  // v13.54 — la cession signée (jointe d'office à la facture en mode cession).
+  const cessionSignee = cessions.find((c) => c.statut === "signe") || null;
   // Prise en charge : accord fourni par l'expert, rempli par le garage et
   // joint à la facture → paiement direct (ce n'est PAS une cession de créance).
   const enPec = Boolean(dossier.mode_pec);
@@ -756,6 +777,17 @@ export default function DossierDetailPage() {
   // v12.4 — les autres pièces déposées (carte grise, constat, permis…) sont
   // aussi joignables, décochées par défaut.
   const autresPieces = pieces.filter((p) => p.type !== "prise_en_charge");
+
+  // v13.54 — GARDE-FOU avant l'envoi d'une facture en mode cession : la
+  // cession doit être SIGNÉE par le client, sinon l'assureur ne paiera pas le
+  // garage. On propose de la signer tout de suite plutôt que d'envoyer.
+  const envoyerDocument = (doc: Document) => {
+    if (doc.type === "facture" && enCession && !cessionSignee) {
+      setAlerteCession(doc);
+      return;
+    }
+    setEmailDoc(doc);
+  };
 
   // Autres pièces joignables au même email (cochables, décochées par défaut)
   const pjPourDoc = (docCourant: Document): PieceJointeOption[] => [
@@ -774,10 +806,11 @@ export default function DossierDetailPage() {
       coche: false,
     })),
     ...cessions.map((c) => ({
-      label: "Cession de créance (PDF)",
+      label: `Cession de créance${c.statut === "signe" ? " signée" : " (NON signée)"} (PDF)`,
       filename: nomFichierSur(`Cession de créance ${dossier.immatriculation || dossier.numero_sinistre || "dossier"}`),
       getBase64: () => cessionPdfBase64(c, dossier),
-      coche: false,
+      // v13.54 — en mode cession, la cession signée part d'office avec la facture.
+      coche: enCession && docCourant.type === "facture" && (c.statut === "signe" || !cessionSignee),
     })),
     // v12.4 — Rapport d'expertise déposé sur le dossier (bucket « rapports »).
     ...(dossier.rapport_path
@@ -805,7 +838,8 @@ export default function DossierDetailPage() {
       getBase64: () => fichierBase64("pieces", p.path),
       coche: false,
     })),
-    { label: "RIB du garage", filename: "RIB.pdf", getBase64: ribPdfBase64, coche: false },
+    // v13.54 — RIB joint d'office à la facture quand le garage est payé directement.
+    { label: "RIB du garage", filename: "RIB.pdf", getBase64: ribPdfBase64, coche: docCourant.type === "facture" && (enCession || enPec || enRecours) },
   ];
 
   // Ordre d'affichage de la liste unique : devis, puis factures (du plus
@@ -1172,6 +1206,11 @@ export default function DossierDetailPage() {
         </div>
       </section>
 
+      {/* Recours terminé (réglé ou levé) : la trace reste visible, rouvrable. */}
+      {!dossier.mode_recours && dossier.recours_depuis && (
+        <HistoriqueRecours dossier={dossier} onRouvrir={toggleModeRecours} />
+      )}
+
       {dossier.mode_recours && (
         <RecoursDirectPanel
           dossier={dossier}
@@ -1182,107 +1221,17 @@ export default function DossierDetailPage() {
         />
       )}
 
-      {/* Infos */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-        <Card title="Véhicule">
-          <PhotoVehicule marqueModele={dossier.marque_modele} />
-          <InfoRow label="Immatriculation" value={dossier.immatriculation} />
-          <InfoRow label="Marque et modèle" value={dossier.marque_modele} />
-          <InfoRow label="N° de série (VIN)" value={dossier.numero_serie} />
-          <InfoRow label="1ère mise en circulation" value={formatDate(dossier.premiere_circulation)} />
-        </Card>
-
-        {estVitrage && (
-          <Card title="Vitrage & intervention">
-            <InfoRow label="Vitrage concerné" value={labelTypeVitrage(dossier.type_vitrage)} />
-            <InfoRow label="Nature" value={labelNatureIntervention(dossier.nature_intervention)} />
-            <InfoRow
-              label="Calibrage ADAS"
-              value={
-                dossier.calibrage_requis
-                  ? dossier.calibrage_fait
-                    ? "Requis — réalisé"
-                    : "Requis — à faire"
-                  : "Non nécessaire"
-              }
-            />
-            <InfoRow label="Franchise client" value={dossier.franchise != null ? formatEuros(dossier.franchise) : "—"} />
-          </Card>
-        )}
-
-        <Card title={estVitrage ? "Bris de glace" : "Sinistre"}>
-          <InfoRow label={estVitrage ? "Date du bris" : "Date du sinistre"} value={formatDate(dossier.date_sinistre)} />
-          <InfoRow label="N° de dossier" value={dossier.numero_sinistre} />
-          {!estVitrage && <InfoRow label="Date d'expertise" value={formatDate(dossier.date_expertise)} />}
-          <InfoRow label="N° police" value={dossier.numero_police} />
-        </Card>
-
-        {(!estVitrage || dossier.cabinet_expert || dossier.expert_nom || dossier.date_expertise) && (
-          <Card title="Cabinet d'expert & expert">
-            <InfoRow label="Cabinet" value={dossier.cabinet_expert} />
-            <InfoRow label="Adresse cabinet" value={dossier.cabinet_adresse} />
-            <InfoRow label="Tél cabinet" value={dossier.cabinet_tel} />
-            <InfoRow label="Email cabinet" value={dossier.cabinet_email} />
-            <InfoRow label="Expert" value={dossier.expert_nom} />
-            <InfoRow label="Tél expert" value={dossier.expert_tel} />
-            <InfoRow label="Email expert" value={dossier.expert_email} />
-          </Card>
-        )}
-
-        <Card title="Assurance">
-          <InfoRow label="Assureur" value={dossier.assureur} />
-          <InfoRow label="Adresse" value={dossier.assureur_adresse} />
-          <InfoRow label="Téléphone" value={dossier.assureur_tel} />
-          <InfoRow label="Email" value={dossier.assureur_email} />
-          <InfoRow label="N° police" value={dossier.numero_police} />
-        </Card>
-
-        <Card title={t.reparation}>
-          <InfoRow label="Début" value={formatDate(dossier.reparation_debut)} />
-          <InfoRow label="Fin" value={formatDate(dossier.reparation_fin)} />
-          <InfoRow label={t.reparateur} value={dossier.reparateur} />
-          <div className="flex flex-wrap items-center justify-between gap-2 py-2.5">
-            <button onClick={ouvrirPlanif} className="btn-ghost py-1.5 px-3 text-xs">
-              {dossier.reparation_debut ? "Modifier la planification" : `Planifier ${t.reparation === "Intervention" ? "l'intervention" : "la réparation"}`}
-            </button>
-            <Link href="/planning" className="text-sm text-accent-teal hover:underline">
-              Voir le planning
-            </Link>
-          </div>
-        </Card>
-
-        <Card title="Client">
-          <InfoRow label="Nom et prénom" value={dossier.client_nom} />
-          <InfoRow label="Email" value={dossier.client_email} />
-          <InfoRow label="Téléphone" value={dossier.client_tel} />
-          <InfoRow label="Adresse" value={dossier.client_adresse} />
-          <InfoRow label="Code postal" value={dossier.client_code_postal} />
-          <InfoRow label="Ville" value={dossier.client_ville} />
-        </Card>
-
-        <Card title="Suivi & documents">
-          {/* Le montant du rapport est un HT : on affiche aussi le TTC. */}
-          <InfoRow label="Montant HT (rapport)" value={formatEuros(dossier.montant)} />
-          <InfoRow
-            label={`Montant TTC (TVA ${tauxTva(dossier)} %)`}
-            value={formatEuros(montantTtc(dossier))}
-          />
-          <InfoRow label="Créé le" value={formatDate(dossier.created_at)} />
-          <div className="flex justify-between gap-4 py-2">
-            <span className="text-sm text-white/50">{t.rapport}</span>
-            {dossier.rapport_path ? (
-              <button
-                onClick={() => ouvrirFichier("rapports", dossier.rapport_path!)}
-                className="text-sm font-medium text-accent-teal hover:underline text-right"
-              >
-                {dossier.rapport_nom || "Voir le PDF"}
-              </button>
-            ) : (
-              <span className="text-sm text-white/40">Aucun</span>
-            )}
-          </div>
-        </Card>
-      </div>
+      {/* IDENTITÉ DU DOSSIER (v13.54) : une grille dense à la place des sept
+          cartes — véhicule (photo), sinistre + montants, client, expert,
+          assurance, réparation. Valeurs cliquables, lignes vides masquées. */}
+      <IdentiteDossier
+        dossier={dossier}
+        estVitrage={estVitrage}
+        t={{ reparation: t.reparation, reparateur: t.reparateur, rapport: t.rapport }}
+        onPlanifier={ouvrirPlanif}
+        onOuvrirRapport={() => dossier.rapport_path && ouvrirFichier("rapports", dossier.rapport_path)}
+        boutonPlaque={dossier.immatriculation ? <BoutonInfosPlaque onClick={() => setInfosPlaque(true)} /> : undefined}
+      />
 
       {/* Particularités : courtier, agrément, apporteur… (v7.0) */}
       <Card title="Particularités du dossier">
@@ -1322,17 +1271,16 @@ export default function DossierDetailPage() {
           <button onClick={() => setAtelierModal("or")} className="btn-ghost py-1.5 px-3 text-xs">
             + {libelleOR}
           </button>
-          <button
-            onClick={() => setAtelierModal("cession")}
-            className={`${dossier.mode_cession && cessions.length === 0 ? "btn-primary" : "btn-ghost"} py-1.5 px-3 text-xs`}
-            title={
-              dossier.mode_cession && cessions.length === 0
-                ? "Mode cession activé : fais signer la cession"
-                : undefined
-            }
-          >
-            + Cession de créance
-          </button>
+          {/* v13.54 — visible seulement quand le mode cession est activé (elle est créée à l'activation). */}
+          {enCession && (
+            <button
+              onClick={() => setAtelierModal(cessions.length ? "cession_signer" : "cession")}
+              className={`${cessionSignee ? "btn-ghost" : "btn-primary"} py-1.5 px-3 text-xs`}
+              title={cessionSignee ? "Cession de créance signée" : "Mode cession activé : faites signer la cession au client"}
+            >
+              {cessionSignee ? "✓ Cession signée" : cessions.length ? "✍️ Signer la cession" : "+ Cession de créance"}
+            </button>
+          )}
           <button onClick={() => setAtelierModal("restitution")} className="btn-ghost py-1.5 px-3 text-xs">
             + Restitution
           </button>
@@ -1434,7 +1382,7 @@ export default function DossierDetailPage() {
                         Factur-X
                       </button>
                     )}
-                    <button onClick={() => setEmailDoc(doc)} className="text-accent-teal hover:underline">Envoyer</button>
+                    <button onClick={() => envoyerDocument(doc)} className="text-accent-teal hover:underline">Envoyer</button>
                     {!doc.signature && !externe && (
                       <button onClick={() => setSignDoc(doc)} className="text-accent-teal hover:underline">Signer</button>
                     )}
@@ -1620,6 +1568,18 @@ export default function DossierDetailPage() {
         />
       )}
 
+      {alerteCession && (
+        <ModalShell title="Cession de créance non signée" onClose={() => setAlerteCession(null)}>
+          <p className="text-sm text-white/80">
+            Ce dossier est en <strong className="text-white">cession de créance</strong>, mais la cession n&apos;est pas encore signée par {dossier.client_nom || "le client"}. Sans acte signé joint à la facture, l&apos;assureur réglera le client, pas le garage.
+          </p>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" className="btn-ghost w-full sm:w-auto" onClick={() => { const d = alerteCession; setAlerteCession(null); setEmailDoc(d); }}>Envoyer quand même</button>
+            <button type="button" className="btn-primary w-full sm:w-auto" onClick={() => { setAlerteCession(null); setAtelierModal(cessions.length ? "cession_signer" : "cession"); }}>✍️ Faire signer la cession maintenant</button>
+          </div>
+        </ModalShell>
+      )}
+
       {emailDoc && (
         <EmailComposer
           dossier={dossier}
@@ -1634,10 +1594,14 @@ export default function DossierDetailPage() {
           } ${emailDoc.numero || ""} concernant le dossier ${dossier.numero_sinistre || ""}${
             dossier.client_nom ? ` (${dossier.client_nom})` : ""
           }.${
-            emailDoc.type === "facture" && enPec
+            emailDoc.type === "facture" && enCession
+              ? `\n\nCe dossier fait l'objet d'une CESSION DE CRÉANCE : ${dossier.client_nom || "notre client"} nous a cédé sa créance d'indemnisation (acte de cession signé ci-joint). Le règlement de la facture, ${formatEuros(Number(emailDoc.total_ttc) || 0)} TTC, est donc à effectuer directement au garage, par virement sur le compte indiqué sur le RIB joint, à l'exclusion de tout versement à l'assuré.`
+              : emailDoc.type === "facture" && enPec
               ? `\n\nVous trouverez également ci-joint l'accord de prise en charge complété${
                   dossier.pec_reference ? ` (réf. ${dossier.pec_reference})` : ""
                 } : le règlement est à effectuer directement auprès du garage.`
+              : emailDoc.type === "facture" && enRecours
+              ? `\n\nCe dossier fait l'objet d'un recours direct : ${dossier.client_nom || "notre client"}, non responsable, nous a mandatés pour réclamer le règlement des réparations à l'assureur du responsable${dossier.recours_tiers_assureur ? ` (${dossier.recours_tiers_assureur})` : ""}. Le règlement est à effectuer directement au garage (RIB joint).`
               : ""
           }\n\nRestant à votre disposition,\nCordialement.`}
           onClose={() => setEmailDoc(null)}
