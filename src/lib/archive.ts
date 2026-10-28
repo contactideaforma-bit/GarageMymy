@@ -213,7 +213,7 @@ export async function archiverDossier(
 
   if (piecesNonArchivees > 0) {
     onProgress?.(
-      `⚠️ ${piecesNonArchivees} pièce(s) n'ont pas pu être téléchargées : elles restent sur le serveur.`
+      `${piecesNonArchivees} pièce(s) n'ont pas pu être téléchargées : elles restent sur le serveur.`
     );
   }
 }

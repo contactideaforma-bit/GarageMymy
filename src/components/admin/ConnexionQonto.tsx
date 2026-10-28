@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
+import Ico from "@/components/Ico";
 
 type Etat = {
   oauthConfigure: boolean;
@@ -86,7 +87,7 @@ export default function ConnexionQonto() {
           <h2 className="titre-bloc">Connexion Qonto (liens de paiement)</h2>
           {connecte ? (
             <p className="mt-1 text-sm text-emerald-300">
-              ✅ Connecté{etat?.environnement === "sandbox" ? " (bac à sable)" : ""}
+              <Ico n="check-circle" /> Connecté{etat?.environnement === "sandbox" ? " (bac à sable)" : ""}
               {etat?.connecteLe ? ` depuis le ${new Date(etat.connecteLe).toLocaleDateString("fr-FR")}` : ""}
               {etat?.connectePar ? ` par ${etat.connectePar}` : ""} — les liens de paiement sont créés et vérifiés automatiquement.
             </p>
@@ -103,7 +104,7 @@ export default function ConnexionQonto() {
               <button className="btn-ghost btn-compact" disabled={busy} onClick={deconnecter}>Déconnecter</button>
             </div>
           ) : (
-            <button className="btn-primary" disabled={busy} onClick={connecter}>{busy ? "Ouverture de Qonto…" : "🔗 Connecter Qonto"}</button>
+            <button className="btn-primary" disabled={busy} onClick={connecter}>{busy ? "Ouverture de Qonto…" : "Connecter Qonto"}</button>
           )
         )}
       </div>

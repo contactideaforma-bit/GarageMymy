@@ -5,6 +5,7 @@ import Link from "next/link";
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import { formatDateTime } from "@/lib/format";
 import { Incident, NIVEAUX_INCIDENT, chargerEtat, depuis, infoNiveau } from "@/lib/etatService";
+import Ico from "@/components/Ico";
 
 /**
  * PUBLICATION D'UN INCIDENT (v45) — console de l'éditeur.
@@ -172,7 +173,7 @@ export default function IncidentsPanel() {
                   className="btn-ghost btn-compact"
                   title="Marquer l'incident comme résolu"
                 >
-                  ✅ Clore
+                  <Ico n="check-circle" /> Clore
                 </button>
               </div>
             </div>

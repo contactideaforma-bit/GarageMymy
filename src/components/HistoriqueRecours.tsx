@@ -23,7 +23,7 @@ export default function HistoriqueRecours({ dossier, onRouvrir }: { dossier: Dos
     <section className="glass-card p-3 sm:p-4" style={{ borderColor: regle ? "rgba(16, 185, 129, 0.4)" : "var(--mea-bordure)" }}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="titre-bloc text-white">{regle ? "✅ Recours direct réglé" : "⏹️ Recours direct levé"}</h2>
+          <h2 className="titre-bloc text-white">{regle ? "Recours direct réglé" : "Recours direct levé"}</h2>
           <p className="mt-1 text-xs text-white/60">
             Ouvert le {formatDate(dossier.recours_depuis)}{dossier.recours_resolu_le ? ` · ${regle ? "réglé" : "clos"} le ${formatDate(dossier.recours_resolu_le)}` : ""}
             {dossier.recours_tiers_assureur ? ` · assureur adverse : ${dossier.recours_tiers_assureur}` : ""}

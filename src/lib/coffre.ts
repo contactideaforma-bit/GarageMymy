@@ -5,7 +5,7 @@
 // texte chiffré fait échouer le déchiffrement).
 // Clé : dérivée (SHA-256) de EXTRANET_SECRET si définie dans l'env,
 // sinon de SUPABASE_SERVICE_ROLE_KEY (déjà secrète et présente côté serveur).
-// ⚠️ Si la clé change (rotation service role sans EXTRANET_SECRET), les
+// Si la clé change (rotation service role sans EXTRANET_SECRET), les
 // mots de passe déjà stockés deviennent illisibles → il faudra les resaisir.
 // Recommandé : définir EXTRANET_SECRET (chaîne aléatoire longue) et ne plus y toucher.
 

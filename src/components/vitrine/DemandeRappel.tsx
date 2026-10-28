@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { lireReponse } from "@/lib/apiClient";
 import { CRENEAUX_RAPPEL } from "@/lib/inscription";
+import Ico from "@/components/Ico";
 
 type Props = {
   /** Pré-remplissage depuis le parcours (modifiable). */
@@ -56,7 +57,7 @@ export default function DemandeRappel({ defauts, etape, source_connaissance, for
   if (fait) {
     return (
       <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-        ✓ C&apos;est noté : nous vous rappelons au {tel} {CRENEAUX_RAPPEL.find((c) => c.cle === f.creneau)?.label.toLowerCase()}. Vous pouvez continuer votre inscription ou attendre notre appel.
+        <Ico n="check" /> C&apos;est noté : nous vous rappelons au {tel} {CRENEAUX_RAPPEL.find((c) => c.cle === f.creneau)?.label.toLowerCase()}. Vous pouvez continuer votre inscription ou attendre notre appel.
       </div>
     );
   }
@@ -64,7 +65,7 @@ export default function DemandeRappel({ defauts, etape, source_connaissance, for
     return (
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
         <span>Une question, un doute sur la formule ? On vous rappelle quand vous voulez, sans engagement.</span>
-        <button type="button" className="lp-btn-ghost !py-1.5 !text-sm" onClick={() => setVisible(true)}>📞 Être rappelé</button>
+        <button type="button" className="lp-btn-ghost !py-1.5 !text-sm" onClick={() => setVisible(true)}><Ico n="phone" /> Être rappelé</button>
       </div>
     );
   }
@@ -72,7 +73,7 @@ export default function DemandeRappel({ defauts, etape, source_connaissance, for
     <div className="mt-6 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm text-slate-700">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="font-semibold text-violet-900">📞 Être rappelé par My Easy Auto</div>
+          <div className="font-semibold text-violet-900"><Ico n="phone" /> Être rappelé par My Easy Auto</div>
           <p className="mt-0.5 text-xs text-slate-600">Sans engagement. Nous vous appelons au créneau choisi, du lundi au vendredi.</p>
         </div>
         {!ouvert && <button type="button" className="text-xs text-slate-500 hover:underline" onClick={() => setVisible(false)}>Fermer</button>}

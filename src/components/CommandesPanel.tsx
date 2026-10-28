@@ -10,6 +10,7 @@ import { categorieDe, estPosteMo } from "@/lib/documents";
 import ModalShell from "@/components/ModalShell";
 import EmailComposer from "@/components/EmailComposer";
 import { apercuCommandePiecesPdf, commandePiecesPdfBase64 } from "@/lib/pdf";
+import Ico from "@/components/Ico";
 
 // Statuts de commande (section NON bloquante pour l'avancement du dossier)
 export const STATUTS_COMMANDE: Record<string, { label: string; badge: string }> = {
@@ -211,10 +212,10 @@ export default function CommandesPanel({ dossier }: { dossier: Dossier }) {
           {commandes.length > 0 && (
             <>
               <button onClick={ouvrirPdf} disabled={pdfEnCours} className="btn-ghost py-1.5 px-3 text-xs" title="Bon de commande PDF à remettre au carrossier">
-                {pdfEnCours ? "PDF…" : "📄 Bon de commande PDF"}
+                {pdfEnCours ? "PDF…" : "Bon de commande PDF"}
               </button>
               <button onClick={() => setEnvoiOpen(true)} className="btn-primary py-1.5 px-3 text-xs" title="Envoyer le bon de commande par email">
-                ✉ Envoyer
+                <Ico n="mail" /> Envoyer
               </button>
             </>
           )}

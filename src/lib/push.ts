@@ -4,7 +4,7 @@
 //  Abonnement / désabonnement de l'appareil courant. Le serveur ne fait
 //  qu'enregistrer ce que le navigateur lui donne (endpoint + 2 clés).
 //
-//  ⚠️ iPhone : Apple n'expose l'API Push QUE dans une PWA installée sur
+//  iPhone : Apple n'expose l'API Push QUE dans une PWA installée sur
 //  l'écran d'accueil. Dans Safari « normal », `PushManager` n'existe même
 //  pas — d'où `estIphoneNonInstallee()`, utilisé pour afficher la marche
 //  à suivre plutôt qu'un « non supporté » incompréhensible.

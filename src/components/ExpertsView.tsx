@@ -8,6 +8,7 @@ import BandeauReferencementExperts from "@/components/experts/BandeauReferenceme
 import ModalShell from "@/components/ModalShell";
 import CarteContact, { LigneContact, formaterTel, lienCarte, lienTelephone } from "@/components/annuaire/CarteContact";
 import { BarreAnnuaire, GrilleContacts, type TriAnnuaire } from "@/components/annuaire/GrilleContacts";
+import Ico from "@/components/Ico";
 
 const EMPTY = {
   cabinet: "", adresse: "", code_postal: "", ville: "", tel: "", email: "",
@@ -128,14 +129,14 @@ export default function ExpertsView() {
             sousTitre={r.expert_nom ? <>Expert : <span style={{ color: "var(--mea-texte-2)" }}>{r.expert_nom}</span></> : "Expert non renseigné"}
             lignes={
               <>
-                <LigneContact ico="📞" href={lienTelephone(r.tel || r.expert_tel)}>{r.tel ? formaterTel(r.tel) : r.expert_tel ? `${formaterTel(r.expert_tel)} (expert)` : null}</LigneContact>
-                <LigneContact ico="✉️" href={r.email || r.expert_email ? `mailto:${r.email || r.expert_email}` : null}>{r.email || r.expert_email}</LigneContact>
+                <LigneContact ico="phone" href={lienTelephone(r.tel || r.expert_tel)}>{r.tel ? formaterTel(r.tel) : r.expert_tel ? `${formaterTel(r.expert_tel)} (expert)` : null}</LigneContact>
+                <LigneContact ico="mail" href={r.email || r.expert_email ? `mailto:${r.email || r.expert_email}` : null}>{r.email || r.expert_email}</LigneContact>
                 {r.expert_nom && (r.expert_tel || r.expert_email) && (r.tel || r.email) && (
-                  <LigneContact ico="👤" href={r.expert_tel ? lienTelephone(r.expert_tel) : r.expert_email ? `mailto:${r.expert_email}` : null}>
+                  <LigneContact ico="user" href={r.expert_tel ? lienTelephone(r.expert_tel) : r.expert_email ? `mailto:${r.expert_email}` : null}>
                     {[r.expert_tel ? formaterTel(r.expert_tel) : null, r.expert_email].filter(Boolean).join(" · ")}
                   </LigneContact>
                 )}
-                <LigneContact ico="📍" href={lienCarte(r.adresse, r.code_postal, r.ville)} externe>{[r.adresse, [r.code_postal, r.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null}</LigneContact>
+                <LigneContact ico="map-pin" href={lienCarte(r.adresse, r.code_postal, r.ville)} externe>{[r.adresse, [r.code_postal, r.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null}</LigneContact>
               </>
             }
             note={r.notes}
@@ -143,7 +144,7 @@ export default function ExpertsView() {
               <>
                 <span className="etiquette-contact">{r.source === "auto" ? "Créé depuis un dossier" : "Saisi à la main"}</span>
                 {r.declaration_envoyee_le ? (
-                  <span className="etiquette-contact ok" title="Déclaration du garage envoyée à ce cabinet">✓ Référencé le {new Date(r.declaration_envoyee_le).toLocaleDateString("fr-FR")}</span>
+                  <span className="etiquette-contact ok" title="Déclaration du garage envoyée à ce cabinet"><Ico n="check" /> Référencé le {new Date(r.declaration_envoyee_le).toLocaleDateString("fr-FR")}</span>
                 ) : (
                   <span className="etiquette-contact warn" title="Ce cabinet n'a pas encore reçu la déclaration du garage">Pas encore référencé</span>
                 )}

@@ -257,7 +257,7 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
           `La rémunération du Prestataire résulte d'une NÉGOCIATION entre les parties, actée à l'ANNEXE 1. À la signature, le taux horaire convenu est de ${taux.toLocaleString("fr-FR")} euros hors taxes par heure. Il ne peut être modifié que par avenant signé des deux parties.`,
           `Le Prestataire est rémunéré, pour chaque garage affecté, sur la base du nombre d'heures du forfait d'Adhésion Service souscrit par ce garage, multiplié par le taux horaire convenu. Le prix de vente pratiqué par le Donneur d'ordre auprès du garage, et les remises qu'il consent, sont sans incidence sur la rémunération du Prestataire.`,
           `À titre indicatif à la date de signature, et sous réserve des affectations effectives : ${exemples}.`,
-          "⚠️ NATURE DE CETTE SOMME — " + phraseBrutNet(taux, regime),
+          "NATURE DE CETTE SOMME — " + phraseBrutNet(taux, regime),
           `Le Prestataire fait son affaire de sa situation au regard de la TVA. ${SEUILS.tvaFranchise.toLocaleString("fr-FR")} euros de chiffre d'affaires annuel constituent le seuil de la franchise en base : en deçà, la facture est établie sans TVA avec la mention « TVA non applicable, article 293 B du CGI » ; au-delà, la TVA s'ajoute au taux hors taxes convenu.`,
         ].join("\n"),
       },
@@ -298,7 +298,7 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
           "2° Le Prestataire dispose de HUIT (8) JOURS pour présenter ses observations. Les parties recherchent ensemble la cause du manquement (périmètre mal défini, volume excessif, information manquante du garage) et les mesures correctives.",
           "3° En cas de NOUVEAU manquement de même nature dans les TROIS (3) MOIS suivants, ou de réclamations écrites émanant de DEUX garages différents dans la même période, le Donneur d'ordre peut mettre fin à l'affectation concernée (article 11) ou résilier le contrat dans les conditions de l'article 21.",
           "4° Si les manquements sont graves et répétés au point de compromettre la relation du Donneur d'ordre avec ses clients, la résiliation peut intervenir sans préavis après mise en demeure restée sans effet huit (8) jours.",
-          "⚠️ Ces échanges constituent des CONSTATS D'EXÉCUTION du contrat d'entreprise, dans le respect du contradictoire. Ils ne sont ni des sanctions, ni des avertissements disciplinaires : le pouvoir disciplinaire est étranger au présent contrat et exclu par l'article 2.",
+          "Ces échanges constituent des CONSTATS D'EXÉCUTION du contrat d'entreprise, dans le respect du contradictoire. Ils ne sont ni des sanctions, ni des avertissements disciplinaires : le pouvoir disciplinaire est étranger au présent contrat et exclu par l'article 2.",
         ].join("\n"),
       },
       {
@@ -344,7 +344,7 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
         texte: [
           "Le Prestataire atteste sur l'honneur que les prestations sont réalisées par des personnes régulièrement employées ou par lui-même, au sens des articles L8221-1 et L8221-5 du code du travail.",
           "En application de l'article L8222-1 du code du travail, le Prestataire remet au Donneur d'ordre, à la signature puis TOUS LES SIX (6) MOIS jusqu'à la fin du contrat : une ATTESTATION DE VIGILANCE URSSAF de moins de six mois, et un justificatif d'immatriculation (extrait K, avis de situation SIRENE ou équivalent). Il informe le Donneur d'ordre sans délai de toute radiation, cessation d'activité ou perte de son immatriculation.",
-          "⚠️ CONSÉQUENCES DU DÉFAUT — le Donneur d'ordre engage sa propre responsabilité solidaire s'il fait appel à un prestataire non à jour. En conséquence : à défaut de remise des pièces dans les quinze (15) jours d'une mise en demeure, le Donneur d'ordre SUSPEND de plein droit les affectations en cours et le paiement des factures non encore échues ; si la situation n'est pas régularisée dans les TRENTE (30) JOURS suivant cette mise en demeure, le contrat est RÉSILIÉ DE PLEIN DROIT, sans préavis ni indemnité, par simple notification écrite.",
+          "CONSÉQUENCES DU DÉFAUT — le Donneur d'ordre engage sa propre responsabilité solidaire s'il fait appel à un prestataire non à jour. En conséquence : à défaut de remise des pièces dans les quinze (15) jours d'une mise en demeure, le Donneur d'ordre SUSPEND de plein droit les affectations en cours et le paiement des factures non encore échues ; si la situation n'est pas régularisée dans les TRENTE (30) JOURS suivant cette mise en demeure, le contrat est RÉSILIÉ DE PLEIN DROIT, sans préavis ni indemnité, par simple notification écrite.",
           "Il en va de même si l'attestation révèle que le Prestataire n'est pas à jour de ses cotisations sociales et qu'il ne justifie pas, dans le même délai, d'un plan d'apurement accepté par l'organisme.",
         ].join("\n"),
       },
@@ -352,7 +352,7 @@ export function contratPrestationDefaut(c: Collaborateur, p: Parametres, garages
         titre: "Article 17 — Non-sollicitation et non-contournement",
         texte: [
           "Pendant la durée du contrat et pendant DOUZE (12) MOIS après son terme, le Prestataire s'interdit de proposer ou fournir, directement ou par personne interposée, des prestations de même nature aux garages qui lui ont été affectés en exécution du présent contrat, sauf accord écrit préalable du Donneur d'ordre.",
-          "⚠️ NON-CONTOURNEMENT — cette interdiction s'applique Y COMPRIS lorsque l'initiative vient du garage. Si un garage propose au Prestataire de travailler directement pour lui, à quelque titre que ce soit (prestation, contrat de travail, mise à disposition, société interposée), le Prestataire doit REFUSER et en informer sans délai le Donneur d'ordre. Toute mise en relation commerciale avec un garage passe par le Donneur d'ordre.",
+          "NON-CONTOURNEMENT — cette interdiction s'applique Y COMPRIS lorsque l'initiative vient du garage. Si un garage propose au Prestataire de travailler directement pour lui, à quelque titre que ce soit (prestation, contrat de travail, mise à disposition, société interposée), le Prestataire doit REFUSER et en informer sans délai le Donneur d'ordre. Toute mise en relation commerciale avec un garage passe par le Donneur d'ordre.",
           "Cette clause, limitée aux seuls garages effectivement affectés, à douze mois et au territoire français, ne fait pas obstacle à la poursuite et au développement de l'activité du Prestataire auprès de tout autre client : il ne s'agit PAS d'une clause de non-concurrence.",
           "En cas de manquement, le Prestataire devra au Donneur d'ordre une indemnité égale à six (6) mois de rémunération perçue au titre du garage concerné, sans préjudice de la réparation d'un préjudice supérieur.",
           "Réciproquement, le Donneur d'ordre s'interdit de solliciter les clients propres du Prestataire dont il aurait connaissance.",

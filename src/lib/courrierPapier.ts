@@ -52,7 +52,7 @@ export async function cloturerTaches(origine: string): Promise<void> {
 export async function programmerTacheAPoster(c: CourrierRecouvrement, canal: "lrar" | "courrier" | "remis_en_main"): Promise<void> {
   const mode = canal === "lrar" ? "en recommandé AR" : canal === "courrier" ? "en courrier simple" : "en main propre";
   await creerTacheSiAbsente({
-    texte: `📮 À poster ${mode} : ${libelleCourrier(c)} → ${c.destinataire_nom || c.destinataire} — puis confirmer l'envoi dans le dossier`,
+    texte: `À poster ${mode} : ${libelleCourrier(c)} → ${c.destinataire_nom || c.destinataire} — puis confirmer l'envoi dans le dossier`,
     dossierId: c.dossier_id,
     origine: origineAPoster(c.id),
     echeance: echeanceRappel(1),
@@ -62,7 +62,7 @@ export async function programmerTacheAPoster(c: CourrierRecouvrement, canal: "lr
 /** Tâche « AR à joindre » après un recommandé posté. */
 export async function programmerTacheAR(c: CourrierRecouvrement, numero?: string | null): Promise<void> {
   await creerTacheSiAbsente({
-    texte: `📬 Joindre la photo de l'avis de réception${numero ? ` (recommandé n° ${numero})` : ""} : ${libelleCourrier(c)} → ${c.destinataire_nom || c.destinataire}`,
+    texte: `Joindre la photo de l'avis de réception${numero ? ` (recommandé n° ${numero})` : ""} : ${libelleCourrier(c)} → ${c.destinataire_nom || c.destinataire}`,
     dossierId: c.dossier_id,
     origine: origineAR(c.id),
     echeance: echeanceRappel(7),

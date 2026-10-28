@@ -1,7 +1,7 @@
 // ====================================================================
 //  RÉMUNÉRATION DES COLLABORATEURS INDÉPENDANTS — BRUT / NET (v11.3)
 //
-//  ⚠️ POURQUOI CE MODULE EXISTE
+//  POURQUOI CE MODULE EXISTE
 //  Retour utilisateur : « dans les contrats certains montants de revenus
 //  sont notés HT / TTC, or il s\'agit de revenus, on doit savoir
 //  clairement si c\'est du NET ou du BRUT ».

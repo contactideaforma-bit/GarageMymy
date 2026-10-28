@@ -117,7 +117,7 @@ export default function FicheRecapModal({ dossier, documents, onClose }: { dossi
         </div>
         <div className="flex gap-2">
           <button onClick={copier} className="btn-primary">
-            {copie === "ok" ? "Copié ✓" : copie === "erreur" ? "Copie impossible" : "Copier la fiche"}
+            {copie === "ok" ? "Copié" : copie === "erreur" ? "Copie impossible" : "Copier la fiche"}
           </button>
           <button onClick={onClose} className="btn-ghost">Fermer</button>
         </div>

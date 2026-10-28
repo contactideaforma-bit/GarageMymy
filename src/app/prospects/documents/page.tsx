@@ -17,6 +17,7 @@ import type { ContenuContrat } from "@/lib/admin/contratCollaborateur";
 import { construireContratCollaborateurPdf, prechargerLogoPdf } from "@/lib/admin/contratPdf";
 import { DOCS_COMMERCIAL, DocPack, nomFichierDoc } from "@/lib/admin/packDocs";
 import { fetchAuth } from "@/lib/apiClient";
+import Ico from "@/components/Ico";
 
 async function telechargerPack(d: DocPack) {
   const res = await fetchAuth(`/api/commercial/pack?cle=${encodeURIComponent(d.cle)}`);
@@ -67,7 +68,7 @@ export default function MesDocumentsPage() {
           <h1 className="titre-page">Mes documents</h1>
           <p className="text-sm text-white/50">Contrat de collaboration et documentation commerciale{ctx?.collaborateur ? ` — ${nomCommercial(ctx.collaborateur)}` : ""}.</p>
         </div>
-        <Link href="/prospects" className="btn-ghost">👥 Mes clients</Link>
+        <Link href="/prospects" className="btn-ghost"><Ico n="users" /> Mes clients</Link>
       </div>
       {erreur && <p className="badge badge-danger mb-4">{erreur}</p>}
 
@@ -101,7 +102,7 @@ export default function MesDocumentsPage() {
         <div className="grid gap-1.5 sm:grid-cols-2">
           {DOCS_COMMERCIAL.map((d) => (
             <div key={d.cle} className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-              <span className="truncate text-sm text-white/80">📄 {d.titre}</span>
+              <span className="truncate text-sm text-white/80"><Ico n="file" /> {d.titre}</span>
               <button className="shrink-0 text-sm text-accent-pink hover:underline" onClick={() => telechargerPack(d).catch((e) => alert(messageErreur(e, "Téléchargement impossible.")))}>
                 Télécharger
               </button>

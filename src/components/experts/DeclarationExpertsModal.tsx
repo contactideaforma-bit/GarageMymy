@@ -29,6 +29,7 @@ import {
   CHAMPS_DECLARATION, INGREDIENTS, INTRO_DEFAUT, InfosDeclaration, SUJET_DEFAUT, TAUX_MO,
   construireEmail, emailExpert, kbisAncien, manquants,
 } from "@/lib/declarationExperts";
+import Ico from "@/components/Ico";
 
 type Etape = 1 | 2 | 3 | 4 | 5;
 const ETAPES: [Etape, string][] = [[1, "Mon garage"], [2, "Taux & Kbis"], [3, "Destinataires"], [4, "Message"], [5, "Envoi"]];
@@ -143,7 +144,7 @@ export default function DeclarationExpertsModal({ experts: expertsInitiaux, onCl
     setBusy(false);
     if (error) return setErr(messageErreur(error, "Ajout impossible."));
     setNouveau({ cabinet: "", expert_nom: "", email: "", tel: "", ville: "" });
-    setInfo(`✓ ${nouveau.cabinet.trim()} ajouté à la base et sélectionné.`);
+    setInfo(`${nouveau.cabinet.trim()} ajouté à la base et sélectionné.`);
     await chargerExperts();
   }
 
@@ -158,7 +159,7 @@ export default function DeclarationExpertsModal({ experts: expertsInitiaux, onCl
     setBusy(false);
     if (error) return setErr(messageErreur(error, "Ajout impossible."));
     setColle("");
-    setInfo(`✓ ${emails.length} cabinet${emails.length > 1 ? "s" : ""} ajouté${emails.length > 1 ? "s" : ""} à la base et sélectionné${emails.length > 1 ? "s" : ""} (nom déduit de l'adresse, modifiable dans Base de données → Experts).`);
+    setInfo(`${emails.length} cabinet${emails.length > 1 ? "s" : ""} ajouté${emails.length > 1 ? "s" : ""} à la base et sélectionné${emails.length > 1 ? "s" : ""} (nom déduit de l'adresse, modifiable dans Base de données → Experts).`);
     await chargerExperts();
   }
   const m = manquants(infos);
@@ -218,7 +219,7 @@ export default function DeclarationExpertsModal({ experts: expertsInitiaux, onCl
     setInfo(null);
     try {
       await appel({ test: true, sujet, intro, avecKbis: avecKbis && Boolean(infos.kbis_path) });
-      setInfo(`✓ Email de test envoyé à ${infos.email}. Ouvre-le pour vérifier le rendu (logo, tableau, pièce jointe).`);
+      setInfo(`Email de test envoyé à ${infos.email}. Ouvre-le pour vérifier le rendu (logo, tableau, pièce jointe).`);
     } catch (e) {
       setErr(messageErreur(e, "Envoi du test impossible."));
     } finally {
@@ -271,7 +272,7 @@ export default function DeclarationExpertsModal({ experts: expertsInitiaux, onCl
               onClick={() => setEtape(n)}
               className={`flex w-full flex-col items-center gap-1 rounded-lg px-1 py-1.5 ${n === etape ? "bg-accent-pink/10" : ""}`}
             >
-              <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${n < etape ? "bg-emerald-500 text-white" : n === etape ? "bg-accent-pink text-white" : "border-2 border-white/25 text-white/50"}`}>{n < etape ? "✓" : n}</span>
+              <span className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${n < etape ? "bg-emerald-500 text-white" : n === etape ? "bg-accent-pink text-white" : "border-2 border-white/25 text-white/50"}`}>{n < etape ? "check" : n}</span>
               <span className={`text-[11px] leading-tight ${n === etape ? "font-semibold text-white" : "text-white/55"}`}>{l}</span>
             </button>
           </li>
@@ -341,8 +342,8 @@ export default function DeclarationExpertsModal({ experts: expertsInitiaux, onCl
                   </div>
                 </div>
                 <p className="mt-1 text-xs">
-                  {kbisFichier ? <span className="text-emerald-300">✓ {kbisFichier.name} sera enregistré.</span> : infos.kbis_path ? <span className="text-emerald-300">✓ Kbis déjà enregistré.</span> : <span className="text-amber-200">Aucun Kbis pour l&apos;instant (conseillé).</span>}
-                  {kbisAncien(infos.kbis_date) && <span className="ml-2 text-amber-200">⚠ Extrait de plus de 3 mois : pense à en télécharger un récent sur infogreffe.fr.</span>}
+                  {kbisFichier ? <span className="text-emerald-300"><Ico n="check" /> {kbisFichier.name} sera enregistré.</span> : infos.kbis_path ? <span className="text-emerald-300"><Ico n="check" /> Kbis déjà enregistré.</span> : <span className="text-amber-200">Aucun Kbis pour l&apos;instant (conseillé).</span>}
+                  {kbisAncien(infos.kbis_date) && <span className="ml-2 text-amber-200"><Ico n="alert" /> Extrait de plus de 3 mois : pense à en télécharger un récent sur infogreffe.fr.</span>}
                 </p>
               </div>
               <Bilan m={m} />
@@ -357,7 +358,7 @@ export default function DeclarationExpertsModal({ experts: expertsInitiaux, onCl
               {/* Ajouter des cabinets dans la base */}
               <div className="rounded-xl border-2 border-dashed border-white/20 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-white">➕ Ajouter des cabinets d&apos;expertise</div>
+                  <div className="text-sm font-semibold text-white"><Ico n="plus" /> Ajouter des cabinets d&apos;expertise</div>
                   <Link href="/annuaire?tab=experts" className="text-xs text-accent-teal hover:underline">Ouvrir la base des experts ↗</Link>
                 </div>
                 {!ajoutOuvert ? (
@@ -431,7 +432,7 @@ export default function DeclarationExpertsModal({ experts: expertsInitiaux, onCl
                     Joindre l&apos;extrait Kbis {infos.kbis_path ? "" : "(non enregistré — étape 2)"}
                   </label>
                   <p className="text-xs text-white/55">Le salut s&apos;adapte à chaque cabinet (« Bonjour M. Dupont » quand le nom de l&apos;expert est connu). Le tableau des coordonnées et des taux est ajouté automatiquement sous ton message.</p>
-                  <button className="btn-ghost w-full justify-center" disabled={busy} onClick={test}>{busy ? "Envoi…" : `✉️ M'envoyer un test (${infos.email || "email du profil"})`}</button>
+                  <button className="btn-ghost w-full justify-center" disabled={busy} onClick={test}>{busy ? "Envoi…" : `M'envoyer un test (${infos.email || "email du profil"})`}</button>
                 </div>
                 <div>
                   <div className="mb-1 text-xs font-semibold uppercase tracking-wider text-white/45">Aperçu — tel que le cabinet le recevra</div>
@@ -461,17 +462,17 @@ export default function DeclarationExpertsModal({ experts: expertsInitiaux, onCl
               )}
               {termine && (
                 <p className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-                  ✅ {envoyes} email{envoyes > 1 ? "s" : ""} envoyé{envoyes > 1 ? "s" : ""}{resultats.length - envoyes ? ` · ${resultats.length - envoyes} échec(s) ci-dessous` : ""}. Chaque cabinet est marqué « envoyé » dans l&apos;annuaire. Retrouve les envois dans l&apos;historique des emails.
+                  <Ico n="check-circle" /> {envoyes} email{envoyes > 1 ? "s" : ""} envoyé{envoyes > 1 ? "s" : ""}{resultats.length - envoyes ? ` · ${resultats.length - envoyes} échec(s) ci-dessous` : ""}. Chaque cabinet est marqué « envoyé » dans l&apos;annuaire. Retrouve les envois dans l&apos;historique des emails.
                 </p>
               )}
               {resultats.some((r) => !r.ok) && (
                 <ul className="space-y-1 text-xs text-rose-300">
-                  {resultats.filter((r) => !r.ok).map((r) => <li key={r.email}>✗ {r.cabinet || r.email} ({r.email}) : {r.erreur}</li>)}
+                  {resultats.filter((r) => !r.ok).map((r) => <li key={r.email}><Ico n="x" /> {r.cabinet || r.email} ({r.email}) : {r.erreur}</li>)}
                 </ul>
               )}
               {!termine && (
                 <button className="btn-primary w-full justify-center !py-3 !text-base" disabled={busy || !selection.length} onClick={envoyer}>
-                  {busy ? "Envoi en cours…" : `📣 Envoyer à ${selection.length} cabinet${selection.length > 1 ? "s" : ""}`}
+                  {busy ? "Envoi en cours…" : `Envoyer à ${selection.length} cabinet${selection.length > 1 ? "s" : ""}`}
                 </button>
               )}
             </>
@@ -496,7 +497,7 @@ export default function DeclarationExpertsModal({ experts: expertsInitiaux, onCl
 }
 
 function Aide({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-lg border border-accent-teal/30 bg-accent-teal/10 px-3 py-2 text-xs text-white/80">💡 {children}</p>;
+  return <p className="rounded-lg border border-accent-teal/30 bg-accent-teal/10 px-3 py-2 text-xs text-white/80"><Ico n="sparkles" /> {children}</p>;
 }
 
 function Champ({ label, v, on, type = "text", placeholder }: { label: string; v: string | null; on: (v: string | null) => void; type?: string; placeholder?: string }) {
@@ -531,7 +532,7 @@ function Taux({ label, aide, v, on }: { label: string; aide?: string; v: number 
 }
 
 function Bilan({ m }: { m: { bloquants: string[]; conseilles: string[] } }) {
-  if (!m.bloquants.length && !m.conseilles.length) return <p className="text-sm text-emerald-300">✓ Déclaration complète.</p>;
+  if (!m.bloquants.length && !m.conseilles.length) return <p className="text-sm text-emerald-300"><Ico n="check" /> Déclaration complète.</p>;
   return (
     <div className="space-y-1 text-xs">
       {m.bloquants.length > 0 && <p className="text-rose-300">Obligatoire avant l&apos;envoi : {m.bloquants.join(", ")}.</p>}

@@ -52,7 +52,7 @@ export default function CollaborateurFormModal({
           try {
             const r = await creerCompteCollaborateur(id, form.email || undefined);
             if (r.dejaExistant) alert("Un compte existait déjà avec cet email : il a été rattaché à la fiche et passé en métier « commercial ».");
-            else if (r.emailEnvoye) alert("Compte commercial créé ✔ — l'email de bienvenue (identifiants) vient de partir.");
+            else if (r.emailEnvoye) alert("Compte commercial créé — l'email de bienvenue (identifiants) vient de partir.");
             else alert(`Compte créé, mais l'email de bienvenue n'est pas parti (${r.erreurEmail || "envoi impossible"}).\nMot de passe provisoire à transmettre : ${r.motDePasse || "—"}`);
           } catch (e) {
             alert(`Fiche enregistrée, mais création du compte impossible : ${e instanceof Error ? e.message : "erreur"}`);

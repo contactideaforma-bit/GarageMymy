@@ -1,6 +1,6 @@
 "use client";
 
-// RECHERCHE DE SIREN (v52) — bouton « 🔍 SIREN » + liste de résultats.
+// RECHERCHE DE SIREN (v52) — bouton « SIREN » + liste de résultats.
 // Interroge /api/siren (annuaire public des entreprises) avec le nom de la
 // société ; un clic sur un résultat renvoie SIREN + adresse + TVA au parent,
 // qui décide quoi remplir (jamais d'écrasement d'une adresse déjà saisie).
@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import type { ResultatSiren } from "@/app/api/siren/route";
+import Ico from "@/components/Ico";
 
 export type { ResultatSiren };
 
@@ -57,7 +58,7 @@ export default function RechercheSiren({
         onClick={() => { setRequete(nom); chercher(nom); }}
         title="Trouver le SIREN dans l'annuaire officiel des entreprises"
       >
-        {busy ? "Recherche…" : libelle ?? "🔍 SIREN"}
+        {busy ? "Recherche…" : libelle ?? "SIREN"}
       </button>
 
       {ouvert && (
@@ -72,7 +73,7 @@ export default function RechercheSiren({
               autoFocus
             />
             <button type="button" className="btn-ghost btn-compact" onClick={() => chercher(requete)} disabled={busy}>OK</button>
-            <button type="button" className="btn-ghost btn-compact" onClick={() => setOuvert(false)} aria-label="Fermer">✕</button>
+            <button type="button" className="btn-ghost btn-compact" onClick={() => setOuvert(false)} aria-label="Fermer"><Ico n="x" /></button>
           </div>
           {erreur && <p className="mt-2 text-xs text-amber-300">{erreur}</p>}
           <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto">

@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
   const res = await envoyerPush(admin, user.id, {
     titre: "My Easy Auto",
-    corps: "Notification de test — tout fonctionne 👍",
+    corps: "Notification de test — tout fonctionne",
     url: "/",
     tag: "test",
   });

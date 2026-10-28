@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import { FEUILLES_TRANCHE_1, JETONS_PAR_ENVOI } from "@/lib/jetons";
+import Ico from "@/components/Ico";
 
 const CLE = "mea.courriers.guideVu";
 
@@ -42,11 +43,11 @@ export default function GuideCourriers({ compact = false, onCompris }: { compact
 
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="glass-soft p-3">
-          <div className="font-semibold text-white">✉ Lettre simple — {JETONS_PAR_ENVOI.simple} jeton</div>
+          <div className="font-semibold text-white"><Ico n="mail" /> Lettre simple — {JETONS_PAR_ENVOI.simple} jeton</div>
           <div className="text-xs text-white/65">Déposée dans la boîte aux lettres du destinataire, en général sous 2 à 3 jours ouvrés. Pour les courriers d&apos;information, relances amiables, envois de factures.</div>
         </div>
         <div className="glass-soft p-3">
-          <div className="font-semibold text-white">📮 Recommandé AR — {JETONS_PAR_ENVOI.lrar} jetons</div>
+          <div className="font-semibold text-white"><Ico n="mailbox" /> Recommandé AR — {JETONS_PAR_ENVOI.lrar} jetons</div>
           <div className="text-xs text-white/65">Un vrai recommandé La Poste, remis par le facteur contre signature. Même valeur qu&apos;un recommandé déposé au guichet : preuve de dépôt, n° de suivi et avis de réception. Pour les mises en demeure et tout ce qui doit faire foi.</div>
         </div>
       </div>

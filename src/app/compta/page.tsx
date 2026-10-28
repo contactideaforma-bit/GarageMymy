@@ -12,6 +12,7 @@ import { formatDate, formatEuros, messageErreur } from "@/lib/format";
 import {
   DonneesCompta, Periode, chargerDonneesCompta, exporterClasseurCompta, exporterPiecesCompta, periodeAnnee, periodeMois, periodeTrimestre, synthese,
 } from "@/lib/compta";
+import Ico from "@/components/Ico";
 
 type Mode = "mois" | "trimestre" | "annee" | "libre";
 
@@ -118,10 +119,10 @@ export default function ComptaPage() {
         <div className="glass-card p-4">
           <h2 className="titre-bloc">Classeur Excel (4 onglets)</h2>
           <ul className="mt-2 space-y-1 text-sm text-white/70">
-            <li>📒 <b>Journal des ventes</b> — chaque facture : n°, client, SIREN, sinistre, nature (réparation / gardiennage), HT, taux, TVA, TTC, échéance, mode, statut, encaissé, reste dû.</li>
-            <li>💶 <b>Encaissements</b> — chaque paiement : date, montant, moyen, référence, facture, client.</li>
-            <li>🧾 <b>TVA collectée</b> — par taux.</li>
-            <li>👥 <b>Balance clients</b> — facturé, encaissé, reste dû, plus ancienne échéance impayée.</li>
+            <li><Ico n="book" /> <b>Journal des ventes</b> — chaque facture : n°, client, SIREN, sinistre, nature (réparation / gardiennage), HT, taux, TVA, TTC, échéance, mode, statut, encaissé, reste dû.</li>
+            <li><Ico n="euro" /> <b>Encaissements</b> — chaque paiement : date, montant, moyen, référence, facture, client.</li>
+            <li><Ico n="receipt" /> <b>TVA collectée</b> — par taux.</li>
+            <li><Ico n="users" /> <b>Balance clients</b> — facturé, encaissé, reste dû, plus ancienne échéance impayée.</li>
           </ul>
           <button onClick={classeur} disabled={!data} className="btn-primary mt-3">Télécharger le classeur (.xlsx)</button>
         </div>

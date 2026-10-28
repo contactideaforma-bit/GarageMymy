@@ -32,6 +32,7 @@ import { DATE_TAUX, netAvantImpot, regimeDe, tauxPrelevements } from "@/lib/admi
 import { construireContratCollaborateurPdf, prechargerLogoPdf } from "@/lib/admin/contratPdf";
 import { docsPour, DocPack } from "@/lib/admin/packDocs";
 import { fetchAuth } from "@/lib/apiClient";
+import Ico from "@/components/Ico";
 
 /** Téléchargement authentifié d'un document du pack (l'API exige le jeton). */
 async function telechargerDocPack(d: DocPack) {
@@ -121,7 +122,7 @@ export default function FicheCollaborateurPage() {
     try {
       const r = await creerCompteCollaborateur(c.id, emailCompte.trim());
       if (r.dejaExistant) alert("Un compte existait déjà avec cet email : il est rattaché à la fiche et passé en métier « commercial ».");
-      else if (r.emailEnvoye) alert("Compte commercial créé ✔ — l'email de bienvenue (identifiants + mot de passe provisoire) vient de partir.");
+      else if (r.emailEnvoye) alert("Compte commercial créé — l'email de bienvenue (identifiants + mot de passe provisoire) vient de partir.");
       else alert(`Compte créé, mais l'email de bienvenue n'est pas parti (${r.erreurEmail || "envoi impossible"}).\nMot de passe provisoire à transmettre : ${r.motDePasse || "—"}`);
       load();
     } catch (e) {
@@ -191,7 +192,7 @@ export default function FicheCollaborateurPage() {
       });
       setSignature(null);
       await load();
-      alert("Contrat signé ✔ — le PDF signé est régénérable à tout moment (et visible dans « Mes documents » pour un commercial).");
+      alert("Contrat signé — le PDF signé est régénérable à tout moment (et visible dans « Mes documents » pour un commercial).");
     } catch (e) {
       alert(e instanceof Error ? e.message : "Signature impossible.");
     } finally {
@@ -247,7 +248,7 @@ export default function FicheCollaborateurPage() {
         contratNom = `${contratSigne.titre.toLowerCase().replace(/[^a-z0-9]+/gi, "-")}-signe.pdf`;
       }
       const r = await envoyerDocsCollaborateur({ collaborateur_id: c.id, cles, contrat_pdf: contratPdf, contrat_nom: contratNom });
-      alert(`${r.envoyes} document${r.envoyes > 1 ? "s" : ""} envoyé${r.envoyes > 1 ? "s" : ""} à ${r.a} ✔`);
+      alert(`${r.envoyes} document${r.envoyes > 1 ? "s" : ""} envoyé${r.envoyes > 1 ? "s" : ""} à ${r.a} <Ico n="check" />`);
       setSelection({});
     } catch (e) {
       alert(e instanceof Error ? e.message : "Envoi impossible.");
@@ -281,10 +282,10 @@ export default function FicheCollaborateurPage() {
               {c.type === "commercial" && c.code_apporteur && <span className="badge badge-neutral">Code <b className="font-mono">{c.code_apporteur}</b></span>}
             </div>
             <div className="mt-3 grid gap-x-6 gap-y-1 text-sm text-white/70 sm:grid-cols-2">
-              {c.email && <div>📧 {c.email}</div>}
-              {c.tel && <div>📞 {c.tel}</div>}
+              {c.email && <div><Ico n="mail" /> {c.email}</div>}
+              {c.tel && <div><Ico n="phone" /> {c.tel}</div>}
               {c.siret && <div>SIRET {c.siret}</div>}
-              {c.adresse && <div>📍 {c.adresse}</div>}
+              {c.adresse && <div><Ico n="map-pin" /> {c.adresse}</div>}
               {c.type === "commercial" && c.zone && <div>Zone : {c.zone}</div>}
               {c.type === "commercial" && c.portefeuille && <div>Portefeuille : {c.portefeuille}</div>}
               {c.type === "secretaire" && <div>Taux horaire : {c.taux_horaire != null ? `${Number(c.taux_horaire)} €/h` : "17 €/h (défaut)"}</div>}
@@ -308,7 +309,7 @@ export default function FicheCollaborateurPage() {
               </p>
             ) : c.owner_id ? (
               <p className="text-sm text-white/70">
-                ✔ Compte commercial rattaché : <b>{compteEmail}</b>
+                <Ico n="check" /> Compte commercial rattaché : <b>{compteEmail}</b>
                 <span className="mt-1 block text-xs text-white/45">Il retrouve « Mes clients » et « Mes documents » (contrat + documentation) dans son espace commercial.</span>
               </p>
             ) : (
@@ -434,7 +435,7 @@ export default function FicheCollaborateurPage() {
                 <div key={d.cle} className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
                   <label className="flex min-w-0 items-center gap-2 text-sm text-white/80">
                     <input type="checkbox" checked={!!selection[d.cle]} onChange={(e) => setSelection((s) => ({ ...s, [d.cle]: e.target.checked }))} />
-                    <span className="truncate">📄 {d.titre}</span>
+                    <span className="truncate"><Ico n="file" /> {d.titre}</span>
                   </label>
                   <button className="shrink-0 text-sm text-accent-pink hover:underline" onClick={() => telechargerDocPack(d).catch((e) => alert(e.message))}>Télécharger</button>
                 </div>

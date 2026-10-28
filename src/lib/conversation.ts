@@ -7,7 +7,7 @@
 //  celui de l'atelier sur « garage ». L'auteur est porté par chaque
 //  message ; les non-lus se comptent PAR RÔLE (lu_garage / lu_secretaire).
 //
-//  ⚠️ TOLÉRANCE MIGRATION : comme lib/ardoise.ts — si la table manque
+//  TOLÉRANCE MIGRATION : comme lib/ardoise.ts — si la table manque
 //  (migration v59 non exécutée), on renvoie dispo=false et l'écran
 //  explique quoi faire au lieu de planter.
 // ============================================================
@@ -18,8 +18,8 @@ import { MessageConversation } from "./types";
 export type RoleConversation = "garage" | "secretaire";
 
 export const ROLES: { valeur: RoleConversation; label: string; icone: string }[] = [
-  { valeur: "garage", label: "Garage", icone: "🔧" },
-  { valeur: "secretaire", label: "Chargé de mission", icone: "🗂️" },
+  { valeur: "garage", label: "Garage", icone: "wrench" },
+  { valeur: "secretaire", label: "Chargé de mission", icone: "folder-open" },
 ];
 
 export const libelleRole = (r: RoleConversation | null | undefined): string =>
@@ -114,7 +114,7 @@ export async function supprimerMessage(id: string): Promise<void> {
 
 export const ASTUCES_MYMY: string[] = [
   "Le bouton en haut définit QUI écrit : laisse le poste du chargé de mission sur « Chargé de mission » et celui de l'atelier sur « Garage » — c'est mémorisé sur chaque appareil.",
-  "Relie un message à un dossier avec 🔍 : l'autre ouvre la fiche en un clic, fini les « c'est pour quelle voiture ? ».",
+  "Relie un message à un dossier avec : l'autre ouvre la fiche en un clic, fini les « c'est pour quelle voiture ? ».",
   "Une tâche créée ici apparaît aussi dans le bloc « À faire » du tableau de bord — et réciproquement. Une seule liste, deux endroits pour la voir.",
   "Précise « pour le chargé de mission » ou « pour le garage » sur une tâche : chacun filtre les siennes dans « À faire ».",
   "Donne une échéance à une tâche : elle se cale automatiquement dans l'agenda.",

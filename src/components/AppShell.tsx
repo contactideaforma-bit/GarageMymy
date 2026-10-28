@@ -72,7 +72,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           fin du contrat, fermeture — piloté depuis l'espace éditeur. */}
       <BandeauCompte />
       <div className="lg:flex min-h-screen">
-      {/* COQUE MOBILE (v13.50) : plus de tiroir ☰ sur téléphone — la
+      {/* COQUE MOBILE (v13.50) : plus de tiroir sur téléphone — la
           navigation passe par la barre d'onglets du bas (BarreMobile) et
           l'onglet « Plus ». En haut, une barre fine : logo → accueil,
           salutation, actualiser. */}

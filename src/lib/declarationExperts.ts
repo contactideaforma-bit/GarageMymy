@@ -154,7 +154,7 @@ ${bloc("Coordonnées du réparateur", identite)}
 ${bloc("Taux horaires de main-d'œuvre", taux)}
 ${bloc("Ingrédients peinture", ingr)}
 ${bloc("Informations complémentaires", autres)}
-${opts.avecKbis ? `<p style="margin:18px 0 0;font-size:13px;color:#5b6077">📎 Pièce jointe : extrait Kbis${i.kbis_date ? ` du ${new Date(i.kbis_date + "T00:00:00").toLocaleDateString("fr-FR")}` : ""}.</p>` : ""}
+${opts.avecKbis ? `<p style="margin:18px 0 0;font-size:13px;color:#5b6077">Pièce jointe : extrait Kbis${i.kbis_date ? ` du ${new Date(i.kbis_date + "T00:00:00").toLocaleDateString("fr-FR")}` : ""}.</p>` : ""}
 <p style="margin:18px 0 0;text-align:justify">Nous restons à votre disposition pour tout complément (RIB, attestation d'assurance, visite de l'atelier). Pour nous missionner : ${esc([i.email, i.tel].filter(Boolean).join(" · "))}.</p>
 <p style="margin:18px 0 0">Bien cordialement,</p>
 <p style="margin:6px 0 0;font-weight:600">${signature}</p>

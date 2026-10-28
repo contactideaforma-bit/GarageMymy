@@ -32,6 +32,7 @@ import { erreurReseau, dateDuCache, memoriser, relire } from "@/lib/horsLigne";
 import RappelSauvegarde from "@/components/RappelSauvegarde";
 import { euroRecuperes } from "@/lib/recouvrement";
 import { ouvrirRecherche } from "@/lib/mobile";
+import Ico from "@/components/Ico";
 
 /** Copie locale du tableau de bord (mode dégradé, v47). */
 const CLE_CACHE_DASHBOARD = "tableau-de-bord";
@@ -279,41 +280,41 @@ export default function DashboardPage() {
         </button>
         <div className="grid grid-cols-4 gap-2">
           <Link href="/import" className="action-client principal">
-            <span className="ico" aria-hidden>📄</span>
+            <span className="ico" aria-hidden><Ico n="file" /></span>
             <span>Nouveau</span>
           </Link>
           <button type="button" className="action-client" onClick={() => ouvrirRecherche("photos")}>
-            <span className="ico" aria-hidden>📸</span>
+            <span className="ico" aria-hidden><Ico n="camera" /></span>
             <span>Photos</span>
           </button>
           <button type="button" className="action-client" onClick={() => ouvrirRecherche("contact")}>
-            <span className="ico" aria-hidden>📞</span>
+            <span className="ico" aria-hidden><Ico n="phone" /></span>
             <span>Contacter</span>
           </button>
           <Link href="/agenda" className="action-client">
-            <span className="ico" aria-hidden>📅</span>
+            <span className="ico" aria-hidden><Ico n="calendar" /></span>
             <span>Agenda</span>
           </Link>
         </div>
         {/* Les 4 compteurs, compacts, deux par ligne. */}
         <div className="grid grid-cols-2 gap-2">
           <Link href="/vehicules" className="kpi-mobile">
-            <span className="etiquette">🚗 Au garage</span>
+            <span className="etiquette"><Ico n="car" /> Au garage</span>
             <span className="val">{presentsCount}</span>
             <span className="sous">véhicules présents</span>
           </Link>
           <Link href="/sinistres" className="kpi-mobile">
-            <span className="etiquette">📁 En cours</span>
+            <span className="etiquette"><Ico n="folder" /> En cours</span>
             <span className="val">{enCours.length}</span>
             <span className="sous">{formatEuros(totalEnCoursHt)} HT</span>
           </Link>
           <Link href="/factures" className="kpi-mobile">
-            <span className="etiquette">🧾 Facturé ce mois</span>
+            <span className="etiquette"><Ico n="receipt" /> Facturé ce mois</span>
             <span className="val">{formatEuros(totalMoisHt)}</span>
             <span className="sous">HT · {formatEuros(totalMois)} TTC</span>
           </Link>
           <Link href="/finance" className="kpi-mobile">
-            <span className="etiquette">💶 Encaissé ce mois</span>
+            <span className="etiquette"><Ico n="euro" /> Encaissé ce mois</span>
             <span className="val">{formatEuros(encaisseMois)}</span>
             <span className="sous">reste dû {formatEuros(resteEncaisser)}</span>
           </Link>
@@ -328,12 +329,12 @@ export default function DashboardPage() {
       {/* HUD : les 4 compteurs du garage (grand écran) */}
       <div className="bureau-seulement grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Link href="/vehicules">
-          <StatCard accent="teal" icone="🚗" label="Véhicules au garage" value={String(presentsCount)} hint="actuellement présents" />
+          <StatCard accent="teal" icone="car" label="Véhicules au garage" value={String(presentsCount)} hint="actuellement présents" />
         </Link>
         <Link href="/sinistres">
           <StatCard
             accent="violet"
-            icone="📁"
+            icone="folder"
             label="Dossiers en cours"
             value={String(enCours.length)}
             hint={`${formatEuros(totalEnCoursHt)} HT · ${formatEuros(totalEnCoursTtc)} TTC`}
@@ -342,7 +343,7 @@ export default function DashboardPage() {
         <Link href="/factures">
           <StatCard
             accent="pink"
-            icone="🧾"
+            icone="receipt"
             label="Facturé ce mois"
             value={`${formatEuros(totalMoisHt)} HT`}
             hint={`${formatEuros(totalMois)} TTC · ${now.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}`}
@@ -351,7 +352,7 @@ export default function DashboardPage() {
         <Link href="/finance">
           <StatCard
             accent="emerald"
-            icone="💶"
+            icone="euro"
             label="Encaissé ce mois"
             value={formatEuros(encaisseMois)}
             hint={`TTC · reste à encaisser : ${formatEuros(resteEncaisser)}`}
@@ -366,7 +367,7 @@ export default function DashboardPage() {
           className="anim-apparition mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border-2 border-emerald-400/40 bg-emerald-500/10 px-4 py-2.5"
         >
           <span className="text-sm text-emerald-100">
-            💪 Les relances automatiques ont ramené{" "}
+            <Ico n="hand" /> Les relances automatiques ont ramené{" "}
             <span className="font-bold">{formatEuros(recupere.montant)}</span> sur{" "}
             {recupere.factures} facture{recupere.factures > 1 ? "s" : ""}.
           </span>

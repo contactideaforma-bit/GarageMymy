@@ -283,7 +283,7 @@ function Coche({ ok, optionnel = false }: { ok: boolean; optionnel?: boolean }) 
       }}
       aria-label={ok ? "Présent" : "Manquant"}
     >
-      {ok ? "✓" : optionnel ? "·" : "✗"}
+      {ok ? "check" : optionnel ? "·" : "x"}
     </span>
   );
 }

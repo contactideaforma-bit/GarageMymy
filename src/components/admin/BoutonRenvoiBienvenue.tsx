@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import { ResultatRenvoiBienvenue, renvoyerBienvenue } from "@/lib/admin/client";
+import Ico from "@/components/Ico";
 
 export default function BoutonRenvoiBienvenue({ cible, email, compact = true }: { cible: { vente_id?: string; abonnement_id?: string }; email: string; compact?: boolean }) {
   const [busy, setBusy] = useState(false);
@@ -23,7 +24,7 @@ export default function BoutonRenvoiBienvenue({ cible, email, compact = true }: 
         {busy ? "Envoi…" : "Renvoyer l'email de bienvenue"}
       </button>
       {res && (res.emailEnvoye ? (
-        <span className="text-xs text-emerald-300">✓ envoyé à {res.email}</span>
+        <span className="text-xs text-emerald-300"><Ico n="check" /> envoyé à {res.email}</span>
       ) : (
         <span className="text-xs text-amber-300">Email non parti{res.erreurEmail ? ` (${res.erreurEmail})` : ""}{res.motDePasse ? <> — nouveau mot de passe : <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white">{res.motDePasse}</code></> : null}</span>
       ))}

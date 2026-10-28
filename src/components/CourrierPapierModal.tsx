@@ -27,6 +27,7 @@ import { joindreAccuseReception, libelleCourrier, programmerTacheAPoster, progra
 import ModalShell from "./ModalShell";
 import CameraModal from "./CameraModal";
 import EnvoiPostalModal from "./EnvoiPostalModal";
+import Ico from "@/components/Ico";
 
 export type CanalPapier = "lrar" | "courrier" | "remis_en_main";
 
@@ -106,7 +107,7 @@ export default function CourrierPapierModal({ courrier, dossier, numeroFacture, 
         <div className="space-y-3">
           {COURRIERS_POSTE_ACTIFS && <>
             <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 p-3">
-              <div className="text-sm font-semibold text-white">📮 Envoyer par La Poste depuis l&apos;appli</div>
+              <div className="text-sm font-semibold text-white"><Ico n="mailbox" /> Envoyer par La Poste depuis l&apos;appli</div>
               <p className="mt-0.5 text-xs text-white/65">Le courrier est imprimé et posté pour vous{canal === "lrar" ? " en recommandé AR : n° de recommandé, preuve de dépôt et avis de réception remontent dans le dossier" : ""}.</p>
               <button type="button" onClick={() => setLaPoste(true)} className="btn-primary btn-compact mt-2">{canal === "lrar" ? "Envoyer en recommandé AR par La Poste" : "Envoyer par La Poste"}</button>
             </div>
@@ -123,8 +124,8 @@ export default function CourrierPapierModal({ courrier, dossier, numeroFacture, 
             <div className="flex items-center gap-2 text-sm font-semibold text-white"><span className={`badge ${imprime ? "badge-ok" : "badge-neutral"}`}>1</span> Imprimer le courrier</div>
             <p className="mt-0.5 text-xs text-white/65">Le PDF s&apos;ouvre dans un nouvel onglet : imprimez-le (⌘/Ctrl + P), signez à la main si besoin, puis mettez-le sous enveloppe{canal === "lrar" ? " avec le formulaire de recommandé" : ""}.</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" disabled={busy !== null} onClick={imprimer} className="btn-primary btn-compact">🖨 Ouvrir pour imprimer</button>
-              <button type="button" disabled={busy !== null} onClick={() => generateCourrierRecouvrementPdf(courrier, dossier, numeroFacture)} className="btn-ghost btn-compact">⬇ Télécharger le PDF</button>
+              <button type="button" disabled={busy !== null} onClick={imprimer} className="btn-primary btn-compact"><Ico n="file" /> Ouvrir pour imprimer</button>
+              <button type="button" disabled={busy !== null} onClick={() => generateCourrierRecouvrementPdf(courrier, dossier, numeroFacture)} className="btn-ghost btn-compact"><Ico n="download" /> Télécharger le PDF</button>
             </div>
           </div>
 
@@ -152,7 +153,7 @@ export default function CourrierPapierModal({ courrier, dossier, numeroFacture, 
           {erreur && <div className="rounded-lg border border-rose-400/30 bg-rose-500/15 px-3 py-2 text-sm text-rose-200">{erreur}</div>}
           <div className="flex flex-wrap justify-end gap-2 border-t border-white/10 pt-3">
             <button type="button" disabled={busy !== null} onClick={plusTard} className="btn-ghost btn-compact" title="Laisse une tâche « à poster » dans le dossier">{busy === "plus_tard" ? "…" : "Plus tard — me le rappeler"}</button>
-            <button type="button" disabled={busy !== null} onClick={confirmer} className="btn-primary btn-compact">{busy === "confirmer" ? "Enregistrement…" : "✓ J'ai posté le courrier"}</button>
+            <button type="button" disabled={busy !== null} onClick={confirmer} className="btn-primary btn-compact">{busy === "confirmer" ? "Enregistrement…" : "J'ai posté le courrier"}</button>
           </div>
         </div>
       ) : (
@@ -165,7 +166,7 @@ export default function CourrierPapierModal({ courrier, dossier, numeroFacture, 
               <div className="text-sm font-semibold text-white">Preuve de dépôt</div>
               <p className="mt-0.5 text-xs text-white/60">Le récépissé remis au guichet (ou le mail de La Poste).</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <button type="button" disabled={busy !== null} onClick={() => demanderPhoto("depot")} className="btn-primary btn-compact">📷 Photo</button>
+                <button type="button" disabled={busy !== null} onClick={() => demanderPhoto("depot")} className="btn-primary btn-compact"><Ico n="camera" /> Photo</button>
                 <button type="button" disabled={busy !== null} onClick={() => { setNatureFichier("depot"); inputRef.current?.click(); }} className="btn-ghost btn-compact">Importer</button>
               </div>
             </div>
@@ -173,7 +174,7 @@ export default function CourrierPapierModal({ courrier, dossier, numeroFacture, 
               <div className="text-sm font-semibold text-white">Avis de réception</div>
               <p className="mt-0.5 text-xs text-white/60">Le carton signé par le destinataire, à son retour.</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <button type="button" disabled={busy !== null} onClick={() => demanderPhoto("ar")} className="btn-primary btn-compact">📷 Photo</button>
+                <button type="button" disabled={busy !== null} onClick={() => demanderPhoto("ar")} className="btn-primary btn-compact"><Ico n="camera" /> Photo</button>
                 <button type="button" disabled={busy !== null} onClick={() => { setNatureFichier("ar"); inputRef.current?.click(); }} className="btn-ghost btn-compact">Importer</button>
               </div>
             </div>

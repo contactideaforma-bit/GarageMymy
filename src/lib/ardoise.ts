@@ -11,7 +11,7 @@
 //    3. `evenement_id`— une échéance crée un vrai RDV dans l'agenda,
 //                       pour que le rappel apparaisse dans le calendrier.
 //
-//  ⚠️ TOLÉRANCE MIGRATION : on lit toujours avec `select("*")`. Si la
+//  TOLÉRANCE MIGRATION : on lit toujours avec `select("*")`. Si la
 //  migration v41 n'est pas passée, les colonnes manquent simplement
 //  (undefined) et le reste de l'écran continue de fonctionner.
 // ============================================================

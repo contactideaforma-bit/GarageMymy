@@ -1,7 +1,7 @@
 "use client";
 
 // Fiche de l'annuaire expert (v13.6) : assurance, client ou réparateur.
-// « 🔍 SIREN » : recherche par nom OU par SIRET/SIREN tapé dans le champ nom,
+// « SIREN » : recherche par nom OU par SIRET/SIREN tapé dans le champ nom,
 // via l'annuaire officiel des entreprises → auto-remplissage (nom, adresse,
 // CP, ville, SIREN, SIRET). Rien n'est écrasé s'il y a déjà une adresse.
 

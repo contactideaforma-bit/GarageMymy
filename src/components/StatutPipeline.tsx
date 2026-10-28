@@ -45,7 +45,7 @@ export default function StatutPipeline({
                     : "border-white/20 bg-white/5 text-white/40 group-hover:border-accent-pink/60"
                 }`}
               >
-                {done ? "✓" : i + 1}
+                {done ? "check" : i + 1}
               </span>
               <span
                 className={`text-[11px] whitespace-nowrap ${

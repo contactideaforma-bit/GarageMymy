@@ -233,11 +233,11 @@ async function executer(req: Request) {
       lignes.push(`${heureParis(e.date_evenement)} · ${e.titre}`);
     }
     for (const r of rappels.slice(0, 2)) {
-      lignes.push(`⏰ ${r.texte.slice(0, 60)}`);
+      lignes.push(`${r.texte.slice(0, 60)}`);
     }
     if (urgents.length) {
       const u = urgents[0];
-      lignes.push(`🔴 ${u.titre}${contexte(u.dossier) ? ` — ${contexte(u.dossier)}` : ""}`);
+      lignes.push(`${u.titre}${contexte(u.dossier) ? ` — ${contexte(u.dossier)}` : ""}`);
     }
 
     const titre = `Aujourd'hui : ${resume.join(" · ")}`;

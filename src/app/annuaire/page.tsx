@@ -14,13 +14,14 @@ import ExpertsView from "@/components/ExpertsView";
 import AssureursView from "@/components/AssureursView";
 import ConfigBanner from "@/components/ConfigBanner";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
+import Ico from "@/components/Ico";
 
 type Tab = "clients" | "assureurs" | "experts";
 
 const TABS: { key: Tab; label: string; ico: string; table: "clients" | "assureurs" | "experts" }[] = [
-  { key: "clients", label: "Clients", ico: "👤", table: "clients" },
-  { key: "assureurs", label: "Assurances", ico: "🛡️", table: "assureurs" },
-  { key: "experts", label: "Experts / cabinets", ico: "🧑‍💼", table: "experts" },
+  { key: "clients", label: "Clients", ico: "user", table: "clients" },
+  { key: "assureurs", label: "Assurances", ico: "shield", table: "assureurs" },
+  { key: "experts", label: "Experts / cabinets", ico: "user-tie", table: "experts" },
 ];
 
 export default function AnnuairePage() {
@@ -60,7 +61,7 @@ export default function AnnuairePage() {
       <div className="annuaire-onglets" role="tablist">
         {TABS.map((t) => (
           <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)} className={`annuaire-onglet ${tab === t.key ? "actif" : ""}`}>
-            <span aria-hidden>{t.ico}</span>
+            <Ico n={t.ico} />
             {t.label}
             {nb[t.key] != null && <span className="nb">{nb[t.key]}</span>}
           </button>

@@ -6,6 +6,7 @@ import { Document, DocumentLigne, Dossier, Entreprise } from "@/lib/types";
 import { documentPdfBase64, facturxBase64, nomFichierDocument, ouvrirFichierBase64 } from "@/lib/pdf";
 import { fetchAuth } from "@/lib/apiClient";
 import ModalShell from "@/components/ModalShell";
+import Ico from "@/components/Ico";
 
 function escapeHtml(s: string): string {
   return s
@@ -289,7 +290,7 @@ export default function EmailComposer({
         className="ml-auto shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] text-white/70 transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
         title={`Voir ${filename}`}
       >
-        {actif ? "…" : "👁 Voir"}
+        {actif ? "…" : "Voir"}
       </button>
     );
   }
@@ -493,7 +494,7 @@ export default function EmailComposer({
               ))}
               {fichiers.map((f, i) => (
                 <div key={f.nom + i} className="flex items-center gap-2 text-sm text-white/70">
-                  <span className="truncate">📎 {f.nom}</span>
+                  <span className="truncate"><Ico n="paperclip" /> {f.nom}</span>
                   <span className="shrink-0 text-xs text-white/40">{(f.taille / 1024).toFixed(0)} Ko</span>
                   <button
                     type="button"

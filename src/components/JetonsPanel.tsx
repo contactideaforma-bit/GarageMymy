@@ -36,7 +36,7 @@ export default function JetonsPanel({ onSolde }: { onSolde?: (s: number) => void
     if (!silencieux) setBusy("verif");
     const r = await verifierPaiements();
     if (!silencieux) setBusy(null);
-    if (r.credites > 0) setMsg({ ok: true, texte: `Paiement reçu ✓ — ${r.credites > 1 ? "achats crédités" : "jetons crédités"}.` });
+    if (r.credites > 0) setMsg({ ok: true, texte: `Paiement reçu — ${r.credites > 1 ? "achats crédités" : "jetons crédités"}.` });
     else if (!silencieux) setMsg(r.error ? { ok: false, texte: r.error } : { ok: true, texte: "Aucun nouveau paiement pour l'instant. Un paiement par carte est confirmé en quelques secondes à quelques minutes." });
     await charger();
   }, [charger]);

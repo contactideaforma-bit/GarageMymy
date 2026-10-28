@@ -9,6 +9,7 @@ import { badgeStatutDoc, controlerRapport, labelStatutDoc, modeParDefaut } from 
 import { apercuDocumentPdf } from "@/lib/pdf";
 import ConfigBanner from "@/components/ConfigBanner";
 import ModePaiementModal from "@/components/ModePaiementModal";
+import Ico from "@/components/Ico";
 
 type DocWithDossier = Document & { dossier: Dossier | null };
 
@@ -194,7 +195,7 @@ export default function DocumentsView({ type }: { type: DocumentType }) {
                     title={d.favori ? "Retirer des favoris" : "Marquer en favori"}
                     aria-pressed={Boolean(d.favori)}
                   >
-                    {d.favori ? "★" : "☆"}
+                    <Ico n="star" style={d.favori ? { fill: "currentColor" } : undefined} />
                   </button>
                 </td>
                 <td className="px-4 py-3 font-medium text-white">

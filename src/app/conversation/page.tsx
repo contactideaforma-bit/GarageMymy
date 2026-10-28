@@ -45,6 +45,7 @@ import DossierPicker, { libelleDossier } from "@/components/DossierPicker";
 import ConfigBanner from "@/components/ConfigBanner";
 import ChampEcheance from "@/components/ChampEcheance";
 import CompteurHeures from "@/components/CompteurHeures";
+import Ico from "@/components/Ico";
 
 const CLE_ASTUCE = "mea.conversation.astuce";
 
@@ -59,7 +60,7 @@ function libelleJour(iso: string): string {
   return d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 }
 
-/** Avatar rond d'un auteur (🔧 garage / 🗂️ chargé de mission). */
+/** Avatar rond d'un auteur (garage / chargé de mission). */
 function Avatar({ auteur }: { auteur: "garage" | "secretaire" }) {
   return (
     <span
@@ -71,7 +72,7 @@ function Avatar({ auteur }: { auteur: "garage" | "secretaire" }) {
       title={auteur === "secretaire" ? "Chargé de mission" : "Garage"}
       aria-hidden
     >
-      {auteur === "secretaire" ? "🗂️" : "🔧"}
+      {auteur === "secretaire" ? "folder-open" : "wrench"}
     </span>
   );
 }
@@ -272,7 +273,7 @@ export default function ConversationPage() {
         } hover:text-white`}
         title={d ? libelleDossier(d) : "Ouvrir le dossier"}
       >
-        📁 {d ? d.immatriculation || d.numero_sinistre || d.client_nom || "dossier" : "dossier"}
+        <Ico n="folder" /> {d ? d.immatriculation || d.numero_sinistre || d.client_nom || "dossier" : "dossier"}
       </Link>
     );
   };
@@ -297,7 +298,7 @@ export default function ConversationPage() {
                 className={`segment-btn ${role === r.valeur ? "actif" : ""}`}
                 title="Mémorisé sur cet appareil"
               >
-                {r.icone} {r.label}
+                <Ico n={r.icone} /> {r.label}
               </button>
             ))}
           </div>
@@ -336,7 +337,7 @@ export default function ConversationPage() {
             {loading && <p className="text-sm text-white/40">Chargement…</p>}
             {!loading && messages.length === 0 && (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-                <span className="text-4xl" aria-hidden>💬</span>
+                <span className="text-4xl" aria-hidden><Ico n="message" /></span>
                 <span className="font-pixel text-[0.55rem] leading-[2] text-white/50">
                   EN ATTENTE DU JOUEUR 2…
                 </span>
@@ -400,7 +401,7 @@ export default function ConversationPage() {
                 className="btn-ghost btn-compact h-10 w-10 shrink-0 rounded-full p-0 text-base"
                 title="Lier le message à un dossier"
               >
-                📁
+                <Ico n="folder" />
               </button>
               <textarea
                 className="field-input max-h-32 flex-1 resize-none rounded-2xl"
@@ -426,7 +427,7 @@ export default function ConversationPage() {
                 className="btn-primary h-10 w-10 shrink-0 rounded-full p-0 text-base disabled:opacity-40"
                 title="Envoyer (Entrée)"
               >
-                ➤
+                <Ico n="arrow-right" />
               </button>
             </div>
             <p className="mt-1 pl-12 text-[10px] text-white/30">Entrée = envoyer · Maj+Entrée = à la ligne</p>
@@ -476,7 +477,7 @@ export default function ConversationPage() {
                 <option value="">→ Tous</option>
               </select>
               <button onClick={() => setPickerPour("tache")} className="btn-ghost btn-compact" title="Lier à un dossier">
-                📁{tacheDossier ? ` ${tacheDossier.immatriculation || tacheDossier.numero_sinistre || "dossier"}` : ""}
+                <Ico n="folder" />{tacheDossier ? ` ${tacheDossier.immatriculation || tacheDossier.numero_sinistre || "dossier"}` : ""}
               </button>
               {tacheDossier && (
                 <button onClick={() => setTacheDossier(null)} className="text-white/40 hover:text-rose-300" title="Retirer">
@@ -488,7 +489,7 @@ export default function ConversationPage() {
                 className={`btn-ghost btn-compact ${tacheEcheance ? "text-accent-teal" : ""}`}
                 title="Donner une échéance (crée un rendez-vous dans l'agenda)"
               >
-                📅{tacheEcheance ? " ✓" : ""}
+                <Ico n="calendar" />{tacheEcheance ? "" : ""}
               </button>
             </div>
             {tacheOptions && (
@@ -501,7 +502,7 @@ export default function ConversationPage() {
 
           {/* Liste (SEULE la case coche) */}
           {tachesAFaire.length === 0 && !loading && (
-            <p className="py-2 text-sm text-emerald-300/80">Rien en attente. 🎉</p>
+            <p className="py-2 text-sm text-emerald-300/80">Rien en attente. <Ico n="sparkles" /></p>
           )}
           <ul className="max-h-[44vh] divide-y divide-white/10 overflow-y-auto pr-1">
             {tachesAFaire.map((ligne) => {
@@ -528,7 +529,7 @@ export default function ConversationPage() {
                                 retard ? "bg-rose-100 text-rose-700" : auj ? "bg-amber-100 text-amber-700" : "bg-white/10 text-white/70"
                               }`}
                             >
-                              {retard ? "⏰ " : ""}
+                              {retard ? "" : ""}
                               {libelleEcheance(ligne.echeance)}
                             </span>
                           )}

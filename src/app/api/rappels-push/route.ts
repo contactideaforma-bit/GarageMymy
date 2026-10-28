@@ -141,7 +141,7 @@ async function executer(req: Request) {
       const t = new Date(r.echeance).getTime();
       aRappeler.push({
         cle: `tache:${r.id}`,
-        titre: `⏰ Rappel ${quand(t, maintenant)}`,
+        titre: `Rappel ${quand(t, maintenant)}`,
         corps: [heureParis(r.echeance), r.texte.slice(0, 90)].filter(Boolean).join(" · "),
         url: r.dossier_id ? `/sinistres/${r.dossier_id}` : "/",
       });
@@ -160,7 +160,7 @@ async function executer(req: Request) {
       const t = new Date(e.date_evenement).getTime();
       aRappeler.push({
         cle: `rdv:${e.id}`,
-        titre: `📅 Rendez-vous ${quand(t, maintenant)}`,
+        titre: `Rendez-vous ${quand(t, maintenant)}`,
         corps: [heureParis(e.date_evenement), e.titre, e.avec_qui ? `avec ${e.avec_qui}` : ""]
           .filter(Boolean)
           .join(" · "),

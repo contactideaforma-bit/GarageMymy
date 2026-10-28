@@ -69,7 +69,7 @@ export function emailBienvenueHtml(b: BienvenueInput): string {
   <tr><td style="background:${CARTE};padding:28px 32px 8px 32px;border-left:1px solid ${BORDURE};border-right:1px solid ${BORDURE}">
     <div style="font-family:Segoe UI,system-ui,-apple-system,sans-serif">
       <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:${FUCHSIA};font-weight:bold">${esc(SOCIETE.produit)} by ${esc(SOCIETE.editeur)}</div>
-      <div style="font-size:26px;font-weight:800;color:${VIOLET};margin-top:6px">Bienvenue à bord 🚗</div>
+      <div style="font-size:26px;font-weight:800;color:${VIOLET};margin-top:6px">Bienvenue à bord </div>
     </div>
   </td></tr>
 
@@ -90,7 +90,7 @@ export function emailBienvenueHtml(b: BienvenueInput): string {
           ${ligne("Email", esc(b.email))}
           ${ligne("Mot de passe provisoire", esc(b.motDePasse), true)}
         </table>
-        <div style="color:${TEXTE_DOUX};font-size:12px;margin-top:8px">⚠️ Changez ce mot de passe dès votre première connexion (Profil → Mot de passe).</div>
+        <div style="color:${TEXTE_DOUX};font-size:12px;margin-top:8px">Changez ce mot de passe dès votre première connexion (Profil → Mot de passe).</div>
       </td></tr>
     </table>
 

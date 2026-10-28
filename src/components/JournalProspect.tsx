@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import InteractionModal from "@/components/InteractionModal";
 import { formatDateTime, formatDate, messageErreur } from "@/lib/format";
 import { CANAUX_CONTACT, MOTIFS_REFUS, Prospect, ProspectInteraction, RESULTATS_CONTACT, chargerInteractions, supprimerInteraction } from "@/lib/prospects";
+import Ico from "@/components/Ico";
 
 export default function JournalProspect({ prospect, onProspectChange }: { prospect: Prospect; onProspectChange: (p: Prospect) => void }) {
   const [liste, setListe] = useState<ProspectInteraction[]>([]);
@@ -27,12 +28,12 @@ export default function JournalProspect({ prospect, onProspectChange }: { prospe
             {prospect.rdv_le ? ` · RDV ${formatDateTime(prospect.rdv_le)}` : ""}
           </p>
         </div>
-        <button className="btn-primary btn-compact" onClick={() => setModal(true)}>📞 Noter un contact</button>
+        <button className="btn-primary btn-compact" onClick={() => setModal(true)}><Ico n="phone" /> Noter un contact</button>
       </div>
 
       {prospect.statut === "perdu" && prospect.motif_refus && (
         <p className="mt-3 rounded-xl border border-rose-400/40 bg-rose-400/10 px-3 py-2 text-sm">
-          ✕ A dit non : <span className="font-medium">{MOTIFS_REFUS[prospect.motif_refus]}</span>{prospect.motif_refus_detail ? ` — ${prospect.motif_refus_detail}` : ""}
+          <Ico n="x" /> A dit non : <span className="font-medium">{MOTIFS_REFUS[prospect.motif_refus]}</span>{prospect.motif_refus_detail ? ` — ${prospect.motif_refus_detail}` : ""}
         </p>
       )}
       {err && <p className="mt-2 text-xs text-rose-300">{err}</p>}
@@ -47,7 +48,7 @@ export default function JournalProspect({ prospect, onProspectChange }: { prospe
               <li key={i.id} className="flex flex-wrap items-start justify-between gap-2 py-2 text-sm">
                 <div className="min-w-0">
                   <span className="mr-2 text-xs text-white/45">{formatDateTime(i.created_at)}</span>
-                  <span className="mr-2">{CANAUX_CONTACT[i.canal].icone}</span>
+                  <span className="mr-2"><Ico n={CANAUX_CONTACT[i.canal].icone || "dot"} /></span>
                   <span className={r.badge}>{r.label}</span>
                   {i.motif_refus && <span className="ml-2 text-white/70">{MOTIFS_REFUS[i.motif_refus]}</span>}
                   {i.rdv_le && <span className="ml-2 text-white/70">le {formatDateTime(i.rdv_le)}</span>}

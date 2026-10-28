@@ -35,6 +35,7 @@ import {
   chargerParticularites,
   indexParDossier,
 } from "@/lib/particularites";
+import Ico from "@/components/Ico";
 
 // Identité « expert » d'un dossier = le CABINET d'expertise (identifiant fiable).
 // On n'utilise pas expert_nom : ce champ contient souvent le nom du client
@@ -58,7 +59,7 @@ function PastilleNote({ note }: { note?: string | null }) {
       aria-label="Ce dossier contient une note"
       className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-amber-400/25 text-[9px] leading-none text-amber-200 ring-1 ring-amber-300/40"
     >
-      ✎
+      <Ico n="pen" />
     </span>
   );
 }
@@ -511,10 +512,10 @@ export default function SinistresPage() {
           title="Dossiers en litige (mode litige activé sur la fiche)"
         >
           <option value="">Tous les dossiers</option>
-          <option value="oui">⚠ En litige</option>
+          <option value="oui">En litige</option>
           <option value="non">Sans litige</option>
-          <option value="retard">⏰ Retard de paiement</option>
-          <option value="recours">⚖️ Recours direct</option>
+          <option value="retard">Retard de paiement</option>
+          <option value="recours">Recours direct</option>
         </select>
       </div>
 
@@ -577,8 +578,8 @@ export default function SinistresPage() {
             className="btn-ghost bureau-seulement truncate disabled:cursor-not-allowed disabled:opacity-40"
             title="Exporter le tableau de suivi au format Excel"
           >
-            <span className="sm:hidden">⬇ Excel</span>
-            <span className="hidden sm:inline">⬇ Exporter Excel</span>
+            <span className="sm:hidden"><Ico n="download" /> Excel</span>
+            <span className="hidden sm:inline"><Ico n="download" /> Exporter Excel</span>
           </button>
           <Link href="/import" className="btn-ghost truncate text-center">{t.importer}</Link>
         </div>
@@ -682,9 +683,9 @@ export default function SinistresPage() {
             {libelleStatut(st, metier)}
           </button>
         ))}
-        <button type="button" className={`chip ${filtreLitige === "oui" ? "actif" : ""}`} onClick={() => setFiltreLitige(filtreLitige === "oui" ? "" : "oui")}>⚠ Litige</button>
-        <button type="button" className={`chip ${filtreLitige === "retard" ? "actif" : ""}`} onClick={() => setFiltreLitige(filtreLitige === "retard" ? "" : "retard")}>⏰ Retard</button>
-        <button type="button" className={`chip ${filtreLitige === "recours" ? "actif" : ""}`} onClick={() => setFiltreLitige(filtreLitige === "recours" ? "" : "recours")}>⚖️ Recours</button>
+        <button type="button" className={`chip ${filtreLitige === "oui" ? "actif" : ""}`} onClick={() => setFiltreLitige(filtreLitige === "oui" ? "" : "oui")}><Ico n="alert" /> Litige</button>
+        <button type="button" className={`chip ${filtreLitige === "retard" ? "actif" : ""}`} onClick={() => setFiltreLitige(filtreLitige === "retard" ? "" : "retard")}><Ico n="alarm" /> Retard</button>
+        <button type="button" className={`chip ${filtreLitige === "recours" ? "actif" : ""}`} onClick={() => setFiltreLitige(filtreLitige === "recours" ? "" : "recours")}><Ico n="scale" /> Recours</button>
       </div>
 
       {/* Pastilles des filtres actifs — on voit ce qui est appliqué même
@@ -697,7 +698,7 @@ export default function SinistresPage() {
           {filtreExpert && <PastilleFiltre label={filtreExpert} onRetirer={() => setFiltreExpert("")} />}
           {filtrePart && <PastilleFiltre label={nomParticularite} onRetirer={() => setFiltrePart("")} />}
           {filtreLitige && (
-            <PastilleFiltre label={filtreLitige === "oui" ? "⚠ En litige" : filtreLitige === "retard" ? "⏰ Retard de paiement" : filtreLitige === "recours" ? "⚖️ Recours direct" : "Sans litige"} onRetirer={() => setFiltreLitige("")} />
+            <PastilleFiltre label={filtreLitige === "oui" ? "En litige" : filtreLitige === "retard" ? "Retard de paiement" : filtreLitige === "recours" ? "Recours direct" : "Sans litige"} onRetirer={() => setFiltreLitige("")} />
           )}
           {(du || au) && (
             <PastilleFiltre
@@ -772,12 +773,12 @@ export default function SinistresPage() {
               <StatutBadge statut={d.statut} />
               {d.litige && (
                 <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700" title="Mode litige activé sur la fiche">
-                  ⚠ Litige
+                  <Ico n="alert" /> Litige
                 </span>
               )}
               {d.retard_paiement && (
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800" title="Retard de paiement — relances en cours">
-                  ⏰ Retard
+                  <Ico n="alarm" /> Retard
                 </span>
               )}
               <BadgeMentions dossier={d} />
@@ -789,7 +790,7 @@ export default function SinistresPage() {
               )}
               {d.mode_recours && (
                 <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-800" title="Recours direct contre l'assureur du responsable">
-                  ⚖️ Recours
+                  <Ico n="scale" /> Recours
                 </span>
               )}
               {(partsParDossier[d.id] || []).slice(0, 2).map((p) => (
@@ -895,12 +896,12 @@ export default function SinistresPage() {
                     <StatutBadge statut={d.statut} />
                     {d.litige && (
                       <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-700" title="Mode litige activé sur la fiche">
-                        ⚠ Litige
+                        <Ico n="alert" /> Litige
                       </span>
                     )}
                     {d.retard_paiement && (
                       <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800" title="Retard de paiement — relances en cours">
-                        ⏰ Retard
+                        <Ico n="alarm" /> Retard
                       </span>
                     )}
                     <BadgeMentions dossier={d} />
@@ -911,7 +912,7 @@ export default function SinistresPage() {
                     )}
                     {d.mode_recours && (
                       <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-800" title="Recours direct contre l'assureur du responsable">
-                        ⚖️ Recours
+                        <Ico n="scale" /> Recours
                       </span>
                     )}
                   </div>
@@ -1011,7 +1012,7 @@ function BadgeMentions({ dossier }: { dossier: Dossier }) {
         .map((m) => `${m.libelle}${m.montant != null ? ` (${m.montant} €)` : ""}`)
         .join(" · ")}
     >
-      {bloque ? "⛔" : "⚠"} {resume}
+      {bloque ? "ban" : "alert"} {resume}
     </span>
   );
 }

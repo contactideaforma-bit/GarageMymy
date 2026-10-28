@@ -24,6 +24,7 @@ import {
   DUREES, LigneHeures, ajouterHeures, chargerHeures, dossiersDeLigne, forfaitHeures,
   formatDuree, libelleMois, moisCourant, supprimerHeures, totalMinutes,
 } from "@/lib/heures";
+import Ico from "@/components/Ico";
 
 function ymdParis(): string {
   const d = new Date();
@@ -188,7 +189,7 @@ export default function CompteurHeures({
                     key={id}
                     className="inline-flex max-w-full items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 text-[11px] text-white/85"
                   >
-                    <span className="truncate">📁 {nomDossier(id) || "dossier"}</span>
+                    <span className="truncate"><Ico n="folder" /> {nomDossier(id) || "dossier"}</span>
                     <button
                       type="button"
                       onClick={() => retirerDossier(id)}
@@ -237,7 +238,7 @@ export default function CompteurHeures({
                   <span>{new Date(l.jour).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" })}</span>
                   {dossiersDeLigne(l).map((id) =>
                     nomDossier(id) ? (
-                      <span key={id} className="rounded-full bg-white/10 px-1.5 py-px">📁 {nomDossier(id)}</span>
+                      <span key={id} className="rounded-full bg-white/10 px-1.5 py-px"><Ico n="folder" /> {nomDossier(id)}</span>
                     ) : null
                   )}
                 </span>

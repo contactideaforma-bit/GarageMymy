@@ -23,6 +23,7 @@ import { lireRecents, noterRecent, type DossierRecent, type ModeRecherche } from
 import StatutBadge from "@/components/StatutBadge";
 import Feuille from "@/components/mobile/Feuille";
 import ContactClient from "@/components/mobile/ContactClient";
+import Ico from "@/components/Ico";
 
 const TITRES: Record<ModeRecherche, string> = {
   ouvrir: "Rechercher un dossier",
@@ -116,7 +117,7 @@ export default function RechercheMobile({ mode, onClose }: { mode: ModeRecherche
           />
           {saisie && (
             <button type="button" onClick={() => { setQ(""); inputRef.current?.focus(); }} className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-sm" style={{ color: "var(--mea-texte-3)" }} aria-label="Effacer">
-              ✕
+              <Ico n="x" />
             </button>
           )}
         </div>
@@ -132,7 +133,7 @@ export default function RechercheMobile({ mode, onClose }: { mode: ModeRecherche
             <div className="groupe-liste">
               {recents.map((r) => (
                 <button key={r.id} type="button" className="ligne-liste" onClick={() => ouvrirRecent(r)}>
-                  <span className="tuile-ico" aria-hidden>🕘</span>
+                  <span className="tuile-ico" aria-hidden><Ico n="clock" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold">{r.titre}</span>
                     <span className="block truncate text-xs" style={{ color: "var(--mea-texte-3)" }}>{r.sous}</span>

@@ -47,6 +47,7 @@ import {
   etatRappel,
   statsPipeline,
 } from "@/lib/prospects";
+import Ico from "@/components/Ico";
 
 type Cible = { owner_id: string; nom: string; zone: string | null };
 
@@ -103,12 +104,12 @@ export default function ProspectionEditeur({ ongletInitial = "recherche" }: { on
     <AdminShell titre="Prospection">
       {erreur && <p className="badge badge-danger">{erreur}</p>}
       <div className="segment">
-        <button className={`segment-btn ${onglet === "recherche" ? "actif" : ""}`} onClick={() => setOnglet("recherche")}>🔎 Rechercher & attribuer</button>
-        <button className={`segment-btn ${onglet === "suivi" ? "actif" : ""}`} onClick={() => setOnglet("suivi")}>📊 Suivi des prospects ({prospects.length})</button>
+        <button className={`segment-btn ${onglet === "recherche" ? "actif" : ""}`} onClick={() => setOnglet("recherche")}><Ico n="search" /> Rechercher & attribuer</button>
+        <button className={`segment-btn ${onglet === "suivi" ? "actif" : ""}`} onClick={() => setOnglet("suivi")}><Ico n="bar-chart" /> Suivi des prospects ({prospects.length})</button>
       </div>
       {sansCompte.length > 0 && (
         <p className="text-xs text-amber-200">
-          ⚠ Sans compte My Easy Auto, impossible de leur attribuer des garages : {sansCompte.map(nomCollab).join(", ")} — « Créer le compte » depuis leur fiche (Collaborateurs).
+          <Ico n="alert" /> Sans compte My Easy Auto, impossible de leur attribuer des garages : {sansCompte.map(nomCollab).join(", ")} — « Créer le compte » depuis leur fiche (Collaborateurs).
         </p>
       )}
       {onglet === "recherche" ? (
@@ -586,7 +587,7 @@ function Suivi({ prospects, cibles, nomDe, chargement, onChange }: {
             <select className="field-input" value={fEtape} onChange={(e) => setFEtape(e.target.value as typeof fEtape)}>
               <option value="toutes">Toutes les étapes</option>
               {(Object.keys(ETAPES_PIPELINE) as EtapePipeline[]).map((k) => <option key={k} value={k}>{ETAPES_PIPELINE[k].label}</option>)}
-              <option value="retard">⚠ Rappel en retard</option>
+              <option value="retard">Rappel en retard</option>
             </select>
           </div>
           <div>
@@ -635,7 +636,7 @@ function Suivi({ prospects, cibles, nomDe, chargement, onChange }: {
             </select>
           </div>
           <div className="flex items-end">
-            <button type="button" className="btn-ghost w-full" onClick={exporter} disabled={!filtres.length} title="Télécharger la liste filtrée au format Excel">⬇ Excel ({filtres.length})</button>
+            <button type="button" className="btn-ghost w-full" onClick={exporter} disabled={!filtres.length} title="Télécharger la liste filtrée au format Excel"><Ico n="download" /> Excel ({filtres.length})</button>
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
@@ -758,7 +759,7 @@ function Suivi({ prospects, cibles, nomDe, chargement, onChange }: {
                             {journal && journal.interactions.length === 0 && journal.documents.length === 0 && <div className="text-white/45">Rien pour l&apos;instant : aucun contact noté, aucun document.</div>}
                             {journal && journal.documents.length > 0 && (
                               <div className="mb-2 text-white/70">
-                                Documents : {journal.documents.map((d) => `${TYPES_DOCUMENT[d.type]}${d.signe_le ? " ✓ signé" : d.envoye_le ? " (envoyé)" : ""}`).join(" · ")}
+                                Documents : {journal.documents.map((d) => `${TYPES_DOCUMENT[d.type]}${d.signe_le ? " signé" : d.envoye_le ? " (envoyé)" : ""}`).join(" · ")}
                               </div>
                             )}
                             {journal && journal.interactions.length > 0 && (
@@ -766,7 +767,7 @@ function Suivi({ prospects, cibles, nomDe, chargement, onChange }: {
                                 {journal.interactions.map((i) => (
                                   <li key={i.id} className="flex flex-wrap items-baseline gap-x-2 text-white/80">
                                     <span className="tabular-nums text-white/45">{new Date(i.created_at).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
-                                    <span>{CANAUX_CONTACT[i.canal]?.icone} {CANAUX_CONTACT[i.canal]?.label}</span>
+                                    <span><Ico n={CANAUX_CONTACT[i.canal]?.icone || "dot"} /> {CANAUX_CONTACT[i.canal]?.label}</span>
                                     <span className={RESULTATS_CONTACT[i.resultat]?.badge || "badge badge-neutral"}>{RESULTATS_CONTACT[i.resultat]?.label || i.resultat}</span>
                                     {i.motif_refus && <span className="text-white/55">{MOTIFS_REFUS[i.motif_refus]}</span>}
                                     {i.commentaire && <span className="text-white/60">— {i.commentaire}</span>}

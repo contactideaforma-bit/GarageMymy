@@ -2,7 +2,7 @@
 //  ASSISTANCE — côté SERVEUR (v43)
 //
 //  Identifie l'éditeur (compte admin) et résout l'identité des garages.
-//  ⚠️ Ne JAMAIS importer ce fichier dans un composant client : il utilise
+//  Ne JAMAIS importer ce fichier dans un composant client : il utilise
 //  la clé service role.
 // ============================================================
 

@@ -683,7 +683,7 @@ function ORModal({
       <div className="flex justify-end gap-3">
         <button onClick={onClose} className="btn-ghost">Annuler</button>
         <button onClick={save} disabled={saving} className="btn-primary">
-          {saving ? "Enregistrement…" : signature ? "Enregistrer signé ✓" : "Enregistrer (sans signature)"}
+          {saving ? "Enregistrement…" : signature ? "Enregistrer signé" : "Enregistrer (sans signature)"}
         </button>
       </div>
     </ModalShell>
@@ -783,7 +783,7 @@ function RestitutionModal({
       <div className="flex justify-end gap-3">
         <button onClick={onClose} className="btn-ghost">Annuler</button>
         <button onClick={save} disabled={saving} className="btn-primary">
-          {saving ? "Enregistrement…" : signature ? "Enregistrer signé ✓" : "Enregistrer (sans signature)"}
+          {saving ? "Enregistrement…" : signature ? "Enregistrer signé" : "Enregistrer (sans signature)"}
         </button>
       </div>
     </ModalShell>
@@ -894,7 +894,7 @@ function CessionModal({
       <div className="flex justify-end gap-3">
         <button onClick={onClose} className="btn-ghost">Annuler</button>
         <button onClick={save} disabled={saving} className="btn-primary">
-          {saving ? "Enregistrement…" : signature ? "Enregistrer signée ✓" : "Enregistrer (sans signature)"}
+          {saving ? "Enregistrement…" : signature ? "Enregistrer signée" : "Enregistrer (sans signature)"}
         </button>
       </div>
     </ModalShell>

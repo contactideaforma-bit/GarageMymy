@@ -39,7 +39,7 @@ export async function ouvrirFichier(bucket: string, path: string) {
 
    et les policies Storage (migration v44) n'autorisent QUE ce dossier.
 
-   ⚠️ Les fichiers déposés AVANT la v44 gardent leur ancien chemin : les
+   Les fichiers déposés AVANT la v44 gardent leur ancien chemin : les
    policies acceptent aussi les objets dont le PROPRIÉTAIRE Storage est le
    compte connecté, donc rien n'est perdu. N'écris plus jamais un chemin
    sans passer par `cheminProprietaire()`.

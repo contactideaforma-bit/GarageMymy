@@ -19,6 +19,7 @@ import {
 } from "@/lib/photosEtat";
 import { genererPlanchePhotos } from "@/lib/photosEtatPdf";
 import CameraModal from "@/components/CameraModal";
+import Ico from "@/components/Ico";
 
 /**
  * ÉTAT DU VÉHICULE EN PHOTOS (v47).
@@ -228,7 +229,7 @@ export default function PhotosEtatPanel({
             className="flex h-[7.6rem] w-full flex-col items-center justify-center rounded-lg border-2 border-dashed border-white/20 px-2 text-center transition hover:border-accent-pink hover:bg-white/5 sm:h-[8.6rem]"
           >
             <span className="text-xl" aria-hidden>
-              📷
+              <Ico n="camera" />
             </span>
             <span className="mt-1 text-[11px] font-medium text-white/70">{angle.label}</span>
             <span className="mt-0.5 text-[10px] text-white/35">
@@ -271,7 +272,7 @@ export default function PhotosEtatPanel({
         {!plie && (
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={lancerTour} className="btn-primary btn-compact" disabled={busy}>
-              📷 Faire le tour du véhicule
+              <Ico n="camera" /> Faire le tour du véhicule
             </button>
             {photos.length > 0 && (
               <button onClick={planche} disabled={pdfEnCours} className="btn-ghost btn-compact">
@@ -299,7 +300,7 @@ export default function PhotosEtatPanel({
                       onClick={() => setMoment(m.code)}
                       className={`segment-btn ${moment === m.code ? "actif" : ""}`}
                     >
-                      {m.icone} {m.label}
+                      <Ico n={m.icone} /> {m.label}
                       <span className="ml-1 opacity-70">
                         {avancement(photos, m.code).faites}/{avancement(photos, m.code).total}
                       </span>

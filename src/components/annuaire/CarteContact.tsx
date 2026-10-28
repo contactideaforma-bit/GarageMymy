@@ -10,6 +10,7 @@
 // ============================================================
 
 import type { ReactNode } from "react";
+import Ico from "@/components/Ico";
 
 export type FamilleContact = "client" | "assureur" | "expert";
 
@@ -48,7 +49,7 @@ export function lienCarte(adresse: string | null | undefined, cp: string | null 
 export function LigneContact({ ico, href, children, vide = "Non renseigné", externe = false }: { ico: string; href?: string | null; children?: ReactNode; vide?: string; externe?: boolean }) {
   const contenu = (
     <>
-      <span className="carte-contact-ico" aria-hidden>{ico}</span>
+      <span className="carte-contact-ico" aria-hidden><Ico n={ico} /></span>
       <span className="min-w-0 flex-1 truncate">{children || <span className="opacity-50">{vide}</span>}</span>
     </>
   );

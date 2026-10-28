@@ -151,7 +151,7 @@ export default function AbonnementsPage() {
     if (!confirm(`Créer le compte My Easy Auto de ${a.garage_nom} ?\nIdentifiant : ${a.garage_email}\nUn email de bienvenue avec mot de passe provisoire sera envoyé.`)) return;
     try {
       const r = await creerCompteDepuisAbonnement(a.id);
-      setMsgCompte((m) => ({ ...m, [a.id]: r.dejaExistant ? "Compte existant rattaché (mot de passe inchangé)." : r.emailEnvoye ? `✓ Compte créé, email de bienvenue envoyé à ${a.garage_email}.` : `Compte créé mais email non parti (${r.erreurEmail || "erreur"})${r.motDePasse ? ` — mot de passe provisoire : ${r.motDePasse}` : ""}` }));
+      setMsgCompte((m) => ({ ...m, [a.id]: r.dejaExistant ? "Compte existant rattaché (mot de passe inchangé)." : r.emailEnvoye ? `Compte créé, email de bienvenue envoyé à ${a.garage_email}.` : `Compte créé mais email non parti (${r.erreurEmail || "erreur"})${r.motDePasse ? ` — mot de passe provisoire : ${r.motDePasse}` : ""}` }));
       await load();
     } catch (e) { alert(e instanceof Error ? e.message : "Création impossible."); }
   }

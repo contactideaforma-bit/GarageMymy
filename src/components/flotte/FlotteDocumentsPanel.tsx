@@ -8,6 +8,7 @@ import { ouvrirFichier } from "@/lib/storage";
 import { usePliage } from "@/lib/pliage";
 import ModalShell from "@/components/ModalShell";
 import FilePicker from "@/components/FilePicker";
+import Ico from "@/components/Ico";
 
 /**
  * Documents du véhicule (v12.3) : carte grise, assurance, CNI du titulaire,
@@ -90,7 +91,7 @@ export default function FlotteDocumentsPanel({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={vignettes[d.id]} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
                   ) : (
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-white/5 text-2xl">📄</div>
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-white/5 text-2xl"><Ico n="file" /></div>
                   )}
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-semibold uppercase tracking-wide text-white/50">{labelDocFlotte(d.type)}</div>

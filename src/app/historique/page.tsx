@@ -20,6 +20,7 @@ import {
   ActionHistorique, DossierCourt, FAMILLES, FamilleAction, JOURS_HISTORIQUE, chargerCorbeille, chargerHistorique,
   corbeilleVisible, grouperParJour, labelTable, libelleDossierCourt, libelleJour, purgerDeCorbeille, restaurerDepuisCorbeille,
 } from "@/lib/historique";
+import Ico from "@/components/Ico";
 
 type Volet = "actions" | "corbeille";
 
@@ -145,10 +146,10 @@ export default function HistoriquePage() {
   const ChipDossier = ({ id }: { id: string | null | undefined }) => {
     if (!id) return null;
     const d = dossiers.get(id);
-    if (!d) return <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/40">📁 dossier supprimé</span>;
+    if (!d) return <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] text-white/40"><Ico n="folder" /> dossier supprimé</span>;
     return (
       <Link href={`/sinistres/${id}`} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold text-white/80 hover:bg-white/20" title={d.client_nom || ""}>
-        📁 {libelleDossierCourt(d)}
+        <Ico n="folder" /> {libelleDossierCourt(d)}
       </Link>
     );
   };
@@ -165,17 +166,17 @@ export default function HistoriquePage() {
             Actions ({actions.length})
           </button>
           <button className={`segment-btn ${volet === "corbeille" ? "actif" : ""}`} onClick={() => setVolet("corbeille")}>
-            🗑 Supprimé récemment ({corbeilleVisibles.length})
+            <Ico n="trash" /> Supprimé récemment ({corbeilleVisibles.length})
           </button>
         </div>
       </div>
       <ConfigBanner />
 
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Actions (30 j)" value={String(actions.length)} icone="📋" />
-        <StatCard label="Devis & factures" value={String(compte("document"))} accent="teal" icone="🧾" />
-        <StatCard label="Emails" value={String(compte("email"))} accent="pink" icone="✉️" />
-        <StatCard label="Restaurables" value={String(corbeilleVisibles.length)} accent="violet" icone="🗑" hint="conservés 30 jours" />
+        <StatCard label="Actions (30 j)" value={String(actions.length)} icone="clipboard" />
+        <StatCard label="Devis & factures" value={String(compte("document"))} accent="teal" icone="receipt" />
+        <StatCard label="Emails" value={String(compte("email"))} accent="pink" icone="mail" />
+        <StatCard label="Restaurables" value={String(corbeilleVisibles.length)} accent="violet" icone="trash" hint="conservés 30 jours" />
       </div>
 
       {message && (
@@ -201,7 +202,7 @@ export default function HistoriquePage() {
                 className={`btn-ghost btn-compact h-full whitespace-nowrap ${familles.size ? "border-accent-pink/60 text-white" : ""}`}
                 title="Choisir les familles d'actions à afficher"
               >
-                ⚙ Filtres{familles.size ? ` (${familles.size})` : ""} <span aria-hidden className="ml-1 text-white/50">{filtreOuvert ? "▴" : "▾"}</span>
+                <Ico n="tool" /> Filtres{familles.size ? ` (${familles.size})` : ""} <span aria-hidden className="ml-1 text-white/50">{filtreOuvert ? "▴" : "▾"}</span>
               </button>
               {filtreOuvert && (
                 <div
@@ -222,7 +223,7 @@ export default function HistoriquePage() {
                         <li key={f.code}>
                           <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-white/85 hover:bg-white/10">
                             <input type="checkbox" checked={coche} onChange={() => basculerFamille(f.code)} />
-                            <span className="flex-1">{f.icone} {f.label}</span>
+                            <span className="flex-1"><Ico n={f.icone} /> {f.label}</span>
                             <span className="text-xs text-white/40">{compte(f.code)}</span>
                           </label>
                         </li>
@@ -243,7 +244,7 @@ export default function HistoriquePage() {
                   className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${COULEUR_FAMILLE[f.code]}`}
                   title="Retirer ce filtre"
                 >
-                  {f.icone} {f.label} <span aria-hidden>×</span>
+                  <Ico n={f.icone} /> {f.label} <span aria-hidden>×</span>
                 </button>
               ))}
             </div>
@@ -274,7 +275,7 @@ export default function HistoriquePage() {
                           </span>
                           {a.auteur && (
                             <span className="inline-flex shrink-0 items-center rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/60">
-                              {a.auteur === "secretaire" ? "🗂️ Chargé de mission" : "🔧 Garage"}
+                              {a.auteur === "secretaire" ? "Chargé de mission" : "Garage"}
                             </span>
                           )}
                           <ChipDossier id={a.dossier_id} />

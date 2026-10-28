@@ -65,6 +65,7 @@ import ChampEcheance from "./ChampEcheance";
 import EmailComposer from "./EmailComposer";
 import CourrierPapierModal from "./CourrierPapierModal";
 import { arJoint, cloturerTaches, origineAPoster } from "@/lib/courrierPapier";
+import Ico from "@/components/Ico";
 
 const ORIGINE_MANUELLE = "recouvrement";
 const ORIGINE_AUTO = "recouvrement:auto";
@@ -434,7 +435,7 @@ export default function RetardPaiementPanel({
   }
 
   const boutonFaite = (code: string, label = "Étape faite → suivante") => (
-    <button onClick={() => setEtapeModal({ code })} className="btn-ghost btn-compact">✓ {label}</button>
+    <button onClick={() => setEtapeModal({ code })} className="btn-ghost btn-compact"><Ico n="check" /> {label}</button>
   );
 
   function ListeCourriers({ types }: { types: TypeCourrier[] }) {
@@ -453,11 +454,11 @@ export default function RetardPaiementPanel({
             </div>
             <div className="flex flex-wrap gap-1">
               <button onClick={() => apercuCourrierRecouvrementPdf(c, dossier, factureDe(c)?.numero)} className="btn-ghost btn-compact">Aperçu</button>
-              <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, factureDe(c)?.numero)} className="btn-ghost btn-compact">⬇ PDF</button>
+              <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, factureDe(c)?.numero)} className="btn-ghost btn-compact"><Ico n="download" /> PDF</button>
               {c.statut !== "envoye" && <button onClick={() => setCourrierModal({ type: c.type as TypeCourrier, courrier: c })} className="btn-ghost btn-compact">Modifier / signer</button>}
-              {c.statut !== "envoye" && <button onClick={() => courrierEnvoyeParEmail(c)} className="btn-ghost btn-compact">✉ Email</button>}
-              {c.statut !== "envoye" && <button onClick={() => setEnvoiModal(c)} className="btn-primary btn-compact">📮 Imprimer et poster</button>}
-              {c.statut === "envoye" && c.canal_envoi === "lrar" && !arJoint(piecesAR, c.id) && <button onClick={() => setArModal(c)} className="btn-primary btn-compact" title="Photo de la preuve de dépôt / de l'avis de réception, rangée dans les pièces du dossier">📬 Joindre l&apos;AR</button>}
+              {c.statut !== "envoye" && <button onClick={() => courrierEnvoyeParEmail(c)} className="btn-ghost btn-compact"><Ico n="mail" /> Email</button>}
+              {c.statut !== "envoye" && <button onClick={() => setEnvoiModal(c)} className="btn-primary btn-compact"><Ico n="mailbox" /> Imprimer et poster</button>}
+              {c.statut === "envoye" && c.canal_envoi === "lrar" && !arJoint(piecesAR, c.id) && <button onClick={() => setArModal(c)} className="btn-primary btn-compact" title="Photo de la preuve de dépôt / de l'avis de réception, rangée dans les pièces du dossier"><Ico n="inbox" /> Joindre l&apos;AR</button>}
               {c.statut === "envoye" && c.canal_envoi === "lrar" && arJoint(piecesAR, c.id) && <span className="badge badge-ok" title="Avis de réception / preuve de dépôt dans les pièces du dossier">AR joint</span>}
               <button onClick={() => supprimerCourrier(c)} className="text-xs text-white/40 hover:text-rose-300">Supprimer</button>
             </div>
@@ -484,7 +485,7 @@ export default function RetardPaiementPanel({
           const ok = prerequisOk(e);
           return (
             <li key={e.code} className="flex items-start gap-2 text-sm">
-              <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${f ? "bg-emerald-500 text-white" : ok ? "bg-amber-400 text-amber-950" : "bg-white/15 text-white/60"}`}>{f ? "✓" : "·"}</span>
+              <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${f ? "bg-emerald-500 text-white" : ok ? "bg-amber-400 text-amber-950" : "bg-white/15 text-white/60"}`}>{f ? "check" : "·"}</span>
               <span className="min-w-0 flex-1">
                 <span className={f ? "text-white" : ok ? "text-white" : "text-white/60"}>{e.titre}</span>
                 {f ? (
@@ -530,10 +531,10 @@ export default function RetardPaiementPanel({
             {reprendre}
             <p className="text-sm text-white/80">Dès l&apos;échéance dépassée : on demande une date de paiement et on garde une trace. Les relances automatiques (J+15, J+30) partent seules ; ici vous relancez à la main.</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button onClick={() => ouvrirEmail(cible.type === "assurance" ? "assurance" : "client")} className="btn-primary btn-compact" disabled={!principale}>✉ Email de relance</button>
-              <button onClick={() => setCourrierModal({ type: "relance" })} className="btn-ghost btn-compact" disabled={!principale}>📄 Courrier de relance (PDF)</button>
-              <button onClick={noterUnAppel} className="btn-ghost btn-compact">📞 Noter un appel</button>
-              {cible.type !== "assurance" && <button onClick={() => ouvrirEmail("assurance")} className="btn-ghost btn-compact" disabled={!principale}>✉ Email à l&apos;assurance</button>}
+              <button onClick={() => ouvrirEmail(cible.type === "assurance" ? "assurance" : "client")} className="btn-primary btn-compact" disabled={!principale}><Ico n="mail" /> Email de relance</button>
+              <button onClick={() => setCourrierModal({ type: "relance" })} className="btn-ghost btn-compact" disabled={!principale}><Ico n="file" /> Courrier de relance (PDF)</button>
+              <button onClick={noterUnAppel} className="btn-ghost btn-compact"><Ico n="phone" /> Noter un appel</button>
+              {cible.type !== "assurance" && <button onClick={() => ouvrirEmail("assurance")} className="btn-ghost btn-compact" disabled={!principale}><Ico n="mail" /> Email à l&apos;assurance</button>}
             </div>
             <p className="mt-2 text-xs text-white/60">{nbRelances} relance{nbRelances > 1 ? "s" : ""} enregistrée{nbRelances > 1 ? "s" : ""} sur ce dossier.</p>
             <ListeCourriers types={["relance"]} />
@@ -549,10 +550,10 @@ export default function RetardPaiementPanel({
             {reprendre}
             <p className="text-sm text-white/80">L&apos;acte qui fait courir les intérêts et que le juge exigera. L&apos;appli rédige le courrier ; vous le relisez, le signez, puis vous l&apos;envoyez en <strong>recommandé avec accusé de réception</strong> (délai de 8 jours).</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              {!enAttente && vehiculeAuGarage && <button onClick={() => setCourrierModal({ type: "mise_en_demeure_retrait" })} className="btn-primary btn-compact" disabled={!principale} title="Le véhicule est au garage : cette version fait aussi courir les 3 mois de la loi 1903 et le délai du gage">⚖ Mise en demeure de payer et de retirer le véhicule</button>}
-              {!enAttente && <button onClick={() => setCourrierModal({ type: "mise_en_demeure" })} className={`${vehiculeAuGarage ? "btn-ghost" : "btn-primary"} btn-compact`} disabled={!principale}>⚖ {vehiculeAuGarage ? "Mise en demeure simple" : "Rédiger la mise en demeure"}</button>}
-              {enAttente && <button onClick={() => setEnvoiModal(enAttente)} className="btn-primary btn-compact">📮 Envoyer en recommandé (n° de suivi)</button>}
-              {enAttente && <button onClick={() => courrierEnvoyeParEmail(enAttente)} className="btn-ghost btn-compact">✉ Aussi par email (PDF joint)</button>}
+              {!enAttente && vehiculeAuGarage && <button onClick={() => setCourrierModal({ type: "mise_en_demeure_retrait" })} className="btn-primary btn-compact" disabled={!principale} title="Le véhicule est au garage : cette version fait aussi courir les 3 mois de la loi 1903 et le délai du gage"><Ico n="scale" /> Mise en demeure de payer et de retirer le véhicule</button>}
+              {!enAttente && <button onClick={() => setCourrierModal({ type: "mise_en_demeure" })} className={`${vehiculeAuGarage ? "btn-ghost" : "btn-primary"} btn-compact`} disabled={!principale}><Ico n="scale" /> {vehiculeAuGarage ? "Mise en demeure simple" : "Rédiger la mise en demeure"}</button>}
+              {enAttente && <button onClick={() => setEnvoiModal(enAttente)} className="btn-primary btn-compact"><Ico n="mailbox" /> Envoyer en recommandé (n° de suivi)</button>}
+              {enAttente && <button onClick={() => courrierEnvoyeParEmail(enAttente)} className="btn-ghost btn-compact"><Ico n="mail" /> Aussi par email (PDF joint)</button>}
             </div>
             <ListeCourriers types={["mise_en_demeure", "mise_en_demeure_retrait"]} />
             {!fait && [...med, ...courriersDe(["mise_en_demeure_retrait"])].some((c) => c.statut === "envoye") && <div className="mt-2">{boutonFaite("mise_en_demeure", "Recommandé envoyé → tentative amiable")}</div>}
@@ -575,12 +576,12 @@ export default function RetardPaiementPanel({
             <div className="mt-2 flex flex-wrap gap-2">
               {versAssurance ? (
                 <>
-                  <button onClick={() => setCourrierModal({ type: "reclamation_assureur", dest: "assurance" })} className="btn-primary btn-compact" disabled={!principale}>📄 Réclamation à l&apos;assureur (PDF)</button>
+                  <button onClick={() => setCourrierModal({ type: "reclamation_assureur", dest: "assurance" })} className="btn-primary btn-compact" disabled={!principale}><Ico n="file" /> Réclamation à l&apos;assureur (PDF)</button>
                   <a href="https://www.mediation-assurance.org" target="_blank" rel="noreferrer" className="btn-ghost btn-compact">Médiateur de l&apos;assurance ↗</a>
                 </>
               ) : (
                 <>
-                  <button onClick={() => setCourrierModal({ type: "saisine_conciliateur", dest: "tiers", tiersNom: "Conciliateur de justice" })} className="btn-primary btn-compact" disabled={!principale}>📄 Saisir le conciliateur (PDF)</button>
+                  <button onClick={() => setCourrierModal({ type: "saisine_conciliateur", dest: "tiers", tiersNom: "Conciliateur de justice" })} className="btn-primary btn-compact" disabled={!principale}><Ico n="file" /> Saisir le conciliateur (PDF)</button>
                   <a href="https://www.conciliateurs.fr" target="_blank" rel="noreferrer" className="btn-ghost btn-compact">Trouver un conciliateur ↗</a>
                 </>
               )}
@@ -607,23 +608,23 @@ export default function RetardPaiementPanel({
               <ul className="mt-1 space-y-1 text-sm">
                 {pieces.map((p) => (
                   <li key={p.code} className="flex items-start gap-2">
-                    <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${p.ok ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300"}`}>{p.ok ? "✓" : "!"}</span>
+                    <span className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${p.ok ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300"}`}>{p.ok ? "check" : "!"}</span>
                     <span><span className="font-medium text-white">{p.label}</span> <span className="text-white/60">— {p.detail}</span></span>
                   </li>
                 ))}
               </ul>
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button onClick={() => setCourrierModal({ type: "requete_injonction", dest: "tiers", tiersNom: voie.code === "petites_creances" ? "Commissaire de justice" : voie.code === "injonction_tc" ? "Greffe du tribunal de commerce" : "Greffe du tribunal judiciaire" })} className="btn-primary btn-compact" disabled={!principale}>📄 Lettre d&apos;accompagnement + bordereau (PDF)</button>
-              <button onClick={() => generateCourrierRecouvrementPdf(courriersDe(["mise_en_demeure"]).find((c) => c.statut === "envoye") || courriersDe(["mise_en_demeure"])[0], dossier, principale?.numero)} className="btn-ghost btn-compact" disabled={!courriersDe(["mise_en_demeure"]).length}>⬇ Mise en demeure (PDF)</button>
+              <button onClick={() => setCourrierModal({ type: "requete_injonction", dest: "tiers", tiersNom: voie.code === "petites_creances" ? "Commissaire de justice" : voie.code === "injonction_tc" ? "Greffe du tribunal de commerce" : "Greffe du tribunal judiciaire" })} className="btn-primary btn-compact" disabled={!principale}><Ico n="file" /> Lettre d&apos;accompagnement + bordereau (PDF)</button>
+              <button onClick={() => generateCourrierRecouvrementPdf(courriersDe(["mise_en_demeure"]).find((c) => c.statut === "envoye") || courriersDe(["mise_en_demeure"])[0], dossier, principale?.numero)} className="btn-ghost btn-compact" disabled={!courriersDe(["mise_en_demeure"]).length}><Ico n="download" /> Mise en demeure (PDF)</button>
             </div>
             <ListeCourriers types={["requete_injonction"]} />
             {!fait && (
               <div className="mt-3 rounded-lg border border-white/15 p-2">
                 <div className="text-xs font-semibold uppercase tracking-wide text-white/60">Issue de la voie sans avocat</div>
                 <div className="mt-1.5 flex flex-wrap gap-2">
-                  <button onClick={() => setEtapeModal({ code: "judiciaire", vers: "execution", titre: "Ordonnance / titre obtenu → exécution forcée" })} className="btn-primary btn-compact">✓ Ordonnance obtenue → exécution</button>
-                  <button onClick={() => setEtapeModal({ code: "judiciaire", vers: "avocat", titre: "Voie sans avocat sans succès → avocat", note: "" })} className="btn-ghost btn-compact">✗ Opposition / rejet / pas d&apos;accord → avocat</button>
+                  <button onClick={() => setEtapeModal({ code: "judiciaire", vers: "execution", titre: "Ordonnance / titre obtenu → exécution forcée" })} className="btn-primary btn-compact"><Ico n="check" /> Ordonnance obtenue → exécution</button>
+                  <button onClick={() => setEtapeModal({ code: "judiciaire", vers: "avocat", titre: "Voie sans avocat sans succès → avocat", note: "" })} className="btn-ghost btn-compact"><Ico n="x" /> Opposition / rejet / pas d&apos;accord → avocat</button>
                 </div>
                 <p className="mt-1 text-xs text-white/60">Notez la référence de la requête ou de l&apos;ordonnance : elle sera reprise dans le dossier transmis à l&apos;avocat ou au commissaire de justice.</p>
               </div>
@@ -643,7 +644,7 @@ export default function RetardPaiementPanel({
                 <p className="text-sm text-white/80">La voie sans avocat n&apos;a pas abouti (opposition du débiteur, requête rejetée, pas d&apos;accord). Un avocat engage l&apos;assignation au fond ou suit l&apos;opposition. L&apos;appli prépare le <strong>dossier de transmission</strong> : créance, chronologie de toutes vos démarches, pièces.</p>
                 <p className="mt-1 text-xs text-white/60">Représentation obligatoire au-delà de 10 000 € devant le tribunal judiciaire. Les honoraires peuvent être demandés au débiteur (art. 700 CPC).</p>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <button onClick={() => setCourrierModal({ type: "transmission_avocat", dest: "tiers", tiersNom: "Maître" })} className="btn-primary btn-compact" disabled={!principale}>📄 Dossier de transmission à l&apos;avocat (PDF)</button>
+                  <button onClick={() => setCourrierModal({ type: "transmission_avocat", dest: "tiers", tiersNom: "Maître" })} className="btn-primary btn-compact" disabled={!principale}><Ico n="file" /> Dossier de transmission à l&apos;avocat (PDF)</button>
                   <a href="https://www.avocat.fr/annuaire" target="_blank" rel="noreferrer" className="btn-ghost btn-compact">Trouver un avocat (CNB) ↗</a>
                 </div>
                 <ListeCourriers types={["transmission_avocat"]} />
@@ -661,7 +662,7 @@ export default function RetardPaiementPanel({
             <p className="text-sm text-white/80">Titre exécutoire en main (ordonnance non contestée, accord homologué) : un <strong>commissaire de justice</strong> procède à la saisie (compte bancaire, vente…). Ses frais sont en principe à la charge du débiteur.</p>
             <p className="mt-1 text-xs text-white/60">Prescription : 2 ans contre un particulier, 5 ans entre professionnels, à compter de la facture{principale?.date_document ? ` (${formatDate(principale.date_document)})` : ""}.</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button onClick={() => setCourrierModal({ type: "remise_commissaire", dest: "tiers", tiersNom: "Commissaire de justice" })} className="btn-primary btn-compact" disabled={!principale}>📄 Remise au commissaire de justice (PDF)</button>
+              <button onClick={() => setCourrierModal({ type: "remise_commissaire", dest: "tiers", tiersNom: "Commissaire de justice" })} className="btn-primary btn-compact" disabled={!principale}><Ico n="file" /> Remise au commissaire de justice (PDF)</button>
               <a href="https://commissaire-justice.fr/annuaire" target="_blank" rel="noreferrer" className="btn-ghost btn-compact">Trouver un commissaire de justice ↗</a>
             </div>
             <ListeCourriers types={["remise_commissaire"]} />
@@ -680,13 +681,13 @@ export default function RetardPaiementPanel({
       {/* En-tête */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-lg font-bold text-white">⏰ Retard de paiement</span>
+          <span className="text-lg font-bold text-white"><Ico n="alarm" /> Retard de paiement</span>
           {dossier.retard_depuis && <span className="text-sm text-white/70">depuis le {formatDate(dossier.retard_depuis)}</span>}
           {totalDu > 0 && <span className="badge badge-danger text-sm">{formatEuros(totalDu)} dus</span>}
           {retardMax > 0 && <span className="badge badge-warn text-sm">{retardMax} j de retard</span>}
           {info && <span className="text-sm font-medium text-emerald-300">{info}</span>}
         </div>
-        <button onClick={onLever} className="btn-ghost btn-compact" title="Le paiement est arrivé — tout reste enregistré">✓ Réglé — sortir du retard</button>
+        <button onClick={onLever} className="btn-ghost btn-compact" title="Le paiement est arrivé — tout reste enregistré"><Ico n="check" /> Réglé — sortir du retard</button>
       </div>
 
       {/* Factures + débiteur */}
@@ -715,7 +716,7 @@ export default function RetardPaiementPanel({
               <div>Débiteur : <strong className="text-white">{cible.nom}</strong> <span className="text-white/60">({cible.professionnel ? "professionnel" : "particulier"})</span></div>
               <div className="mt-1 flex flex-wrap gap-1">
                 {([["Adresse", cible.adresse], ["Email", cible.email], ["Tél.", cible.type === "assurance" ? dossier.assureur_tel : dossier.client_tel]] as [string, string | null | undefined][]).map(([l, v]) => (
-                  <span key={l} className={`badge ${v ? "badge-ok" : "badge-danger"}`} title={v || `${l} manquant — complétez la fiche dossier ou l'annuaire`}>{v ? `${l} ✓` : `${l} ?`}</span>
+                  <span key={l} className={`badge ${v ? "badge-ok" : "badge-danger"}`} title={v || `${l} manquant — complétez la fiche dossier ou l'annuaire`}>{v ? `${l} <Ico n="check" />` : `${l} ?`}</span>
                 ))}
               </div>
               {retardMax > 0 && (
@@ -741,7 +742,7 @@ export default function RetardPaiementPanel({
               <li key={e.code} className={`rounded-xl border p-3 ${enCours ? "border-amber-400/60 bg-amber-500/10" : st === "fait" ? "border-emerald-400/40 bg-emerald-500/5" : "border-white/10"}`}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <button onClick={() => setOuvertCode(ouvert ? null : e.code)} className="flex min-w-0 items-center gap-2 text-left" title={ouvert ? "Replier" : "Déplier"} aria-expanded={ouvert}>
-                    <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${st === "fait" ? "bg-emerald-500 text-white" : enCours ? "bg-amber-400 text-amber-950" : "bg-white/15 text-white/70"}`}>{st === "fait" ? "✓" : i + 1}</span>
+                    <span className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold ${st === "fait" ? "bg-emerald-500 text-white" : enCours ? "bg-amber-400 text-amber-950" : "bg-white/15 text-white/70"}`}>{st === "fait" ? "check" : i + 1}</span>
                     <span className={`text-base font-semibold ${st === "avenir" ? "text-white/60" : "text-white"}`}>{e.titre}</span>
                     <span className="text-white/50">{ouvert ? "▾" : "▸"}</span>
                   </button>
@@ -828,13 +829,13 @@ export default function RetardPaiementPanel({
           {vehiculeAuGarage && (
             <div className="mt-3 flex flex-wrap gap-2">
               {!courriersDe(["mise_en_demeure_retrait"]).length ? (
-                <button onClick={() => setCourrierModal({ type: "mise_en_demeure_retrait" })} className="btn-primary btn-compact" disabled={!principale}>⚖ Mise en demeure de payer et de retirer le véhicule (PDF)</button>
+                <button onClick={() => setCourrierModal({ type: "mise_en_demeure_retrait" })} className="btn-primary btn-compact" disabled={!principale}><Ico n="scale" /> Mise en demeure de payer et de retirer le véhicule (PDF)</button>
               ) : null}
               {etapesFaites.gar_med_retrait && situation.joursAvantVente === 0 && !etapesFaites.gar_requete_1903 && (
-                <button onClick={() => setCourrierModal({ type: "requete_vente_1903", dest: "tiers" })} className="btn-primary btn-compact" disabled={!principale}>📄 Demande de vente au commissaire de justice (PDF)</button>
+                <button onClick={() => setCourrierModal({ type: "requete_vente_1903", dest: "tiers" })} className="btn-primary btn-compact" disabled={!principale}><Ico n="file" /> Demande de vente au commissaire de justice (PDF)</button>
               )}
               {gage.ok && etapesFaites.gar_gage_expertise?.montant != null && !etapesFaites.gar_gage_attribution && (
-                <button onClick={() => setCourrierModal({ type: "attribution_gage" })} className="btn-primary btn-compact" disabled={!principale}>📄 Notification du transfert de propriété (PDF)</button>
+                <button onClick={() => setCourrierModal({ type: "attribution_gage" })} className="btn-primary btn-compact" disabled={!principale}><Ico n="file" /> Notification du transfert de propriété (PDF)</button>
               )}
             </div>
           )}
@@ -1130,10 +1131,10 @@ function CourrierModal({ type, existant, destInitial, tiersNom, dossier, facture
         </div>
         {erreur && <div className="rounded-lg border border-rose-400/30 bg-rose-500/15 px-3 py-2 text-sm text-rose-200">{erreur}</div>}
         <div className="flex flex-wrap justify-end gap-2 border-t border-white/10 pt-3">
-          <button type="button" onClick={() => apercuCourrierRecouvrementPdf(brouillon(), dossier, facture.numero)} className="btn-ghost btn-compact">👁 Aperçu PDF</button>
-          <button type="button" onClick={() => generateCourrierRecouvrementPdf(brouillon(), dossier, facture.numero)} className="btn-ghost btn-compact">⬇ Télécharger le PDF</button>
+          <button type="button" onClick={() => apercuCourrierRecouvrementPdf(brouillon(), dossier, facture.numero)} className="btn-ghost btn-compact"><Ico n="eye" /> Aperçu PDF</button>
+          <button type="button" onClick={() => generateCourrierRecouvrementPdf(brouillon(), dossier, facture.numero)} className="btn-ghost btn-compact"><Ico n="download" /> Télécharger le PDF</button>
           <button type="button" onClick={() => enregistrer(signer && signature ? "signe" : "brouillon")} disabled={busy !== null} className="btn-ghost btn-compact">Enregistrer</button>
-          {!versTiers && <button type="button" onClick={() => enregistrer("email")} disabled={busy !== null} className="btn-ghost btn-compact">✉ Envoyer par email (PDF joint)</button>}
+          {!versTiers && <button type="button" onClick={() => enregistrer("email")} disabled={busy !== null} className="btn-ghost btn-compact"><Ico n="mail" /> Envoyer par email (PDF joint)</button>}
           <button type="button" onClick={() => enregistrer("lrar")} disabled={busy !== null} className="btn-primary btn-compact">{lrar ? "Signer → imprimer et poster en recommandé" : "Signer → imprimer et poster"}</button>
         </div>
       </div>
@@ -1174,7 +1175,7 @@ function EtapeModal({ code, refInitiale, dateInitiale, noteInitiale, montantInit
         <p className="text-xs text-white/60">{edition ? "Seules la date, la référence et la note sont modifiées." : suiv ? `L'appli passe ensuite à l'étape « ${suiv.titre} » et programme le rappel.` : "Dernière étape du parcours."}</p>
         <div className="flex justify-end gap-2 border-t border-white/10 pt-3">
           <button type="button" onClick={onClose} className="btn-ghost btn-compact">Annuler</button>
-          <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onConfirmer(date, ref.trim() || null, note.trim() || null, eg?.montants ? { montant: num(montant), frais: num(frais) } : undefined); } finally { setBusy(false); } }} className="btn-primary btn-compact">{busy ? "Enregistrement…" : edition ? "Enregistrer" : "✓ Valider l'étape"}</button>
+          <button type="button" disabled={busy} onClick={async () => { setBusy(true); try { await onConfirmer(date, ref.trim() || null, note.trim() || null, eg?.montants ? { montant: num(montant), frais: num(frais) } : undefined); } finally { setBusy(false); } }} className="btn-primary btn-compact">{busy ? "Enregistrement…" : edition ? "Enregistrer" : "Valider l'étape"}</button>
         </div>
       </div>
     </ModalShell>

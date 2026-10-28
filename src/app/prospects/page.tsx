@@ -17,6 +17,7 @@ import { formatDate, messageErreur } from "@/lib/format";
 import InteractionModal from "@/components/InteractionModal";
 import { ETAPES_PIPELINE, EtapePipeline, MOTIFS_REFUS, ORIGINES_PROSPECT, Prospect, ProspectOrigine, ProspectStatut, RESULTATS_CONTACT, STATUTS_PROSPECT, chargerProspects, dateDansJours, enregistrerProspect, etapeDe, etatRappel, fileAppels, jamaisContacte, liensRecherche, statsPipeline, telHref } from "@/lib/prospects";
 import { ContexteCommercial, chargerContexteCommercial, nomCommercial } from "@/lib/commercialClient";
+import Ico from "@/components/Ico";
 
 export default function ProspectsPage() {
   const router = useRouter();
@@ -74,8 +75,8 @@ export default function ProspectsPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => router.push("/prospects/demarchage")} className="btn-ghost">📞 Session d&apos;appels{file.length ? ` (${file.length})` : ""}</button>
-          <button onClick={() => setPresentation(true)} className="btn-ghost">✉️ Email présentation / RDV</button>
+          <button onClick={() => router.push("/prospects/demarchage")} className="btn-ghost"><Ico n="phone" /> Session d&apos;appels{file.length ? ` (${file.length})` : ""}</button>
+          <button onClick={() => setPresentation(true)} className="btn-ghost"><Ico n="mail" /> Email présentation / RDV</button>
           <button onClick={() => setNouveau(true)} className="btn-primary">+ Nouveau client</button>
         </div>
       </div>
@@ -118,7 +119,7 @@ export default function ProspectsPage() {
 
       {alertes.length > 0 && (
         <div className="glass-card mb-4 border border-accent-pink/40 p-4">
-          <h2 className="titre-bloc">🔔 À recontacter</h2>
+          <h2 className="titre-bloc"><Ico n="bell" /> À recontacter</h2>
           <ul className="mt-2 divide-y divide-white/10">
             {alertes.map((p) => {
               const e = etatRappel(p);
@@ -134,7 +135,7 @@ export default function ProspectsPage() {
                   </button>
                   <div className="flex gap-2 text-xs">
                     <button className="btn-ghost btn-compact" onClick={() => rappelReporter(p, 7)}>+ 1 sem</button>
-                    <button className="btn-ghost btn-compact" onClick={() => rappelFait(p)}>✓ Fait</button>
+                    <button className="btn-ghost btn-compact" onClick={() => rappelFait(p)}><Ico n="check" /> Fait</button>
                   </div>
                 </li>
               );
@@ -186,29 +187,29 @@ export default function ProspectsPage() {
                     </div>
                     <div className="mt-1 text-xs text-white/60">
                       {p.contact_nom || p.gerant ? <span>{p.contact_nom || p.gerant} · </span> : null}
-                      {p.tel ? <span className="font-semibold text-white/85 tabular-nums">📞 {p.tel}</span> : <span className="text-amber-200">📞 numéro à trouver</span>}
+                      {p.tel ? <span className="font-semibold text-white/85 tabular-nums"><Ico n="phone" /> {p.tel}</span> : <span className="text-amber-200"><Ico n="phone" /> numéro à trouver</span>}
                       {p.email ? <span> · {p.email}</span> : null}
                     </div>
                     <div className="mt-1 text-xs text-white/45">
                       {p.nb_appels ? `${p.nb_appels} appel${p.nb_appels > 1 ? "s" : ""}` : ""}
                       {p.dernier_resultat ? `${p.nb_appels ? " · " : ""}dernier : ${RESULTATS_CONTACT[p.dernier_resultat].label}${p.dernier_contact ? ` le ${formatDate(p.dernier_contact)}` : ""}` : ""}
-                      {p.statut === "perdu" && p.motif_refus ? ` · ✕ ${MOTIFS_REFUS[p.motif_refus]}` : ""}
+                      {p.statut === "perdu" && p.motif_refus ? ` · ${MOTIFS_REFUS[p.motif_refus]}` : ""}
                     </div>
                   </div>
                   <div className="text-right text-xs text-white/50">
-                    {p.prochaine_action && <div className={echue ? "text-rose-300" : ""}>➜ {p.prochaine_action}{p.prochaine_date ? ` · ${formatDate(p.prochaine_date)}` : ""}</div>}
+                    {p.prochaine_action && <div className={echue ? "text-rose-300" : ""}><Ico n="arrow-right" /> {p.prochaine_action}{p.prochaine_date ? ` · ${formatDate(p.prochaine_date)}` : ""}</div>}
                     <div>maj {formatDate(p.maj_le)}</div>
                   </div>
                 </div>
               </button>
               <div className="flex shrink-0 flex-col items-center justify-center gap-1">
                 {p.tel ? (
-                  <a href={telHref(p.tel)} className="btn-primary btn-compact" title={`Appeler ${p.tel}`}>📞 Appeler</a>
+                  <a href={telHref(p.tel)} className="btn-primary btn-compact" title={`Appeler ${p.tel}`}><Ico n="phone" /> Appeler</a>
                 ) : (
-                  <a href={liensRecherche(p).find((l) => l.key === "google")?.url} target="_blank" rel="noreferrer" className="btn-ghost btn-compact" title="Trouver le numéro sur la fiche Google">🔎 Numéro</a>
+                  <a href={liensRecherche(p).find((l) => l.key === "google")?.url} target="_blank" rel="noreferrer" className="btn-ghost btn-compact" title="Trouver le numéro sur la fiche Google"><Ico n="search" /> Numéro</a>
                 )}
                 {p.statut !== "client" && p.statut !== "signe" && (
-                  <button className="btn-ghost btn-compact" title="Noter le résultat d'un contact" onClick={() => setContact(p)}>✅ Noter</button>
+                  <button className="btn-ghost btn-compact" title="Noter le résultat d'un contact" onClick={() => setContact(p)}><Ico n="check-circle" /> Noter</button>
                 )}
               </div>
               </div>
@@ -277,7 +278,7 @@ function NouveauClientModal({ onClose, onCree, zone, estAdmin }: { onClose: () =
         <label className="field-label">SIREN, SIRET ou nom du garage</label>
         <div className="flex gap-2">
           <input className="field-input" value={recherche} onChange={(e) => setRecherche(e.target.value)} onKeyDown={(e) => e.key === "Enter" && chercher()} placeholder="ex. 123 456 789 ou Carrosserie Martin Lyon" />
-          <button className="btn-ghost shrink-0" onClick={chercher} disabled={busy}>{busy ? "…" : "🔍 Pré-remplir"}</button>
+          <button className="btn-ghost shrink-0" onClick={chercher} disabled={busy}>{busy ? "…" : "Pré-remplir"}</button>
         </div>
         <p className="mt-1 text-xs text-white/40">L&apos;annuaire officiel des entreprises remplit raison sociale, adresse, TVA et activité. Tu complètes le reste sur la fiche.</p>
         {resultats.length > 1 && (

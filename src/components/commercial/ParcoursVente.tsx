@@ -13,6 +13,7 @@
 import { useMemo, useState } from "react";
 import type { Prospect, ProspectDocument } from "@/lib/prospects";
 import { CleEtape, EtapeParcours, VenteParcours, avancement, calculerParcours } from "@/lib/venteParcours";
+import Ico from "@/components/Ico";
 
 export default function ParcoursVente({
   prospect,
@@ -39,7 +40,7 @@ export default function ParcoursVente({
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
         <h2 className="titre-bloc">Parcours de vente</h2>
         <span className="text-xs font-semibold text-white/60">
-          {termine ? "Terminé ✓" : `Étape ${courante?.numero ?? "—"} sur ${etapes.length}`} · {pct} %
+          {termine ? "Terminé" : `Étape ${courante?.numero ?? "—"} sur ${etapes.length}`} · {pct} %
         </span>
       </div>
       <div className="mx-4 mt-2 h-2 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
@@ -59,7 +60,7 @@ export default function ParcoursVente({
         </div>
       ) : (
         <div className="m-4 rounded-xl border-2 border-emerald-400/50 bg-emerald-500/10 p-4 text-sm text-emerald-100">
-          🎉 Tout est fait : contrat signé, paiement reçu et compte du garage créé. Pense à programmer un appel de suivi dans un mois.
+          <Ico n="sparkles" /> Tout est fait : contrat signé, paiement reçu et compte du garage créé. Pense à programmer un appel de suivi dans un mois.
         </div>
       )}
 
@@ -92,7 +93,7 @@ export default function ParcoursVente({
 
 function style(e: EtapeParcours, courante: EtapeParcours | null) {
   const aCompleter = e.etat === "a_venir" && courante && e.numero < courante.numero;
-  if (e.etat === "fait") return { rond: "bg-emerald-500 text-white", texte: "text-white/80", symbole: "✓" };
+  if (e.etat === "fait") return { rond: "bg-emerald-500 text-white", texte: "text-white/80", symbole: "check" };
   if (e.etat === "courant") return { rond: "bg-accent-pink text-white ring-4 ring-accent-pink/25", texte: "text-white font-semibold", symbole: String(e.numero) };
   if (aCompleter) return { rond: "bg-amber-400 text-slate-900", texte: "text-amber-200", symbole: "!" };
   return { rond: "border-2 border-white/25 text-white/50", texte: "text-white/45", symbole: String(e.numero) };

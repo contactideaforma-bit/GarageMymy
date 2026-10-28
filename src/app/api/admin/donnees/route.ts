@@ -488,6 +488,16 @@ export async function POST(req: Request) {
   //      dans l'upsert, donc conservés). Les clients
   //      ne sont jamais lus.
   if (body.action === "consolider_annuaire") {
+    // v13.55 — consolidation EN SQL (migration v105, fonction
+    // consolider_annuaire_mutualise) : plus robuste, et le compteur de
+    // garages est exact. Repli sur le calcul Node si la fonction manque.
+    const rpc = await admin.rpc("consolider_annuaire_mutualise");
+    if (!rpc.error) {
+      const r = (Array.isArray(rpc.data) ? rpc.data[0] : rpc.data) as { experts_lus: number; assureurs_lus: number; experts_distincts: number; assureurs_distincts: number } | null;
+      return NextResponse.json({ ok: true, experts: r?.experts_distincts ?? 0, assureurs: r?.assureurs_distincts ?? 0, lus: { experts: r?.experts_lus ?? 0, assureurs: r?.assureurs_lus ?? 0 }, via: "sql" });
+    }
+    const fonctionAbsente = /function|does not exist|schema cache|PGRST202/i.test(rpc.error.message || "");
+    if (!fonctionAbsente) return NextResponse.json({ error: `Consolidation SQL : ${rpc.error.message}` }, { status: 500 });
     const [ex, as] = await Promise.all([
       admin.from("experts").select("*"),
       admin.from("assureurs").select("*"),
@@ -518,8 +528,8 @@ export async function POST(req: Request) {
       const { error } = await admin.from("mutualise_assureurs").upsert(assureursAEcrire.map(({ notes: _n, ...r }) => ({ ...r, maj_le })), { onConflict: "cle" });
       if (error) erreur = error.message;
     }
-    if (erreur) return NextResponse.json({ error: erreur }, { status: 500 });
-    return NextResponse.json({ ok: true, experts: experts.length, assureurs: assureurs.length, lus: { experts: ex.data?.length || 0, assureurs: as.data?.length || 0 } });
+    if (erreur) return NextResponse.json({ error: `Consolidation : ${erreur} (exécutez la migration v105 pour la version SQL)` }, { status: 500 });
+    return NextResponse.json({ ok: true, experts: experts.length, assureurs: assureurs.length, lus: { experts: ex.data?.length || 0, assureurs: as.data?.length || 0 }, via: "node" });
   }
 
   // ---- CRUD générique sur la liste blanche

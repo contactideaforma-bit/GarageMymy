@@ -24,7 +24,7 @@ const RE_AUTRE =
 // UNIQUEMENT T1, T2, T3, Peinture et Ingrédients de peinture. Tout le reste
 // (main d'œuvre générique, tôlerie, forfaits…) part dans « Autres éléments ».
 //
-// ⚠️ v8.8 — RECONNAISSANCE ANCRÉE AU DÉBUT DU LIBELLÉ.
+// v8.8 — RECONNAISSANCE ANCRÉE AU DÉBUT DU LIBELLÉ.
 // L'ancienne version cherchait le mot n'importe où : « BAGUETTE PEINTURE »
 // ou « SUPPORT T2 » (des PIÈCES) atterrissaient dans le tableau des postes,
 // qui se retrouvait avec autre chose que les cinq postes autorisés. Un poste
@@ -484,7 +484,7 @@ export function normaliseLignes(
  *  compris après suppression : le bouton « + Facture » ne repart plus
  *  jamais d'une page blanche quand le dossier a été analysé.
  *
- *  ⚠️ Les lignes SANS PRIX sont conservées telles quelles : au rapport,
+ *  Les lignes SANS PRIX sont conservées telles quelles : au rapport,
  *  ce sont des opérations comprises dans la main d'œuvre (D/R/P/G), et le
  *  garage veut les voir sur la facture. Ne jamais les filtrer.
  * ================================================================== */

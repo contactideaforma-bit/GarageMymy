@@ -35,6 +35,7 @@ import {
   ETAPES_INSCRIPTION, EtapeInscription, InscriptionPublique, ModeEnLigne, SOURCES_CONNAISSANCE, CRENEAUX_RAPPEL, type Besoins,
   optionsPaiement, recommanderFormule,
 } from "@/lib/inscription";
+import Ico from "@/components/Ico";
 
 const eur = (n: number | null | undefined) => (Number(n) || 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
 
@@ -500,7 +501,7 @@ function Inscription() {
         {etape === "fini" && resultat && (
           <div className="lp-card mt-6 p-6 sm:p-8">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-700">✓</div>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-2xl text-emerald-700"><Ico n="check" /></div>
               <div>
                 <h3 className="!text-lg font-semibold">Contrat n° {resultat.numero} signé — merci !</h3>
                 <p className="text-sm text-slate-500">Votre contrat signé vous a été envoyé par email à {g.contact_email}. Il ne reste plus que le paiement de la première échéance.</p>

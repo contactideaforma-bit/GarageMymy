@@ -16,6 +16,7 @@ import { montantTtc, tauxTva } from "@/lib/tva";
 import { labelNatureIntervention, labelTypeVitrage } from "@/lib/vitrage";
 import PhotoVehicule from "@/components/PhotoVehicule";
 import { formaterTel, lienCarte, lienTelephone } from "@/components/annuaire/CarteContact";
+import Ico from "@/components/Ico";
 
 function L({ label, children, href, externe, vide = false }: { label: string; children?: ReactNode; href?: string | null; externe?: boolean; vide?: boolean }) {
   if (!children && !vide) return null;
@@ -33,7 +34,7 @@ function Tuile({ ico, titre, children, action, large = false }: { ico: string; t
   return (
     <section className={`tuile-info ${large ? "tuile-info-large" : ""}`}>
       <header className="flex items-center justify-between gap-2">
-        <h4><span aria-hidden>{ico}</span> {titre}</h4>
+        <h4><Ico n={ico} /> {titre}</h4>
         {action}
       </header>
       <dl className="mt-1.5">{children}</dl>
@@ -67,7 +68,7 @@ export default function IdentiteDossier({
         <div className="tuile-vehicule-photo"><PhotoVehicule marqueModele={dossier.marque_modele} /></div>
         <div className="min-w-0 flex-1">
           <header className="flex items-center justify-between gap-2">
-            <h4><span aria-hidden>🚗</span> Véhicule</h4>
+            <h4><span aria-hidden><Ico n="car" /></span> Véhicule</h4>
             {boutonPlaque}
           </header>
           <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -84,7 +85,7 @@ export default function IdentiteDossier({
         </div>
       </section>
 
-      <Tuile ico="💥" titre={estVitrage ? "Bris de glace" : "Sinistre"} action={dossier.rapport_path ? <button type="button" onClick={onOuvrirRapport} className="tuile-info-bouton" title={dossier.rapport_nom || t.rapport}>📄 {t.rapport}</button> : undefined}>
+      <Tuile ico="zap" titre={estVitrage ? "Bris de glace" : "Sinistre"} action={dossier.rapport_path ? <button type="button" onClick={onOuvrirRapport} className="tuile-info-bouton" title={dossier.rapport_nom || t.rapport}><Ico n="file" /> {t.rapport}</button> : undefined}>
         <L label={estVitrage ? "Date du bris" : "Date"} vide>{dossier.date_sinistre ? formatDate(dossier.date_sinistre) : null}</L>
         <L label="N° de dossier" vide>{dossier.numero_sinistre}</L>
         {!estVitrage && <L label="Expertisé le">{dossier.date_expertise ? formatDate(dossier.date_expertise) : null}</L>}
@@ -93,7 +94,7 @@ export default function IdentiteDossier({
         {estVitrage && <L label="Franchise client">{dossier.franchise != null ? formatEuros(dossier.franchise) : null}</L>}
       </Tuile>
 
-      <Tuile ico="👤" titre="Client">
+      <Tuile ico="user" titre="Client">
         <L label="Nom" vide>{dossier.client_nom}</L>
         <L label="Téléphone" href={lienTelephone(dossier.client_tel)}>{dossier.client_tel ? formaterTel(dossier.client_tel) : null}</L>
         <L label="E-mail" href={dossier.client_email ? `mailto:${dossier.client_email}` : null}>{dossier.client_email}</L>
@@ -101,7 +102,7 @@ export default function IdentiteDossier({
       </Tuile>
 
       {(!estVitrage || dossier.cabinet_expert || dossier.expert_nom) && (
-        <Tuile ico="🧑‍💼" titre="Expert">
+        <Tuile ico="user-tie" titre="Expert">
           <L label="Cabinet" vide>{dossier.cabinet_expert}</L>
           <L label="Expert">{dossier.expert_nom}</L>
           <L label="Téléphone" href={lienTelephone(telExpert)}>{telExpert ? formaterTel(telExpert) : null}</L>
@@ -110,7 +111,7 @@ export default function IdentiteDossier({
         </Tuile>
       )}
 
-      <Tuile ico="🛡️" titre="Assurance">
+      <Tuile ico="shield" titre="Assurance">
         <L label="Assureur" vide>{dossier.assureur}</L>
         <L label="N° de police">{dossier.numero_police}</L>
         <L label="Téléphone" href={lienTelephone(dossier.assureur_tel)}>{dossier.assureur_tel ? formaterTel(dossier.assureur_tel) : null}</L>
@@ -119,7 +120,7 @@ export default function IdentiteDossier({
       </Tuile>
 
       <Tuile
-        ico="🔧"
+        ico="wrench"
         titre={t.reparation}
         action={
           <span className="flex items-center gap-2">

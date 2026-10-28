@@ -40,6 +40,7 @@ import ModalShell from "./ModalShell";
 import SignaturePad from "./SignaturePad";
 import EmailComposer from "./EmailComposer";
 import CourrierPapierModal, { type CanalPapier } from "./CourrierPapierModal";
+import Ico from "@/components/Ico";
 
 const ORIGINE_RECOURS = "recours";
 const TYPES: TypeCourrierRecours[] = ["mandat_recours", "recours_direct", "relance_recours", "mise_en_demeure_recours"];
@@ -235,14 +236,14 @@ export default function RecoursDirectPanel({
     <section className="glass-card p-3 sm:p-4" style={{ borderColor: "rgba(20, 184, 166, 0.45)" }}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="titre-bloc text-white">⚖️ Recours direct contre l&apos;assureur du responsable</h2>
+          <h2 className="titre-bloc text-white"><Ico n="scale" /> Recours direct contre l&apos;assureur du responsable</h2>
           <p className="mt-1 text-xs text-white/60">
             Client non responsable : le garage, mandaté, réclame les réparations directement à l&apos;assureur adverse (art. L. 124-3 du Code des assurances). Pas de franchise, pas de malus, taux du garage maintenus.
             {jours !== null && <> Ouvert depuis <strong className="text-white">{jours} j</strong> ({formatDate(dossier.recours_depuis)}).</>}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {enregistre && <span className="badge badge-ok">Enregistré ✓</span>}
+          {enregistre && <span className="badge badge-ok">Enregistré <Ico n="check" /></span>}
           <button onClick={onLever} className="btn-ghost btn-compact" title="Sortir du recours direct (les informations et courriers sont conservés)">Lever le recours</button>
         </div>
       </div>
@@ -255,7 +256,7 @@ export default function RecoursDirectPanel({
           return (
             <li key={e.cle}>
               <button type="button" onClick={() => passerEtape(e.cle)} className={`segment-btn ${courant ? "actif" : ""}`} style={fait && !courant ? { opacity: 0.6 } : undefined} title={e.conseil}>
-                {fait && !courant ? "✓ " : `${i + 1}. `}{e.court}
+                {fait && !courant ? "" : `${i + 1}. `}{e.court}
               </button>
             </li>
           );
@@ -273,13 +274,13 @@ export default function RecoursDirectPanel({
       <div className="mt-2 flex flex-wrap gap-2">
         {prochainType && !aide.bouton && (
           <button onClick={() => setModal({ type: prochainType })} className="btn-ghost btn-compact">
-            {prochainType === "mandat_recours" ? "✍️ Faire signer le mandat" : prochainType === "recours_direct" ? "📄 Préparer la lettre de recours" : prochainType === "relance_recours" ? "🔁 Préparer la relance" : "⚖ Préparer la mise en demeure"}
+            {prochainType === "mandat_recours" ? "Faire signer le mandat" : prochainType === "recours_direct" ? "Préparer la lettre de recours" : prochainType === "relance_recours" ? "Préparer la relance" : "Préparer la mise en demeure"}
           </button>
         )}
         {etape.cle === "mise_en_demeure" && (
-          <a href="https://www.mediation-assurance.org/" target="_blank" rel="noreferrer" className="btn-ghost btn-compact" onClick={() => passerEtape("mediateur", "Médiateur de l'assurance saisi")}>🌐 Saisir le Médiateur de l&apos;assurance</a>
+          <a href="https://www.mediation-assurance.org/" target="_blank" rel="noreferrer" className="btn-ghost btn-compact" onClick={() => passerEtape("mediateur", "Médiateur de l'assurance saisi")}>Saisir le Médiateur de l&apos;assurance</a>
         )}
-        {etape.cle !== "regle" && <button onClick={() => passerEtape("regle")} className="btn-ghost btn-compact">✓ Réglé par l&apos;assureur</button>}
+        {etape.cle !== "regle" && <button onClick={() => passerEtape("regle")} className="btn-ghost btn-compact"><Ico n="check" /> Réglé par l&apos;assureur</button>}
       </div>
       {!constat && <p className="mt-2 text-xs text-amber-200/90">Constat amiable absent des pièces du dossier : c&apos;est LA preuve de la responsabilité du tiers. Ajoutez-le dans « Pièces du dossier » (une photo suffit).</p>}
 
@@ -344,7 +345,7 @@ export default function RecoursDirectPanel({
           <div className="flex flex-wrap gap-1.5">
             {TYPES.map((t) => (
               <button key={t} onClick={() => setModal({ type: t })} className="btn-ghost btn-compact" title={LIBELLE_COURRIER_RECOURS[t]}>
-                {t === "mandat_recours" ? "✍️ Mandat" : t === "recours_direct" ? "📄 Recours" : t === "relance_recours" ? "🔁 Relance" : "⚖ Mise en demeure"}
+                {t === "mandat_recours" ? "Mandat" : t === "recours_direct" ? "Recours" : t === "relance_recours" ? "Relance" : "Mise en demeure"}
               </button>
             ))}
           </div>
@@ -365,11 +366,11 @@ export default function RecoursDirectPanel({
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <button onClick={() => apercuCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">Aperçu</button>
-                  <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">⬇ PDF</button>
+                  <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact"><Ico n="download" /> PDF</button>
                   {c.statut !== "envoye" && <button onClick={() => setModal({ type: c.type as TypeCourrierRecours, courrier: c })} className="btn-ghost btn-compact">Modifier</button>}
-                  {c.statut !== "envoye" && c.type !== "mandat_recours" && <button onClick={() => setEmail(c)} className="btn-ghost btn-compact">✉ Email</button>}
-                  {c.statut !== "envoye" && c.type !== "mandat_recours" && <button onClick={() => setEnvoi(c)} className="btn-primary btn-compact">📮 Imprimer et poster</button>}
-                  {c.statut === "envoye" && c.canal_envoi === "lrar" && !arJoint(piecesAR, c.id) && <button onClick={() => setArModal(c)} className="btn-primary btn-compact">📬 Joindre l&apos;AR</button>}
+                  {c.statut !== "envoye" && c.type !== "mandat_recours" && <button onClick={() => setEmail(c)} className="btn-ghost btn-compact"><Ico n="mail" /> Email</button>}
+                  {c.statut !== "envoye" && c.type !== "mandat_recours" && <button onClick={() => setEnvoi(c)} className="btn-primary btn-compact"><Ico n="mailbox" /> Imprimer et poster</button>}
+                  {c.statut === "envoye" && c.canal_envoi === "lrar" && !arJoint(piecesAR, c.id) && <button onClick={() => setArModal(c)} className="btn-primary btn-compact"><Ico n="inbox" /> Joindre l&apos;AR</button>}
                   {c.statut === "envoye" && c.canal_envoi === "lrar" && arJoint(piecesAR, c.id) && <span className="badge badge-ok">AR joint</span>}
                 </div>
               </li>
@@ -445,7 +446,7 @@ export function JournalRecours({ lignes }: { lignes: LigneJournalRecours[] }) {
     <ul className="journal-recours mt-1">
       {lignes.map((l) => (
         <li key={l.id}>
-          <span className="ico" aria-hidden>{ICONE_EVENEMENT[l.evenement] || "•"}</span>
+          <span className="ico" aria-hidden><Ico n={ICONE_EVENEMENT[l.evenement] || "dot"} /></span>
           <span className="quand">{formatDateTime(l.created_at)}</span>
           <span className="quoi">
             {l.titre}
@@ -549,10 +550,10 @@ function CourrierRecoursModal({ type, existant, dossier, garage, calcul, numeroF
         </div>
         {erreur && <div className="rounded-lg border border-rose-400/30 bg-rose-500/15 px-3 py-2 text-sm text-rose-200">{erreur}</div>}
         <div className="flex flex-wrap justify-end gap-2 border-t border-white/10 pt-3">
-          <button type="button" onClick={() => apercuCourrierRecouvrementPdf(brouillon(), dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">👁 Aperçu PDF</button>
-          <button type="button" onClick={() => generateCourrierRecouvrementPdf(brouillon(), dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">⬇ Télécharger</button>
+          <button type="button" onClick={() => apercuCourrierRecouvrementPdf(brouillon(), dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact"><Ico n="eye" /> Aperçu PDF</button>
+          <button type="button" onClick={() => generateCourrierRecouvrementPdf(brouillon(), dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact"><Ico n="download" /> Télécharger</button>
           <button type="button" onClick={() => enregistrer("enregistrer")} disabled={busy !== null} className={estMandat ? "btn-primary btn-compact" : "btn-ghost btn-compact"}>{estMandat ? "Enregistrer le mandat signé" : "Enregistrer"}</button>
-          {!estMandat && <button type="button" onClick={() => enregistrer("email")} disabled={busy !== null} className="btn-ghost btn-compact">✉ Envoyer par email (pièces jointes)</button>}
+          {!estMandat && <button type="button" onClick={() => enregistrer("email")} disabled={busy !== null} className="btn-ghost btn-compact"><Ico n="mail" /> Envoyer par email (pièces jointes)</button>}
           {!estMandat && <button type="button" onClick={() => enregistrer("poster")} disabled={busy !== null} className="btn-primary btn-compact">{type === "mise_en_demeure_recours" || type === "recours_direct" ? "Signer → imprimer et poster en recommandé" : "Signer → imprimer et poster"}</button>}
         </div>
       </div>

@@ -41,6 +41,7 @@ import {
   saisieFactureVide,
   trierDocument,
 } from "@/lib/reprise";
+import Ico from "@/components/Ico";
 
 type FichierDepose = {
   id: string;
@@ -246,7 +247,7 @@ export default function ImportPage() {
         <div className="glass-card p-6">
           {bilan.faits.length > 0 && (
             <ul className="space-y-1 text-sm text-emerald-200">
-              {bilan.faits.map((t, i) => <li key={i}>✓ {t}</li>)}
+              {bilan.faits.map((t, i) => <li key={i}><Ico n="check" /> {t}</li>)}
             </ul>
           )}
           {bilan.rates.length > 0 && (

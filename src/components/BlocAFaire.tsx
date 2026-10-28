@@ -22,6 +22,7 @@ import { RoleConversation, lireRole } from "@/lib/conversation";
 import DossierPicker, { libelleDossier } from "./DossierPicker";
 import ModalShell from "./ModalShell";
 import ChampEcheance from "./ChampEcheance";
+import Ico from "@/components/Ico";
 
 /**
  * BLOC « À FAIRE » (v41 → refondu v10.7).
@@ -351,7 +352,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
           >
             {/* v11.5 — le texte et les badges étaient dans UN MÊME flux inline :
                 sur une tâche longue, les badges atterrissaient au hasard en fin
-                de dernière ligne (« …demander le rapport définitif 📁EZ-427-MK »),
+                de dernière ligne (« …demander le rapport définitif EZ-427-MK »),
                 d'où un effet brouillon. Désormais : le texte occupe sa ligne, les
                 métadonnées forment une rangée alignée dessous. Toujours dense
                 (pas de marge ajoutée), mais ordonné. */}
@@ -361,7 +362,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
               <div className="mt-1 flex flex-wrap items-center gap-1">
                 {ligne.echeance && (
                   <span className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${badgeEcheance}`}>
-                    {retard ? "⏰ " : ""}
+                    {retard ? "" : ""}
                     {libelleEcheance(ligne.echeance)}
                   </span>
                 )}
@@ -375,7 +376,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
                   </span>
                 )}
                 {ligne.origine?.startsWith("suggestion:") && (
-                  <span className="shrink-0 text-[10px] text-white/35" title="Programmée depuis la fiche du dossier">📌</span>
+                  <span className="shrink-0 text-[10px] text-white/35" title="Programmée depuis la fiche du dossier"><Ico n="map-pin" /></span>
                 )}
                 {d && (
                   <Link
@@ -384,7 +385,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
                     className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold max-w-[11rem] truncate bg-white/10 font-medium text-white/60 hover:bg-white/20 hover:text-white"
                     title={`Ouvrir le dossier — ${libelleDossier(d)}`}
                   >
-                    📁 {d.immatriculation || d.numero_sinistre || d.client_nom || "dossier"}
+                    <Ico n="folder" /> {d.immatriculation || d.numero_sinistre || d.client_nom || "dossier"}
                   </Link>
                 )}
               </div>
@@ -575,7 +576,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
           <div>
             <span className="field-label !mb-0.5 text-[11px]">Pour qui ?</span>
             <div className="segment">
-              {([["", "Tous"], ["secretaire", "🗂️ Chargé de mission"], ["garage", "🔧 Garage"]] as const).map(([v, l]) => (
+              {([["", "Tous"], ["secretaire", "Chargé de mission"], ["garage", "Garage"]] as const).map(([v, l]) => (
                 <button key={v} type="button" className={`segment-btn ${pour === v ? "actif" : ""}`} onClick={() => setPour(v)}>
                   {l}
                 </button>
@@ -588,7 +589,7 @@ export default function BlocAFaire({ dossiers, loading }: { dossiers: Dossier[];
             <span className="field-label !mb-0.5 text-[11px]">Dossier (facultatif)</span>
             <div className="flex flex-wrap items-center gap-2">
               <button type="button" onClick={() => setPickerOuvert(true)} className="btn-ghost btn-compact">
-                📁 {dossierLie ? libelleDossier(dossierLie) : "Lier un dossier"}
+                <Ico n="folder" /> {dossierLie ? libelleDossier(dossierLie) : "Lier un dossier"}
               </button>
               {dossierLie && (
                 <button type="button" onClick={() => setDossierLie(null)} className="text-xs text-white/40 hover:text-rose-300">

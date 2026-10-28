@@ -99,8 +99,8 @@ export function ChampsFactureExterne({
           controle.coherent ? "bg-emerald-500/10 text-emerald-200" : "bg-amber-500/10 text-amber-200"
         }`}>
           {controle.coherent
-            ? `✓ Rapport : ${formatEuros(controle.montantRapport)} HT · cette facture : ${formatEuros(t.ht)} HT`
-            : `⚠ Rapport : ${formatEuros(controle.montantRapport)} HT · cette facture : ${formatEuros(t.ht)} HT — écart de ${formatEuros(Math.abs(controle.ecart))}. Simple information : la facture d'origine est conservée telle quelle.`}
+            ? `Rapport : ${formatEuros(controle.montantRapport)} HT · cette facture : ${formatEuros(t.ht)} HT`
+            : `Rapport : ${formatEuros(controle.montantRapport)} HT · cette facture : ${formatEuros(t.ht)} HT — écart de ${formatEuros(Math.abs(controle.ecart))}. Simple information : la facture d'origine est conservée telle quelle.`}
         </p>
       )}
 

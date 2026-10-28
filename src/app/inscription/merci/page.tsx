@@ -150,7 +150,7 @@ function Merci() {
 function Etape({ ok, titre, detail }: { ok: boolean; titre: string; detail: string }) {
   return (
     <li className="flex items-start gap-3">
-      <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ok ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>{ok ? "✓" : "•"}</span>
+      <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ok ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400"}`}>{ok ? "check" : "•"}</span>
       <span><span className={ok ? "font-semibold text-slate-800" : "font-semibold text-slate-600"}>{titre}</span>{detail && <span className="block text-xs text-slate-500">{detail}</span>}</span>
     </li>
   );

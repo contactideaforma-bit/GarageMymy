@@ -197,7 +197,7 @@ export type LigneJournalRecours = {
 };
 
 export const ICONE_EVENEMENT: Record<string, string> = {
-  ouverture: "🟢", reouverture: "🔁", tiers: "🧾", mandat: "✍️", courrier: "📨", etape: "➡️", regle: "✅", levee: "⏹️", note: "📝",
+  ouverture: "dot-green", reouverture: "refresh", tiers: "receipt", mandat: "signature", courrier: "send", etape: "arrow-right", regle: "check-circle", levee: "stop", note: "edit",
 };
 
 /** Écrit une ligne de journal (best-effort : jamais bloquant). */
@@ -225,12 +225,12 @@ export function aideRecours(etape: EtapeRecours | string | null | undefined, ctx
   switch (etape) {
     case "mandat":
       if (!ctx.assureurRenseigne) return { titre: "On commence par l'assureur d'en face", phrase: "Dites-moi qui est l'assureur du responsable : je prépare tout le reste.", gestes: ["Regardez le constat : la case « Assureur » du véhicule B.", "Tapez son nom dans « Compagnie » — je remplis l'adresse et l'e-mail.", "Ajoutez la plaque du tiers si vous l'avez."], bouton: null };
-      if (!ctx.mandatSigne) return { titre: "Le client signe le mandat", phrase: "Une signature du client sur l'écran, et je peux réclamer en son nom.", gestes: ["Cliquez sur le bouton ci-dessous : le mandat est déjà rédigé.", "Tendez le téléphone ou la tablette au client, il signe au doigt.", "Enregistrez : c'est fait."], bouton: "✍️ Faire signer le mandat" };
-      return { titre: "Mandat signé ✓", phrase: "Parfait. Maintenant on envoie la demande à l'assureur adverse.", gestes: [...(ctx.constat ? [] : ["Ajoutez le constat amiable dans « Pièces du dossier » (photo acceptée)."]), ...(ctx.facture ? [] : ["Créez la facture dans « Documents du dossier »."]), "Cliquez sur le bouton : la lettre est prête, les pièces sont jointes."], bouton: "📄 Envoyer le recours" };
+      if (!ctx.mandatSigne) return { titre: "Le client signe le mandat", phrase: "Une signature du client sur l'écran, et je peux réclamer en son nom.", gestes: ["Cliquez sur le bouton ci-dessous : le mandat est déjà rédigé.", "Tendez le téléphone ou la tablette au client, il signe au doigt.", "Enregistrez : c'est fait."], bouton: "Faire signer le mandat" };
+      return { titre: "Mandat signé", phrase: "Parfait. Maintenant on envoie la demande à l'assureur adverse.", gestes: [...(ctx.constat ? [] : ["Ajoutez le constat amiable dans « Pièces du dossier » (photo acceptée)."]), ...(ctx.facture ? [] : ["Créez la facture dans « Documents du dossier »."]), "Cliquez sur le bouton : la lettre est prête, les pièces sont jointes."], bouton: "Envoyer le recours" };
     case "recours_envoye":
-      return { titre: "Recours envoyé — on attend", phrase: ctx.joursDepuisRecours != null && ctx.joursDepuisRecours >= 15 ? `${ctx.joursDepuisRecours} jours sans réponse : c'est le moment de relancer.` : `Rien à faire pour l'instant. Je vous rappelle à J+15${ctx.joursDepuisRecours != null ? ` (envoyé il y a ${ctx.joursDepuisRecours} j)` : ""}.`, gestes: ["Si l'assureur appelle : notez le n° de sinistre et le nom du gestionnaire dans « Notes ».", "S'il paie : cliquez « Réglé par l'assureur ».", "Sans nouvelle à J+15 : cliquez « Préparer la relance »."], bouton: ctx.joursDepuisRecours != null && ctx.joursDepuisRecours >= 15 ? "🔁 Préparer la relance" : null };
+      return { titre: "Recours envoyé — on attend", phrase: ctx.joursDepuisRecours != null && ctx.joursDepuisRecours >= 15 ? `${ctx.joursDepuisRecours} jours sans réponse : c'est le moment de relancer.` : `Rien à faire pour l'instant. Je vous rappelle à J+15${ctx.joursDepuisRecours != null ? ` (envoyé il y a ${ctx.joursDepuisRecours} j)` : ""}.`, gestes: ["Si l'assureur appelle : notez le n° de sinistre et le nom du gestionnaire dans « Notes ».", "S'il paie : cliquez « Réglé par l'assureur ».", "Sans nouvelle à J+15 : cliquez « Préparer la relance »."], bouton: ctx.joursDepuisRecours != null && ctx.joursDepuisRecours >= 15 ? "Préparer la relance" : null };
     case "relance":
-      return { titre: "Relance envoyée", phrase: "Si toujours rien sous 15 jours, on passe au recommandé : la mise en demeure.", gestes: ["Attendez le rappel (J+15).", "Puis cliquez « Préparer la mise en demeure » : texte prêt, à poster en recommandé AR.", "Gardez la preuve de dépôt : photographiez-la, je la range dans le dossier."], bouton: ctx.joursDepuisRecours != null && ctx.joursDepuisRecours >= 30 ? "⚖ Préparer la mise en demeure" : null };
+      return { titre: "Relance envoyée", phrase: "Si toujours rien sous 15 jours, on passe au recommandé : la mise en demeure.", gestes: ["Attendez le rappel (J+15).", "Puis cliquez « Préparer la mise en demeure » : texte prêt, à poster en recommandé AR.", "Gardez la preuve de dépôt : photographiez-la, je la range dans le dossier."], bouton: ctx.joursDepuisRecours != null && ctx.joursDepuisRecours >= 30 ? "Préparer la mise en demeure" : null };
     case "mise_en_demeure":
       return { titre: "Mise en demeure partie", phrase: "L'assureur a 15 jours. Ensuite, c'est le Médiateur : gratuit, en ligne, et ça marche.", gestes: ["Joignez l'avis de réception du recommandé quand il revient.", "Sans règlement sous 15 jours : « Saisir le Médiateur » (lien direct), au nom du client.", "Tenez le client informé : la fiche récap se partage en un tap."], bouton: null };
     case "mediateur":
@@ -238,7 +238,7 @@ export function aideRecours(etape: EtapeRecours | string | null | undefined, ctx
     case "injonction":
       return { titre: "Injonction de payer", phrase: "Dernière étape : le tribunal. Le dossier est complet, un avocat n'est pas obligatoire.", gestes: ["Formulaire Cerfa 12948 (injonction de payer), tribunal judiciaire du siège de l'assureur.", "Joignez mandat, constat, rapport, facture, mise en demeure et AR."], bouton: null };
     case "regle":
-      return { titre: "Réglé ✓", phrase: "L'assureur a payé. Enregistrez le paiement sur la facture, et c'est terminé.", gestes: ["« Paiements & relances » → enregistrer le virement.", "Si le client doit un reste (vétusté, part de responsabilité) : encaissez-le.", "Levez le recours : l'historique reste sur le dossier."], bouton: null };
+      return { titre: "Réglé", phrase: "L'assureur a payé. Enregistrez le paiement sur la facture, et c'est terminé.", gestes: ["« Paiements & relances » → enregistrer le virement.", "Si le client doit un reste (vétusté, part de responsabilité) : encaissez-le.", "Levez le recours : l'historique reste sur le dossier."], bouton: null };
     default:
       return { titre: "Recours direct", phrase: "Je vous guide étape par étape.", gestes: [], bouton: null };
   }

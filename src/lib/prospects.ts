@@ -158,11 +158,11 @@ export type ProspectInteraction = {
 };
 
 export const CANAUX_CONTACT: Record<CanalContact, { label: string; icone: string }> = {
-  appel: { label: "Appel", icone: "📞" },
-  sms: { label: "SMS", icone: "💬" },
-  email: { label: "Email", icone: "✉️" },
-  visite: { label: "Visite", icone: "🚗" },
-  note: { label: "Note", icone: "📝" },
+  appel: { label: "Appel", icone: "phone" },
+  sms: { label: "SMS", icone: "message" },
+  email: { label: "Email", icone: "mail" },
+  visite: { label: "Visite", icone: "car" },
+  note: { label: "Note", icone: "edit" },
 };
 
 /** Résultats possibles d'un contact, avec l'effet automatique sur la fiche. */
@@ -415,17 +415,17 @@ export function liensRecherche(p: Pick<Prospect, "nom" | "adresse" | "cp" | "vil
   const lieu = [p.cp, p.ville].filter(Boolean).join(" ");
   const adresse = [p.nom, p.adresse, lieu].filter(Boolean).join(" ");
   const liens: LienRecherche[] = [
-    { key: "google", label: "Fiche Google", icone: "🔎", url: `https://www.google.com/search?q=${enc(`${p.nom} ${lieu}`)}`, aide: "Téléphone, horaires, avis et site dans l'encart Google à droite." },
-    { key: "maps", label: "Google Maps", icone: "🗺️", url: `https://www.google.com/maps/search/?api=1&query=${enc(adresse)}`, aide: "Fiche de l'établissement, photos, téléphone, itinéraire." },
-    { key: "pj", label: "PagesJaunes", icone: "📒", url: `https://www.pagesjaunes.fr/annuaire/chercherlespros?quoiqui=${enc(p.nom)}&ou=${enc(p.ville || p.cp || "")}`, aide: "Souvent le fixe du garage et le nom du gérant." },
+    { key: "google", label: "Fiche Google", icone: "search", url: `https://www.google.com/search?q=${enc(`${p.nom} ${lieu}`)}`, aide: "Téléphone, horaires, avis et site dans l'encart Google à droite." },
+    { key: "maps", label: "Google Maps", icone: "map-pin", url: `https://www.google.com/maps/search/?api=1&query=${enc(adresse)}`, aide: "Fiche de l'établissement, photos, téléphone, itinéraire." },
+    { key: "pj", label: "PagesJaunes", icone: "", url: `https://www.pagesjaunes.fr/annuaire/chercherlespros?quoiqui=${enc(p.nom)}&ou=${enc(p.ville || p.cp || "")}`, aide: "Souvent le fixe du garage et le nom du gérant." },
   ];
   if (p.siren) {
-    liens.push({ key: "annuaire", label: "Annuaire officiel", icone: "🏛️", url: `https://annuaire-entreprises.data.gouv.fr/entreprise/${enc(p.siren)}`, aide: "Dirigeants, établissements, données INSEE." });
+    liens.push({ key: "annuaire", label: "Annuaire officiel", icone: "bank", url: `https://annuaire-entreprises.data.gouv.fr/entreprise/${enc(p.siren)}`, aide: "Dirigeants, établissements, données INSEE." });
   }
   if (etatSite(p) === "oui") {
-    liens.push({ key: "site", label: "Site web", icone: "🌐", url: urlSite(p.site!), aide: "Le site du garage." });
+    liens.push({ key: "site", label: "Site web", icone: "globe", url: urlSite(p.site!), aide: "Le site du garage." });
   } else if (etatSite(p) === "inconnu") {
-    liens.push({ key: "site", label: "Chercher le site", icone: "🌐", url: `https://www.google.com/search?q=${enc(`${p.nom} ${p.ville || ""} site officiel`)}`, aide: "Recherche du site web du garage." });
+    liens.push({ key: "site", label: "Chercher le site", icone: "", url: `https://www.google.com/search?q=${enc(`${p.nom} ${p.ville || ""} site officiel`)}`, aide: "Recherche du site web du garage." });
   }
   return liens;
 }

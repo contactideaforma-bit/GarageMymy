@@ -11,6 +11,7 @@ import {
   creerTicket,
 } from "@/lib/support";
 import { Ticket } from "@/lib/types";
+import Ico from "@/components/Ico";
 
 /**
  * SIGNALER UN PROBLÈME (v43).
@@ -104,7 +105,7 @@ export default function TicketModal({
                   : "border-white/10 text-white/70 hover:bg-white/5"
               }`}
             >
-              <span className="text-lg leading-none">{c.icone}</span>
+              <span className="text-lg leading-none"><Ico n={c.icone} /></span>
               <span className="min-w-0">{c.label}</span>
             </button>
           ))}
@@ -189,7 +190,7 @@ export default function TicketModal({
           onClick={() => setDetailsOuverts((v) => !v)}
           className="flex w-full items-center justify-between text-left text-xs text-white/60 hover:text-white"
         >
-          <span>🔒 Informations techniques jointes automatiquement</span>
+          <span><Ico n="lock" /> Informations techniques jointes automatiquement</span>
           <span>{detailsOuverts ? "−" : "+"}</span>
         </button>
         {detailsOuverts && (

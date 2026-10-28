@@ -9,6 +9,7 @@
 
 import Link from "next/link";
 import { LIBELLE_FORMULE, TEXTE_FORMULE_SUPERIEURE, useFormuleGarage } from "@/lib/formuleGarage";
+import Ico from "@/components/Ico";
 
 export default function FonctionReservee({ titre, description, compact = false }: { titre: string; description?: string; compact?: boolean }) {
   const { formule } = useFormuleGarage();
@@ -20,7 +21,7 @@ export default function FonctionReservee({ titre, description, compact = false }
       </div>
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2">
         <div className="text-sm text-amber-100">
-          <span className="mr-1" aria-hidden>🔒</span>
+          <span className="mr-1" aria-hidden><Ico n="lock" /></span>
           <strong>Non inclus dans votre formule{formule ? ` ${LIBELLE_FORMULE[formule]}` : ""}.</strong> {TEXTE_FORMULE_SUPERIEURE}
         </div>
         <div className="flex flex-wrap gap-2">
@@ -35,8 +36,8 @@ export default function FonctionReservee({ titre, description, compact = false }
 /** Bouton grisé (en-tête de fiche dossier) pour une action réservée. */
 export function BoutonReserve({ children, className = "btn-ghost" }: { children: React.ReactNode; className?: string }) {
   return (
-    <Link href="/formules/plus" className={`${className} opacity-50 grayscale`} title={`🔒 ${TEXTE_FORMULE_SUPERIEURE}`} aria-disabled>
-      🔒 {children}
+    <Link href="/formules/plus" className={`${className} opacity-50 grayscale`} title={`${TEXTE_FORMULE_SUPERIEURE}`} aria-disabled>
+      <Ico n="lock" /> {children}
     </Link>
   );
 }

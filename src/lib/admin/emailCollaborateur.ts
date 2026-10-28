@@ -101,7 +101,7 @@ export function emailBienvenueCommercialHtml(b: BienvenueCommercialInput): strin
           ${b.codeApporteur ? ligne("Code apporteur", esc(b.codeApporteur), true) : ""}
           ${b.zone ? ligne("Zone attribuée", esc(b.zone)) : ""}
         </table>
-        <div style="color:${TEXTE_DOUX};font-size:12px;margin-top:8px">⚠️ Changez ce mot de passe dès votre première connexion (Profil → Mot de passe).</div>
+        <div style="color:${TEXTE_DOUX};font-size:12px;margin-top:8px">Changez ce mot de passe dès votre première connexion (Profil → Mot de passe).</div>
       </td></tr>
     </table>
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px auto"><tr><td style="border-radius:10px;background:${VIOLET};background:linear-gradient(90deg,${VIOLET},${FUCHSIA})">
@@ -114,7 +114,7 @@ export function emailBienvenueCommercialHtml(b: BienvenueCommercialInput): strin
       ${etape(3, "Ouvrez <b>Mes documents</b> : votre contrat de collaboration et toute la documentation commerciale y sont téléchargeables.")}
       ${etape(4, "Enregistrez votre signature (Profil) : elle s'appose sur les documents remis aux garages.")}
     </table>`;
-  return page("Bienvenue dans l'équipe 💼", corps);
+  return page("Bienvenue dans l'équipe", corps);
 }
 
 export function emailBienvenueCommercialTexte(b: BienvenueCommercialInput): string {
@@ -161,7 +161,7 @@ export function emailDocsCollaborateurHtml(i: DocsCollaborateurInput): string {
     .map(
       (t) => `
     <tr>
-      <td style="vertical-align:top;padding:4px 8px 4px 0;color:${VIOLET};font-weight:bold">📄</td>
+      <td style="vertical-align:top;padding:4px 8px 4px 0;color:${VIOLET};font-weight:bold"></td>
       <td style="padding:4px 0;color:${TEXTE};font-size:13px;line-height:1.5">${t}</td>
     </tr>`
     )
@@ -179,7 +179,7 @@ export function emailDocsCollaborateurHtml(i: DocsCollaborateurInput): string {
     <p style="color:${TEXTE};font-size:14px;line-height:1.6;margin:18px 0 0">
       Conservez-les précieusement. ${i.contratJoint ? "Le contrat joint reprend les conditions signées ensemble." : ""}
     </p>`;
-  return page("Vos documents 📁", corps);
+  return page("Vos documents", corps);
 }
 
 export function emailDocsCollaborateurTexte(i: DocsCollaborateurInput): string {

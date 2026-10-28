@@ -5,6 +5,7 @@ import ModalShell from "@/components/ModalShell";
 import { fetchAuth, lireReponse } from "@/lib/apiClient";
 import { INFOS_PLAQUE_ACTIF, LIGNES_INFOS, ReponseInfosPlaque, formaterPlaque } from "@/lib/infosPlaque";
 import { formatDate } from "@/lib/format";
+import Ico from "@/components/Ico";
 
 /**
  * INFOS PLAQUE (v13.47) : « je tape la plaque, j'ai la carte d'identité du
@@ -98,7 +99,7 @@ export default function InfosPlaqueModal({
                 disabled={applique !== "non"}
                 className="btn-primary"
               >
-                {applique === "encours" ? "Enregistrement…" : applique === "fait" ? "Fiche complétée ✓" : libelleAppliquer}
+                {applique === "encours" ? "Enregistrement…" : applique === "fait" ? "Fiche complétée" : libelleAppliquer}
               </button>
             )}
             <button onClick={onClose} className="btn-ghost">Fermer</button>
@@ -119,7 +120,7 @@ export function BoutonInfosPlaque({ onClick, className = "" }: { onClick: () => 
       className={`inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-xs text-white/80 hover:bg-white/20 ${className}`}
       title="Infos du véhicule d'après sa plaque (marque, modèle, énergie, VIN…)"
     >
-      🔍 Infos plaque
+      <Ico n="search" /> Infos plaque
     </button>
   );
 }

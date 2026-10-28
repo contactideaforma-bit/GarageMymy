@@ -8,7 +8,7 @@
 // navigation et au rafraîchissement de l'onglet, mais pas à la fermeture du
 // navigateur (au prochain jour de travail, la liste repart propre).
 //
-// ⚠ Ne JAMAIS lire le sessionStorage pendant le rendu initial : le serveur
+// Ne JAMAIS lire le sessionStorage pendant le rendu initial : le serveur
 // n'y a pas accès, et React signalerait une différence d'hydratation. On
 // restaure toujours dans un effet, après le montage.
 

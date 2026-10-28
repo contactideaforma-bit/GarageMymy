@@ -10,6 +10,7 @@ import { messageErreur } from "@/lib/format";
 import {
   CANAUX_CONTACT, CanalContact, MOTIFS_REFUS, MotifRefus, Prospect, RESULTATS_CONTACT, ResultatContact, DELAIS_RAPPEL, dateDansJours, enregistrerInteraction,
 } from "@/lib/prospects";
+import Ico from "@/components/Ico";
 
 const ORDRE_RESULTATS: ResultatContact[] = ["pas_repondu", "messagerie", "rappeler", "interesse", "rdv", "refus", "injoignable", "autre"];
 
@@ -52,7 +53,7 @@ export default function InteractionModal({ prospect, canalDefaut = "appel", onCl
     <ModalShell title={`Noter un contact — ${prospect.nom}`} onClose={onClose} maxWidth="max-w-xl">
       {prospect.tel && (
         <a href={`tel:${prospect.tel.replace(/\s/g, "")}`} className="glass-soft flex items-center justify-between px-3 py-2 text-sm">
-          <span>📞 {prospect.tel}{prospect.contact_nom || prospect.gerant ? ` · ${prospect.contact_nom || prospect.gerant}` : ""}</span>
+          <span><Ico n="phone" /> {prospect.tel}{prospect.contact_nom || prospect.gerant ? ` · ${prospect.contact_nom || prospect.gerant}` : ""}</span>
           <span className="text-xs text-accent-teal">Appeler</span>
         </a>
       )}
@@ -61,7 +62,7 @@ export default function InteractionModal({ prospect, canalDefaut = "appel", onCl
         <label className="field-label">Canal</label>
         <div className="segment flex-wrap">
           {(Object.keys(CANAUX_CONTACT) as CanalContact[]).map((c) => (
-            <button key={c} className={`segment-btn ${canal === c ? "actif" : ""}`} onClick={() => setCanal(c)}>{CANAUX_CONTACT[c].icone} {CANAUX_CONTACT[c].label}</button>
+            <button key={c} className={`segment-btn ${canal === c ? "actif" : ""}`} onClick={() => setCanal(c)}><Ico n={CANAUX_CONTACT[c].icone || "dot"} /> {CANAUX_CONTACT[c].label}</button>
           ))}
         </div>
       </div>

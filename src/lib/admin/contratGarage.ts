@@ -7,7 +7,7 @@
 //  L221-3 C. conso, transparence des prix, réversibilité des données) et
 //  IDEAFORMA (engagement ferme de 12 mois, mensualités dues, suspension
 //  pour impayé, limitation de responsabilité, propriété intellectuelle).
-//  ⚠️ Modèle à faire relire par un avocat avant les premières signatures.
+//  Modèle à faire relire par un avocat avant les premières signatures.
 // ============================================================
 
 import { SOCIETE, ADRESSE_COMPLETE } from "@/components/vitrine/societe";

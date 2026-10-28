@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Incident, chargerEtat, depuis, infoNiveau } from "@/lib/etatService";
+import Ico from "@/components/Ico";
 
 /**
  * BANDEAU D'INCIDENT (v45).
@@ -48,7 +49,7 @@ export default function BandeauService() {
           >
             <div className="flex min-w-0 items-start gap-2">
               <span aria-hidden className="text-base leading-none">
-                {n.icone}
+                <Ico n={n.icone} />
               </span>
               <div className="min-w-0">
                 <p className="text-sm font-semibold">

@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { OngletDossier, fermerOnglet, fermerTousLesOnglets, lireOnglets, surChangementOnglets } from "@/lib/onglets";
+import Ico from "@/components/Ico";
 
 export default function OngletsDossiers() {
   const pathname = usePathname() || "";
@@ -53,14 +54,14 @@ export default function OngletsDossiers() {
   return (
     <div className="onglets-dossiers -mb-1 flex items-end gap-1 overflow-x-auto border-b border-white/10 pb-0" role="tablist" aria-label="Dossiers ouverts">
       <Link href="/sinistres" role="tab" aria-selected={surListe} className={`${base} ${surListe ? actif : inactif}`}>
-        <span aria-hidden>☰</span> Liste
+        <span aria-hidden><Ico n="menu" /></span> Liste
       </Link>
       {liste.map((o) => {
         const estActif = o.id === idCourant;
         return (
           <span key={o.id} role="tab" aria-selected={estActif} className={`${base} ${estActif ? actif : inactif}`}>
             <Link href={`/sinistres/${o.id}`} className="min-w-0 truncate" title={o.label}>
-              📁 {o.label}
+              <Ico n="folder" /> {o.label}
             </Link>
             <button
               type="button"

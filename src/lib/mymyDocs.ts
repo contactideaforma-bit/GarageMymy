@@ -13,12 +13,12 @@
 //      n'entre dans cette base — même pour l'éditeur, ces sujets se
 //      consultent dans l'espace admin, pas via le chatbot.
 //
-//  ⚠️ LE CLOISONNEMENT EST FAIT CÔTÉ SERVEUR, PAR SÉLECTION DU CORPUS :
+//  LE CLOISONNEMENT EST FAIT CÔTÉ SERVEUR, PAR SÉLECTION DU CORPUS :
 //  on n'envoie au modèle QUE les fiches autorisées. Un modèle ne peut pas
 //  divulguer ce qu'il n'a jamais reçu — c'est bien plus sûr que de lui
 //  demander de « ne pas répondre » à certaines questions.
 //
-//  ⚠️ `Parametres` contient des champs CONFIDENTIELS (tauxHoraireSecretaire,
+//  `Parametres` contient des champs CONFIDENTIELS (tauxHoraireSecretaire,
 //  coutTechnique, coutsFixes, tauxRetrocession, primeSignature…). On ne
 //  passe JAMAIS l'objet entier : chaque fiche compose son texte champ par
 //  champ, avec uniquement ce qui est public.
@@ -103,7 +103,7 @@ function ficheAideDossiers(): FicheDoc {
     motsCles: ["dossier", "sinistre", "import", "rapport", "expertise", "pipeline", "statut", "etape", "étape", "creer", "créer", "chiffrage", "analyse", "ia"],
     contenu: `Créer un dossier : le plus simple est d'IMPORTER LE RAPPORT D'EXPERTISE en PDF depuis « Nouveau dossier » (/import). L'analyse lit le client, le véhicule, l'assurance et le chiffrage ligne par ligne, puis pré-remplit le formulaire. Il reste à vérifier et compléter.
 
-⚠️ L'analyse est une AIDE À LA SAISIE : les montants, postes et références doivent être vérifiés avant d'émettre le moindre document. Le rapport de l'expert fait foi.
+L'analyse est une AIDE À LA SAISIE : les montants, postes et références doivent être vérifiés avant d'émettre le moindre document. Le rapport de l'expert fait foi.
 
 Le dossier avance en 7 étapes : Nouveau → Expertise → Devis → Réparation → Facture envoyée → Véhicule rendu → Payé. Le statut se change depuis la fiche du dossier.
 
@@ -143,7 +143,7 @@ function ficheAideFinance(): FicheDoc {
     motsCles: ["paiement", "encaissement", "relance", "impaye", "impayé", "banque", "csv", "rapprochement", "echeancier", "échéancier", "mise en demeure", "recouvrement", "cession"],
     contenu: `Chaque facture suit son règlement : payée, partielle ou impayée, avec le reste dû et le retard éventuel.
 
-RELANCES : l'application propose des relances graduées vers l'assurance, l'expert ou le client, jusqu'à la mise en demeure. ⚠️ Une mise en demeure est un acte juridique : elle ne part que sur validation expresse du garage.
+RELANCES : l'application propose des relances graduées vers l'assurance, l'expert ou le client, jusqu'à la mise en demeure. Une mise en demeure est un acte juridique : elle ne part que sur validation expresse du garage.
 
 RAPPROCHEMENT BANCAIRE : import du relevé au format CSV depuis l'onglet Banque, puis pointage automatique des factures réglées. Les écarts sont signalés.
 

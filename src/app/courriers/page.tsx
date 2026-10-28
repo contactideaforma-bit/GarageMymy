@@ -21,6 +21,7 @@ import EnvoisPostauxListe from "@/components/EnvoisPostauxListe";
 import JetonsPanel from "@/components/JetonsPanel";
 import GuideCourriers from "@/components/GuideCourriers";
 import { estAdmin } from "@/lib/support";
+import Ico from "@/components/Ico";
 
 type Filtre = "tous" | "en_cours" | "lrar" | "simple" | "distribue" | "probleme";
 
@@ -149,7 +150,7 @@ export default function CourriersPage() {
         </div>
         <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto]">
           <FilePicker value={fichier} onChange={setFichier} accept="application/pdf" label="Choisir le PDF à envoyer" aide="PDF uniquement — glisse le fichier ici" avecPhoto={false} />
-          <button className="btn-primary" disabled={!fichier} onClick={() => setNouveau(true)}>📮 Envoyer par La Poste</button>
+          <button className="btn-primary" disabled={!fichier} onClick={() => setNouveau(true)}><Ico n="mailbox" /> Envoyer par La Poste</button>
         </div>
       </section>}
 
@@ -182,7 +183,7 @@ export default function CourriersPage() {
           destinataireNom=""
           destinataireAdresse=""
           onClose={() => setNouveau(false)}
-          onEnvoye={() => { setNouveau(false); setFichier(null); setInfo("Courrier transmis à La Poste ✓"); charger(); }}
+          onEnvoye={() => { setNouveau(false); setFichier(null); setInfo("Courrier transmis à La Poste"); charger(); }}
         />
       )}
     </div>
@@ -210,7 +211,7 @@ function ReglagesMaileva() {
     let err = await enregistrerConfigMaileva(champs);
     if (!err && tester) err = await testerConfigMaileva();
     setBusy(null);
-    setMsg(err ? { ok: false, texte: err } : { ok: true, texte: tester ? `Connexion Maileva réussie (${f.environnement === "production" ? "production" : "test"}) ✓` : "Réglages enregistrés ✓" });
+    setMsg(err ? { ok: false, texte: err } : { ok: true, texte: tester ? `Connexion Maileva réussie (${f.environnement === "production" ? "production" : "test"}) <Ico n="check" />` : "Réglages enregistrés" });
     lire();
   }
 

@@ -221,7 +221,7 @@ function Ligne({ k, v, alerte }: { k: string; v: string | null | undefined; aler
   return (
     <div className="flex justify-between gap-3 text-sm">
       <span className="text-white/50">{k}</span>
-      <span className={`text-right ${vide ? "text-white/30" : alerte ? "font-medium text-rose-300" : "text-white"}`}>{vide ? "—" : v}{alerte && !vide ? " ⚠" : ""}</span>
+      <span className={`text-right ${vide ? "text-white/30" : alerte ? "font-medium text-rose-300" : "text-white"}`}>{vide ? "—" : v}{alerte && !vide ? "" : ""}</span>
     </div>
   );
 }
@@ -229,7 +229,7 @@ function Ligne({ k, v, alerte }: { k: string; v: string | null | undefined; aler
 function Pastille({ ok, label }: { ok: boolean; label: string }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
-      {ok ? "✓" : "✗"} {label}
+      {ok ? "check" : "x"} {label}
     </span>
   );
 }

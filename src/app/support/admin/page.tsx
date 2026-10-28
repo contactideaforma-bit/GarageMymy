@@ -17,6 +17,7 @@ import {
 } from "@/lib/support";
 import StatCard from "@/components/StatCard";
 import IncidentsPanel from "@/components/IncidentsPanel";
+import Ico from "@/components/Ico";
 
 /**
  * CONSOLE D'ASSISTANCE (v43) — réservée à l'éditeur.
@@ -25,7 +26,7 @@ import IncidentsPanel from "@/components/IncidentsPanel";
  * réponse. Le garage est prévenu automatiquement (notification + email)
  * dès qu'on répond ou qu'on change le statut.
  *
- * ⚠️ Le contrôle d'accès qui COMPTE est côté serveur (/api/support/admin,
+ * Le contrôle d'accès qui COMPTE est côté serveur (/api/support/admin,
  * variable ADMIN_EMAILS). Ici, on masque simplement l'écran.
  */
 
@@ -126,7 +127,7 @@ export default function SupportAdminPage() {
   if (!autorise) {
     return (
       <div className="glass-card p-6 text-center">
-        <div className="text-3xl">🔒</div>
+        <div className="text-3xl"><Ico n="lock" /></div>
         <h1 className="titre-page mt-2">Console d&apos;assistance</h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-white/60">
           Cet écran est réservé à l&apos;éditeur de l&apos;application. Pour signaler un problème,
@@ -161,10 +162,10 @@ export default function SupportAdminPage() {
       </div>
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard accent="pink" icone="🔔" label="Non lus" value={String(nonLus)} hint="jamais ouverts" />
-        <StatCard accent="amber" icone="🚨" label="Bloquants ouverts" value={String(bloquants)} hint="à traiter en priorité" />
-        <StatCard accent="violet" icone="🎫" label="Tickets ouverts" value={String(tickets.filter(estOuvert).length)} hint="reçus ou en cours" />
-        <StatCard accent="teal" icone="🏭" label="Garages concernés" value={String(garages)} hint="comptes distincts" />
+        <StatCard accent="pink" icone="bell" label="Non lus" value={String(nonLus)} hint="jamais ouverts" />
+        <StatCard accent="amber" icone="alert" label="Bloquants ouverts" value={String(bloquants)} hint="à traiter en priorité" />
+        <StatCard accent="violet" icone="ticket" label="Tickets ouverts" value={String(tickets.filter(estOuvert).length)} hint="reçus ou en cours" />
+        <StatCard accent="teal" icone="bank" label="Garages concernés" value={String(garages)} hint="comptes distincts" />
       </div>
 
       {erreur && (
@@ -219,7 +220,7 @@ export default function SupportAdminPage() {
                 >
                   <span className="flex items-start justify-between gap-2">
                     <span className="flex min-w-0 items-start gap-2">
-                      <span className="text-base leading-none">{iconeCategorie(t.categorie)}</span>
+                      <span className="text-base leading-none"><Ico n={iconeCategorie(t.categorie)} /></span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold text-white">
                           {t.sujet}
@@ -245,7 +246,7 @@ export default function SupportAdminPage() {
         <section className="glass-card p-3 sm:p-4">
           {!ouvert ? (
             <div className="py-10 text-center">
-              <div className="text-3xl">🛠️</div>
+              <div className="text-3xl"><Ico n="tool" /></div>
               <p className="mt-2 text-sm text-white/55">
                 Sélectionnez un ticket pour lire le fil et répondre.
               </p>

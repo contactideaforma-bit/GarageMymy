@@ -18,6 +18,7 @@ import {
   localVersIso,
   supprimerRappel,
 } from "@/lib/ardoise";
+import Ico from "@/components/Ico";
 
 /**
  * NOTE DU DOSSIER (v7.2, étendue en v41).
@@ -364,7 +365,7 @@ export default function NoteDossier({
       >
         <div className="mymy-entete flex shrink-0 items-center justify-between gap-3 px-4 py-3">
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">📝 Note du dossier</div>
+            <div className="truncate text-sm font-semibold"><Ico n="edit" /> Note du dossier</div>
             <div className="truncate text-[11px] opacity-60">Commentaire et rappels de ce dossier</div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -484,7 +485,7 @@ export default function NoteDossier({
                                   : "note-etiquette"
                             }`}
                           >
-                            📅 {retard ? "En retard · " : ""}
+                            <Ico n="calendar" /> {retard ? "En retard · " : ""}
                             {libelleEcheance(r.echeance)}
                           </span>
                         )}
@@ -528,7 +529,7 @@ export default function NoteDossier({
                     navigateur était illisible ; on affiche en clair ce qui
                     sera créé dans l'agenda. */}
                 <div className="note-aide">
-                  <span className="mb-1 block">📅 Mettre dans l&apos;agenda (optionnel)</span>
+                  <span className="mb-1 block"><Ico n="calendar" /> Mettre dans l&apos;agenda (optionnel)</span>
                   <div className="flex gap-2">
                     <input
                       type="date"

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { labelAngle } from "@/lib/photosEtat";
+import Ico from "@/components/Ico";
 
 /**
  * PORTAIL DE SUIVI CLIENT (v48) — page PUBLIQUE.
@@ -92,7 +93,7 @@ export default function SuiviPage() {
     return (
       <div className="landing-pro flex min-h-screen items-center justify-center px-4">
         <div className="lp-card max-w-md p-8 text-center">
-          <div className="text-4xl">🔗</div>
+          <div className="text-4xl"><Ico n="paperclip" /></div>
           <h1 className="mt-3 text-xl font-bold">Lien indisponible</h1>
           <p className="mt-2 text-sm text-slate-500">{erreur}</p>
           <p className="mt-4 text-xs text-slate-400">
@@ -128,7 +129,7 @@ export default function SuiviPage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={garage.logoUrl} alt={garage.nom} className="h-12 w-12 rounded-lg object-cover" />
           ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-200 text-xl">🔧</div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-200 text-xl"><Ico n="wrench" /></div>
           )}
           <div className="min-w-0">
             <p className="lp-chip">Suivi de réparation</p>
@@ -210,7 +211,7 @@ export default function SuiviPage() {
                     e.faite ? "bg-emerald-500 text-white" : "border border-slate-300 text-slate-400"
                   }`}
                 >
-                  {e.faite ? "✓" : ""}
+                  {e.faite ? "" : ""}
                 </span>
                 <span
                   className={`text-sm ${
@@ -279,7 +280,7 @@ export default function SuiviPage() {
         {/* Avis, une fois le véhicule rendu */}
         {suivi.termine && garage.lienAvis && (
           <section className="lp-card border-l-4 border-l-amber-400 p-5 text-center">
-            <div className="text-2xl">⭐</div>
+            <div className="text-2xl"><Ico n="star" /></div>
             <h3 className="mt-1 text-base font-bold">Content du travail ?</h3>
             <p className="mt-1 text-sm text-slate-500">
               Un avis, c&apos;est deux minutes pour vous et beaucoup pour un garage indépendant.

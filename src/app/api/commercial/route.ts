@@ -237,7 +237,7 @@ export async function POST(req: Request) {
               subject: `[Compte garage] ${v?.garage_nom || ""} — créé par ${qui} (${v?.numero || ""})`,
               text: [
                 `${qui} a créé le compte My Easy Auto du garage ${v?.garage_nom || ""} (${v?.contact_email || ""}).`,
-                r.dejaExistant ? "Le compte existait déjà : rattaché sans changement de mot de passe." : r.emailEnvoye ? "Email de bienvenue envoyé au garage." : `⚠️ Email de bienvenue NON envoyé : ${r.erreurEmail || ""}`,
+                r.dejaExistant ? "Le compte existait déjà : rattaché sans changement de mot de passe." : r.emailEnvoye ? "Email de bienvenue envoyé au garage." : `Email de bienvenue NON envoyé : ${r.erreurEmail || ""}`,
                 `Vente à valider (abonnement) : ${process.env.NEXT_PUBLIC_SITE_URL || "https://myeasyauto.fr"}/admin/ventes`,
               ].join("\n"),
             },

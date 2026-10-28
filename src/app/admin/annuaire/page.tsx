@@ -9,12 +9,13 @@
 //  proposer aux garages. Les clients des garages ne sont JAMAIS lus.
 // ============================================================
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AdminShell, { ChampAdmin, dateFr } from "@/components/admin/AdminShell";
 import ModalShell from "@/components/ModalShell";
 import { consoliderAnnuaire, lireTable, supprimerLigne, upsertLigne } from "@/lib/admin/client";
 import { normaliserTexte, type MutualiseAssureur, type MutualiseExpert } from "@/lib/admin/annuaireMutualise";
 import { exporterXlsx, type ColonneExcel } from "@/lib/excel";
+import Ico from "@/components/Ico";
 
 type Onglet = "experts" | "assureurs";
 
@@ -41,13 +42,25 @@ export default function AnnuaireMutualisePage() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  // Première visite : la base est vide → on la construit tout seul.
+  const autoLance = useRef(false);
+  useEffect(() => {
+    if (loading || erreur || autoLance.current) return;
+    if (experts.length + assureurs.length === 0) {
+      autoLance.current = true;
+      consolider();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, erreur, experts.length, assureurs.length]);
+
   async function consolider() {
     setBusy(true); setInfo(null);
     try {
       const r = await consoliderAnnuaire();
       setInfo(`Consolidation terminée : ${r.lus.experts} fiches expert et ${r.lus.assureurs} fiches assureur lues dans les garages → ${r.experts} cabinets / experts et ${r.assureurs} assureurs distincts.`);
+      setErreur(null);
       await load();
-    } catch (e) { setErreur(e instanceof Error ? e.message : "Consolidation impossible."); }
+    } catch (e) { setErreur(`Consolidation impossible — ${e instanceof Error ? e.message : "erreur inconnue"}. Vérifiez que les migrations v102 et v105 sont exécutées dans Supabase.`); }
     finally { setBusy(false); }
   }
 
@@ -116,8 +129,8 @@ export default function AnnuaireMutualisePage() {
       titre="Base mutualisée experts & assureurs"
       actions={
         <>
-          <button className="btn-ghost" onClick={exporter} disabled={loading}>⬇ Excel</button>
-          <button className="btn-primary" onClick={consolider} disabled={busy}>{busy ? "Consolidation…" : "↻ Consolider depuis les garages"}</button>
+          <button className="btn-ghost" onClick={exporter} disabled={loading}><Ico n="download" /> Excel</button>
+          <button className="btn-primary" onClick={consolider} disabled={busy}>{busy ? "Consolidation…" : "Consolider depuis les garages"}</button>
         </>
       }
     >
@@ -184,7 +197,7 @@ export default function AnnuaireMutualisePage() {
                   <td className="cellule text-center"><span className="badge badge-info">{r.garages}</span></td>
                   <td className="cellule">
                     <div className="flex flex-wrap gap-1">
-                      <button className={`badge ${r.verifie ? "badge-ok" : "badge-neutral"}`} onClick={() => basculer("mutualise_experts", r, { verifie: !r.verifie })} title="Coché quand vous avez vérifié le contact">{r.verifie ? "✓ Vérifié" : "À vérifier"}</button>
+                      <button className={`badge ${r.verifie ? "badge-ok" : "badge-neutral"}`} onClick={() => basculer("mutualise_experts", r, { verifie: !r.verifie })} title="Coché quand vous avez vérifié le contact">{r.verifie ? "Vérifié" : "À vérifier"}</button>
                       <button className={`badge ${r.partage ? "badge-info" : "badge-neutral"}`} onClick={() => basculer("mutualise_experts", r, { partage: !r.partage })} title="Proposé aux garages (étape suivante)">{r.partage ? "Partagé" : "Privé"}</button>
                     </div>
                   </td>
@@ -229,7 +242,7 @@ export default function AnnuaireMutualisePage() {
                   <td className="cellule text-center"><span className="badge badge-info">{r.garages}</span></td>
                   <td className="cellule">
                     <div className="flex flex-wrap gap-1">
-                      <button className={`badge ${r.verifie ? "badge-ok" : "badge-neutral"}`} onClick={() => basculer("mutualise_assureurs", r, { verifie: !r.verifie })}>{r.verifie ? "✓ Vérifié" : "À vérifier"}</button>
+                      <button className={`badge ${r.verifie ? "badge-ok" : "badge-neutral"}`} onClick={() => basculer("mutualise_assureurs", r, { verifie: !r.verifie })}>{r.verifie ? "Vérifié" : "À vérifier"}</button>
                       <button className={`badge ${r.partage ? "badge-info" : "badge-neutral"}`} onClick={() => basculer("mutualise_assureurs", r, { partage: !r.partage })}>{r.partage ? "Partagé" : "Privé"}</button>
                     </div>
                   </td>

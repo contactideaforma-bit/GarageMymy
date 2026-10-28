@@ -7,7 +7,7 @@
 //  les CGU qui encadrent la sécurité des identifiants, la valeur de la
 //  signature électronique, le rôle de l'IA et la propriété du service.
 //
-//  ⚠️ SOURCE UNIQUE DE LA VERSION : `VERSION_CGU` ci-dessous est importée
+//  SOURCE UNIQUE DE LA VERSION : `VERSION_CGU` ci-dessous est importée
 //  par la page publique. Si vous modifiez le texte d'un article ici,
 //  répercutez-le sur /cgu (et l'inverse) — c'est le même contrat.
 //  Chantier prévu : faire rendre la page publique à partir de ce

@@ -93,7 +93,7 @@ export default function MailSettings() {
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || !d?.ok) throw new Error(d?.error || `Erreur (HTTP ${res.status}).`);
-      setMsg("✓ Configuration enregistrée.");
+      setMsg("Configuration enregistrée.");
       if (pass) {
         setHasPassword(true);
         setPass("");

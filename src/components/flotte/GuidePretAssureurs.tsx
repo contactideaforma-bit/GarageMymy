@@ -146,10 +146,10 @@ export default function GuidePretAssureurs() {
       )}
 
       <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatCard label="Assureurs" value={String(fiches.length)} accent="violet" icone="🛡️" />
-        <StatCard label="Prêt inclus d'office" value={String(nbInclus)} hint="sans option à souscrire" accent="emerald" icone="✅" />
-        <StatCard label="À confirmer" value={String(nbAConfirmer)} hint="CG non publiées" accent="amber" icone="❓" />
-        <StatCard label="Mes fiches" value={String(nbPerso)} hint="ajouts et personnalisations" accent="teal" icone="✏️" />
+        <StatCard label="Assureurs" value={String(fiches.length)} accent="violet" icone="shield" />
+        <StatCard label="Prêt inclus d'office" value={String(nbInclus)} hint="sans option à souscrire" accent="emerald" icone="check-circle" />
+        <StatCard label="À confirmer" value={String(nbAConfirmer)} hint="CG non publiées" accent="amber" icone="help-circle" />
+        <StatCard label="Mes fiches" value={String(nbPerso)} hint="ajouts et personnalisations" accent="teal" icone="pen" />
       </div>
 
       {/* Cadre commun */}

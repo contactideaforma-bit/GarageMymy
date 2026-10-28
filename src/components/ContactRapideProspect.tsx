@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Prospect, liensRecherche, telHref } from "@/lib/prospects";
 import { messageErreur } from "@/lib/format";
+import Ico from "@/components/Ico";
 
 /**
  * Bloc « Contact rapide » d'une fiche prospect (v13.3) : téléphone en grand
@@ -46,14 +47,14 @@ export default function ContactRapideProspect({ p, onSave }: { p: Prospect; onSa
         <div className="lg:col-span-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h2 className="titre-bloc">Contact rapide</h2>
-            {!edition && <button type="button" className="btn-ghost btn-compact" onClick={ouvrirEdition}>✏️ Compléter les coordonnées</button>}
+            {!edition && <button type="button" className="btn-ghost btn-compact" onClick={ouvrirEdition}><Ico n="pen" /> Compléter les coordonnées</button>}
           </div>
 
           {!edition ? (
             <div className="space-y-2">
               {p.tel ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <a href={telHref(p.tel)} className="btn-primary px-5 py-3 text-xl tabular-nums">📞 {p.tel}</a>
+                  <a href={telHref(p.tel)} className="btn-primary px-5 py-3 text-xl tabular-nums"><Ico n="phone" /> {p.tel}</a>
                   <button type="button" className="btn-ghost btn-compact" onClick={() => copier(p.tel || "")} title="Copier le numéro">Copier</button>
                   {(p.contact_nom || p.gerant) && (
                     <span className="text-sm text-white/70">Demander : <b className="text-white">{p.contact_nom || p.gerant}</b>{p.contact_fonction ? ` (${p.contact_fonction})` : ""}</span>
@@ -66,9 +67,9 @@ export default function ContactRapideProspect({ p, onSave }: { p: Prospect; onSa
                 </div>
               )}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-white/75">
-                {p.email ? <a href={`mailto:${p.email}`} className="text-accent-teal hover:underline">✉️ {p.email}</a> : <span className="text-white/40">✉️ email inconnu</span>}
+                {p.email ? <a href={`mailto:${p.email}`} className="text-accent-teal hover:underline"><Ico n="mail" /> {p.email}</a> : <span className="text-white/40"><Ico n="mail" /> email inconnu</span>}
                 {adresse && (
-                  <a href={maps?.url} target="_blank" rel="noreferrer" className="hover:underline" title="Ouvrir dans Google Maps">📍 {adresse}</a>
+                  <a href={maps?.url} target="_blank" rel="noreferrer" className="hover:underline" title="Ouvrir dans Google Maps"><Ico n="map-pin" /> {adresse}</a>
                 )}
                 {p.site && <a href={liens.find((l) => l.key === "site")?.url} target="_blank" rel="noreferrer" className="text-accent-teal hover:underline">🌐 {p.site.replace(/^https?:\/\//, "")}</a>}
                 {(p.siret || p.siren) && <span className="text-white/45">SIRET {p.siret || p.siren}</span>}
@@ -95,7 +96,7 @@ export default function ContactRapideProspect({ p, onSave }: { p: Prospect; onSa
           <div className="grid grid-cols-2 gap-1.5">
             {liens.map((l) => (
               <a key={l.key} href={l.url} target="_blank" rel="noreferrer" title={l.aide} className="btn-ghost btn-compact justify-start whitespace-nowrap text-left">
-                {l.icone} {l.label}
+                <Ico n={l.icone} /> {l.label}
               </a>
             ))}
           </div>

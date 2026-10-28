@@ -27,7 +27,7 @@ export const NIVEAUX_INCIDENT = [
     court: "Maintenance",
     badge: "badge badge-info",
     bandeau: "border-violet-400/50 bg-violet-500/15 text-violet-100",
-    icone: "ℹ️",
+    icone: "info",
   },
   {
     code: "degrade",
@@ -35,7 +35,7 @@ export const NIVEAUX_INCIDENT = [
     court: "Ralenti",
     badge: "badge badge-warn",
     bandeau: "border-amber-400/50 bg-amber-500/15 text-amber-100",
-    icone: "⚠️",
+    icone: "alert",
   },
   {
     code: "panne",
@@ -43,7 +43,7 @@ export const NIVEAUX_INCIDENT = [
     court: "Panne",
     badge: "badge badge-danger",
     bandeau: "border-rose-400/60 bg-rose-500/20 text-rose-100",
-    icone: "🚨",
+    icone: "alert",
   },
 ] as const;
 

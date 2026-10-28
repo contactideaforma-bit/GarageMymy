@@ -10,6 +10,7 @@ import ConfigBanner from "@/components/ConfigBanner";
 import EmailLibre from "@/components/EmailLibre";
 import EmailComposer from "@/components/EmailComposer";
 import ContactsPicker, { ContactAnnuaire } from "@/components/ContactsPicker";
+import Ico from "@/components/Ico";
 
 /**
  * JOURNAL DES EMAILS — présentation type Apple Mail :
@@ -213,7 +214,7 @@ export default function EmailsPage() {
                       className="btn-ghost btn-compact text-rose-200 hover:text-rose-100"
                       title="Supprimer cet email du journal (restaurable 30 jours)"
                     >
-                      🗑 Supprimer
+                      <Ico n="trash" /> Supprimer
                     </button>
                   </div>
                 </div>

@@ -22,6 +22,7 @@ import ModalShell from "./ModalShell";
 import FilePicker from "./FilePicker";
 import EnvoiPostalModal from "./EnvoiPostalModal";
 import EnvoisPostauxListe from "./EnvoisPostauxListe";
+import Ico from "@/components/Ico";
 
 type Cible = "client" | "assurance" | "expert" | "autre";
 
@@ -70,7 +71,7 @@ export default function EnvoisPostauxDossier({ dossier }: { dossier: Dossier }) 
           } catch { /* journal facultatif */ }
         }
         setEnvoi(null);
-        setInfo(e.type === "lrar" ? "Recommandé transmis à La Poste ✓ — le n° de suivi apparaîtra après impression." : "Lettre transmise à La Poste ✓");
+        setInfo(e.type === "lrar" ? "Recommandé transmis à La Poste — le n° de suivi apparaîtra après impression." : "Lettre transmise à La Poste");
         setTimeout(() => setInfo(null), 6000);
         charger();
       },
@@ -85,7 +86,7 @@ export default function EnvoisPostauxDossier({ dossier }: { dossier: Dossier }) 
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2 sm:px-4 sm:py-2.5">
         <button onClick={basculerPliage} className="flex min-w-0 items-center gap-2 text-left" aria-expanded={!plie}>
           <span className={`shrink-0 text-white/40 transition-transform ${plie ? "" : "rotate-90"}`} aria-hidden>▸</span>
-          <h2 className="titre-bloc truncate">📮 Courriers La Poste{charge ? ` (${envois.length})` : ""}</h2>
+          <h2 className="titre-bloc truncate"><Ico n="mailbox" /> Courriers La Poste{charge ? ` (${envois.length})` : ""}</h2>
         </button>
         {enCours > 0 && <span className="badge badge-warn">{enCours} en cours</span>}
         <div className="flex flex-1 justify-end gap-1">

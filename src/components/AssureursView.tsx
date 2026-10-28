@@ -8,6 +8,7 @@ import RechercheSiren, { rechercherSiren, ResultatSiren } from "@/components/Rec
 import ModalShell from "@/components/ModalShell";
 import CarteContact, { LigneContact, formaterTel, lienCarte, lienTelephone } from "@/components/annuaire/CarteContact";
 import { BarreAnnuaire, GrilleContacts, type TriAnnuaire } from "@/components/annuaire/GrilleContacts";
+import Ico from "@/components/Ico";
 
 const EMPTY = { nom: "", adresse: "", code_postal: "", ville: "", tel: "", email: "", siren: "", notes: "" };
 type FormA = typeof EMPTY;
@@ -143,7 +144,7 @@ export default function AssureursView() {
                         {r.ville ? ` · ${r.ville}` : ""}
                       </div>
                     ) : (
-                      <div className="text-xs text-amber-300">Aucune correspondance — utilisez « Modifier » puis 🔍 SIREN.</div>
+                      <div className="text-xs text-amber-300">Aucune correspondance — utilisez « Modifier » puis <Ico n="search" /> SIREN.</div>
                     )}
                   </div>
                   <div className="flex gap-2">
@@ -204,9 +205,9 @@ export default function AssureursView() {
             sousTitre={r.siren ? <>SIREN <span className="font-mono" style={{ color: "var(--mea-texte-2)" }}>{r.siren}</span></> : "SIREN à compléter"}
             lignes={
               <>
-                <LigneContact ico="📞" href={lienTelephone(r.tel)}>{r.tel ? formaterTel(r.tel) : null}</LigneContact>
-                <LigneContact ico="✉️" href={r.email ? `mailto:${r.email}` : null}>{r.email}</LigneContact>
-                <LigneContact ico="📍" href={lienCarte(r.adresse, r.code_postal, r.ville)} externe>{[r.adresse, [r.code_postal, r.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null}</LigneContact>
+                <LigneContact ico="phone" href={lienTelephone(r.tel)}>{r.tel ? formaterTel(r.tel) : null}</LigneContact>
+                <LigneContact ico="mail" href={r.email ? `mailto:${r.email}` : null}>{r.email}</LigneContact>
+                <LigneContact ico="map-pin" href={lienCarte(r.adresse, r.code_postal, r.ville)} externe>{[r.adresse, [r.code_postal, r.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null}</LigneContact>
               </>
             }
             note={r.notes}

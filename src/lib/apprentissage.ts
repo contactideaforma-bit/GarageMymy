@@ -12,7 +12,7 @@
 //   2. appliquée DÉTERMINISTEMENT aux lignes extraites — mais UNIQUEMENT pour
 //      le libellé et le tableau d'affectation.
 //
-// ⚠ RÈGLE D'OR : on n'applique JAMAIS automatiquement une règle qui change de
+// RÈGLE D'OR : on n'applique JAMAIS automatiquement une règle qui change de
 // l'argent. Les heures et les taux horaires restent ceux du rapport (cf.
 // mémoire projet « Facture — règles métier »). Un taux « habituel » appris ne
 // sert que d'indication au modèle quand le rapport est illisible, et une ligne

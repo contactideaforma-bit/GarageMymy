@@ -24,7 +24,7 @@
 //    3. regrouper les fragments par ligne (tolérance verticale) et les
 //       placer à leur colonne (≈ 4,2 points par caractère).
 //
-//  ⚠️ Ne fonctionne QUE sur un PDF avec calque texte. Un scan renvoie une
+//  Ne fonctionne QUE sur un PDF avec calque texte. Un scan renvoie une
 //  chaîne vide : l'appelant retombe alors sur la lecture de l'image.
 // ============================================================
 

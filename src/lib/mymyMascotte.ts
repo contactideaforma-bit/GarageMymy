@@ -20,7 +20,7 @@ export type ReactionMyMy = { texte: string; geste: GesteMyMy };
 /* ------------------------------------------------------------------ */
 
 export const ASTUCES_VITRINE: AstuceMyMy[] = [
-  { texte: "Salut ! Moi c'est MY-MY, la mascotte de My Easy Auto 👋 Clique sur moi, je ne mords pas." },
+  { texte: "Salut ! Moi c'est MY-MY, la mascotte de My Easy Auto Clique sur moi, je ne mords pas." },
   { texte: "Un dossier sinistre, c'est des photos, un rapport d'expert, des relances… Ici tout est au même endroit.", href: "/#fonctions", label: "Voir les fonctionnalités" },
   { texte: "Tout est inclus dans l'abonnement : pas de surprise sur la facture.", href: "/#formules", label: "Les formules" },
   { texte: "Tu peux t'abonner en ligne en 5 minutes, contrat signé depuis ton téléphone.", href: "/inscription", label: "S'abonner" },
@@ -29,7 +29,7 @@ export const ASTUCES_VITRINE: AstuceMyMy[] = [
   { texte: "Une question avant de te lancer ? Un humain te rappelle (promis, pas un robot… enfin, pas moi).", href: "/contact", label: "Être rappelé" },
   { texte: "Astuce : regarde la vidéo de présentation, c'est plus parlant que mes bulles.", href: "/#video", label: "La vidéo" },
   { texte: "Le client suit son dossier tout seul grâce au lien de suivi : moins d'appels au comptoir, plus de temps à l'atelier." },
-  { texte: "Je suis fait en SVG, je ne pèse rien et je bouge pour de vrai. Essaie de me suivre avec la souris 👀" },
+  { texte: "Je suis fait en SVG, je ne pèse rien et je bouge pour de vrai. Essaie de me suivre avec la souris" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -85,19 +85,19 @@ export function astucesPourRoute(pathname: string | null): AstuceMyMy[] {
 /* ------------------------------------------------------------------ */
 
 export const REACTIONS_CLIC: ReactionMyMy[] = [
-  { texte: "Coucou ! 👋", geste: "coucou" },
+  { texte: "Coucou !", geste: "coucou" },
   { texte: "Hihi, ça chatouille !", geste: "chatouille" },
   { texte: "Youhou !", geste: "saut" },
   { texte: "Wouuuh, ça tourne…", geste: "tourne" },
-  { texte: "Bon. Ça suffit maintenant 😤", geste: "boude" },
-  { texte: "… d'accord, je t'aime bien quand même 😉", geste: "clin" },
+  { texte: "Bon. Ça suffit maintenant", geste: "boude" },
+  { texte: "… d'accord, je t'aime bien quand même", geste: "clin" },
 ];
 
 /** Petites phrases quand MY-MY réapparaît par surprise. */
-export const SURPRISES: string[] = ["Bouh ! 👻", "Tu m'as cherché ?", "Me revoilà !", "Psst… par ici !", "Je m'étais caché, tu n'as rien vu ?"];
+export const SURPRISES: string[] = ["Bouh !", "Tu m'as cherché ?", "Me revoilà !", "Psst… par ici !", "Je m'étais caché, tu n'as rien vu ?"];
 
 /** Petites phrases quand on survole longtemps sans cliquer. */
-export const TAQUINERIES: string[] = ["Je te vois 👀", "Oui ? Tu voulais me dire quelque chose ?", "Allez, clique."];
+export const TAQUINERIES: string[] = ["Je te vois", "Oui ? Tu voulais me dire quelque chose ?", "Allez, clique."];
 
 /** Un élément au hasard, différent du précédent si possible. */
 export function tirerAuHasard<T>(liste: T[], sauf?: T): T {

@@ -36,6 +36,7 @@ import { MODES_PAIEMENT, articlesCGV, conditionsParticulieres } from "@/lib/admi
 import { construireContratPdf, construireDevisPdf, construireFichePdf, construireSimulationPdf } from "@/lib/admin/contratPdf";
 import type { Vente } from "@/lib/admin/client";
 import type { PieceJointeOption } from "@/components/EmailComposer";
+import Ico from "@/components/Ico";
 
 type Onglet = "suivi" | "fiche" | "besoins" | "offre" | "vente";
 
@@ -169,8 +170,8 @@ export default function ProspectPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <SiteInternetProspect p={p} onSave={sauver} />
-          <button onClick={() => setPresentation("presentation")} className="btn-ghost btn-compact">✉️ Présentation</button>
-          <button onClick={() => setPresentation("rdv")} className="btn-ghost btn-compact">📅 Confirmer un RDV</button>
+          <button onClick={() => setPresentation("presentation")} className="btn-ghost btn-compact"><Ico n="mail" /> Présentation</button>
+          <button onClick={() => setPresentation("rdv")} className="btn-ghost btn-compact"><Ico n="calendar" /> Confirmer un RDV</button>
           <select className="field-input field-compact" value={p.statut} onChange={(e) => sauver({ statut: e.target.value as ProspectStatut })}>
             {(Object.keys(STATUTS_PROSPECT) as ProspectStatut[]).map((s) => <option key={s} value={s}>{STATUTS_PROSPECT[s].label}</option>)}
           </select>
@@ -245,7 +246,7 @@ export default function ProspectPage() {
           <div className="glass-card p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="titre-bloc">Documents</h2>
-              {docs.length > 0 && <button className="btn-ghost btn-compact" onClick={() => setEnvoyer(docs)}>✉️ Envoyer au garage</button>}
+              {docs.length > 0 && <button className="btn-ghost btn-compact" onClick={() => setEnvoyer(docs)}><Ico n="mail" /> Envoyer au garage</button>}
             </div>
             {docs.length === 0 ? (
               <p className="mt-2 text-sm text-white/45">Aucun document. Règle l&apos;offre ci-dessus puis génère la simulation, le devis ou le contrat : ils reprennent la fiche du garage et le questionnaire.</p>
@@ -354,7 +355,7 @@ export default function ProspectPage() {
             params={params}
             paiementEnLigne={Boolean(ctx?.paiementEnLigne)}
             onClose={() => setVenteModal(false)}
-            onDone={async () => { setVenteModal(false); await load(); allerA("vente", "Vente déclarée ✓ — étape suivante : le paiement."); }}
+            onDone={async () => { setVenteModal(false); await load(); allerA("vente", "Vente déclarée — étape suivante : le paiement."); }}
           />
         </ModalShell>
       )}
@@ -382,7 +383,7 @@ function RappelProspect({ p, onSave }: { p: Prospect; onSave: (patch: Partial<Pr
   if (!edit && !p.prochaine_date) {
     return (
       <div className="mb-4">
-        <button className="btn-ghost btn-compact" onClick={() => setEdit(true)}>🔔 Programmer un rappel (à recontacter)</button>
+        <button className="btn-ghost btn-compact" onClick={() => setEdit(true)}><Ico n="bell" /> Programmer un rappel (à recontacter)</button>
       </div>
     );
   }
@@ -391,7 +392,7 @@ function RappelProspect({ p, onSave }: { p: Prospect; onSave: (patch: Partial<Pr
       {!edit ? (
         <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <div className="min-w-0">
-            <span className="mr-2">🔔</span>
+            <span className="mr-2"><Ico n="bell" /></span>
             <span className={e === "echu" ? "font-semibold text-rose-300" : e === "aujourdhui" ? "font-semibold text-amber-200" : "text-white/85"}>
               {e === "echu" ? "Rappel en retard" : e === "aujourdhui" ? "À recontacter aujourd'hui" : `À recontacter le ${formatDate(p.prochaine_date!)}`}
               {e === "echu" ? ` (prévu le ${formatDate(p.prochaine_date!)})` : ""}
@@ -401,7 +402,7 @@ function RappelProspect({ p, onSave }: { p: Prospect; onSave: (patch: Partial<Pr
           <div className="flex flex-wrap gap-2 text-xs">
             <button className="btn-ghost btn-compact" onClick={() => setEdit(true)}>Modifier</button>
             <button className="btn-ghost btn-compact" onClick={() => onSave({ prochaine_date: dateDansJours(7) })}>+ 1 sem</button>
-            <button className="btn-ghost btn-compact" onClick={() => onSave({ prochaine_action: null, prochaine_date: null })}>✓ Fait</button>
+            <button className="btn-ghost btn-compact" onClick={() => onSave({ prochaine_action: null, prochaine_date: null })}><Ico n="check" /> Fait</button>
           </div>
         </div>
       ) : (
@@ -648,7 +649,7 @@ function BesoinsForm({ p, onSave, docs, onGenerer, onApercu, onEnvoyer }: {
           <div className="flex flex-wrap gap-2">
             <button className="btn-ghost" onClick={enregistrer} disabled={sauvegarde}>{sauvegarde ? "Enregistrement…" : "Enregistrer le questionnaire"}</button>
             {derniere && <button className="btn-ghost" onClick={() => onApercu(derniere)}>Voir la fiche</button>}
-            {derniere && <button className="btn-ghost" onClick={() => onEnvoyer(derniere)}>✉️ Transmettre au chargé de mission</button>}
+            {derniere && <button className="btn-ghost" onClick={() => onEnvoyer(derniere)}><Ico n="mail" /> Transmettre au chargé de mission</button>}
             <button className="btn-primary" onClick={genererFiche}>{derniere ? "Régénérer la fiche client" : "Générer la fiche client"}</button>
           </div>
         </div>
@@ -746,13 +747,13 @@ function VenteDeclaration({ prospect, doc, offre, params, paiementEnLigne, onClo
         <div className="grid grid-cols-2 gap-2">
           <label className={`cursor-pointer rounded-xl border-2 p-3 text-sm ${paiement === "cb" ? "border-accent-pink bg-accent-pink/10" : "border-white/15"} ${!paiementEnLigne ? "opacity-50" : ""}`}>
             <input type="radio" className="sr-only" checked={paiement === "cb"} disabled={!paiementEnLigne} onChange={() => setPaiement("cb")} />
-            <div className="text-2xl" aria-hidden="true">💳</div>
+            <div className="text-2xl" aria-hidden="true"><Ico n="credit-card" /></div>
             <b className="text-white">Lien de paiement</b>
             <div className="mt-0.5 text-xs text-white/60">{paiementEnLigne ? "Carte bancaire, sur place ou à distance" : "Non configuré par IDEAFORMA"}</div>
           </label>
           <label className={`cursor-pointer rounded-xl border-2 p-3 text-sm ${paiement === "virement" ? "border-accent-pink bg-accent-pink/10" : "border-white/15"}`}>
             <input type="radio" className="sr-only" checked={paiement === "virement"} onChange={() => setPaiement("virement")} />
-            <div className="text-2xl" aria-hidden="true">🏦</div>
+            <div className="text-2xl" aria-hidden="true"><Ico n="bank" /></div>
             <b className="text-white">Virement</b>
             <div className="mt-0.5 text-xs text-white/60">IBAN et référence envoyés par email</div>
           </label>
@@ -852,7 +853,7 @@ function CompteGarageBloc({ vente: v, onChanged }: { vente: Vente; onChanged: ()
         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
           <button className="btn-ghost btn-compact" disabled={busy} onClick={renvoyer} title="Nouveau mot de passe provisoire + email de bienvenue">{busy ? "Envoi…" : "Renvoyer l'email de bienvenue"}</button>
           {renvoi && (renvoi.emailEnvoye ? (
-            <span className="text-emerald-300">✓ Renvoyé à {renvoi.email} avec un nouveau mot de passe provisoire.</span>
+            <span className="text-emerald-300"><Ico n="check" /> Renvoyé à {renvoi.email} avec un nouveau mot de passe provisoire.</span>
           ) : (
             <span className="text-amber-300">Email non parti{renvoi.erreurEmail ? ` (${renvoi.erreurEmail})` : ""}{renvoi.motDePasse ? <> — nouveau mot de passe à transmettre : <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-white">{renvoi.motDePasse}</code></> : null}</span>
           ))}

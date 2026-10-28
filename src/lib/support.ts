@@ -17,13 +17,13 @@ import { VERSION_APP } from "./version";
 /* ---------------------------- Référentiels --------------------------- */
 
 export const CATEGORIES_TICKET = [
-  { code: "bug", icone: "🐞", label: "Quelque chose ne marche pas" },
-  { code: "lenteur", icone: "🐢", label: "L'appli est lente ou se bloque" },
-  { code: "donnees", icone: "🧾", label: "Une information est fausse ou manquante" },
-  { code: "document", icone: "📄", label: "Problème sur un document (PDF, email)" },
-  { code: "question", icone: "❓", label: "Je ne sais pas comment faire" },
-  { code: "amelioration", icone: "💡", label: "J'aimerais une amélioration" },
-  { code: "autre", icone: "✉️", label: "Autre chose" },
+  { code: "bug", icone: "alert", label: "Quelque chose ne marche pas" },
+  { code: "lenteur", icone: "clock", label: "L'appli est lente ou se bloque" },
+  { code: "donnees", icone: "receipt", label: "Une information est fausse ou manquante" },
+  { code: "document", icone: "file", label: "Problème sur un document (PDF, email)" },
+  { code: "question", icone: "help-circle", label: "Je ne sais pas comment faire" },
+  { code: "amelioration", icone: "sparkles", label: "J'aimerais une amélioration" },
+  { code: "autre", icone: "mail", label: "Autre chose" },
 ] as const;
 
 export const GRAVITES_TICKET = [
@@ -58,7 +58,7 @@ export function labelCategorie(code?: string | null): string {
   return CATEGORIES_TICKET.find((c) => c.code === code)?.label || "Autre chose";
 }
 export function iconeCategorie(code?: string | null): string {
-  return CATEGORIES_TICKET.find((c) => c.code === code)?.icone || "✉️";
+  return CATEGORIES_TICKET.find((c) => c.code === code)?.icone || "mail";
 }
 export function infoGravite(code?: string | null) {
   return GRAVITES_TICKET.find((g) => g.code === code) || GRAVITES_TICKET[1];

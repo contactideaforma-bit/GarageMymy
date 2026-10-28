@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Ico from "@/components/Ico";
 
 // Compteur façon HUD d'arcade : liseré coloré, libellé en police pixel,
 // grosse valeur lisible.
@@ -53,7 +54,7 @@ export default function StatCard({
             style={{ borderColor: `${a.couleur}55`, color: a.couleur, background: `${a.couleur}1f` }}
             aria-hidden
           >
-            {icone}
+            <Ico n={icone} />
           </span>
         )}
       </div>

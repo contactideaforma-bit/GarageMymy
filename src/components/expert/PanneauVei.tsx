@@ -43,7 +43,7 @@ export default function PanneauVei({
     setEtat("…");
     try {
       onDossierChange(await majDossier(dossier.id, { valeur_remplacement: v, valeur_sauvegarde: s }));
-      setEtat("✓");
+      setEtat("check");
     } catch (e) { setEtat(messageErreur(e, "Non enregistré (migration v88 exécutée ?)")); }
   }
 

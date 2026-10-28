@@ -18,6 +18,7 @@ import {
 import TicketModal from "@/components/TicketModal";
 import StatCard from "@/components/StatCard";
 import Accordeon from "@/components/Accordeon";
+import Ico from "@/components/Ico";
 
 /**
  * AIDE & INCIDENTS (v43) — côté garage.
@@ -128,7 +129,7 @@ export default function SupportPage() {
       >
         <span className="flex items-start justify-between gap-2">
           <span className="flex min-w-0 items-start gap-2">
-            <span className="text-base leading-none">{iconeCategorie(t.categorie)}</span>
+            <span className="text-base leading-none"><Ico n={iconeCategorie(t.categorie)} /></span>
             <span className="min-w-0">
               <span className="block truncate text-sm font-semibold text-white">{t.sujet}</span>
               <span className="mt-0.5 block text-[11px] text-white/45">
@@ -169,10 +170,10 @@ export default function SupportPage() {
       )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-        <StatCard accent="pink" icone="🎫" label="Signalements ouverts" value={String(enCours.length)} hint="en attente de correction" />
-        <StatCard accent="emerald" icone="✅" label="Traités" value={String(resolus.length)} hint="résolus ou clôturés" />
-        <StatCard accent="violet" icone="📨" label="Total envoyés" value={String(tickets.length)} hint="depuis le début" />
-        <StatCard accent="teal" icone="⏱️" label="Réponse visée" value="< 24 h" hint="jours ouvrés" />
+        <StatCard accent="pink" icone="ticket" label="Signalements ouverts" value={String(enCours.length)} hint="en attente de correction" />
+        <StatCard accent="emerald" icone="check-circle" label="Traités" value={String(resolus.length)} hint="résolus ou clôturés" />
+        <StatCard accent="violet" icone="send" label="Total envoyés" value={String(tickets.length)} hint="depuis le début" />
+        <StatCard accent="teal" icone="clock" label="Réponse visée" value="< 24 h" hint="jours ouvrés" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,21rem)_minmax(0,1fr)]">
@@ -244,7 +245,7 @@ export default function SupportPage() {
                   >
                     <div className="mb-1 flex items-center justify-between gap-2 text-[11px]">
                       <span className="font-semibold text-white/70">
-                        {m.auteur === "support" ? "🛠️ Assistance My Easy Auto" : "Vous"}
+                        {m.auteur === "support" ? "Assistance My Easy Auto" : "Vous"}
                       </span>
                       <span className="text-white/35">{formatDateTime(m.created_at)}</span>
                     </div>
@@ -288,7 +289,7 @@ export default function SupportPage() {
             </section>
           ) : (
             <section className="glass-card p-5 text-center">
-              <div className="text-3xl">🛟</div>
+              <div className="text-3xl"><Ico n="life-buoy" /></div>
               <h2 className="titre-bloc mt-2">Une assistance qui répond</h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-white/60">
                 Décrivez le problème avec vos mots. L&apos;appli joint toute seule la page, la

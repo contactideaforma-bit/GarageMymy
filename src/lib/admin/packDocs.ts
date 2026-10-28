@@ -22,7 +22,7 @@ export const DOCS_COMMERCIAL: DocPack[] = [
   { cle: "fiche-besoins", titre: "Fiche de besoins garage (papier)", fichier: "FICHE-BESOINS_garage.pdf" },
   { cle: "tuto-email", titre: "Tuto — régler l'envoi d'emails du garage", fichier: "TUTO-EMAIL_profil-garage.pdf" },
   { cle: "guide-revenus", titre: "Déclarer mes revenus — guide du collaborateur indépendant", fichier: "secretaires/GUIDE-DECLARATION-REVENUS_collaborateur.pdf" },
-  // ⛔ RETIRÉ en v11.8 — le PDF portait les CGV v1.0 alors que l'application
+  // RETIRÉ en v11.8 — le PDF portait les CGV v1.0 alors que l'application
   // est en v2.0 (résiliation rééquilibrée, article 9 RGPD complet, CGU et
   // accord de traitement des données). Un commercial pouvait faire signer un
   // texte périmé. Le contrat garage se lit et se signe désormais sur /vente,

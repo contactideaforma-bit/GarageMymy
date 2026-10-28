@@ -218,7 +218,7 @@ export default function PageAgendaExpert() {
         style={{ top, height: hauteur, left: `calc(${(col / nb) * 100}% + 2px)`, width: `calc(${100 / nb}% - 4px)`, background: c.fond, color: c.texte, borderLeft: `3px solid ${c.bord}` }}
         title={`${heureCourte(r.heure)} · ${labelTypeRdv(r.type)} · ${lieu}${vehicule ? ` · ${vehicule}` : ""}${r.notes ? `\n${r.notes}` : ""}`}
       >
-        <div className="font-semibold tabular-nums">{heureCourte(r.heure)}{r.statut === "fait" ? " ✓" : ""}</div>
+        <div className="font-semibold tabular-nums">{heureCourte(r.heure)}{r.statut === "fait" ? "" : ""}</div>
         <div className="truncate font-medium">{lieu}</div>
         {hauteur > 40 && vehicule && <div className="truncate opacity-80">{vehicule}</div>}
       </button>

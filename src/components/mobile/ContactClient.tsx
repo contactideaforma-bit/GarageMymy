@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import type { Dossier } from "@/lib/types";
 import Feuille from "@/components/mobile/Feuille";
 import { lienSms, lienTel, lienWhatsApp } from "@/lib/mobile";
+import Ico from "@/components/Ico";
 
 type DossierContact = Pick<Dossier, "id" | "client_nom" | "client_tel" | "client_email" | "immatriculation" | "marque_modele" | "numero_sinistre">;
 
@@ -33,7 +34,7 @@ export default function ContactClient({
   const Ligne = ({ href, ico, lib, sous, desactive, onClick }: { href?: string | null; ico: string; lib: string; sous?: string; desactive?: boolean; onClick?: () => void }) => {
     const contenu = (
       <>
-        <span className="tuile-ico" aria-hidden>{ico}</span>
+        <span className="tuile-ico" aria-hidden><Ico n={ico} /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">{lib}</span>
           {sous && <span className="block truncate text-xs" style={{ color: "var(--mea-texte-3)" }}>{sous}</span>}
@@ -53,14 +54,14 @@ export default function ContactClient({
         {dossier.numero_sinistre ? ` · n° ${dossier.numero_sinistre}` : ""}
       </p>
       <div className="groupe-liste">
-        <Ligne href={tel} ico="📞" lib="Appeler" sous={dossier.client_tel || "Pas de numéro sur le dossier"} desactive={!tel} />
-        <Ligne href={sms} ico="💬" lib="Envoyer un SMS" sous={dossier.client_tel || "Pas de numéro"} desactive={!sms} />
-        <Ligne href={wa} ico="🟢" lib="WhatsApp" sous={dossier.client_tel || "Pas de numéro"} desactive={!wa} />
-        <Ligne href={mail} ico="✉️" lib="E-mail" sous={dossier.client_email || "Pas d'adresse sur le dossier"} desactive={!mail} />
+        <Ligne href={tel} ico="phone" lib="Appeler" sous={dossier.client_tel || "Pas de numéro sur le dossier"} desactive={!tel} />
+        <Ligne href={sms} ico="message" lib="Envoyer un SMS" sous={dossier.client_tel || "Pas de numéro"} desactive={!sms} />
+        <Ligne href={wa} ico="dot-green" lib="WhatsApp" sous={dossier.client_tel || "Pas de numéro"} desactive={!wa} />
+        <Ligne href={mail} ico="mail" lib="E-mail" sous={dossier.client_email || "Pas d'adresse sur le dossier"} desactive={!mail} />
       </div>
       <div className="groupe-liste mt-3">
         <Ligne
-          ico="📋"
+          ico="clipboard"
           lib="Fiche récap"
           sous="Tout le dossier sur un écran, à copier ou envoyer"
           onClick={() => {
@@ -70,7 +71,7 @@ export default function ContactClient({
           }}
         />
         <Ligne
-          ico="📁"
+          ico="folder"
           lib="Ouvrir le dossier"
           onClick={() => {
             onClose();

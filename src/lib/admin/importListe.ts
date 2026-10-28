@@ -126,7 +126,7 @@ export async function lireXlsx(fichier: File): Promise<FichierLu> {
       } else if (type === "inlineStr") {
         valeur = decoderXml(tous(/<t[^>]*>([\s\S]*?)<\/t>/g, corps).map((x) => x[1]).join(""));
       } else if (type === "b") {
-        valeur = (corps.match(/<v>([^<]*)<\/v>/) || [])[1] === "1" ? "☑" : "☐";
+        valeur = (corps.match(/<v>([^<]*)<\/v>/) || [])[1] === "1" ? "" : "☐";
       } else {
         const v = (corps.match(/<v>([^<]*)<\/v>/) || [])[1];
         if (v == null) valeur = "";
@@ -242,7 +242,7 @@ export function normaliserTel(brut: string | null | undefined): string | null {
 
 function coche(v: string | undefined): boolean {
   const t = norm(v || "");
-  return /^(x|oui|o|yes|y|true|1|vrai|ok|fait)$/.test(t) || /[☑✓✔√]/.test(v || "");
+  return /^(x|oui|o|yes|y|true|1|vrai|ok|fait)$/.test(t) || /[√]/.test(v || "");
 }
 
 function date(v: string | undefined): string | null {

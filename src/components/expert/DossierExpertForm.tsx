@@ -15,6 +15,7 @@ import RechercheSiren, { ResultatSiren } from "@/components/RechercheSiren";
 import { ajouterDocument, chargerAssurances, chargerClients, chargerGarages, completerAnnuaireDepuisDossier, creerDossier, enregistrerGarage, majDossier } from "@/lib/expertise/data";
 import { fichierVersPdf } from "@/lib/photoPdf";
 import { AssuranceExpert, ClientExpert, DossierExpert, GarageExpert, STATUTS_EXPERTISE, adresseFiche } from "@/lib/expertise/types";
+import Ico from "@/components/Ico";
 
 const LIEUX = ["Autre lieu", "Chez le réparateur", "Au cabinet", "Chez l'assuré", "Expertise à distance (EAD)"];
 const TYPES = ["Avant travaux", "En cours de travaux", "Après travaux", "Contradictoire", "Valeur vénale", "Contre-expertise"];
@@ -87,7 +88,7 @@ export default function DossierExpertForm({
       lese_tel: c.tel || prev.lese_tel,
     }));
   }
-  /** « 🔍 SIRET » côté réparateur : la fiche est créée dans la base et sélectionnée. */
+  /** « <Ico n="search" /> SIRET » côté réparateur : la fiche est créée dans la base et sélectionnée. */
   async function garageDepuisSiren(r: ResultatSiren) {
     setCreationGarage(true);
     try {

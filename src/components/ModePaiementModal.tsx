@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ModalShell from "./ModalShell";
 import { MODES_REGLEMENT } from "@/lib/documents";
+import Ico from "@/components/Ico";
 
 /**
  * Choix du MODE DE PAIEMENT au moment de générer la facture (v34).
@@ -31,7 +32,7 @@ export default function ModePaiementModal({
     <ModalShell title={titre} onClose={onClose}>
       {alerte && (
         <div className="rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-sm text-amber-100">
-          <span className="font-semibold">⚠ À vérifier — </span>
+          <span className="font-semibold"><Ico n="alert" /> À vérifier — </span>
           {alerte}
           <span className="mt-1 block text-xs text-amber-100/70">
             Tu peux générer quand même, mais la facture ne correspondra pas au rapport.

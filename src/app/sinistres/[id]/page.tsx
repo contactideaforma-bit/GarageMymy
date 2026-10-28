@@ -82,6 +82,7 @@ import ContactClient from "@/components/mobile/ContactClient";
 import { lienTel, lienSms, lienWhatsApp, noterRecent } from "@/lib/mobile";
 import { useMetier } from "@/components/MetierProvider";
 import { termes } from "@/lib/metier";
+import Ico from "@/components/Ico";
 
 // Clé de mémorisation stable, dérivée du titre du bloc.
 function cleBloc(titre: string): string {
@@ -450,14 +451,14 @@ export default function DossierDetailPage() {
       const src = r.controle?.source === "grille" ? "lue directement dans le rapport (sans IA)" : "lue par l'analyse IA";
       const coh =
         r.controle && !r.controle.coherent
-          ? ` ⚠ Écart de ${formatEuros(Math.abs(r.controle.ecart))} avec le total du rapport — vérifie les lignes avant de facturer.`
-          : " ✓ Somme des lignes identique au total du rapport.";
+          ? ` Écart de ${formatEuros(Math.abs(r.controle.ecart))} avec le total du rapport — vérifie les lignes avant de facturer.`
+          : " Somme des lignes identique au total du rapport.";
       setReanalyseMsg(
-        `✓ Chiffrage relu : ${r.lignes.length} lignes, ${formatEuros(r.montant)} HT, ${src}.${coh} ` +
+        `Chiffrage relu : ${r.lignes.length} lignes, ${formatEuros(r.montant)} HT, ${src}.${coh} ` +
           "Génère maintenant une nouvelle facture (« + Facture ») ou, dans une facture existante, « ↺ Reprendre le chiffrage du rapport »."
       );
     } catch (err) {
-      setReanalyseMsg(`✗ ${messageErreur(err, "La ré-analyse a échoué.")}`);
+      setReanalyseMsg(`${messageErreur(err, "La ré-analyse a échoué.")}`);
     } finally {
       setReanalyse(false);
     }
@@ -874,7 +875,7 @@ export default function DossierDetailPage() {
     <>
       {/* v13.49 — toutes les infos du dossier en un coup d'œil, à copier ou envoyer. */}
       <button onClick={() => setFicheRecap(true)} className="btn-ghost" title="Client, véhicule, sinistre, expert, assurance, montants : tout sur un écran, à copier ou envoyer par WhatsApp / Messages / mail">
-        📋 Fiche récap
+        <Ico n="clipboard" /> Fiche récap
       </button>
       {(dossier.statut === "paye" || dossier.statut === "cloture") && !dossier.archive && (
         <button onClick={() => setArchiveModal(true)} disabled={Boolean(archivage)} className="btn-ghost">
@@ -887,10 +888,10 @@ export default function DossierDetailPage() {
           className={dossier.retard_paiement ? "btn-primary" : "btn-ghost"}
           title={dossier.retard_paiement ? "Retard de paiement en cours — cliquer pour en sortir (tout est conservé)" : "Facture impayée ? Passe le dossier en retard de paiement : relances, mise en demeure, journal des appels, rappels et procédure guidée"}
         >
-          ⏰ {dossier.retard_paiement ? "Retard de paiement" : "Retard de paiement"}
+          <Ico n="alarm" /> {dossier.retard_paiement ? "Retard de paiement" : "Retard de paiement"}
         </button>
       ) : (
-        <BoutonReserve>⏰ Retard de paiement</BoutonReserve>
+        <BoutonReserve><Ico n="alarm" /> Retard de paiement</BoutonReserve>
       )}
       {serviceInclus ? (
         <button
@@ -898,10 +899,10 @@ export default function DossierDetailPage() {
           className={dossier.litige ? "btn-danger" : "btn-ghost"}
           title={dossier.litige ? "Litige en cours — cliquer pour le lever (notes conservées)" : "Dossier bloqué ? Active le mode litige : problème, plan de déblocage et tâches dédiées"}
         >
-          ⚠️ {dossier.litige ? "Litige en cours" : "Litige"}
+          <Ico n="alert" /> {dossier.litige ? "Litige en cours" : "Litige"}
         </button>
       ) : (
-        <BoutonReserve>⚠️ Litige</BoutonReserve>
+        <BoutonReserve><Ico n="alert" /> Litige</BoutonReserve>
       )}
       <button onClick={() => setShowEdit(true)} className="btn-ghost">Modifier</button>
       <button onClick={supprimer} className="btn-danger">Supprimer</button>
@@ -937,17 +938,17 @@ export default function DossierDetailPage() {
               )}
               {dossier.mode_recours && (
                 <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-teal-100 text-teal-800" title="Recours direct contre l'assureur du responsable">
-                  ⚖️ RECOURS DIRECT
+                  <Ico n="scale" /> RECOURS DIRECT
                 </span>
               )}
               {dossier.litige && (
                 <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-rose-100 text-rose-700">
-                  ⚠ LITIGE
+                  <Ico n="alert" /> LITIGE
                 </span>
               )}
               {dossier.retard_paiement && (
                 <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-amber-100 text-amber-800">
-                  ⏰ RETARD DE PAIEMENT
+                  <Ico n="alarm" /> RETARD DE PAIEMENT
                 </span>
               )}
             </div>
@@ -1007,17 +1008,17 @@ export default function DossierDetailPage() {
           <StatutBadge statut={dossier.statut} />
           {dossier.mode_cession && <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-700">CESSION</span>}
           {dossier.mode_pec && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">PRISE EN CHARGE</span>}
-          {dossier.mode_recours && <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-800">⚖️ RECOURS DIRECT</span>}
-          {dossier.litige && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700">⚠ LITIGE</span>}
-          {dossier.retard_paiement && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">⏰ RETARD</span>}
+          {dossier.mode_recours && <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-800"><Ico n="scale" /> RECOURS DIRECT</span>}
+          {dossier.litige && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700"><Ico n="alert" /> LITIGE</span>}
+          {dossier.retard_paiement && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800"><Ico n="alarm" /> RETARD</span>}
         </div>
         <div className="mt-2"><ProgressionDossier statut={dossier.statut} size="sm" /></div>
         <div className="actions-client mt-3">
-          <a href={lienTel(dossier.client_tel) || "#"} className={`action-client ${lienTel(dossier.client_tel) ? "" : "desactive"}`}><span className="ico" aria-hidden>📞</span>Appeler</a>
-          <a href={lienSms(dossier.client_tel) || "#"} className={`action-client ${lienSms(dossier.client_tel) ? "" : "desactive"}`}><span className="ico" aria-hidden>💬</span>SMS</a>
-          <a href={lienWhatsApp(dossier.client_tel) || "#"} target="_blank" rel="noreferrer" className={`action-client ${lienWhatsApp(dossier.client_tel) ? "" : "desactive"}`}><span className="ico" aria-hidden>🟢</span>WhatsApp</a>
-          <button type="button" onClick={() => setFicheRecap(true)} className="action-client"><span className="ico" aria-hidden>📋</span>Récap</button>
-          <button type="button" onClick={() => setOnglet("photos")} className="action-client principal"><span className="ico" aria-hidden>📸</span>Photos</button>
+          <a href={lienTel(dossier.client_tel) || "#"} className={`action-client ${lienTel(dossier.client_tel) ? "" : "desactive"}`}><span className="ico" aria-hidden><Ico n="phone" /></span>Appeler</a>
+          <a href={lienSms(dossier.client_tel) || "#"} className={`action-client ${lienSms(dossier.client_tel) ? "" : "desactive"}`}><span className="ico" aria-hidden><Ico n="message" /></span>SMS</a>
+          <a href={lienWhatsApp(dossier.client_tel) || "#"} target="_blank" rel="noreferrer" className={`action-client ${lienWhatsApp(dossier.client_tel) ? "" : "desactive"}`}><span className="ico" aria-hidden><Ico n="dot-green" /></span>WhatsApp</a>
+          <button type="button" onClick={() => setFicheRecap(true)} className="action-client"><span className="ico" aria-hidden><Ico n="clipboard" /></span>Récap</button>
+          <button type="button" onClick={() => setOnglet("photos")} className="action-client principal"><span className="ico" aria-hidden><Ico n="camera" /></span>Photos</button>
         </div>
       </div>
       {/* Onglets COLLANTS (mobile) : hors du bloc précédent, sinon le sticky
@@ -1050,7 +1051,7 @@ export default function DossierDetailPage() {
         <LitigePanel dossier={dossier} onPatch={(patch) => setDossier({ ...dossier, ...patch })} onLever={basculerLitige} />
       )}
       {dossier.litige && !serviceInclus && (
-        <FonctionReservee titre="⚠️ Suivi du litige" description="Problème, plan de déblocage, courriers à l'expert et à l'assureur (accord de réparation, mise en demeure de prise de position), compteur des délais légaux, tâches dédiées." />
+        <FonctionReservee titre="Suivi du litige" description="Problème, plan de déblocage, courriers à l'expert et à l'assureur (accord de réparation, mise en demeure de prise de position), compteur des délais légaux, tâches dédiées." />
       )}
 
       {/* LITIGE RÉSOLU (v13.20) : une fois le litige levé, le dossier garde
@@ -1069,7 +1070,7 @@ export default function DossierDetailPage() {
           </span>
           {serviceInclus ? (
             <button onClick={basculerRetard} className="btn-primary btn-compact">
-              ⏰ Passer en retard de paiement
+              <Ico n="alarm" /> Passer en retard de paiement
             </button>
           ) : (
             <BoutonReserve className="btn-primary btn-compact">Suivi de l&apos;impayé</BoutonReserve>
@@ -1078,7 +1079,7 @@ export default function DossierDetailPage() {
       )}
       {dossier.retard_paiement && !serviceInclus && (
         <>
-          <FonctionReservee titre="⏰ Suivi de l'impayé" description="Procédure guidée (relance, mise en demeure, conciliateur, injonction de payer, droit de rétention), courriers prêts à signer, journal des appels, rappels automatiques." />
+          <FonctionReservee titre="Suivi de l'impayé" description="Procédure guidée (relance, mise en demeure, conciliateur, injonction de payer, droit de rétention), courriers prêts à signer, journal des appels, rappels automatiques." />
           <PaiementsPanel dossier={dossier} onChanged={load} />
         </>
       )}
@@ -1172,7 +1173,7 @@ export default function DossierDetailPage() {
               <div className="flex items-end pb-1 text-xs">
                 {pecJointe ? (
                   <span className="text-emerald-300">
-                    ✓ Accord rempli joint au dossier — il sera coché d&apos;office en pièce jointe à l&apos;envoi de la facture.
+                    <Ico n="check" /> Accord rempli joint au dossier — il sera coché d&apos;office en pièce jointe à l&apos;envoi de la facture.
                   </span>
                 ) : (
                   <span className="text-amber-300">
@@ -1278,7 +1279,7 @@ export default function DossierDetailPage() {
               className={`${cessionSignee ? "btn-ghost" : "btn-primary"} py-1.5 px-3 text-xs`}
               title={cessionSignee ? "Cession de créance signée" : "Mode cession activé : faites signer la cession au client"}
             >
-              {cessionSignee ? "✓ Cession signée" : cessions.length ? "✍️ Signer la cession" : "+ Cession de créance"}
+              {cessionSignee ? "Cession signée" : cessions.length ? "Signer la cession" : "+ Cession de créance"}
             </button>
           )}
           <button onClick={() => setAtelierModal("restitution")} className="btn-ghost py-1.5 px-3 text-xs">
@@ -1298,7 +1299,7 @@ export default function DossierDetailPage() {
         {reanalyseMsg && (
           <p
             className={`mt-2 rounded-lg px-3 py-2 text-xs ${
-              reanalyseMsg.startsWith("✗") || reanalyseMsg.includes("⚠")
+              reanalyseMsg.startsWith("x") || reanalyseMsg.includes("alert")
                 ? "bg-amber-500/10 text-amber-200"
                 : "bg-emerald-500/10 text-emerald-200"
             }`}
@@ -1492,7 +1493,7 @@ export default function DossierDetailPage() {
         <Feuille titre={`Dossier ${dossier.numero_sinistre || "sans numéro"}`} onClose={() => setMenuMobile(false)}>
           <div className="feuille-actions grid grid-cols-2 gap-2 pt-1" onClick={() => setMenuMobile(false)}>{actionsDossier}</div>
           <button type="button" className="chip mt-3 w-full text-center" onClick={() => { setMenuMobile(false); setContactMobile(true); }}>
-            📞 Contacter le client (appel, SMS, WhatsApp, e-mail)
+            <Ico n="phone" /> Contacter le client (appel, SMS, WhatsApp, e-mail)
           </button>
         </Feuille>
       )}
@@ -1516,7 +1517,7 @@ export default function DossierDetailPage() {
       {archiveModal && (
         <ModalShell title="Archiver ce dossier ?" onClose={() => setArchiveModal(false)}>
           <div className="rounded-lg border-2 border-rose-400/60 bg-rose-500/15 p-3">
-            <div className="text-sm font-bold text-rose-200">⚠️ Archiver, c&apos;est l&apos;équivalent d&apos;une suppression dans l&apos;appli.</div>
+            <div className="text-sm font-bold text-rose-200"><Ico n="alert" /> Archiver, c&apos;est l&apos;équivalent d&apos;une suppression dans l&apos;appli.</div>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-white/85">
               <li>Un ZIP complet est <b>téléchargé sur ton ordinateur</b> : factures, devis, ordre de réparation, cession, PV, <b>rapport d&apos;expertise</b>, pièces, photos, historique.</li>
               <li>Ensuite, les fichiers sont <b>effacés du serveur</b> et le dossier <b>disparaît de la liste des sinistres</b>. Il ne reste qu&apos;une trace (numéro, client, montant) dans « Archives ».</li>
@@ -1575,7 +1576,7 @@ export default function DossierDetailPage() {
           </p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button type="button" className="btn-ghost w-full sm:w-auto" onClick={() => { const d = alerteCession; setAlerteCession(null); setEmailDoc(d); }}>Envoyer quand même</button>
-            <button type="button" className="btn-primary w-full sm:w-auto" onClick={() => { setAlerteCession(null); setAtelierModal(cessions.length ? "cession_signer" : "cession"); }}>✍️ Faire signer la cession maintenant</button>
+            <button type="button" className="btn-primary w-full sm:w-auto" onClick={() => { setAlerteCession(null); setAtelierModal(cessions.length ? "cession_signer" : "cession"); }}><Ico n="signature" /> Faire signer la cession maintenant</button>
           </div>
         </ModalShell>
       )}

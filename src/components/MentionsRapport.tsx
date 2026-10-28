@@ -49,7 +49,7 @@ export default function MentionsRapport({
                 s'annoncer comme une alerte : « Mentions particulières » sur
                 fond ambre faisait passer « TVA récupérable » pour un problème.
                 Le titre change avec le contenu réel. */}
-            {bloquantes ? "⛔" : importantes.length ? "⚠" : "ℹ"}{" "}
+            {bloquantes ? "ban" : importantes.length ? "alert" : "ℹ"}{" "}
             {importantes.length === 0 ? "Informations du rapport" : titre}
           </span>
           {bloquantes && !compact && (

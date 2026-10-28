@@ -1,7 +1,7 @@
 "use client";
 
 // ============================================================
-//  « PLUS » (v13.50) — l'onglet mobile qui remplace le tiroir ☰ : toutes
+//  « PLUS » (v13.50) — l'onglet mobile qui remplace le tiroir : toutes
 //  les rubriques de la barre latérale en listes tactiles, puis le profil,
 //  le thème, la déconnexion et la version. Sur grand écran, la page reste
 //  accessible mais la barre latérale fait déjà le travail.
@@ -21,13 +21,14 @@ import { estAdmin } from "@/lib/support";
 import { aFlotteHorsGarage } from "@/lib/flotte";
 import { VERSION_LABEL } from "@/lib/version";
 import { compterNonLus, lireRole } from "@/lib/conversation";
+import Ico from "@/components/Ico";
 
 const ICONES: Record<string, string> = {
-  "/": "🏠", "/sinistres": "📁", "/conversation": "💬", "/vehicules": "🚗", "/flotte": "🚙",
-  "/flotte/guide-assureurs": "📘", "/extranets": "🧑‍💼", "/annuaire": "📇", "/archives": "🗄️", "/historique": "🕘",
-  "/factures": "🧾", "/finance": "💶", "/compta": "📊", "/banque": "🏦", "/rentabilite": "📈", "/emails": "✉️",
-  "/courriers": "📮", "/planning": "🗓️", "/agenda": "📅", "/sauvegarde": "💾", "/support": "🛟", "/etat": "🟢",
-  "/import": "📄", "/profil": "👤", "/prospects": "👥", "/prospects/demarchage": "📞", "/prospects/documents": "📄",
+  "/": "home", "/sinistres": "folder", "/conversation": "message", "/vehicules": "car", "/flotte": "truck",
+  "/flotte/guide-assureurs": "book", "/extranets": "user-tie", "/annuaire": "contact", "/archives": "archive", "/historique": "clock",
+  "/factures": "receipt", "/finance": "euro", "/compta": "bar-chart", "/banque": "bank", "/rentabilite": "trending-up", "/emails": "mail",
+  "/courriers": "mailbox", "/planning": "calendar", "/agenda": "calendar", "/sauvegarde": "save", "/support": "life-buoy", "/etat": "dot-green",
+  "/import": "file", "/profil": "user", "/prospects": "users", "/prospects/demarchage": "phone", "/prospects/documents": "file",
 };
 
 export default function PlusPage() {
@@ -47,7 +48,7 @@ export default function PlusPage() {
 
   const Ligne = ({ href, label, badge }: { href: string; label: string; badge?: number }) => (
     <Link href={href} className="ligne-liste">
-      <span className="tuile-ico" aria-hidden>{ICONES[href] || "•"}</span>
+      <span className="tuile-ico" aria-hidden><Ico n={ICONES[href] || "dot"} /></span>
       <span className="min-w-0 flex-1 truncate text-sm font-medium">{label}</span>
       {badge ? <span className="badge badge-warn">{badge}</span> : null}
       <span aria-hidden style={{ color: "var(--mea-texte-3)" }}>›</span>
@@ -94,12 +95,12 @@ export default function PlusPage() {
         <div className="etiquette mb-1.5 px-1">Compte</div>
         <div className="groupe-liste">
           <Ligne href="/profil" label="Profil du garage" />
-          {admin && <Ligne href="/support/admin" label="🛠️ Console d'assistance" />}
-          {admin && <Ligne href="/admin" label="📈 Espace éditeur" />}
+          {admin && <Ligne href="/support/admin" label="Console d'assistance" />}
+          {admin && <Ligne href="/admin" label="Espace éditeur" />}
           <div className="px-2 py-1"><ThemeToggle /></div>
           {email && (
             <button type="button" className="ligne-liste" onClick={() => supabase.auth.signOut()}>
-              <span className="tuile-ico" aria-hidden>🚪</span>
+              <span className="tuile-ico" aria-hidden><Ico n="door" /></span>
               <span className="min-w-0 flex-1 truncate text-sm font-medium">Se déconnecter</span>
             </button>
           )}

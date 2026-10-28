@@ -7,6 +7,7 @@ import { formatDate, formatEuros, messageErreur, ymd } from "@/lib/format";
 import { TYPES_ENTRETIEN } from "@/lib/flotte";
 import { usePliage } from "@/lib/pliage";
 import ModalShell from "@/components/ModalShell";
+import Ico from "@/components/Ico";
 
 /** Carnet d'entretien du véhicule (v12.3) : révisions, pneus, CT, coûts, prochain passage. */
 export default function FlotteEntretiensPanel({
@@ -54,7 +55,7 @@ export default function FlotteEntretiensPanel({
           {(prochains.length > 0 || enRetard.length > 0) && (
             <div className="glass-soft px-3 py-2 text-xs text-white/70">
               {enRetard.map((e) => (
-                <div key={e.id} className="text-amber-200">⚠ {TYPES_ENTRETIEN[e.type] || e.type} prévu le {formatDate(e.prochain_le)} — dépassé</div>
+                <div key={e.id} className="text-amber-200"><Ico n="alert" /> {TYPES_ENTRETIEN[e.type] || e.type} prévu le {formatDate(e.prochain_le)} — dépassé</div>
               ))}
               {prochains.slice(0, 3).map((e) => (
                 <div key={e.id}>Prochain : {TYPES_ENTRETIEN[e.type] || e.type} le {formatDate(e.prochain_le)}{e.prochain_km ? ` ou à ${e.prochain_km.toLocaleString("fr-FR")} km` : ""}</div>

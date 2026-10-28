@@ -16,6 +16,7 @@ import { compterPagesPdf, coutJetons, feuillesPli, FEUILLES_MAX } from "@/lib/je
 import { lireSoldeJetons } from "@/lib/jetonsClient";
 import { LIBELLE_LIGNES, lignesAdresse, verifierAdresse, type EnvoiPostal, type TypeEnvoiPostal } from "@/lib/envoisPostaux";
 import { ConfigMaileva, envoyerParLaPoste, lireConfigMaileva } from "@/lib/envoisPostauxClient";
+import Ico from "@/components/Ico";
 
 export default function EnvoiPostalModal({
   titre = "Envoyer par La Poste",
@@ -146,8 +147,8 @@ export default function EnvoiPostalModal({
           <div>
             <label className="field-label text-[11px]">Type d&apos;envoi</label>
             <div className="segment">
-              <button type="button" onClick={() => setType("simple")} className={`segment-btn ${type === "simple" ? "actif" : ""}`}>✉ Lettre simple</button>
-              <button type="button" onClick={() => setType("lrar")} className={`segment-btn ${type === "lrar" ? "actif" : ""}`}>📮 Recommandé AR</button>
+              <button type="button" onClick={() => setType("simple")} className={`segment-btn ${type === "simple" ? "actif" : ""}`}><Ico n="mail" /> Lettre simple</button>
+              <button type="button" onClick={() => setType("lrar")} className={`segment-btn ${type === "lrar" ? "actif" : ""}`}><Ico n="mailbox" /> Recommandé AR</button>
             </div>
             <p className="mt-1 text-xs text-white/55">
               {type === "lrar"
@@ -174,7 +175,7 @@ export default function EnvoiPostalModal({
                 </div>
               ))}
             </div>
-            {probleme ? <p className="mt-2 text-xs text-amber-200">{probleme}</p> : <p className="mt-2 text-xs text-emerald-300">Adresse au format postal ✓</p>}
+            {probleme ? <p className="mt-2 text-xs text-amber-200">{probleme}</p> : <p className="mt-2 text-xs text-emerald-300">Adresse au format postal <Ico n="check" /></p>}
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2">
@@ -194,8 +195,8 @@ export default function EnvoiPostalModal({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-sm text-white/75">
-            <span>📄 {nomFichier}</span>
-            <button type="button" onClick={apercu} className="btn-ghost btn-compact">👁 Aperçu du PDF</button>
+            <span><Ico n="file" /> {nomFichier}</span>
+            <button type="button" onClick={apercu} className="btn-ghost btn-compact"><Ico n="eye" /> Aperçu du PDF</button>
           </div>
 
           <div className={`rounded-lg border px-3 py-2 text-sm ${soldeInsuffisant ? "border-rose-400/40 bg-rose-500/15 text-rose-100" : "border-white/15 bg-white/5 text-white/85"}`}>
@@ -229,7 +230,7 @@ export default function EnvoiPostalModal({
         <button type="button" onClick={onClose} className="btn-ghost btn-compact">Annuler</button>
         {config?.configured && !guide && (
           <button type="button" disabled={busy || !confirme || Boolean(probleme) || soldeInsuffisant || tropLong || cout === null} onClick={envoyer} className="btn-primary btn-compact">
-            {busy ? "Transmission à La Poste…" : type === "lrar" ? "📮 Envoyer en recommandé AR" : "✉ Envoyer la lettre"}
+            {busy ? "Transmission à La Poste…" : type === "lrar" ? "Envoyer en recommandé AR" : "Envoyer la lettre"}
           </button>
         )}
       </div>

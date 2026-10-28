@@ -125,13 +125,13 @@ recopie le rapport, ne l'interprète pas, n'arrondis rien, n'invente aucune lign
 - categorie "m" = LISTE FERMÉE : UNIQUEMENT T1, T2, T3, Peinture et Ingrédients de
   peinture. Rien d'autre ne prend "m" — une main d'œuvre générique, un forfait ou une
   prestation annexe prennent "a". Les pièces (avec prix) prennent "p".
-- ⚠️ Les POSTES portent souvent un qualificatif dans le rapport : « Tôlerie T1 »,
+- Les POSTES portent souvent un qualificatif dans le rapport : « Tôlerie T1 »,
   « Carrosserie T2 », « Mécanique T3 », « MO T1 », « Taux T1 », « TP », « Peint. »,
   « Ingr. (MV) ». C'est TOUJOURS un poste "m", et la designation renvoyée est le
   nom NORMALISÉ, sans qualificatif : exactement « T1 », « T2 », « T3 », « Peinture »
   ou « Ingrédients de peinture ». JAMAIS « Tôlerie T1 » en "a", JAMAIS « T1 » en "p".
 
-⚠️ LES RAPPORTS N'ONT PAS TOUS LA MÊME MISE EN PAGE. Repère D'ABORD le format
+LES RAPPORTS N'ONT PAS TOUS LA MÊME MISE EN PAGE. Repère D'ABORD le format
 du chiffrage, puis applique la règle correspondante. Ne suppose jamais qu'un
 tableau absent n'existe pas : cherche-le sous une autre forme.
 
@@ -186,7 +186,7 @@ tableau absent n'existe pas : cherche-le sous une autre forme.
      séparée, ex. « PORTE AR D (R P) » ;
    - quantite = colonne Q / Qté (1 si la colonne est vide) ;
    - prix_unitaire = « Prix (HT) », ou « Mnt HT » ÷ quantite ;
-   - ⚠️⚠️ COLONNE DE PRIX VIDE → prix_unitaire = 0, ET LA LIGNE EST EXTRAITE
+   - COLONNE DE PRIX VIDE → prix_unitaire = 0, ET LA LIGNE EST EXTRAITE
      QUAND MÊME, avec la categorie "a" (PAS "p" : sans prix, ce n'est pas une
      pièce à commander). Ce sont les opérations de peinture, de remise en état,
      de dépose/repose (Act = P, R, D, T, G) dont le coût est DÉJÀ dans les heures
@@ -200,7 +200,7 @@ tableau absent n'existe pas : cherche-le sous une autre forme.
    - remise = colonne « %Rem. » (0 si vide). NE CONFONDS PAS avec « %Vét. »
      (vétusté) : la vétusté n'est PAS une remise, ignore-la. Si le montant est
      déjà net de remise, mets 0.
-   - ⚠️⚠️ FORMAT ALPHAEXPERT / ROADIA / ADENES (« Liste des pièces du chiffrage
+   - FORMAT ALPHAEXPERT / ROADIA / ADENES (« Liste des pièces du chiffrage
      N°1 ») : colonnes « Qté / Libellé / Réf.constructeur / Opé. / M. brut HT /
      %vét / %rem / %TVA / M. net HT ». Dans ce format :
        · prix_unitaire = « M. brut HT » (prix unitaire AVANT remise) ;
@@ -360,7 +360,7 @@ const totalLignes = (lignes: LigneExtraite[]): number =>
  * « Ingredients peinture HT » : on confronte chaque bloc et on nomme le
  * coupable, pour que le garage sache exactement où regarder.
  *
- * ⚠️ Le sous-total « Main d'oeuvre » des rapports en grille INCLUT les
+ * Le sous-total « Main d'oeuvre » des rapports en grille INCLUT les
  * forfaits (lignes « F ») : on les additionne donc aux postes.
  */
 function controlerBlocs(lignes: LigneExtraite[], recap: Recap | undefined): string[] {

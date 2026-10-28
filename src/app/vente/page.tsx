@@ -22,6 +22,7 @@ import { ACCEPTATION_CGV, MODES_PAIEMENT, VenteContrat, articlesCGV, conditionsP
 import { ACCEPTATION_CGU, VERSION_CGU, articlesCGU } from "@/lib/admin/cgu";
 import { AUTORISATION_SOUS_TRAITANCE, VERSION_DPA, articlesDPA } from "@/lib/admin/dpa";
 import { telechargerContratPdf } from "@/lib/admin/contratPdf";
+import Ico from "@/components/Ico";
 
 const eur = (n: number | null | undefined) => (Number(n) || 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
 
@@ -448,7 +449,7 @@ export default function VentePage() {
         {/* ---------------- Fini ---------------- */}
         {etape === "fini" && resultat && (
           <div className="lp-card mt-6 p-8 text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-2xl">✓</div>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 text-2xl"><Ico n="check" /></div>
             <h3 className="mt-4 !text-lg font-semibold">Vente {resultat.numero} envoyée.</h3>
             <p className="mt-2 text-sm text-slate-500">
               IDEAFORMA valide la vente et crée le compte du garage sous 5 jours ouvrés (email de bienvenue à {g.contact_email}).

@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import AdminShell, { dateFr } from "@/components/admin/AdminShell";
 import { Collaborateur, CompteAuth, Vente, lireComptes, lireTable, nomCollab } from "@/lib/admin/client";
 import { ORIGINES_PROSPECT, Prospect, ProspectDocument, STATUTS_PROSPECT, TYPES_DOCUMENT } from "@/lib/prospects";
+import Ico from "@/components/Ico";
 
 export default function PortefeuillesPage() {
   const [prospects, setProspects] = useState<Prospect[]>([]);
@@ -81,12 +82,12 @@ export default function PortefeuillesPage() {
                   <div className="min-w-0">
                     <span className={st.badge}>{st.label}</span> <span className="font-medium text-white">{p.nom}</span>
                     <span className="text-white/50"> · {[p.cp, p.ville].filter(Boolean).join(" ")} · {p.contact_nom || p.gerant || "—"} · {p.email || "—"}</span>
-                    {exception && <div className={`text-xs ${p.origine_detail ? "text-amber-200" : "text-rose-300"}`}>⚠ {ORIGINES_PROSPECT[p.origine].label}{p.origine_detail ? ` — ${p.origine_detail}` : " — SANS justification"}</div>}
-                    {d.length > 0 && <div className="text-xs text-white/45">{d.map((x) => `${TYPES_DOCUMENT[x.type]}${x.signe_le ? " ✓" : ""}`).join(" · ")}</div>}
+                    {exception && <div className={`text-xs ${p.origine_detail ? "text-amber-200" : "text-rose-300"}`}><Ico n="alert" /> {ORIGINES_PROSPECT[p.origine].label}{p.origine_detail ? ` — ${p.origine_detail}` : " — SANS justification"}</div>}
+                    {d.length > 0 && <div className="text-xs text-white/45">{d.map((x) => `${TYPES_DOCUMENT[x.type]}${x.signe_le ? "" : ""}`).join(" · ")}</div>}
                     {v && <div className="text-xs text-white/55">Vente {v.numero} — {v.statut}{v.paiement_confirme_le ? " · paiement confirmé par le commercial" : v.paiement_demande ? ` · ${v.paiement_demande} demandé` : ""}</div>}
                   </div>
                   <div className="text-right text-xs text-white/45">
-                    {p.prochaine_action && <div>➜ {p.prochaine_action} {p.prochaine_date ? dateFr(p.prochaine_date) : ""}</div>}
+                    {p.prochaine_action && <div><Ico n="arrow-right" /> {p.prochaine_action} {p.prochaine_date ? dateFr(p.prochaine_date) : ""}</div>}
                     <div>maj {dateFr(p.maj_le)}</div>
                   </div>
                 </li>

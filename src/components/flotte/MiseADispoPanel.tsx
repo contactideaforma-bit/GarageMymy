@@ -23,10 +23,11 @@ import ModalShell from "@/components/ModalShell";
 import SignaturePad from "@/components/SignaturePad";
 import CameraModal from "@/components/CameraModal";
 import MiseADispoModal from "@/components/flotte/MiseADispoModal";
+import Ico from "@/components/Ico";
 
 const MOMENTS_MAD = [
-  { code: "depart", label: "Au départ", icone: "🚗" },
-  { code: "retour", label: "Au retour", icone: "🏁" },
+  { code: "depart", label: "Au départ", icone: "car" },
+  { code: "retour", label: "Au retour", icone: "check-circle" },
 ];
 
 /**
@@ -94,7 +95,7 @@ export default function MiseADispoPanel({
                 {actif ? "En cours" : m.statut === "annulee" ? "Annulée" : "Terminée"}
               </span>
               {m.signature || m.cg_acceptees ? (
-                <span className="text-xs text-emerald-300">✓ CG signées{m.signe_le ? ` le ${formatDate(m.signe_le)}` : ""}</span>
+                <span className="text-xs text-emerald-300"><Ico n="check" /> CG signées{m.signe_le ? ` le ${formatDate(m.signe_le)}` : ""}</span>
               ) : (
                 <span className="text-xs text-amber-200">CG non signées</span>
               )}
@@ -111,7 +112,7 @@ export default function MiseADispoPanel({
             </div>
             <div className="mt-1 flex flex-wrap gap-3 text-xs text-white/50">
               {d && <Link href={`/sinistres/${d.id}`} className="text-accent-teal hover:underline">Dossier sinistre {d.numero_sinistre || ""} ↗</Link>}
-              <span>📷 départ {nbPhotos.depart} · retour {nbPhotos.retour}</span>
+              <span><Ico n="camera" /> départ {nbPhotos.depart} · retour {nbPhotos.retour}</span>
               {m.notes && <span className="italic">{m.notes}</span>}
             </div>
           </div>
@@ -156,7 +157,7 @@ export default function MiseADispoPanel({
           {/* Qui avait le véhicule ? */}
           <div className="glass-soft p-3">
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-sm text-white/80">🎫 PV, radar, amende… qui avait le véhicule le</label>
+              <label className="text-sm text-white/80"><Ico n="ticket" /> PV, radar, amende… qui avait le véhicule le</label>
               <input type="date" className="field-input max-w-[11rem]" value={dateQui} onChange={(e) => setDateQui(e.target.value)} />
               <button onClick={() => setDateQui(ymd())} className="text-xs text-white/40 hover:underline">aujourd&apos;hui</button>
             </div>
@@ -419,7 +420,7 @@ function PhotosMadModal({
       <div className="flex flex-wrap items-center gap-2">
         {MOMENTS_MAD.map((m) => (
           <button key={m.code} onClick={() => { setMoment(m.code); setComparer(false); }} className={`rounded-full px-3 py-1.5 text-xs font-medium ${moment === m.code && !comparer ? "bg-white/20 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}>
-            {m.icone} {m.label} ({photos.filter((p) => p.moment === m.code).length})
+            <Ico n={m.icone} /> {m.label} ({photos.filter((p) => p.moment === m.code).length})
           </button>
         ))}
         <button onClick={() => setComparer(true)} className={`rounded-full px-3 py-1.5 text-xs font-medium ${comparer ? "bg-white/20 text-white" : "bg-white/5 text-white/60 hover:bg-white/10"}`}>
@@ -441,7 +442,7 @@ function PhotosMadModal({
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={urls[p.id]} alt={a.label} className="aspect-[4/3] w-full object-cover" />
                   ) : (
-                    <div className="flex aspect-[4/3] items-center justify-center text-3xl text-white/20">{a.obligatoire ? "📷" : "＋"}</div>
+                    <div className="flex aspect-[4/3] items-center justify-center text-3xl text-white/20">{a.obligatoire ? "camera" : "＋"}</div>
                   )}
                   <div className="px-2 py-1.5">
                     <div className="truncate text-xs text-white/80">{a.label}{a.obligatoire ? "" : " (option)"}</div>
@@ -472,7 +473,7 @@ function PhotosMadModal({
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={urls[p.id]} alt="" className="aspect-square w-full rounded-lg object-cover" />
                     )}
-                    <button onClick={() => supprimer(p)} className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 text-[10px] text-white">✕</button>
+                    <button onClick={() => supprimer(p)} className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 text-[10px] text-white"><Ico n="x" /></button>
                   </div>
                 ))}
               </div>

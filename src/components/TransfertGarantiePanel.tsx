@@ -12,6 +12,7 @@ import SignaturePad from "@/components/SignaturePad";
 import ConditionsAssureurPret from "@/components/flotte/ConditionsAssureurPret";
 import { PRISES_EN_CHARGE, clausesParDefaut, coutPretHt, defautsContrat, joursPret, rattraperTransfertsDossier } from "@/lib/pret";
 import { apercuContratPretPdf, contratPretPdfBase64, generateContratPretPdf, nomFichierSur } from "@/lib/pdf";
+import Ico from "@/components/Ico";
 
 const STATUTS_TRANSFERT: Record<string, { label: string; badge: string }> = {
   a_demander: { label: "À demander", badge: "bg-rose-100 text-rose-700" },
@@ -194,7 +195,7 @@ export default function TransfertGarantiePanel({
                           )}
                         </>
                       )}
-                      {t.signe_le && <span className="text-emerald-300">✓ Signé</span>}
+                      {t.signe_le && <span className="text-emerald-300"><Ico n="check" /> Signé</span>}
                     </>
                   )}
                   {t.statut !== "accorde" && (

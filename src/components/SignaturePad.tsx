@@ -126,7 +126,7 @@ export default function SignaturePad({
       </div>
       <div className="mt-2 flex items-center justify-between">
         <span className="text-xs text-white/40">
-          {vide ? "Signe dans le cadre (doigt ou souris)." : "Signature capturée ✓"}
+          {vide ? "Signe dans le cadre (doigt ou souris)." : "Signature capturée"}
         </span>
         <button type="button" onClick={effacer} className="btn-ghost py-1 px-3 text-xs">
           Effacer

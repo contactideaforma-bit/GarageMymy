@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/format";
 import { Ticket } from "@/lib/types";
 import { chargerMesTickets, estOuvert, iconeCategorie, infoGravite, infoStatut } from "@/lib/support";
 import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
+import Ico from "@/components/Ico";
 
 /**
  * ÉTAT DU SERVICE — page PUBLIQUE (v45).
@@ -71,7 +72,7 @@ export default function EtatPage() {
           <div className="mx-auto h-6 w-56 skeleton" />
         ) : toutVaBien ? (
           <>
-            <div className="text-4xl">✅</div>
+            <div className="text-4xl"><Ico n="check-circle" /></div>
             <p className="mt-2 text-lg font-semibold text-emerald-300">
               Tous les services fonctionnent normalement
             </p>
@@ -82,7 +83,7 @@ export default function EtatPage() {
           </>
         ) : (
           <>
-            <div className="text-4xl">{infoNiveau(actifs[0].niveau).icone}</div>
+            <div className="text-4xl"><Ico n={infoNiveau(actifs[0].niveau).icone} /></div>
             <p className="mt-2 text-lg font-semibold text-white">
               {actifs.length === 1 ? "Un incident est en cours" : `${actifs.length} incidents en cours`}
             </p>
@@ -146,7 +147,7 @@ export default function EtatPage() {
                     <Link href="/support" className="flex flex-wrap items-center justify-between gap-2 py-2.5 hover:bg-white/5">
                       <div className="min-w-0">
                         <p className="truncate text-sm text-white/85">
-                          {iconeCategorie(t.categorie)} {t.sujet}
+                          <Ico n={iconeCategorie(t.categorie)} /> {t.sujet}
                           {t.numero ? <span className="text-white/40"> · {t.numero}</span> : null}
                         </p>
                         <p className="text-[11px] text-white/40">

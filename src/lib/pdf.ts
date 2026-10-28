@@ -344,7 +344,7 @@ function afficherPdfIntegre(url: string, nomFichier: string) {
     const poignee = document.createElement("div");
     poignee.style.cssText = "width:2.5rem;height:4px;border-radius:2px;background:#d1d5e3;margin:0 auto .9rem;";
     const icone = document.createElement("div");
-    icone.textContent = "📄";
+    icone.textContent = "file";
     icone.style.cssText = "font-size:2.4rem;text-align:center;line-height:1;";
     const nom = document.createElement("div");
     nom.textContent = nomFichier;
@@ -2440,7 +2440,7 @@ async function buildCommandePiecesPdf(commandes: CommandePiece[], dossier: Dossi
   const sansRef = commandes.filter((c) => !(c.reference || "").trim()).length;
   const notes = [
     `${commandes.length} pièce${commandes.length > 1 ? "s" : ""} — ${commandes.filter((c) => c.statut === "a_commander").length} à commander.`,
-    sansRef > 0 ? `⚠ ${sansRef} ligne${sansRef > 1 ? "s" : ""} sans référence : à compléter avant commande.` : "",
+    sansRef > 0 ? `${sansRef} ligne${sansRef > 1 ? "s" : ""} sans référence : à compléter avant commande.` : "",
     "Vérifier les références sur le VIN du véhicule avant de passer commande.",
   ].filter(Boolean);
   if (ty + notes.length * 5 > pageH - 30) { pdf.addPage(); drawFooter(); ty = 25; }

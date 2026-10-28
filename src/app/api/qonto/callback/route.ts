@@ -7,7 +7,7 @@ import { finaliserConnexionQonto } from "@/lib/qonto";
 //  les jetons puis on renvoie l'éditeur sur la page Paiements.
 //  Pas d'en-tête d'auth possible (redirection navigateur) : la sécurité
 //  repose sur le « state » aléatoire à usage unique, valable 15 min.
-//  ⚠️ L'adresse de cette route doit être déclarée À L'IDENTIQUE dans le
+//  L'adresse de cette route doit être déclarée À L'IDENTIQUE dans le
 //  portail développeur Qonto (redirect URI).
 // ============================================================
 

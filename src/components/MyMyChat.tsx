@@ -27,11 +27,12 @@ import {
   resumePourIA,
   validerAction,
 } from "@/lib/mymy";
+import Ico from "@/components/Ico";
 
 const ACCUEIL: MessageMyMy = {
   role: "assistant",
   texte:
-    "Salut, moi c'est MY-MY 👋 Je connais tous tes dossiers.\n" +
+    "Salut, moi c'est MY-MY Je connais tous tes dossiers.\n" +
     "Demande-moi un dossier (immat, client, « c'est une Polo »…), un téléphone, ce que tu as à faire, tes impayés… " +
     "Je peux aussi créer un rappel ou un RDV : je te demande toujours confirmation avant d'agir.",
 };
@@ -189,7 +190,7 @@ export default function MyMyChat() {
       });
       const lu = await lireReponse<{ reponse: string; liens?: LienMyMy[]; action?: unknown }>(res);
       if (!lu.ok || !lu.data) {
-        setMessages((prev) => [...prev, { role: "assistant", texte: "😕 " + (lu.error || "Je n'ai pas pu répondre.") }]);
+        setMessages((prev) => [...prev, { role: "assistant", texte: "" + (lu.error || "Je n'ai pas pu répondre.") }]);
         return;
       }
       // ACTION PROPOSÉE : validée contre les données locales (dossier
@@ -224,7 +225,7 @@ export default function MyMyChat() {
       setMessages((prev) => [...prev, resultat]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
-      setMessages((prev) => [...prev, { role: "assistant", texte: "😕 Je n'ai pas réussi à enregistrer : " + (msg || "erreur inconnue") }]);
+      setMessages((prev) => [...prev, { role: "assistant", texte: "Je n'ai pas réussi à enregistrer : " + (msg || "erreur inconnue") }]);
     } finally {
       setOccupe(false);
     }
@@ -304,7 +305,7 @@ export default function MyMyChat() {
                     {m.action && (
                       <div className="mymy-action mt-2 rounded-xl p-2">
                         <div className="text-[11px] font-bold uppercase tracking-wide">
-                          {m.etatAction === "confirmee" ? "✔ Confirmé" : m.etatAction === "annulee" ? "✖ Annulé" : "J'ai compris — je confirme ?"}
+                          {m.etatAction === "confirmee" ? "Confirmé" : m.etatAction === "annulee" ? "Annulé" : "J'ai compris — je confirme ?"}
                         </div>
                         <div className="mt-1 text-xs opacity-90">{ctxPourDescription ? decrireAction(ctxPourDescription, m.action) : "…"}</div>
                         {!m.etatAction && (
@@ -383,7 +384,7 @@ export default function MyMyChat() {
               aria-label="Envoyer"
               className="mymy-envoyer flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg disabled:opacity-40"
             >
-              ➤
+              <Ico n="arrow-right" />
             </button>
           </form>
         </div>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { VitrineNav, VitrineFooter } from "@/components/vitrine/Vitrine";
 import { COMPARATIF, DOMAINES, Verdict } from "@/components/vitrine/fonctionnalites";
+import Ico from "@/components/Ico";
 
 // ============================================================
 //  TOUTES LES FONCTIONNALITÉS — page PUBLIQUE (v13.48), rendue côté serveur.

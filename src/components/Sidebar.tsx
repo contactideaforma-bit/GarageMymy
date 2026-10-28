@@ -16,6 +16,7 @@ import { compterNonLus, lireRole } from "@/lib/conversation";
 import Salutation from "@/components/Salutation";
 import BoutonActualiser from "@/components/BoutonActualiser";
 import { COURRIERS_POSTE_ACTIFS } from "@/lib/envoisPostaux";
+import Ico from "@/components/Ico";
 
 export const SECTIONS: { titre: string; items: { href: string; label: string }[] }[] = [
   {
@@ -185,21 +186,21 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
               onClick={onNavigate}
               className={`nav-lien ${isActive("/prospects") && !isActive("/prospects/documents") && !isActive("/prospects/demarchage") ? "actif" : ""}`}
             >
-              👥 Mes clients
+              <Ico n="users" /> Mes clients
             </Link>
             <Link
               href="/prospects/demarchage"
               onClick={onNavigate}
               className={`nav-lien ${isActive("/prospects/demarchage") ? "actif" : ""}`}
             >
-              📞 Session d&apos;appels
+              <Ico n="phone" /> Session d&apos;appels
             </Link>
             <Link
               href="/prospects/documents"
               onClick={onNavigate}
               className={`nav-lien ${isActive("/prospects/documents") ? "actif" : ""}`}
             >
-              📄 Mes documents
+              <Ico n="file" /> Mes documents
             </Link>
           </div>
         )}
@@ -256,7 +257,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             className={`nav-lien nav-compact ${isActive("/support/admin") ? "actif" : ""}`}
           >
-            🛠️ Console d&apos;assistance
+            <Ico n="tool" /> Console d&apos;assistance
           </Link>
         )}
         {admin && (
@@ -265,7 +266,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             onClick={onNavigate}
             className={`nav-lien nav-compact ${isActive("/admin") ? "actif" : ""}`}
           >
-            📈 Espace éditeur
+            <Ico n="trending-up" /> Espace éditeur
           </Link>
         )}
         <ThemeToggle />

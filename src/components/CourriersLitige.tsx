@@ -27,6 +27,7 @@ import SignaturePad from "./SignaturePad";
 import EmailComposer from "./EmailComposer";
 import CourrierPapierModal, { CanalPapier } from "./CourrierPapierModal";
 import { arJoint, cloturerTaches, origineAPoster } from "@/lib/courrierPapier";
+import Ico from "@/components/Ico";
 
 const TYPES: TypeCourrierLitige[] = ["accord_reparation_expert", "position_assureur"];
 
@@ -121,9 +122,9 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         <button onClick={() => setModal({ type: "accord_reparation_expert" })} className="btn-primary btn-compact" title={photos.length ? `${photos.length} photo(s) d'état jointes à l'email` : "Aucune photo d'état d'entrée : prenez-les avant d'envoyer"}>
-          📄 Demande d&apos;accord de réparation → expert{photos.length ? ` (+${Math.min(12, photos.length)} photos)` : ""}
+          <Ico n="file" /> Demande d&apos;accord de réparation → expert{photos.length ? ` (+${Math.min(12, photos.length)} photos)` : ""}
         </button>
-        <button onClick={() => setModal({ type: "position_assureur" })} className="btn-primary btn-compact">⚖ Mise en demeure de prise de position → assureur</button>
+        <button onClick={() => setModal({ type: "position_assureur" })} className="btn-primary btn-compact"><Ico n="scale" /> Mise en demeure de prise de position → assureur</button>
       </div>
       {!photos.length && <p className="mt-1 text-xs text-amber-200/90">Pas de photos d&apos;état d&apos;entrée sur ce dossier : elles sont la preuve à figer. Fiche dossier → Photos d&apos;état.</p>}
       {info && <p className="mt-1 text-xs font-medium text-emerald-300">{info}</p>}
@@ -140,11 +141,11 @@ export default function CourriersLitige({ dossier: dossierBrut }: { dossier: Dos
               </div>
               <div className="flex flex-wrap gap-1">
                 <button onClick={() => apercuCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">Aperçu</button>
-                <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">⬇ PDF</button>
+                <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact"><Ico n="download" /> PDF</button>
                 {c.statut !== "envoye" && <button onClick={() => setModal({ type: c.type as TypeCourrierLitige, courrier: c })} className="btn-ghost btn-compact">Modifier</button>}
-                {c.statut !== "envoye" && <button onClick={() => setEmail(c)} className="btn-ghost btn-compact">✉ Email</button>}
-                {c.statut !== "envoye" && <button onClick={() => setEnvoi(c)} className="btn-primary btn-compact">📮 Imprimer et poster</button>}
-                {c.statut === "envoye" && c.canal_envoi === "lrar" && !arJoint(piecesAR, c.id) && <button onClick={() => setArModal(c)} className="btn-primary btn-compact" title="Photo de la preuve de dépôt / de l'avis de réception, rangée dans les pièces du dossier">📬 Joindre l&apos;AR</button>}
+                {c.statut !== "envoye" && <button onClick={() => setEmail(c)} className="btn-ghost btn-compact"><Ico n="mail" /> Email</button>}
+                {c.statut !== "envoye" && <button onClick={() => setEnvoi(c)} className="btn-primary btn-compact"><Ico n="mailbox" /> Imprimer et poster</button>}
+                {c.statut === "envoye" && c.canal_envoi === "lrar" && !arJoint(piecesAR, c.id) && <button onClick={() => setArModal(c)} className="btn-primary btn-compact" title="Photo de la preuve de dépôt / de l'avis de réception, rangée dans les pièces du dossier"><Ico n="inbox" /> Joindre l&apos;AR</button>}
                 {c.statut === "envoye" && c.canal_envoi === "lrar" && arJoint(piecesAR, c.id) && <span className="badge badge-ok">AR joint</span>}
               </div>
             </li>
@@ -275,10 +276,10 @@ function CourrierLitigeModal({ type, existant, dossier, garage, nbPhotos, joursI
         </div>
         {erreur && <div className="rounded-lg border border-rose-400/30 bg-rose-500/15 px-3 py-2 text-sm text-rose-200">{erreur}</div>}
         <div className="flex flex-wrap justify-end gap-2 border-t border-white/10 pt-3">
-          <button type="button" onClick={() => apercuCourrierRecouvrementPdf(brouillon(), dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">👁 Aperçu PDF</button>
-          <button type="button" onClick={() => generateCourrierRecouvrementPdf(brouillon(), dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">⬇ Télécharger</button>
+          <button type="button" onClick={() => apercuCourrierRecouvrementPdf(brouillon(), dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact"><Ico n="eye" /> Aperçu PDF</button>
+          <button type="button" onClick={() => generateCourrierRecouvrementPdf(brouillon(), dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact"><Ico n="download" /> Télécharger</button>
           <button type="button" onClick={() => enregistrer("enregistrer")} disabled={busy !== null} className="btn-ghost btn-compact">Enregistrer</button>
-          <button type="button" onClick={() => enregistrer("email")} disabled={busy !== null} className="btn-ghost btn-compact">✉ Envoyer par email{type === "accord_reparation_expert" && nbPhotos ? ` (+${Math.min(12, nbPhotos)} photos)` : " (PDF joint)"}</button>
+          <button type="button" onClick={() => enregistrer("email")} disabled={busy !== null} className="btn-ghost btn-compact"><Ico n="mail" /> Envoyer par email{type === "accord_reparation_expert" && nbPhotos ? ` (+${Math.min(12, nbPhotos)} photos)` : " (PDF joint)"}</button>
           <button type="button" onClick={() => enregistrer("poster")} disabled={busy !== null} className="btn-primary btn-compact">{type === "position_assureur" ? "Signer → imprimer et poster en recommandé" : "Signer → imprimer et poster"}</button>
         </div>
       </div>

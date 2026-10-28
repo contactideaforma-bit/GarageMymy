@@ -33,6 +33,7 @@ import {
   LigneExtraite,
   LigneNum,
 } from "@/lib/documents";
+import Ico from "@/components/Ico";
 
 type FormState = {
   immatriculation: string;
@@ -413,8 +414,8 @@ export default function DossierForm({
       const apprises = Number(extrait.regles_appliquees) || 0;
       setAnalyzeMsg(
         avertissement
-          ? `⚠ ${avertissement}`
-          : "✓ Dossier pré-rempli. Devis, facture, ordre de réparation et cession de créance seront générés automatiquement à l'enregistrement, conformes au chiffrage." +
+          ? `${avertissement}`
+          : "Dossier pré-rempli. Devis, facture, ordre de réparation et cession de créance seront générés automatiquement à l'enregistrement, conformes au chiffrage." +
             (apprises > 0
               ? ` ${apprises} correction${apprises > 1 ? "s" : ""} de la mémoire de l'analyse appliquée${apprises > 1 ? "s" : ""}.`
               : "")
@@ -695,8 +696,8 @@ export default function DossierForm({
               controle.coherent ? (
                 <p className="mt-2 text-xs text-emerald-300">
                   {controle.source === "grille"
-                    ? "✓ Chiffrage lu directement dans le rapport (sans IA) et vérifié : les lignes totalisent "
-                    : "✓ Chiffrage vérifié : les lignes totalisent "}
+                    ? "Chiffrage lu directement dans le rapport (sans IA) et vérifié : les lignes totalisent "
+                    : "Chiffrage vérifié : les lignes totalisent "}
                   {formatEuros(controle.somme)} HT
                   {controle.montantDeduit
                     ? " (montant du dossier déduit du détail des lignes)."
@@ -705,7 +706,7 @@ export default function DossierForm({
                 </p>
               ) : (
                 <div className="mt-2 rounded-lg border border-amber-400/40 bg-amber-500/15 px-3 py-2 text-xs text-amber-100">
-                  <span className="font-semibold">⚠ À vérifier — </span>
+                  <span className="font-semibold"><Ico n="alert" /> À vérifier — </span>
                   les lignes lues totalisent {formatEuros(controle.somme)} HT alors que le rapport
                   retient {formatEuros(controle.montant)} HT (écart de{" "}
                   {formatEuros(Math.abs(controle.ecart))}{" "}
@@ -774,7 +775,7 @@ export default function DossierForm({
                       </label>
                       {ecarts.length > 0 ? (
                         <div className="mt-1 pl-6">
-                          <span className="font-semibold">⚠ Le rapport ne suit pas les tarifs de l&apos;agrément :</span>
+                          <span className="font-semibold"><Ico n="alert" /> Le rapport ne suit pas les tarifs de l&apos;agrément :</span>
                           <ul className="ml-4 list-disc">
                             {ecarts.slice(0, 6).map((e) => (
                               <li key={e}>{e}</li>
@@ -786,7 +787,7 @@ export default function DossierForm({
                           </span>
                         </div>
                       ) : (
-                        autoLignes.length > 0 && <span className="block pl-6 opacity-80">✓ Les taux du rapport sont conformes à l&apos;agrément.</span>
+                        autoLignes.length > 0 && <span className="block pl-6 opacity-80"><Ico n="check" /> Les taux du rapport sont conformes à l&apos;agrément.</span>
                       )}
                     </div>
                   );

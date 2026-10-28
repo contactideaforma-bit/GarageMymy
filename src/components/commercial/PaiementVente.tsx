@@ -4,11 +4,11 @@
 //  PAIEMENT DE LA 1re ÉCHÉANCE (v13.37) — fiche client du commercial.
 //
 //  Deux grands choix, pas de jargon :
-//   💳 Lien de paiement — carte bancaire. Lien unique Qonto créé en un
+//   Lien de paiement — carte bancaire. Lien unique Qonto créé en un
 //      clic : à OUVRIR sur place (le gérant paie sur le téléphone du
 //      commercial), à envoyer par EMAIL ou par SMS, ou à copier.
 //      Vérification automatique (bouton + chaque matin).
-//   🏦 Virement — IBAN, BIC, montant TTC et référence, chacun copiable,
+//   Virement — IBAN, BIC, montant TTC et référence, chacun copiable,
 //      et envoi par email en un clic. Le commercial confirme à réception.
 //  Le commercial n'encaisse jamais lui-même : tout est au nom d'IDEAFORMA.
 // ============================================================
@@ -19,6 +19,7 @@ import { telHref } from "@/lib/prospects";
 import { ContexteCommercial, envoyerPaiementVente, lienPaiementVente, majPaiement, verifierPaiementVente } from "@/lib/commercialClient";
 import { SOCIETE } from "@/components/vitrine/societe";
 import { MENTION_TVA, VenteParcours, estPaye, premiereEcheance, referenceVirement } from "@/lib/venteParcours";
+import Ico from "@/components/Ico";
 
 type Mode = "lien" | "virement";
 
@@ -60,14 +61,14 @@ export default function PaiementVente({ vente: v, ctx, onChanged }: { vente: Ven
     run(`envoi-${mo}`, async () => {
       const r = await envoyerPaiementVente({ vente_id: v.id, mode: mo, to: email });
       if (r.url) setUrl(r.url);
-      setInfo(`✓ Email envoyé à ${email}. Tu es en copie.`);
+      setInfo(`Email envoyé à ${email}. Tu es en copie.`);
       onChanged();
     });
 
   const verifier = () =>
     run("verif", async () => {
       const r = await verifierPaiementVente(v.id);
-      setInfo(r.paye ? "✅ Paiement reçu !" : r.statut === "expired" ? "Le lien a expiré : génère-en un nouveau." : "Pas encore payé. La vérification se refait aussi automatiquement chaque matin.");
+      setInfo(r.paye ? "Paiement reçu !" : r.statut === "expired" ? "Le lien a expiré : génère-en un nouveau." : "Pas encore payé. La vérification se refait aussi automatiquement chaque matin.");
       onChanged();
     });
 
@@ -98,11 +99,11 @@ export default function PaiementVente({ vente: v, ctx, onChanged }: { vente: Ven
   if (paye) {
     return (
       <div className="mt-3 rounded-xl border-2 border-emerald-400/50 bg-emerald-500/10 p-4">
-        <div className="text-base font-bold text-emerald-200">✅ 1re échéance payée — {formatEuros(v.paiement_montant ?? m.ttc)} TTC</div>
+        <div className="text-base font-bold text-emerald-200"><Ico n="check-circle" /> 1re échéance payée — {formatEuros(v.paiement_montant ?? m.ttc)} TTC</div>
         <p className="mt-1 text-sm text-white/75">
           {v.paiement_confirme_le ? `Le ${formatDateTime(v.paiement_confirme_le)}` : ""}
           {v.paiement_reference ? ` · réf. ${v.paiement_reference}` : ""}
-          {v.paiement_valide_le ? " · vérifié ✓" : " · en attente de vérification par IDEAFORMA"}
+          {v.paiement_valide_le ? " · vérifié" : " · en attente de vérification par IDEAFORMA"}
         </p>
         {!v.qonto_link_id && v.paiement_confirme_le && !v.paiement_valide_le && (
           <button className="mt-2 text-xs text-white/50 hover:underline" disabled={!!busy} onClick={() => confirmer(false)}>Annuler la confirmation</button>
@@ -125,8 +126,8 @@ export default function PaiementVente({ vente: v, ctx, onChanged }: { vente: Ven
       {/* Choix du moyen : deux grosses tuiles */}
       <div className="mt-3 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Moyen de paiement">
         {([
-          ["lien", "💳", "Lien de paiement", "Carte bancaire"],
-          ["virement", "🏦", "Virement", "IBAN + référence"],
+          ["lien", "credit-card", "Lien de paiement", "Carte bancaire"],
+          ["virement", "bank", "Virement", "IBAN + référence"],
         ] as [Mode, string, string, string][]).map(([k, ic, t, s]) => {
           const dispo = k === "virement" || ctx.paiementEnLigne;
           return (
@@ -161,16 +162,16 @@ export default function PaiementVente({ vente: v, ctx, onChanged }: { vente: Ven
                 <button className="btn-ghost btn-compact" onClick={() => copier(url, "Lien")}>Copier</button>
               </div>
               <div className="grid gap-2 sm:grid-cols-3">
-                <a className="btn-primary justify-center text-center" href={url} target="_blank" rel="noreferrer">📱 Payer maintenant, sur place</a>
-                {smsHref ? <a className="btn-ghost justify-center text-center" href={smsHref}>💬 Envoyer par SMS</a> : <span className="btn-ghost justify-center text-center opacity-40">💬 SMS (pas de n°)</span>}
-                <button className="btn-ghost justify-center" disabled={!!busy || !email} onClick={() => envoyer("lien")}>{busy === "envoi-lien" ? "Envoi…" : "✉️ Envoyer par email"}</button>
+                <a className="btn-primary justify-center text-center" href={url} target="_blank" rel="noreferrer"><Ico n="phone" /> Payer maintenant, sur place</a>
+                {smsHref ? <a className="btn-ghost justify-center text-center" href={smsHref}><Ico n="message" /> Envoyer par SMS</a> : <span className="btn-ghost justify-center text-center opacity-40"><Ico n="message" /> SMS (pas de n°)</span>}
+                <button className="btn-ghost justify-center" disabled={!!busy || !email} onClick={() => envoyer("lien")}>{busy === "envoi-lien" ? "Envoi…" : "Envoyer par email"}</button>
               </div>
             </>
           )}
           <ChampEmail email={email} setEmail={setEmail} />
           {ctx.qonto && url ? (
             <div className="flex flex-wrap items-center gap-2">
-              <button className="btn-ghost btn-compact" disabled={!!busy} onClick={verifier}>{busy === "verif" ? "Vérification…" : "🔄 Le garage a payé ? Vérifier"}</button>
+              <button className="btn-ghost btn-compact" disabled={!!busy} onClick={verifier}>{busy === "verif" ? "Vérification…" : "Le garage a payé ? Vérifier"}</button>
               <span className="text-xs text-white/50">Vérifié aussi automatiquement chaque matin.{v.qonto_statut && v.qonto_statut !== "open" ? ` Statut : ${v.qonto_statut}.` : ""}</span>
             </div>
           ) : url ? (
@@ -203,7 +204,7 @@ export default function PaiementVente({ vente: v, ctx, onChanged }: { vente: Ven
           )}
           <ChampEmail email={email} setEmail={setEmail} />
           <button className="btn-primary w-full justify-center !py-3" disabled={!!busy || !email || !params.iban} onClick={() => envoyer("virement")}>
-            {busy === "envoi-virement" ? "Envoi…" : "✉️ Envoyer ces coordonnées au garage"}
+            {busy === "envoi-virement" ? "Envoi…" : "Envoyer ces coordonnées au garage"}
           </button>
           <ConfirmationManuelle refManuelle={refManuelle} setRef={setRefManuelle} montant={montant} setMontant={setMontant} busy={!!busy} onConfirmer={() => confirmer(true)} libelle="Référence du virement reçu" />
         </div>
@@ -211,7 +212,7 @@ export default function PaiementVente({ vente: v, ctx, onChanged }: { vente: Ven
 
       {v.paiement_envoye_le && (
         <p className="mt-3 text-xs text-white/55">
-          📨 {v.paiement_envoye_mode === "virement" ? "Coordonnées de virement" : "Lien de paiement"} envoyé le {formatDate(v.paiement_envoye_le)}{v.paiement_envoye_a ? ` à ${v.paiement_envoye_a}` : ""} — en attente du paiement.
+          <Ico n="send" /> {v.paiement_envoye_mode === "virement" ? "Coordonnées de virement" : "Lien de paiement"} envoyé le {formatDate(v.paiement_envoye_le)}{v.paiement_envoye_a ? ` à ${v.paiement_envoye_a}` : ""} — en attente du paiement.
         </p>
       )}
       {info && <p className="mt-2 break-all text-sm text-emerald-300">{info}</p>}

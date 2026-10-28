@@ -10,6 +10,7 @@ import { ajouterRappel, chargerRappels, localVersIso, supprimerRappel } from "@/
 import { annulerActionFaite, marquerActionFaite } from "@/lib/aFaire";
 import { lireRole } from "@/lib/conversation";
 import ChampEcheance from "./ChampEcheance";
+import Ico from "@/components/Ico";
 
 /**
  * SUGGESTION DE TÂCHE (v10.7) — remplace la bannière « Prochaine action ».
@@ -145,7 +146,7 @@ export default function SuggestionAction({
           <div className="flex items-center gap-2">
             <span className="font-pixel text-[0.5rem] text-white/50">SUGGESTION</span>
             {tacheProgrammee ? (
-              <span className="badge badge-ok">Programmée ✓</span>
+              <span className="badge badge-ok">Programmée <Ico n="check" /></span>
             ) : (
               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${st.badge}`}>
                 {st.label}
@@ -156,7 +157,7 @@ export default function SuggestionAction({
           {action.detail && <div className="break-words text-sm text-white/60">{action.detail}</div>}
           {tacheProgrammee && (
             <div className="mt-1 text-xs text-white/45">
-              Dans le bloc « À faire »{tacheProgrammee.pour ? ` (${tacheProgrammee.pour === "secretaire" ? "pour le chargé de mission" : "pour le garage"})` : ""} et la 💬 Conversation.
+              Dans le bloc « À faire »{tacheProgrammee.pour ? ` (${tacheProgrammee.pour === "secretaire" ? "pour le chargé de mission" : "pour le garage"})` : ""} et la <Ico n="message" /> Conversation.
             </div>
           )}
         </div>

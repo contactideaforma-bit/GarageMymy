@@ -21,6 +21,7 @@ import { METIER_INFOS, METIERS_PUBLICS, Metier } from "@/lib/metier";
 import FormulesAccueil from "@/components/vitrine/FormulesAccueil";
 import OffreLancement from "@/components/vitrine/OffreLancement";
 import { DOMAINES } from "@/components/vitrine/fonctionnalites";
+import Ico from "@/components/Ico";
 
 /* ------------------------------ Contenus ------------------------------ */
 

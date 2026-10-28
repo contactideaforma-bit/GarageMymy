@@ -13,6 +13,7 @@ import {
 import { importerListe } from "@/lib/admin/prospection";
 import { typeEtablissement } from "@/lib/admin/zones";
 import type { Prospect } from "@/lib/prospects";
+import Ico from "@/components/Ico";
 
 type Cible = { owner_id: string; nom: string; zone: string | null };
 
@@ -119,7 +120,7 @@ export default function ImportListeProspects({ cibles, prospects, onImporte }: {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button type="button" onClick={() => setOuvert((o) => !o)} className="flex items-center gap-2 text-left" aria-expanded={ouvert}>
           <span className={`shrink-0 text-white/40 transition-transform ${ouvert ? "rotate-90" : ""}`} aria-hidden>▸</span>
-          <h2 className="titre-bloc">📥 Importer une liste (Excel / CSV)</h2>
+          <h2 className="titre-bloc"><Ico n="inbox" /> Importer une liste (Excel / CSV)</h2>
         </button>
         <span className="text-xs text-white/45">Une liste préparée par une collaboratrice : les fiches se créent chez le commercial, avec le suivi déjà noté.</span>
       </div>
@@ -131,7 +132,7 @@ export default function ImportListeProspects({ cibles, prospects, onImporte }: {
             {lu && <span className="badge badge-neutral">{lu.feuille} · {lu.lignes.length} ligne(s)</span>}
           </div>
           <p className="text-xs text-white/45">
-            Colonnes attendues (dans n&apos;importe quel ordre, reconnues par leur en-tête) : Nom du garage, Adresse, Téléphone, E-mail, et si la liste a déjà servi : Date de l&apos;appel, Répondu, Pas intéressé, Date du rappel, Rendez-vous, Date du RDV, Commentaire. Les cases cochées ☑ / X / Oui sont comprises.
+            Colonnes attendues (dans n&apos;importe quel ordre, reconnues par leur en-tête) : Nom du garage, Adresse, Téléphone, E-mail, et si la liste a déjà servi : Date de l&apos;appel, Répondu, Pas intéressé, Date du rappel, Rendez-vous, Date du RDV, Commentaire. Les cases cochées <Ico n="square-check" /> / X / Oui sont comprises.
           </p>
 
           {msg && <p className={`badge ${msg.ok ? "badge-ok" : "badge-danger"} whitespace-normal`}>{msg.texte}</p>}

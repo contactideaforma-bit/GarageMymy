@@ -17,6 +17,7 @@ import { chargerAssurances, chargerClients, chargerGarages, supprimerAssurance, 
 import { CategorieAnnuaire } from "@/lib/expertise/importAnnuaire";
 import { adresseFiche } from "@/lib/expertise/types";
 import { formatEuros } from "@/lib/format";
+import Ico from "@/components/Ico";
 
 const ONGLETS: { code: CategorieAnnuaire; label: string; icone: "bouclier" | "utilisateur" | "outil" }[] = [
   { code: "assurances", label: "Assurances", icone: "bouclier" as const },

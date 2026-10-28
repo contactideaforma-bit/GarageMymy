@@ -31,6 +31,7 @@ import {
 } from "@/lib/ardoise";
 import { lireRole } from "@/lib/conversation";
 import ChampEcheance from "./ChampEcheance";
+import Ico from "@/components/Ico";
 
 const ORIGINE_LITIGE = "litige";
 
@@ -72,7 +73,7 @@ export default function LitigePanel({
       }
       setErreur(null);
       onPatch({ litige_probleme: p.trim() || null, litige_deblocage: d.trim() || null });
-      setEnregistre("Enregistré ✓");
+      setEnregistre("Enregistré");
       setTimeout(() => setEnregistre(null), 2000);
     },
     [dossier.id, onPatch]
@@ -151,7 +152,7 @@ export default function LitigePanel({
     <section className="glass-card p-4" style={{ borderLeft: "8px solid #e11d48" }}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-pixel text-[0.5rem] text-rose-300">⚠ LITIGE EN COURS</span>
+          <span className="font-pixel text-[0.5rem] text-rose-300"><Ico n="alert" /> LITIGE EN COURS</span>
           {dossier.litige_depuis && (
             <span className="text-xs text-white/45">depuis le {formatDate(dossier.litige_depuis)}</span>
           )}
@@ -163,7 +164,7 @@ export default function LitigePanel({
           className="btn-ghost btn-compact"
           title="Le blocage est résolu — les notes sont conservées"
         >
-          ✓ Litige résolu
+          <Ico n="check" /> Litige résolu
         </button>
       </div>
 
@@ -303,7 +304,7 @@ export default function LitigePanel({
           </div>
         )}
         <p className="mt-2 text-[11px] text-white/35">
-          Ces tâches apparaissent aussi dans « À faire » (tableau de bord) et la 💬 Conversation.
+          Ces tâches apparaissent aussi dans « À faire » (tableau de bord) et la <Ico n="message" /> Conversation.
         </p>
       </div>
 

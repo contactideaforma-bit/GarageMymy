@@ -2,7 +2,7 @@
 
 // ============================================================
 //  BARRE D'ONGLETS DU BAS (v13.50) — la navigation mobile de l'appli.
-//  Accueil · Dossiers · (+) · Recherche · Plus. Le tiroir ☰ et ses 24 entrées
+//  Accueil · Dossiers · (+) · Recherche · Plus. Le tiroir et ses 24 entrées
 //  disparaissent sur téléphone : tout le reste du menu vit dans « Plus ».
 //  Le bouton « + » ouvre les RACCOURCIS : nouveau dossier, photos d'un
 //  véhicule, recherche, contacter un client. N'importe quel écran peut
@@ -17,8 +17,9 @@ import { termes } from "@/lib/metier";
 import { EVT_ACTIONS, EVT_RECHERCHE, type ModeRecherche } from "@/lib/mobile";
 import Feuille from "@/components/mobile/Feuille";
 import RechercheMobile from "@/components/mobile/RechercheMobile";
+import Ico from "@/components/Ico";
 
-function Ico({ nom }: { nom: "accueil" | "dossiers" | "recherche" | "plus" }) {
+function IcoNav({ nom }: { nom: "accueil" | "dossiers" | "recherche" | "plus" }) {
   const p = { fill: "none", stroke: "currentColor", strokeWidth: 1.9, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   switch (nom) {
     case "accueil":
@@ -67,7 +68,7 @@ export default function BarreMobile() {
 
   const Onglet = ({ href, ico, lib }: { href: string; ico: "accueil" | "dossiers" | "plus"; lib: string }) => (
     <Link href={href} className={`barre-mobile-item ${(href === "/plus" ? dansPlus : actif(href)) ? "actif" : ""}`} aria-current={actif(href) ? "page" : undefined}>
-      <Ico nom={ico} />
+      <IcoNav nom={ico} />
       <span>{lib}</span>
     </Link>
   );
@@ -84,7 +85,7 @@ export default function BarreMobile() {
             </span>
           </button>
           <button type="button" className={`barre-mobile-item ${recherche ? "actif" : ""}`} onClick={() => setRecherche("ouvrir")}>
-            <Ico nom="recherche" />
+            <IcoNav nom="recherche" />
             <span>Recherche</span>
           </button>
           <Onglet href="/plus" ico="plus" lib="Plus" />
@@ -102,31 +103,31 @@ export default function BarreMobile() {
                 router.push("/import");
               }}
             >
-              <span className="ico" aria-hidden>📄</span>
+              <span className="ico" aria-hidden><Ico n="file" /></span>
               <span className="lib">Nouveau dossier</span>
               <span className="sous">Importer un rapport d&apos;expertise</span>
             </button>
             <button type="button" className="tuile-action" onClick={() => setRecherche("photos")}>
-              <span className="ico" aria-hidden>📸</span>
+              <span className="ico" aria-hidden><Ico n="camera" /></span>
               <span className="lib">Photos du véhicule</span>
               <span className="sous">État à l&apos;entrée / à la sortie</span>
             </button>
             <button type="button" className="tuile-action" onClick={() => setRecherche("ouvrir")}>
-              <span className="ico" aria-hidden>🔎</span>
+              <span className="ico" aria-hidden><Ico n="search" /></span>
               <span className="lib">Trouver un dossier</span>
               <span className="sous">Plaque, client, n° de sinistre</span>
             </button>
             <button type="button" className="tuile-action" onClick={() => setRecherche("contact")}>
-              <span className="ico" aria-hidden>📞</span>
+              <span className="ico" aria-hidden><Ico n="phone" /></span>
               <span className="lib">Contacter un client</span>
               <span className="sous">Appel, SMS, WhatsApp, récap</span>
             </button>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link href="/sinistres?nouveau=1" onClick={fermerActions} className="chip">+ Dossier manuel</Link>
-            <Link href="/agenda" onClick={fermerActions} className="chip">📅 Agenda</Link>
-            <Link href="/conversation" onClick={fermerActions} className="chip">💬 Conversation</Link>
-            <Link href="/vehicules" onClick={fermerActions} className="chip">🚗 Véhicules au garage</Link>
+            <Link href="/agenda" onClick={fermerActions} className="chip"><Ico n="calendar" /> Agenda</Link>
+            <Link href="/conversation" onClick={fermerActions} className="chip"><Ico n="message" /> Conversation</Link>
+            <Link href="/vehicules" onClick={fermerActions} className="chip"><Ico n="car" /> Véhicules au garage</Link>
           </div>
         </Feuille>
       )}

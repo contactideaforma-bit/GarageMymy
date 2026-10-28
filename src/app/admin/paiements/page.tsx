@@ -18,6 +18,7 @@ import {
   pointerMensualitePayee, reactiverAbonnement, relancerMensualite, suspendreAbonnementImpaye, verifierLiensQonto,
 } from "@/lib/admin/client";
 import { PARAMETRES_DEFAUT, Parametres, RelancesParams } from "@/lib/admin/economie";
+import Ico from "@/components/Ico";
 
 const NIVEAUX: Record<number, { label: string; badge: string }> = {
   0: { label: "Pas encore relancé", badge: "badge badge-neutral" },
@@ -86,7 +87,7 @@ export default function PaiementsPage() {
           <Kpi titre="Encaissé ce mois" valeur={`${euros(s.encaisseMois)} HT`} ton="ok" />
           <Kpi titre="Reste à encaisser ce mois" valeur={`${euros(s.aEncaisserMois)} HT`} ton="info" />
           <Kpi titre="En retard" valeur={`${euros(s.enRetard)} HT`} sous={`${s.impayes.length} mensualité${s.impayes.length > 1 ? "s" : ""}${nbSuspendus ? ` · ${nbSuspendus} compte${nbSuspendus > 1 ? "s" : ""} suspendu${nbSuspendus > 1 ? "s" : ""}` : ""}`} ton={s.impayes.length ? "danger" : "ok"} />
-          <Kpi titre="À payer à mes collaborateurs" valeur={euros(s.totalCollaborateurs)} sous={s.collaborateurs.some((c) => c.enRetard) ? "⚠️ des lignes attendent depuis trop longtemps" : `${s.collaborateurs.length} collaborateur${s.collaborateurs.length > 1 ? "s" : ""}`} ton={s.collaborateurs.some((c) => c.enRetard) ? "warn" : "neutral"} />
+          <Kpi titre="À payer à mes collaborateurs" valeur={euros(s.totalCollaborateurs)} sous={s.collaborateurs.some((c) => c.enRetard) ? "des lignes attendent depuis trop longtemps" : `${s.collaborateurs.length} collaborateur${s.collaborateurs.length > 1 ? "s" : ""}`} ton={s.collaborateurs.some((c) => c.enRetard) ? "warn" : "neutral"} />
         </div>
       )}
 
@@ -103,11 +104,11 @@ export default function PaiementsPage() {
       {/* IMPAYÉS */}
       <section className="glass-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="titre-bloc">🔴 Impayés — à relancer</h2>
+          <h2 className="titre-bloc"><Ico n="dot-red" /> Impayés — à relancer</h2>
           <span className="text-xs text-white/50">Mensualités échues non encaissées, du plus ancien retard au plus récent.</span>
         </div>
         {!s ? <p className="mt-2 text-sm text-white/40">Chargement…</p> : s.impayes.length === 0 ? (
-          <p className="mt-3 text-sm text-emerald-200">Aucun impayé : tous les garages sont à jour. 🎉</p>
+          <p className="mt-3 text-sm text-emerald-200">Aucun impayé : tous les garages sont à jour. <Ico n="sparkles" /></p>
         ) : (
           <div className="mt-3 space-y-2">
             {s.impayes.map((l) => {
@@ -150,7 +151,7 @@ export default function PaiementsPage() {
       {/* À VENIR */}
       <section className="glass-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="titre-bloc">🟠 Paiements à venir (45 jours)</h2>
+          <h2 className="titre-bloc"><Ico n="dot-orange" /> Paiements à venir (45 jours)</h2>
           <span className="text-xs text-white/50">{s?.relances.appelAuto ? `Chaque garage reçoit automatiquement son lien de paiement ${s.relances.appelJours} jours avant l'échéance ; le pointage se fait tout seul quand il paie.` : "Appels automatiques désactivés (Réglages des relances) : envoie l'appel à la main."}</span>
         </div>
         {!s ? null : s.aVenir.length === 0 ? <p className="mt-3 text-sm text-white/50">Rien à venir sur les 45 prochains jours (génère les mensualités manquantes depuis Abonnements).</p> : (
@@ -168,7 +169,7 @@ export default function PaiementsPage() {
                     <td className="py-1.5 text-right whitespace-nowrap">
                       {s.qonto && <button className="text-accent-teal hover:underline mr-3" disabled={busy === `lien-${l.mensualite.id}`} onClick={() => copierLien(l)}>{l.mensualite.qonto_url ? "Copier le lien" : "Créer un lien"}</button>}
                       {l.mensualite.appel_le ? (
-                        <span className="mr-3 text-xs text-emerald-300" title="Appel de paiement envoyé avant l'échéance">✉️ appel envoyé le {new Date(l.mensualite.appel_le).toLocaleDateString("fr-FR")}</span>
+                        <span className="mr-3 text-xs text-emerald-300" title="Appel de paiement envoyé avant l'échéance"><Ico n="mail" /> appel envoyé le {new Date(l.mensualite.appel_le).toLocaleDateString("fr-FR")}</span>
                       ) : (
                         <button className="text-accent-pink hover:underline mr-3" disabled={busy === `appel-${l.mensualite.id}`} onClick={() => action(`appel-${l.mensualite.id}`, async () => { const r = await appelMensualite(l.mensualite.id); return r.ok ? `Appel de paiement envoyé à ${r.email}.` : `Échec : ${r.erreur}`; })}>{busy === `appel-${l.mensualite.id}` ? "Envoi…" : "Envoyer l'appel de paiement"}</button>
                       )}
@@ -185,7 +186,7 @@ export default function PaiementsPage() {
       {/* COLLABORATEURS */}
       <section className="glass-card p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="titre-bloc">🟣 À payer à mes collaborateurs</h2>
+          <h2 className="titre-bloc"><Ico n="dot-violet" /> À payer à mes collaborateurs</h2>
           <Link href="/admin/reglements" className="text-sm text-accent-teal hover:underline">Ouvrir les relevés & paiements →</Link>
         </div>
         {!s ? null : s.collaborateurs.length === 0 ? <p className="mt-3 text-sm text-white/50">Rien en attente. Pense à « Générer le relevé » dans Relevés & paiements après le pointage des mensualités.</p> : (
@@ -194,7 +195,7 @@ export default function PaiementsPage() {
               <div key={c.id} className={`rounded-xl border p-3 ${c.enRetard ? "border-amber-400/40 bg-amber-500/10" : "border-white/15"}`}>
                 <div className="flex items-center justify-between gap-2"><span className="font-semibold text-white">{c.nom}</span><span className="text-lg font-bold tabular-nums text-white">{euros(c.total)}</span></div>
                 <div className="mt-1 text-xs text-white/60">{c.lignes} ligne{c.lignes > 1 ? "s" : ""} à payer{c.plusAncienne ? ` · la plus ancienne du ${dateFr(c.plusAncienne.slice(0, 10))}` : ""}</div>
-                {c.enRetard && <div className="mt-1 text-xs text-amber-200">⚠️ En attente depuis plus de {s.relances.delaiCollaborateurs} jours — à régler.</div>}
+                {c.enRetard && <div className="mt-1 text-xs text-amber-200"><Ico n="alert" /> En attente depuis plus de {s.relances.delaiCollaborateurs} jours — à régler.</div>}
               </div>
             ))}
           </div>

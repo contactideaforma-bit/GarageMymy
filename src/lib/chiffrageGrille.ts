@@ -13,7 +13,7 @@
 //  contre les sous-totaux imprimés par le rapport lui-même
 //  (« Main d'oeuvre HT », « Pièces HT », « Total HTVA »).
 //
-//  ⚠️ RÈGLE : cette lecture n'est retenue que si son arithmétique retombe
+//  RÈGLE : cette lecture n'est retenue que si son arithmétique retombe
 //  sur le TOTAL du rapport à 1 € près. Sinon on renvoie null et l'analyse
 //  IA habituelle reprend la main. On ne remplace jamais une lecture
 //  incertaine par une autre lecture incertaine.
@@ -223,7 +223,7 @@ export function lireTableau(lignes: string[]): LigneGrille[] | null {
       // Code opération conservé entre parenthèses, comme sur les autres formats.
       designation: `${libelle} (${m[2]})`,
       quantite,
-      // ⚠️ Prix absent = 0, et la ligne est CONSERVÉE : ce sont les opérations
+      // Prix absent = 0, et la ligne est CONSERVÉE : ce sont les opérations
       // comprises dans la main d'œuvre, que le garage veut voir sur la facture.
       prix_unitaire: prix ? Math.round((prix.v / (quantite || 1)) * 100) / 100 : 0,
       remise: 0,

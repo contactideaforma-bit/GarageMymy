@@ -31,6 +31,7 @@ import { Collaborateur, lireParametres } from "@/lib/admin/client";
 import { Parametres } from "@/lib/admin/economie";
 import { contratDefaut } from "@/lib/admin/contratCollaborateur";
 import { construireContratCollaborateurPdf, prechargerLogoPdf } from "@/lib/admin/contratPdf";
+import Ico from "@/components/Ico";
 
 /** Fiche vide : sert à produire un modèle À BLANC, à faire lire avant signature. */
 function collaborateurVide(type: "commercial" | "secretaire"): Collaborateur {
@@ -61,7 +62,7 @@ function Famille({ titre, aide, docs, onErreur }: { titre: string; aide: string;
       <ul className="divide-y divide-white/10">
         {docs.map((d) => (
           <li key={d.cle} className="flex items-center justify-between gap-3 py-2">
-            <span className="min-w-0 break-words text-sm text-white/85">📄 {d.titre}</span>
+            <span className="min-w-0 break-words text-sm text-white/85"><Ico n="file" /> {d.titre}</span>
             <button
               className="shrink-0 text-sm text-accent-pink hover:underline"
               onClick={() => telecharger(d).catch((e) => onErreur(e instanceof Error ? e.message : "Erreur"))}
@@ -131,10 +132,10 @@ export default function DocumentsAdminPage() {
           </p>
           <div className="flex flex-wrap gap-2">
             <button className="btn-ghost btn-compact" disabled={!params} onClick={() => modeleABlanc("secretaire")}>
-              📄 Contrat de prestation (chargé de mission) — {VERSION_CONTRAT_PRESTATION}
+              <Ico n="file" /> Contrat de prestation (chargé de mission) — {VERSION_CONTRAT_PRESTATION}
             </button>
             <button className="btn-ghost btn-compact" disabled={!params} onClick={() => modeleABlanc("commercial")}>
-              📄 Contrat d&apos;apporteur d&apos;affaires — {VERSION_CONTRAT_APPORTEUR}
+              <Ico n="file" /> Contrat d&apos;apporteur d&apos;affaires — {VERSION_CONTRAT_APPORTEUR}
             </button>
           </div>
           <p className="mt-2 text-[11px] text-white/40">
@@ -165,7 +166,7 @@ export default function DocumentsAdminPage() {
             {textes.map((t) => (
               <li key={t.titre} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="min-w-0">
-                  <span className="block break-words text-sm text-white/85">⚖️ {t.titre}</span>
+                  <span className="block break-words text-sm text-white/85"><Ico n="scale" /> {t.titre}</span>
                   <span className="block text-[11px] text-white/45">{t.aide}</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">

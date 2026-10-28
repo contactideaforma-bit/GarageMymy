@@ -704,7 +704,7 @@ export default function ControleDevis({
           >
             <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-white/50">
               <span>{m.Reference}</span>
-              <span className={`font-semibold ${e.decision === "refuse" ? "text-rose-600" : ""}`}>{e.decision === "refuse" ? "✓ Maintenu" : "Maintenir (R)"}</span>
+              <span className={`font-semibold ${e.decision === "refuse" ? "text-rose-600" : ""}`}>{e.decision === "refuse" ? "Maintenu" : "Maintenir (R)"}</span>
             </div>
             <div className="mt-0.5 font-medium">{e.avant || <span className="text-white/40">ligne absente</span>}</div>
             <div className="text-xs text-white/50">{formatEuros(e.montant_avant)} HT</div>
@@ -718,7 +718,7 @@ export default function ControleDevis({
           >
             <div className="flex items-center justify-between text-[11px] uppercase tracking-wider text-white/50">
               <span>{m.Document}</span>
-              <span className={`font-semibold ${e.decision === "accepte" ? "text-emerald-600" : ""}`}>{e.decision === "accepte" ? "✓ Accepté" : "Accepter (A)"}</span>
+              <span className={`font-semibold ${e.decision === "accepte" ? "text-emerald-600" : ""}`}>{e.decision === "accepte" ? "Accepté" : "Accepter (A)"}</span>
             </div>
             <div className="mt-0.5 font-medium">{e.apres || <span className="text-white/40">ligne retirée par le garage</span>}</div>
             <div className="text-xs text-white/50">{formatEuros(e.montant_apres)} HT</div>
@@ -766,7 +766,7 @@ export default function ControleDevis({
             )}
             {controles.length <= 1 && <span className="text-sm font-semibold">Contrôle {m.duDocument}{ctl.tour > 1 ? ` · tour ${ctl.tour}` : ""}</span>}
             <span className={`badge ${STATUTS_CONTROLE[ctl.statut]?.badge}`}>{STATUTS_CONTROLE[ctl.statut]?.label}</span>
-            {!conclu && <span className={`text-xs ${sauvegarde === "erreur" ? "text-rose-600" : "text-white/45"}`}>{sauvegarde === "ok" ? "✓ Enregistré" : sauvegarde === "encours" ? "Enregistrement…" : sauvegarde === "erreur" ? "Non enregistré — nouvel essai à la prochaine action" : "Modifications en attente…"}</span>}
+            {!conclu && <span className={`text-xs ${sauvegarde === "erreur" ? "text-rose-600" : "text-white/45"}`}>{sauvegarde === "ok" ? "Enregistré" : sauvegarde === "encours" ? "Enregistrement…" : sauvegarde === "erreur" ? "Non enregistré — nouvel essai à la prochaine action" : "Modifications en attente…"}</span>}
           </div>
           <div className="flex flex-wrap gap-1">
             {!conclu && pret && <button className="btn-ghost btn-compact" disabled={!pile.length} onClick={annuler} title="Annuler la dernière action (Ctrl+Z)"><Icone nom="gauche" /> Annuler{pile.length ? ` (${pile.length})` : ""}</button>}

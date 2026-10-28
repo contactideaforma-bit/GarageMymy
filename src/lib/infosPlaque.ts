@@ -7,7 +7,7 @@ import type { FlotteVehicule } from "./types";
  * INTERRUPTEUR (v13.47) : la fonction est codée mais MASQUÉE tant qu'aucun
  * abonnement API n'est pris (service payant, facultatif). Pour l'activer :
  * passer à `true` (ou définir NEXT_PUBLIC_INFOS_PLAQUE=1 sur Vercel) et
- * renseigner PLAQUE_API_TOKEN côté serveur. Les boutons « 🔍 Infos plaque »
+ * renseigner PLAQUE_API_TOKEN côté serveur. Les boutons « Infos plaque »
  * disparaissent et la route /api/infos-plaque répond 404 tant que c'est masqué.
  */
 export const INFOS_PLAQUE_ACTIF: boolean = process.env.NEXT_PUBLIC_INFOS_PLAQUE === "1" || false;

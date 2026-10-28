@@ -16,6 +16,7 @@ import { useMetier } from "@/components/MetierProvider";
 import { estAdmin } from "@/lib/support";
 import { METIER_INFOS } from "@/lib/metier";
 import { MODELES_PDF, COULEURS_PDF, MODELE_PDF_DEFAUT, COULEUR_PDF_DEFAUT } from "@/lib/pdfTheme";
+import Ico from "@/components/Ico";
 
 type FormE = Omit<Entreprise, "id" | "created_at">;
 
@@ -201,7 +202,7 @@ export default function ProfilPage() {
       setSignatureTrace(null);
       setTracer(false);
       await chargerApercuSignature(signature_path);
-      setMsg("✓ Profil enregistré. Les devis et factures utiliseront ces informations.");
+      setMsg("Profil enregistré. Les devis et factures utiliseront ces informations.");
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Erreur lors de l'enregistrement.");
     } finally {
@@ -247,7 +248,7 @@ export default function ProfilPage() {
           </div>
           <p className="text-xs text-white/40 mt-2">
             {admin
-              ? "Ton compte est celui de l'éditeur : il a accès à l'espace éditeur (📈), à « Mes clients » et à un espace carrosserie de test."
+              ? "Ton compte est celui de l'éditeur : il a accès à l'espace éditeur (), à « Mes clients » et à un espace carrosserie de test."
               : metier === "commercial"
                 ? "Compte d'apporteur d'affaires : espace « Mes clients » + l'application carrosserie pour les démonstrations."
                 : "Défini à la création du compte et non modifiable ici. Un compte carrosserie et un compte vitrage sont totalement séparés. Pour changer, contacte l'administrateur."}
@@ -392,7 +393,7 @@ export default function ProfilPage() {
                   </div>
                   <div className="mt-2 flex items-center gap-2">
                     <span className="text-sm font-semibold text-white">{m.label}</span>
-                    {actif && <span className="text-xs text-accent-teal">✓ choisi</span>}
+                    {actif && <span className="text-xs text-accent-teal"><Ico n="check" /> choisi</span>}
                   </div>
                   <p className="text-xs text-white/40 mt-1">{m.description}</p>
                 </button>

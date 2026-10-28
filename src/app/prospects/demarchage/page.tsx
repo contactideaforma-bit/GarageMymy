@@ -12,6 +12,7 @@ import InteractionModal from "@/components/InteractionModal";
 import StatCard from "@/components/StatCard";
 import { formatDate, messageErreur } from "@/lib/format";
 import { Prospect, ProspectInteraction, RESULTATS_CONTACT, chargerInteractionsRecentes, chargerProspects, etatRappel, fileAppels, jamaisContacte, liensRecherche } from "@/lib/prospects";
+import Ico from "@/components/Ico";
 
 const SCRIPT: { t: string; d: string }[] = [
   { t: "1 · Qui je suis", d: "Nom, société, le sujet en 6 mots : « au sujet des dossiers d'assurance de la carrosserie »." },
@@ -84,7 +85,7 @@ export default function DemarchagePage() {
         <p className="text-sm text-white/40">Chargement…</p>
       ) : !p ? (
         <div className="glass-card p-6 text-sm text-white/60">
-          🎉 File vide : aucun rappel en attente et tous vos garages ont été contactés. Ajoutez de nouveaux garages depuis « Mes clients » (+ Nouveau client) pour remplir la prochaine session.
+          <Ico n="sparkles" /> File vide : aucun rappel en attente et tous vos garages ont été contactés. Ajoutez de nouveaux garages depuis « Mes clients » (+ Nouveau client) pour remplir la prochaine session.
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -109,7 +110,7 @@ export default function DemarchagePage() {
                   <div>Pas de numéro sur la fiche : trouve-le ici puis enregistre-le depuis la fiche.</div>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {liensRecherche(p).slice(0, 3).map((l) => (
-                      <a key={l.key} href={l.url} target="_blank" rel="noreferrer" className="btn-ghost btn-compact" title={l.aide}>{l.icone} {l.label}</a>
+                      <a key={l.key} href={l.url} target="_blank" rel="noreferrer" className="btn-ghost btn-compact" title={l.aide}><Ico n={l.icone} /> {l.label}</a>
                     ))}
                   </div>
                 </div>
@@ -121,10 +122,10 @@ export default function DemarchagePage() {
               {p.dernier_resultat && p.dernier_contact && (
                 <p className="mt-2 text-xs text-white/50">Dernier contact {formatDate(p.dernier_contact)} : {RESULTATS_CONTACT[p.dernier_resultat].label}</p>
               )}
-              {p.notes && <p className="mt-2 text-xs text-white/60">📝 {p.notes}</p>}
+              {p.notes && <p className="mt-2 text-xs text-white/60"><Ico n="edit" /> {p.notes}</p>}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <button className="btn-primary" onClick={() => setModal(true)}>✅ Noter le résultat</button>
+                <button className="btn-primary" onClick={() => setModal(true)}><Ico n="check-circle" /> Noter le résultat</button>
                 <button className="btn-ghost" onClick={() => router.push(`/prospects/${p.id}`)}>Ouvrir la fiche</button>
                 <button className="btn-ghost" onClick={() => { const i = file.findIndex((x) => x.id === p.id); setCourant(file[i + 1]?.id || file[0]?.id || null); }}>Passer →</button>
               </div>

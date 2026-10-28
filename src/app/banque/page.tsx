@@ -20,6 +20,7 @@ import ConfigBanner from "@/components/ConfigBanner";
 import ModalShell from "@/components/ModalShell";
 import { majDossierSiSolde } from "@/lib/dossierSync";
 import { estSoldee } from "@/lib/paiements";
+import Ico from "@/components/Ico";
 
 type Filtre = "a_rapprocher" | "rapproche" | "ignore" | "tous";
 
@@ -324,7 +325,7 @@ export default function BanquePage() {
                   <td className="px-5 py-3">
                     {tx.statut === "rapproche" && (
                       <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium bg-emerald-100 text-emerald-700">
-                        ✓ {factureLiee?.numero || "facture"}
+                        <Ico n="check" /> {factureLiee?.numero || "facture"}
                       </span>
                     )}
                     {tx.statut === "ignore" && (
@@ -517,7 +518,7 @@ function RapprochementModal({
           Reste à payer : <span className="text-amber-300 font-medium">{formatEuros(facture.reste)}</span>
           {" · "}après rapprochement :{" "}
           <span className={facture.reste - montant <= 0.01 ? "text-emerald-300 font-medium" : "text-amber-300 font-medium"}>
-            {facture.reste - montant <= 0.01 ? "soldée ✓" : formatEuros(Math.max(0, facture.reste - montant))}
+            {facture.reste - montant <= 0.01 ? "soldée" : formatEuros(Math.max(0, facture.reste - montant))}
           </span>
           {montant > facture.reste + 0.01 && (
             <div className="mt-1 text-xs text-amber-300">

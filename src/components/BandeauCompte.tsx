@@ -14,6 +14,7 @@ import { EtatCompte, chargerEtatCompte } from "@/lib/compteEtat";
 import { formatDate } from "@/lib/format";
 import { SOCIETE } from "@/components/vitrine/societe";
 import { supabase } from "@/lib/supabaseClient";
+import Ico from "@/components/Ico";
 
 export default function BandeauCompte() {
   const [etat, setEtat] = useState<EtatCompte | null>(null);
@@ -35,7 +36,7 @@ export default function BandeauCompte() {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
         <div className="glass-card max-w-lg p-6 text-center">
-          <div className="text-4xl">⛔</div>
+          <div className="text-4xl"><Ico n="ban" /></div>
           <h2 className="mt-3 text-lg font-bold text-white">Accès suspendu</h2>
           <p className="mt-2 whitespace-pre-wrap text-sm text-white/80">
             {etat.message ||

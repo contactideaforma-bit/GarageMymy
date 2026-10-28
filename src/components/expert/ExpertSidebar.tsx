@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { VERSION_LABEL } from "@/lib/version";
 import Icone, { NomIcone } from "@/components/expert/Icone";
+import Ico from "@/components/Ico";
 
 type Lien = { href: string; label: string; icone: NomIcone; exact?: boolean };
 

@@ -14,6 +14,7 @@ import {
   sauvegardeARefaire,
 } from "@/lib/sauvegarde";
 import StatCard from "@/components/StatCard";
+import Ico from "@/components/Ico";
 
 /**
  * SAUVEGARDE (v46).
@@ -105,14 +106,14 @@ export default function SauvegardePage() {
       <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard
           accent={aRefaire ? "amber" : "emerald"}
-          icone={aRefaire ? "⏳" : "🛡️"}
+          icone={aRefaire ? "clock" : "shield"}
           label="Dernière sauvegarde"
           value={jours === null ? "Jamais" : jours === 0 ? "Aujourd'hui" : `Il y a ${jours} j`}
           hint={derniere ? formatDateTime(derniere) : "aucune sauvegarde enregistrée"}
         />
-        <StatCard accent="violet" icone="📁" label="Dossiers" value={String(compteurs.dossiers)} hint="inclus dans l'export" />
-        <StatCard accent="pink" icone="🧾" label="Factures" value={String(compteurs.factures)} hint="tableau + PDF" />
-        <StatCard accent="teal" icone="📎" label="Pièces jointes" value={String(compteurs.pieces)} hint="listées dans les données" />
+        <StatCard accent="violet" icone="folder" label="Dossiers" value={String(compteurs.dossiers)} hint="inclus dans l'export" />
+        <StatCard accent="pink" icone="receipt" label="Factures" value={String(compteurs.factures)} hint="tableau + PDF" />
+        <StatCard accent="teal" icone="paperclip" label="Pièces jointes" value={String(compteurs.pieces)} hint="listées dans les données" />
       </div>
 
       {aRefaire && (
@@ -171,7 +172,7 @@ export default function SauvegardePage() {
 
         {resultat && (
           <p className="mt-3 rounded-lg border-2 border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-            ✅ Sauvegarde téléchargée : {resultat}
+            <Ico n="check-circle" /> Sauvegarde téléchargée : {resultat}
           </p>
         )}
         {erreur && (

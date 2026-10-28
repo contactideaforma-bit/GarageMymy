@@ -13,7 +13,7 @@
 //  recueille l'AUTORISATION EXPRESSE du garage pour l'intervention des
 //  collaborateurs indépendants externes.
 //
-//  ⚠️ À tenir à jour : la liste des sous-traitants ultérieurs (§4) doit
+//  À tenir à jour : la liste des sous-traitants ultérieurs (§4) doit
 //  refléter la réalité. Un hébergeur qu'on change sans mettre à jour
 //  cette liste, c'est l'autorisation qui tombe.
 // ==================================================================== */
@@ -40,7 +40,7 @@ export function articlesDPA(): LigneDpa[] {
       texte: `Finalité : gérer les dossiers de sinistres automobiles du Garage — création et suivi du dossier, édition des devis, factures, ordres de réparation, cessions de créance et procès-verbaux, relances des assurances, experts et clients, suivi des encaissements, agenda et planning.
 Catégories de données : identité et coordonnées (nom, prénom, adresse, téléphone, email) ; véhicule (immatriculation, marque, modèle, numéro de série) ; sinistre et indemnisation (rapport d'expertise, montants, assureur, numéros de contrat et de sinistre) ; facturation et paiement.
 Personnes concernées : les clients du Garage, ses interlocuteurs chez les assureurs et cabinets d'expertise, ses collaborateurs utilisateurs de l'application.
-⚠️ Le Garage s'interdit d'enregistrer des données sensibles au sens de l'article 9 du RGPD. Les mentions de santé pouvant figurer dans un rapport d'expertise ne doivent pas être recopiées dans les champs libres.`,
+Le Garage s'interdit d'enregistrer des données sensibles au sens de l'article 9 du RGPD. Les mentions de santé pouvant figurer dans un rapport d'expertise ne doivent pas être recopiées dans les champs libres.`,
     },
     {
       titre: "3. Où sont les données, et combien de temps",

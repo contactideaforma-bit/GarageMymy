@@ -124,7 +124,7 @@ function blocAppel(e: ExpediteurEmail, titre: string, texte: string): string {
       <tr><td style="padding:16px 20px;font-family:${POLICE}">
         <div style="font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;color:${FUCHSIA}">${esc(titre)}</div>
         <div style="font-size:14px;line-height:1.5;color:${TEXTE};margin-top:4px">${esc(texte)}</div>
-        ${tel ? `<div style="margin-top:10px"><a href="${telHref(tel)}" style="display:inline-block;font-size:24px;font-weight:800;color:${VIOLET};text-decoration:none;letter-spacing:1px">📞 ${esc(tel)}</a></div>
+        ${tel ? `<div style="margin-top:10px"><a href="${telHref(tel)}" style="display:inline-block;font-size:24px;font-weight:800;color:${VIOLET};text-decoration:none;letter-spacing:1px">${esc(tel)}</a></div>
         <div style="font-size:12px;color:${TEXTE_DOUX};margin-top:2px">${esc(e.nom)} · ${esc(SOCIETE.produit)}</div>` : `<div style="font-size:13px;color:${TEXTE_DOUX};margin-top:8px">Répondez simplement à cet email pour convenir d'un créneau.</div>`}
       </td></tr>
     </table>`;
@@ -186,10 +186,10 @@ function vignetteVideo(): string {
 
 /** Les grandes lignes — 4 points, une phrase chacun. */
 const POINTS: { icone: string; texte: string }[] = [
-  { icone: "📄", texte: "<b>Le rapport d'expertise est lu pour vous</b> : déposez le PDF, le chiffrage se remplit." },
-  { icone: "🧾", texte: "<b>Devis, facture et cession en un clic</b>, conformes au rapport et à la facturation électronique." },
-  { icone: "📊", texte: "<b>Tous vos dossiers au même endroit</b>, avec les relances assurances et experts qui partent seules." },
-  { icone: "🎧", texte: "<b>Les dossiers compliqués débloqués pour vous, si vous le souhaitez</b> : litiges, impayés, dossiers qui traînent — des chargés de mission spécialisés appellent assurances, experts et clients. 10, 20 ou 40 h par mois." },
+  { icone: "file", texte: "<b>Le rapport d'expertise est lu pour vous</b> : déposez le PDF, le chiffrage se remplit." },
+  { icone: "receipt", texte: "<b>Devis, facture et cession en un clic</b>, conformes au rapport et à la facturation électronique." },
+  { icone: "bar-chart", texte: "<b>Tous vos dossiers au même endroit</b>, avec les relances assurances et experts qui partent seules." },
+  { icone: "bell", texte: "<b>Les dossiers compliqués débloqués pour vous, si vous le souhaitez</b> : litiges, impayés, dossiers qui traînent — des chargés de mission spécialisés appellent assurances, experts et clients. 10, 20 ou 40 h par mois." },
 ];
 
 export function emailPresentationHtml(b: PresentationInput): string {
@@ -197,7 +197,7 @@ export function emailPresentationHtml(b: PresentationInput): string {
   const perso = (b.messagePerso || messagePresentationDefaut(b.contactNom)).trim();
   const points = POINTS.map((p) => `
     <tr>
-      <td style="vertical-align:top;padding:5px 10px 5px 0;font-size:18px;line-height:1.3">${p.icone}</td>
+      <td style="vertical-align:top;padding:5px 10px 5px 0;font-size:18px;line-height:1.3;color:#db2777">&#8226;</td>
       <td style="padding:5px 0;font-family:${POLICE};font-size:14px;line-height:1.5;color:${TEXTE}">${p.texte}</td>
     </tr>`).join("");
   const ligneTarif = (t: TarifFormule) => {
@@ -279,7 +279,7 @@ export function emailConfirmationRdvHtml(b: ConfirmationRdvInput): string {
   const contenu = `
   ${entete("Confirmation de rendez-vous")}
   ${corps(`
-    <div style="font-size:24px;line-height:1.2;font-weight:800;color:${VIOLET};margin:8px 0 12px">Rendez-vous confirmé ✔</div>
+    <div style="font-size:24px;line-height:1.2;font-weight:800;color:${VIOLET};margin:8px 0 12px">Rendez-vous confirmé </div>
     <p style="font-size:14px;line-height:1.6;color:${TEXTE};margin:0 0 8px">${bonjour}</p>
     <p style="font-size:14px;line-height:1.6;color:${TEXTE};margin:0 0 14px">${nl2br(perso)}</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${ENCADRE};border-left:4px solid ${VIOLET};border-radius:10px">

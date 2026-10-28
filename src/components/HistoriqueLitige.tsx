@@ -17,6 +17,7 @@ import { CourrierRecouvrement, Dossier, LitigePasse } from "@/lib/types";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { LIBELLE_COURRIER_LITIGE, TypeCourrierLitige } from "@/lib/courriersLitige";
 import { apercuCourrierRecouvrementPdf, generateCourrierRecouvrementPdf } from "@/lib/pdf";
+import Ico from "@/components/Ico";
 
 const TYPES: TypeCourrierLitige[] = ["accord_reparation_expert", "position_assureur"];
 
@@ -60,7 +61,7 @@ export default function HistoriqueLitige({ dossier, onReouvrir }: { dossier: Dos
     <section className="rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-3">
       <button type="button" onClick={() => setOuvert((o) => !o)} className="flex w-full flex-wrap items-center justify-between gap-2 text-left">
         <div className="min-w-0">
-          <span className="badge badge-ok">✓ Litige résolu</span>{" "}
+          <span className="badge badge-ok"><Ico n="check" /> Litige résolu</span>{" "}
           <span className="text-sm text-white/80">
             {passes.length > 1 ? `${passes.length} litiges sur ce dossier · dernier ` : "Ce dossier a connu un litige, "}
             {dernier.depuis ? `du ${formatDate(dernier.depuis)}` : ""}
@@ -106,7 +107,7 @@ export default function HistoriqueLitige({ dossier, onReouvrir }: { dossier: Dos
                     </div>
                     <div className="flex flex-wrap gap-1">
                       <button onClick={() => apercuCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">Aperçu</button>
-                      <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact">⬇ PDF</button>
+                      <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, dossier.numero_sinistre)} className="btn-ghost btn-compact"><Ico n="download" /> PDF</button>
                     </div>
                   </li>
                 ))}
@@ -115,7 +116,7 @@ export default function HistoriqueLitige({ dossier, onReouvrir }: { dossier: Dos
           )}
 
           <div className="flex justify-end">
-            <button type="button" onClick={onReouvrir} className="btn-ghost btn-compact">⚠ Rouvrir le litige</button>
+            <button type="button" onClick={onReouvrir} className="btn-ghost btn-compact"><Ico n="alert" /> Rouvrir le litige</button>
           </div>
         </div>
       )}

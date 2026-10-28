@@ -22,6 +22,7 @@ import {
 import { chiffrageAttendu, comparerControle, fusionnerDecisions, journaliser, totalHT } from "@/lib/expertise/controle";
 import { DossierExpert, GarageExpert } from "@/lib/expertise/types";
 import { formatEuros, messageErreur } from "@/lib/format";
+import Ico from "@/components/Ico";
 
 type Nature = "pre_rapport" | "devis" | "facture" | "ignorer";
 type Ligne = {
@@ -230,7 +231,7 @@ export default function DepotGroupeModal({ onClose, onTermine }: { onClose: () =
                       {l.etat === "lecture" && <span className="text-white/60">lecture…</span>}
                       {l.etat === "lu" && (l.lecture?.confiance === "faible" ? <span className="badge badge-warn">lecture à vérifier</span> : <span className="badge badge-ok">lu</span>)}
                       {l.etat === "erreur" && <span className="text-rose-600">{l.erreur}</span>}
-                      {l.etat === "range" && <span className="text-emerald-600">✓ {l.resultat?.texte}</span>}
+                      {l.etat === "range" && <span className="text-emerald-600"><Ico n="check" /> {l.resultat?.texte}</span>}
                     </td>
                   </tr>
                 ))}

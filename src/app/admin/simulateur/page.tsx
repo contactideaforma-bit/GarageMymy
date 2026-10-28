@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import AdminShell, { euros } from "@/components/admin/AdminShell";
 import { enregistrerParametres, lireParametres } from "@/lib/admin/client";
 import { FORMULES, Formule, LigneSimulation, PARAMETRES_DEFAUT, Parametres, grilleTarifs, simuler } from "@/lib/admin/economie";
+import Ico from "@/components/Ico";
 
 const LIGNES_DEFAUT: LigneSimulation[] = [
   { formule: "essentiel", nombre: 3, avecCommercial: true },
@@ -74,7 +75,7 @@ export default function SimulateurPage() {
                 <span className="hidden sm:inline">vendu par un commercial (commission)</span>
                 <span className="sm:hidden">commercial</span>
               </label>
-              <button className="text-white/40 hover:text-rose-300" onClick={() => setLignes((ls) => ls.filter((_, j) => j !== i))} aria-label="Retirer">✕</button>
+              <button className="text-white/40 hover:text-rose-300" onClick={() => setLignes((ls) => ls.filter((_, j) => j !== i))} aria-label="Retirer"><Ico n="x" /></button>
             </div>
           ))}
         </div>

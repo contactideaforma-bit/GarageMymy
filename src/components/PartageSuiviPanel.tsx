@@ -141,7 +141,7 @@ export default function PartageSuiviPanel({ dossier }: { dossier: Dossier }) {
               <div className="glass-soft mb-3 flex flex-wrap items-center gap-2 rounded-lg p-2">
                 <input readOnly value={lien} className="field-input field-compact min-w-0 flex-1" />
                 <button onClick={copier} className="btn-ghost btn-compact">
-                  {copie ? "✓ Copié" : "Copier"}
+                  {copie ? "Copié" : "Copier"}
                 </button>
                 <a href={lien} target="_blank" rel="noopener noreferrer" className="btn-ghost btn-compact">
                   Ouvrir

@@ -116,9 +116,9 @@ export default function ClientsView() {
             sousTitre={c.siren ? `Professionnel · SIREN ${c.siren}` : "Particulier"}
             lignes={
               <>
-                <LigneContact ico="📞" href={lienTelephone(c.telephone)}>{c.telephone ? formaterTel(c.telephone) : null}</LigneContact>
-                <LigneContact ico="✉️" href={c.email ? `mailto:${c.email}` : null}>{c.email}</LigneContact>
-                <LigneContact ico="📍" href={lienCarte(c.adresse, c.code_postal, c.ville)} externe>{[c.adresse, [c.code_postal, c.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null}</LigneContact>
+                <LigneContact ico="phone" href={lienTelephone(c.telephone)}>{c.telephone ? formaterTel(c.telephone) : null}</LigneContact>
+                <LigneContact ico="mail" href={c.email ? `mailto:${c.email}` : null}>{c.email}</LigneContact>
+                <LigneContact ico="map-pin" href={lienCarte(c.adresse, c.code_postal, c.ville)} externe>{[c.adresse, [c.code_postal, c.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null}</LigneContact>
               </>
             }
             note={c.notes}

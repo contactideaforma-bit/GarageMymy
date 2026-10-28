@@ -244,7 +244,7 @@ function ficheDossier(d: Dossier): string {
   if (d.assureur) l.push(`Assurance : ${d.assureur}`);
   if (d.date_sinistre) l.push(`Sinistre du ${formatDate(d.date_sinistre)}`);
   if (d.reparation_debut || d.reparation_fin) l.push(`Réparation : ${formatDate(d.reparation_debut)} → ${formatDate(d.reparation_fin)}`);
-  if (d.au_garage) l.push("🚗 Véhicule au garage");
+  if (d.au_garage) l.push("Véhicule au garage");
   return l.join("\n");
 }
 
@@ -257,7 +257,7 @@ function contactsDuDossier(ctx: ContexteMyMy, d: Dossier, cible: "client" | "ass
   const as = ctx.assureurs.find((a) => a.nom && d.assureur && normalise(a.nom) === normalise(d.assureur));
   const ex = ctx.experts.find((e) => e.cabinet && d.cabinet_expert && normalise(e.cabinet) === normalise(d.cabinet_expert));
   const ligne = (titre: string, tel?: string | null, email?: string | null, adresse?: string | null) => {
-    const parts = [tel ? `📞 ${tel}` : null, email ? `✉️ ${email}` : null, adresse ? `📍 ${adresse}` : null].filter(Boolean);
+    const parts = [tel ? `${tel}` : null, email ? `${email}` : null, adresse ? `${adresse}` : null].filter(Boolean);
     return `${titre} : ${parts.length ? parts.join("  ") : "aucune coordonnée enregistrée"}`;
   };
   if (cible === "client" || cible === "tous") {
@@ -284,9 +284,9 @@ function contactsDuDossier(ctx: ContexteMyMy, d: Dossier, cible: "client" | "ass
 function contactsAnnuaire(ctx: ContexteMyMy, q: string): string[] {
   const out: string[] = [];
   const nq = normalise(q);
-  for (const a of ctx.assureurs) if (a.nom && nq.includes(normalise(a.nom))) out.push(`Assurance ${a.nom} : ${[a.tel && `📞 ${a.tel}`, a.email && `✉️ ${a.email}`].filter(Boolean).join("  ") || "aucune coordonnée"}`);
-  for (const e of ctx.experts) if (e.cabinet && nq.includes(normalise(e.cabinet))) out.push(`Cabinet ${e.cabinet} : ${[e.tel && `📞 ${e.tel}`, e.email && `✉️ ${e.email}`, e.expert_nom && `expert ${e.expert_nom}${e.expert_tel ? ` 📞 ${e.expert_tel}` : ""}`].filter(Boolean).join("  ") || "aucune coordonnée"}`);
-  for (const c of ctx.clients) if (c.nom && c.nom.length >= 3 && nq.includes(normalise(c.nom))) out.push(`Client ${c.nom} : ${[c.telephone && `📞 ${c.telephone}`, c.email && `✉️ ${c.email}`].filter(Boolean).join("  ") || "aucune coordonnée"}`);
+  for (const a of ctx.assureurs) if (a.nom && nq.includes(normalise(a.nom))) out.push(`Assurance ${a.nom} : ${[a.tel && `${a.tel}`, a.email && `${a.email}`].filter(Boolean).join("  ") || "aucune coordonnée"}`);
+  for (const e of ctx.experts) if (e.cabinet && nq.includes(normalise(e.cabinet))) out.push(`Cabinet ${e.cabinet} : ${[e.tel && `${e.tel}`, e.email && `${e.email}`, e.expert_nom && `expert ${e.expert_nom}${e.expert_tel ? ` ${e.expert_tel}` : ""}`].filter(Boolean).join("  ") || "aucune coordonnée"}`);
+  for (const c of ctx.clients) if (c.nom && c.nom.length >= 3 && nq.includes(normalise(c.nom))) out.push(`Client ${c.nom} : ${[c.telephone && `${c.telephone}`, c.email && `${c.email}`].filter(Boolean).join("  ") || "aucune coordonnée"}`);
   return out.slice(0, 6);
 }
 
@@ -359,11 +359,11 @@ function reponseAgenda(ctx: ContexteMyMy, p: Periode): MessageMyMy {
   const lignes = [
     ...evs.map((e) => {
       const d = e.dossier_id ? parId.get(e.dossier_id) : undefined;
-      return `📅 ${quand(e.date_evenement)} — ${e.titre}${e.avec_qui ? ` avec ${e.avec_qui}` : ""}${d ? ` (${libelleDossier(d)})` : ""}`;
+      return `${quand(e.date_evenement)} — ${e.titre}${e.avec_qui ? ` avec ${e.avec_qui}` : ""}${d ? ` (${libelleDossier(d)})` : ""}`;
     }),
     ...rappelsDates.map((r) => {
       const d = r.dossier_id ? parId.get(r.dossier_id) : undefined;
-      return `🔔 ${quand(r.echeance!)} — ${r.texte}${d ? ` (${libelleDossier(d)})` : ""}`;
+      return `${quand(r.echeance!)} — ${r.texte}${d ? ` (${libelleDossier(d)})` : ""}`;
     }),
   ];
   const liens: LienMyMy[] = [];
@@ -382,7 +382,7 @@ function reponseAgenda(ctx: ContexteMyMy, p: Periode): MessageMyMy {
     ? `\n\nEt ${sansDate.length} rappel(s) sans date dans « À faire » : ${sansDate.slice(0, 3).map((r) => r.texte).join(" · ")}${sansDate.length > 3 ? "…" : ""}`
     : "";
   const urgentes = ctx.aFaire.filter((x) => x.action.urgence === "haute");
-  const urgentTexte = urgentes.length ? `\n\n🔴 Par ailleurs, ${urgentes.length} action(s) urgente(s) sur tes dossiers — demande-moi « qu'est-ce que j'ai à faire ».` : "";
+  const urgentTexte = urgentes.length ? `\n\nPar ailleurs, ${urgentes.length} action(s) urgente(s) sur tes dossiers — demande-moi « qu'est-ce que j'ai à faire ».` : "";
 
   if (lignes.length === 0) {
     return {
@@ -526,12 +526,12 @@ export function repondreLocalement(ctx: ContexteMyMy, question: string): Message
   // À faire
   if (/a faire|taches?|tache du jour|quoi faire|programme|to ?do|urgent/.test(q)) {
     if (ctx.aFaire.length === 0) {
-      return { role: "assistant", texte: "Rien d'urgent aujourd'hui : tous tes dossiers en cours attendent un tiers ou sont à jour. 🎉" };
+      return { role: "assistant", texte: "Rien d'urgent aujourd'hui : tous tes dossiers en cours attendent un tiers ou sont à jour." };
     }
     const hautes = ctx.aFaire.filter((x) => x.action.urgence === "haute");
     const lignes = ctx.aFaire
       .slice(0, 8)
-      .map((x) => `${x.action.urgence === "haute" ? "🔴" : "🟠"} ${x.action.titre} — ${libelleDossier(x.dossier)}`);
+      .map((x) => `${x.action.urgence === "haute" ? "URGENT · " : ""}${x.action.titre} — ${libelleDossier(x.dossier)}`);
     const suite = ctx.aFaire.length > 8 ? `\n… et ${ctx.aFaire.length - 8} autre(s) sur le tableau de bord.` : "";
     return {
       role: "assistant",
@@ -546,12 +546,12 @@ export function repondreLocalement(ctx: ContexteMyMy, question: string): Message
   // Impayés
   if (/impaye|pas paye|non paye|reste a encaisser|retard de paiement|relance/.test(q)) {
     if (ctx.impayes.length === 0) {
-      return { role: "assistant", texte: "Aucune facture en attente de paiement. Tout est encaissé ! 💰" };
+      return { role: "assistant", texte: "Aucune facture en attente de paiement. Tout est encaissé !" };
     }
     const total = ctx.impayes.reduce((s, x) => s + x.reste, 0);
     const lignes = ctx.impayes.slice(0, 8).map(
       (x) =>
-        `${x.retard ? "⏰" : "•"} ${x.doc.numero || "Facture"} — ${x.dossier ? libelleDossier(x.dossier) : "?"} : ${formatEuros(x.reste)} restant${x.doc.date_echeance ? ` (échéance ${formatDate(x.doc.date_echeance)})` : ""}`
+        `${x.retard ? "" : "•"} ${x.doc.numero || "Facture"} — ${x.dossier ? libelleDossier(x.dossier) : "?"} : ${formatEuros(x.reste)} restant${x.doc.date_echeance ? ` (échéance ${formatDate(x.doc.date_echeance)})` : ""}`
     );
     return {
       role: "assistant",
@@ -569,7 +569,7 @@ export function repondreLocalement(ctx: ContexteMyMy, question: string): Message
     if (presents.length === 0) return { role: "assistant", texte: "Aucun véhicule n'est marqué comme présent au garage.", liens: [{ label: "Véhicules", href: "/vehicules" }] };
     return {
       role: "assistant",
-      texte: `${presents.length} véhicule(s) au garage :\n${presents.map((d) => `🚗 ${libelleDossier(d)} — ${labelStatut(d.statut)}`).join("\n")}`,
+      texte: `${presents.length} véhicule(s) au garage :\n${presents.map((d) => `${libelleDossier(d)} — ${labelStatut(d.statut)}`).join("\n")}`,
       liens: [...presents.slice(0, 4).map(lienDossier), { label: "Véhicules", href: "/vehicules" }],
     };
   }
@@ -587,10 +587,10 @@ export function repondreLocalement(ctx: ContexteMyMy, question: string): Message
     return {
       role: "assistant",
       texte:
-        `📋 ${actifs.length} dossier(s) en cours (${repartition || "aucun"}), ${formatEuros(encours)} HT d'encours.\n` +
-        `💶 ${ctx.impayes.length} facture(s) à encaisser pour ${formatEuros(aEncaisser)}.\n` +
-        `✅ ${ctx.aFaire.length} action(s) à faire${ctx.aFaire.filter((x) => x.action.urgence === "haute").length ? ` dont ${ctx.aFaire.filter((x) => x.action.urgence === "haute").length} urgente(s)` : ""}.\n` +
-        `🚗 ${ctx.dossiers.filter((d) => d.au_garage).length} véhicule(s) au garage.`,
+        `${actifs.length} dossier(s) en cours (${repartition || "aucun"}), ${formatEuros(encours)} HT d'encours.\n` +
+        `${ctx.impayes.length} facture(s) à encaisser pour ${formatEuros(aEncaisser)}.\n` +
+        `${ctx.aFaire.length} action(s) à faire${ctx.aFaire.filter((x) => x.action.urgence === "haute").length ? ` dont ${ctx.aFaire.filter((x) => x.action.urgence === "haute").length} urgente(s)` : ""}.\n` +
+        `${ctx.dossiers.filter((d) => d.au_garage).length} véhicule(s) au garage.`,
       liens: [
         { label: "Tableau de bord", href: "/" },
         { label: "Sinistres", href: "/sinistres" },
@@ -810,7 +810,7 @@ export async function executerAction(ctx: ContexteMyMy, a: ActionMyMy): Promise<
   switch (a.type) {
     case "rappel": {
       await ajouterRappel({ texte: a.texte, dossierId: a.dossier_id, echeance: a.echeance });
-      return { role: "assistant", texte: `✅ Rappel créé${a.echeance ? ` pour le ${formatDateTime(a.echeance)}` : ""}. Tu le retrouveras dans « À faire » sur le tableau de bord${a.echeance ? " et dans l'agenda" : ""}.`, liens: [...liens, { label: "Tableau de bord", href: "/" }] };
+      return { role: "assistant", texte: `Rappel créé${a.echeance ? ` pour le ${formatDateTime(a.echeance)}` : ""}. Tu le retrouveras dans « À faire » sur le tableau de bord${a.echeance ? " et dans l'agenda" : ""}.`, liens: [...liens, { label: "Tableau de bord", href: "/" }] };
     }
     case "rdv": {
       const { error } = await supabase.from("evenements").insert({
@@ -822,7 +822,7 @@ export async function executerAction(ctx: ContexteMyMy, a: ActionMyMy): Promise<
         avec_qui: a.avec_qui,
       });
       if (error) throw error;
-      return { role: "assistant", texte: `✅ Rendez-vous ajouté à l'agenda le ${formatDateTime(a.date)}.`, liens: [...liens, { label: "Agenda", href: "/agenda" }] };
+      return { role: "assistant", texte: `Rendez-vous ajouté à l'agenda le ${formatDateTime(a.date)}.`, liens: [...liens, { label: "Agenda", href: "/agenda" }] };
     }
     case "note": {
       const actuelle = (d?.note || "").trim();
@@ -831,19 +831,19 @@ export async function executerAction(ctx: ContexteMyMy, a: ActionMyMy): Promise<
       const { error } = await supabase.from("dossiers").update({ note, note_maj: new Date().toISOString() }).eq("id", a.dossier_id);
       if (error) throw error;
       if (d) d.note = note;
-      return { role: "assistant", texte: "✅ Note ajoutée au dossier.", liens };
+      return { role: "assistant", texte: "Note ajoutée au dossier.", liens };
     }
     case "au_garage": {
       const { error } = await supabase.from("dossiers").update({ au_garage: a.valeur }).eq("id", a.dossier_id);
       if (error) throw error;
       if (d) d.au_garage = a.valeur;
-      return { role: "assistant", texte: `✅ Véhicule marqué ${a.valeur ? "présent au garage" : "sorti du garage"}.`, liens: [...liens, { label: "Véhicules", href: "/vehicules" }] };
+      return { role: "assistant", texte: `Véhicule marqué ${a.valeur ? "présent au garage" : "sorti du garage"}.`, liens: [...liens, { label: "Véhicules", href: "/vehicules" }] };
     }
     case "statut": {
       const { error } = await supabase.from("dossiers").update({ statut: a.statut }).eq("id", a.dossier_id);
       if (error) throw error;
       if (d) d.statut = a.statut;
-      return { role: "assistant", texte: `✅ Dossier passé en « ${labelStatut(a.statut)} ».`, liens };
+      return { role: "assistant", texte: `Dossier passé en « ${labelStatut(a.statut)} ».`, liens };
     }
   }
 }

@@ -13,6 +13,7 @@ import {
   libelleEtat,
 } from "@/lib/recouvrement";
 import { generateMiseEnDemeurePdf } from "@/lib/pdf";
+import Ico from "@/components/Ico";
 
 /**
  * RECOUVREMENT (v50) — le poste de pilotage des impayés.
@@ -190,11 +191,11 @@ export default function RecouvrementPanel({
                   )}
                   {ligne.dossier && !ligne.dossier.retard_paiement && (
                     <button onClick={() => passerEnRetard(ligne)} disabled={busy === ligne.id} className="btn-ghost btn-compact" title="Ouvre la fiche en mode assisté : courriers, mise en demeure, journal des appels, rappels, procédure">
-                      ⏰ Retard de paiement
+                      <Ico n="alarm" /> Retard de paiement
                     </button>
                   )}
                   {ligne.dossier?.retard_paiement && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">⏰ En retard de paiement</span>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800"><Ico n="alarm" /> En retard de paiement</span>
                   )}
                   {ligne.dossier && (
                     <Link

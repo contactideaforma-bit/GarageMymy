@@ -9,6 +9,7 @@ import {
   passerSauvegarde,
   sauvegardeARefaire,
 } from "@/lib/sauvegarde";
+import Ico from "@/components/Ico";
 
 /**
  * RAPPEL DE SAUVEGARDE (v46, tous les 15 jours depuis v13.29) — tableau de bord.
@@ -80,7 +81,7 @@ export default function RappelSauvegarde() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2.5">
           <span aria-hidden className="text-lg leading-none">
-            🛡️
+            <Ico n="shield" />
           </span>
           <div className="min-w-0">
             <p className="text-sm font-semibold text-amber-100">

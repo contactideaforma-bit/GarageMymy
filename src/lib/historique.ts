@@ -25,15 +25,15 @@ export type FamilleAction =
 
 export const FAMILLES: { code: FamilleAction | "tout"; label: string; icone: string }[] = [
   { code: "tout", label: "Tout", icone: "" },
-  { code: "dossier", label: "Dossiers", icone: "📁" },
-  { code: "document", label: "Devis & factures", icone: "🧾" },
-  { code: "paiement", label: "Paiements", icone: "💶" },
-  { code: "email", label: "Emails", icone: "✉️" },
-  { code: "tache", label: "Tâches", icone: "☑️" },
-  { code: "heures", label: "Heures", icone: "⏱" },
-  { code: "piece", label: "Pièces", icone: "🔩" },
-  { code: "evenement", label: "Agenda & suivi", icone: "🗓" },
-  { code: "suppression", label: "Suppressions", icone: "🗑" },
+  { code: "dossier", label: "Dossiers", icone: "folder" },
+  { code: "document", label: "Devis & factures", icone: "receipt" },
+  { code: "paiement", label: "Paiements", icone: "euro" },
+  { code: "email", label: "Emails", icone: "mail" },
+  { code: "tache", label: "Tâches", icone: "square-check" },
+  { code: "heures", label: "Heures", icone: "clock" },
+  { code: "piece", label: "Pièces", icone: "wrench" },
+  { code: "evenement", label: "Agenda & suivi", icone: "calendar" },
+  { code: "suppression", label: "Suppressions", icone: "trash" },
 ];
 
 export type ActionHistorique = {

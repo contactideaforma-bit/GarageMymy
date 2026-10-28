@@ -10,7 +10,7 @@
 //    VAPID_SUBJECT                 « mailto:… » ou l'URL du site
 //  Générer la paire une seule fois :  npx web-push generate-vapid-keys
 //
-//  ⚠️ Ne JAMAIS importer ce fichier dans un composant client.
+//  Ne JAMAIS importer ce fichier dans un composant client.
 // ============================================================
 
 import webpush from "web-push";

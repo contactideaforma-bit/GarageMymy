@@ -9,6 +9,7 @@ import { EnvoiPostal, LIBELLE_TYPE_ENVOI, STATUT_ENVOI } from "@/lib/envoisPosta
 import { ouvrirPreuve } from "@/lib/envoisPostauxClient";
 import { ouvrirFichier } from "@/lib/storage";
 import { formatDateTime } from "@/lib/format";
+import Ico from "@/components/Ico";
 
 export default function EnvoisPostauxListe({
   envois,
@@ -40,7 +41,7 @@ export default function EnvoisPostauxListe({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold text-white">{e.type === "lrar" ? "📮" : "✉"} {LIBELLE_TYPE_ENVOI[e.type]}</span>
+                    <span className="font-semibold text-white">{e.type === "lrar" ? "mailbox" : "mail"} {LIBELLE_TYPE_ENVOI[e.type]}</span>
                     <span className={`badge ${st.badge}`} title={st.aide}>{st.label}</span>
                     {e.environnement === "sandbox" && <span className="badge badge-neutral" title="Envoi simulé : rien n'est imprimé">TEST</span>}
                     {e.numero_suivi && <span className="font-mono text-xs text-white/70">n° {e.numero_suivi}</span>}
@@ -56,7 +57,7 @@ export default function EnvoisPostauxListe({
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-1">
-                  {e.pdf_path && <button onClick={() => ouvrirFichier("pieces", e.pdf_path!)} className="btn-ghost btn-compact" title="Le PDF tel qu'il a été envoyé">📄 PDF</button>}
+                  {e.pdf_path && <button onClick={() => ouvrirFichier("pieces", e.pdf_path!)} className="btn-ghost btn-compact" title="Le PDF tel qu'il a été envoyé"><Ico n="file" /> PDF</button>}
                   {envoye && e.type === "lrar" && <button onClick={() => preuve(e, "depot")} className="btn-ghost btn-compact">Preuve de dépôt</button>}
                   {envoye && e.type === "lrar" && e.ar_scanne && <button onClick={() => preuve(e, "ar")} className="btn-ghost btn-compact">Avis de réception</button>}
                   <button onClick={() => setOuvert(ouvert === e.id ? null : e.id)} className="btn-ghost btn-compact">{ouvert === e.id ? "▴" : "Suivi ▾"}</button>

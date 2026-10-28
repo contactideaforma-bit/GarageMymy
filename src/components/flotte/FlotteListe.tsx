@@ -440,7 +440,7 @@ function Pastille({ ok, label }: { ok: boolean; label: string }) {
       }`}
       title={`${label} ${ok ? "à jour" : "à faire"}`}
     >
-      {ok ? "✓" : "✗"} {label}
+      {ok ? "check" : "x"} {label}
     </span>
   );
 }

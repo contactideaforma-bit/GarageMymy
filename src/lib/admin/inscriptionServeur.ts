@@ -418,7 +418,7 @@ export async function notifierEditeurInscription(admin: SupabaseClient, v: Vente
       `Formule choisie : ${libelleFormule(v.formule, p)}${v.formule_conseillee && v.formule_conseillee !== v.formule ? ` (conseillée : ${libelleFormule(v.formule_conseillee, p)})` : " (= formule conseillée)"} · ${v.periodicite === "annuel" ? `année en une fois ${eur(v.montant_annuel_ht)}` : `${eur(v.prix_mensuel_ht)} / mois`}${v.engagement_12 ? " · engagement 12 mois" : " · sans engagement"}`,
       `Première échéance : ${eur(m.ttc)} · paiement : ${v.paiement_en_ligne_mode || v.mode_paiement}`,
       `Connu par : ${libelleSource(v.source_connaissance)}${v.source_detail ? ` — ${v.source_detail}` : ""}${v.code_apporteur ? ` · code apporteur ${v.code_apporteur}` : ""}`,
-      rappel ? `📞 DEMANDE DE RAPPEL : ${rappel.tel} — ${libelleCreneau(rappel.creneau)}${rappel.message ? ` — « ${rappel.message} »` : ""}` : "Pas de demande de rappel.",
+      rappel ? `DEMANDE DE RAPPEL : ${rappel.tel} — ${libelleCreneau(rappel.creneau)}${rappel.message ? ` — « ${rappel.message} »` : ""}` : "Pas de demande de rappel.",
       `Contrat signé en ligne le ${v.signe_le ? new Date(v.signe_le).toLocaleString("fr-FR") : "—"}.`,
     ];
     const html = `<div style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.6;color:#1e2233"><h2>Inscription en ligne — ${echapper(v.numero || "")}</h2>${lignes.map((l) => `<p style="margin:4px 0">${echapper(l)}</p>`).join("")}<p><a href="${siteUrl()}/admin/ventes">Ouvrir l'espace éditeur → Ventes</a></p></div>`;

@@ -20,6 +20,7 @@ import type { Dossier } from "@/lib/types";
 import { formatEuros, formatDate } from "@/lib/format";
 import { rechercherDossiers } from "@/lib/recherche";
 import StatutBadge from "@/components/StatutBadge";
+import Ico from "@/components/Ico";
 
 export default function RechercheDossier({
   dossiers,
@@ -155,7 +156,7 @@ export default function RechercheDossier({
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-2.5 py-1.5 text-sm text-white/55 hover:bg-white/10 hover:text-white"
             aria-label="Effacer la recherche"
           >
-            ✕
+            <Ico n="x" />
           </button>
         ) : (
           <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-white/15 px-1.5 py-0.5 text-[11px] text-white/40 sm:block">

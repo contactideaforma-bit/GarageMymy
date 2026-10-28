@@ -23,6 +23,7 @@ import {
   STATUT_PAIEMENT,
   templateRelance,
 } from "@/lib/paiements";
+import Ico from "@/components/Ico";
 
 type FactureFinance = Document & { paiements: Paiement[]; relances: Relance[] };
 
@@ -189,12 +190,12 @@ export default function PaiementsPanel({
           <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
             {!dejaRendu && (
               <button onClick={vehiculeRendu} disabled={rendant} className="btn-ghost btn-compact" title="Le client est reparti avec son véhicule : le dossier passe en « Véhicule rendu ».">
-                🚗 Véhicule rendu au client
+                <Ico n="car" /> Véhicule rendu au client
               </button>
             )}
             {!dejaPaye && factures.length > 0 && (
               <button onClick={() => setCloture(true)} className="btn-primary btn-compact" title="Clôturer le règlement : le dossier passe en « Payé », même si une franchise ou des frais de dossier restent non encaissés.">
-                ✓ Payé
+                <Ico n="check" /> Payé
               </button>
             )}
             {dejaPaye && (
@@ -723,7 +724,7 @@ function ClotureReglementModal({
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="btn-ghost btn-compact">Annuler</button>
-          <button onClick={valider} disabled={saving} className="btn-primary btn-compact">{saving ? "Enregistrement…" : "✓ Marquer le dossier payé"}</button>
+          <button onClick={valider} disabled={saving} className="btn-primary btn-compact">{saving ? "Enregistrement…" : "Marquer le dossier payé"}</button>
         </div>
       </div>
     </ModalShell>

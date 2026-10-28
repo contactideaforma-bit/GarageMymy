@@ -12,6 +12,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useChartAlliance } from "@/components/expert/ExpertShell";
+import Ico from "@/components/Ico";
 
 type Ecart = { id: string; libelle: string; precision: string | null; avant: string | null; apres: string | null; motif: string | null; montant_avant: number; montant_apres: number };
 type Donnees = {
@@ -149,7 +150,7 @@ export default function PageReponseGarage() {
       <>
         {entete}
         <div className="rounded-xl border-2 border-black p-5">
-          <div className="text-lg font-bold">✓ Réponse envoyée à l&apos;expert</div>
+          <div className="text-lg font-bold"><Ico n="check" /> Réponse envoyée à l&apos;expert</div>
           <p className="mt-1 text-sm text-gray-700">
             {envoye ? `${envoye.accords} accord(s), ${envoye.contestations} contestation(s).` : `Reçue le ${date(rep!.recu_le)}${rep!.contact ? ` (${rep!.contact})` : ""}.`} L&apos;expert l&apos;examine et reviendra vers vous. Pour la modifier, contactez le cabinet.
           </p>
@@ -188,7 +189,7 @@ export default function PageReponseGarage() {
               </div>
               {e.motif && <div className="mt-1 text-xs text-gray-700">Motif de l&apos;expert : {e.motif}</div>}
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={() => maj(e.id, { accord: true })} className={`rounded-lg border-2 px-3 py-2 text-sm font-semibold ${l.accord === true ? "border-emerald-700 bg-emerald-50 text-emerald-900" : "border-gray-300"}`}>✓ J&apos;accepte la correction</button>
+                <button type="button" onClick={() => maj(e.id, { accord: true })} className={`rounded-lg border-2 px-3 py-2 text-sm font-semibold ${l.accord === true ? "border-emerald-700 bg-emerald-50 text-emerald-900" : "border-gray-300"}`}><Ico n="check" /> J&apos;accepte la correction</button>
                 <button type="button" onClick={() => maj(e.id, { accord: false })} className={`rounded-lg border-2 px-3 py-2 text-sm font-semibold ${l.accord === false ? "border-amber-700 bg-amber-50 text-amber-900" : "border-gray-300"}`}>Je conteste</button>
               </div>
               {l.accord === false && (

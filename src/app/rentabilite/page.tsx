@@ -14,7 +14,7 @@ import StatCard from "@/components/StatCard";
  * Le tableau « marge par dossier » a été RETIRÉ à la demande de
  * l'utilisateur : il reposait sur une saisie manuelle des heures passées
  * et du coût horaire, donc sur des chiffres que personne ne tient à jour.
- * ⚠️ Ne pas le réintroduire sans demande explicite.
+ * Ne pas le réintroduire sans demande explicite.
  *
  * Reste ce qui se calcule tout seul et qui sert vraiment : combien on
  * facture, combien on a encaissé, et surtout QUI paie en combien de
@@ -96,22 +96,22 @@ export default function RentabilitePage() {
       <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard
           accent="pink"
-          icone="🧾"
+          icone="receipt"
           label="Facturé"
           value={`${formatEuros(caHt)} HT`}
           hint={`${formatEuros(caTtc)} TTC · ${facturesPeriode.length} facture(s)`}
         />
-        <StatCard accent="emerald" icone="💶" label="Encaissé" value={formatEuros(encaisse)} hint="TTC sur la période" />
+        <StatCard accent="emerald" icone="euro" label="Encaissé" value={formatEuros(encaisse)} hint="TTC sur la période" />
         <StatCard
           accent={reste > 0 ? "amber" : "teal"}
-          icone="⏳"
+          icone="clock"
           label="Reste dû"
           value={formatEuros(reste)}
           hint={facturesEnRetard > 0 ? `${facturesEnRetard} facture(s) > 45 j` : "rien en retard"}
         />
         <StatCard
           accent="violet"
-          icone="🏦"
+          icone="bank"
           label="Délai d'encaissement"
           value={delaiMoyen === null ? "—" : `${delaiMoyen} j`}
           hint="moyenne des règlements reçus"

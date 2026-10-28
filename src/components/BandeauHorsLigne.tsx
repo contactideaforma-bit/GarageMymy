@@ -7,6 +7,7 @@ import {
   fileEnAttente,
   rejouerFile,
 } from "@/lib/horsLigne";
+import Ico from "@/components/Ico";
 
 /**
  * BANDEAU « HORS LIGNE » (v47).
@@ -82,7 +83,7 @@ export default function BandeauHorsLigne() {
         <div className="anim-apparition flex flex-wrap items-start justify-between gap-2 rounded-lg border-2 border-amber-400/50 bg-amber-500/15 px-3 py-2 text-amber-100">
           <div className="flex min-w-0 items-start gap-2">
             <span aria-hidden className="text-base leading-none">
-              📶
+              <Ico n="globe" />
             </span>
             <div className="min-w-0">
               <p className="text-sm font-semibold">Pas de connexion</p>
@@ -109,7 +110,7 @@ export default function BandeauHorsLigne() {
 
       {message && (
         <div className="anim-apparition mt-2 rounded-lg border-2 border-emerald-400/40 bg-emerald-500/12 px-3 py-2 text-sm text-emerald-100">
-          ✅ {message}
+          <Ico n="check-circle" /> {message}
         </div>
       )}
     </div>

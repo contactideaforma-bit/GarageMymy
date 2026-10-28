@@ -348,17 +348,17 @@ export async function digestEditeur(admin: SupabaseClient, s?: Situation): Promi
   const lignes: string[] = [];
   lignes.push(`Encaissé ce mois : ${eur(sit.encaisseMois)} HT · reste à encaisser ce mois : ${eur(sit.aEncaisserMois)} HT`);
   if (sit.impayes.length) {
-    lignes.push("", `🔴 IMPAYÉS (${sit.impayes.length}) — ${eur(sit.enRetard)} HT :`);
+    lignes.push("", `IMPAYÉS (${sit.impayes.length}) — ${eur(sit.enRetard)} HT :`);
     for (const l of sit.impayes) lignes.push(`  • ${l.abonnement.garage_nom} — ${moisFr(l.mensualite.periode)} — ${eur(l.montantTtc)} TTC — ${l.joursRetard} j de retard — dernier palier envoyé : ${LIBELLE_NIVEAU[Number(l.mensualite.relance_niveau) || 0]}${l.etatCompte === "suspendu" ? " — COMPTE SUSPENDU" : ""}`);
   }
   const proches = sit.aVenir.filter((l) => l.joursRetard >= -7);
   if (proches.length) {
-    lignes.push("", `🟠 À ENCAISSER SOUS 7 JOURS (${proches.length}) :`);
+    lignes.push("", `À ENCAISSER SOUS 7 JOURS (${proches.length}) :`);
     for (const l of proches) lignes.push(`  • ${l.abonnement.garage_nom} — ${moisFr(l.mensualite.periode)} — ${eur(l.montantTtc)} TTC — échéance ${new Date(l.echeance + "T00:00:00").toLocaleDateString("fr-FR")}`);
   }
   if (sit.collaborateurs.length) {
-    lignes.push("", `🟣 À PAYER À VOS COLLABORATEURS — ${eur(sit.totalCollaborateurs)} :`);
-    for (const c of sit.collaborateurs) lignes.push(`  • ${c.nom} — ${eur(c.total)} (${c.lignes} ligne(s))${c.enRetard ? " — ⚠️ EN ATTENTE DEPUIS PLUS DE " + sit.relances.delaiCollaborateurs + " JOURS" : ""}`);
+    lignes.push("", `À PAYER À VOS COLLABORATEURS — ${eur(sit.totalCollaborateurs)} :`);
+    for (const c of sit.collaborateurs) lignes.push(`  • ${c.nom} — ${eur(c.total)} (${c.lignes} ligne(s))${c.enRetard ? " — EN ATTENTE DEPUIS PLUS DE " + sit.relances.delaiCollaborateurs + " JOURS" : ""}`);
   }
   lignes.push("", `Suivi des paiements : ${SITE()}/admin/paiements`);
   const r = await envoyerEmailServeur({ to, subject: `[Paiements] ${sit.impayes.length} impayé(s) · ${proches.length} à venir · ${sit.collaborateurs.length} collaborateur(s) à payer`, text: lignes.join("\n") }, expediteur.id);
@@ -466,7 +466,7 @@ export async function envoyerAppel(admin: SupabaseClient, mensualiteId: string, 
     "",
     `Votre mensualité ${SOCIETE.produit} de ${mois} pour ${a.garage_nom} arrive à échéance le ${echeanceFr} : ${montantTtc} (TVA non applicable, art. 293 B du CGI).`,
     "",
-    lien ? `👉 Payer en quelques secondes (carte bancaire, Apple Pay) : ${lien}` : "",
+    lien ? `Payer en quelques secondes (carte bancaire, Apple Pay) : ${lien}` : "",
     p.iban ? `Ou par virement : IBAN ${p.iban}${p.bic ? ` · BIC ${p.bic}` : ""} — référence « MEA ${a.garage_nom.slice(0, 20)} ${mois} »` : "",
     "",
     "Le paiement est enregistré automatiquement : vous n'avez rien d'autre à faire.",

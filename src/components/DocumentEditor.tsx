@@ -42,6 +42,7 @@ import {
   ecartsTarifs,
   resumeTarifs,
 } from "@/lib/particularites";
+import Ico from "@/components/Ico";
 
 /**
  * Grille d'une ligne de saisie (v8.1).
@@ -507,7 +508,7 @@ export default function DocumentEditor({
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>
                     <span className="font-semibold">Agrément « {p.nom} »</span> — {resumeTarifs(p)}
-                    {ecarts.length === 0 && <span className="ml-1">✓ lignes conformes à l&apos;agrément</span>}
+                    {ecarts.length === 0 && <span className="ml-1"><Ico n="check" /> lignes conformes à l&apos;agrément</span>}
                   </span>
                   {ecarts.length > 0 && (
                     <button
@@ -643,7 +644,7 @@ export default function DocumentEditor({
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span>
-                  {controle.coherent ? "✓ " : "⚠ "}
+                  {controle.coherent ? "" : ""}
                   Rapport d&apos;expertise : {formatEuros(controle.montantRapport)} HT · ce document :{" "}
                   {formatEuros(controle.totalHt)} HT
                   {!controle.coherent && (

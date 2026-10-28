@@ -14,8 +14,8 @@ import { deposerFichier } from "./storage";
 import { PhotoEtat } from "./types";
 
 export const MOMENTS = [
-  { code: "entree", label: "À l'entrée", court: "Entrée", icone: "⬅️" },
-  { code: "sortie", label: "À la sortie", court: "Sortie", icone: "➡️" },
+  { code: "entree", label: "À l'entrée", court: "Entrée", icone: "arrow-left" },
+  { code: "sortie", label: "À la sortie", court: "Sortie", icone: "arrow-right" },
 ] as const;
 
 export type Angle = {

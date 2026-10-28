@@ -16,6 +16,7 @@ import { Email } from "@/lib/types";
 import { formatDateTime } from "@/lib/format";
 import { usePliage } from "@/lib/pliage";
 import ModalShell from "@/components/ModalShell";
+import Ico from "@/components/Ico";
 
 export default function EmailsDossier({ dossierId }: { dossierId: string }) {
   const [emails, setEmails] = useState<Email[]>([]);
@@ -48,7 +49,7 @@ export default function EmailsDossier({ dossierId }: { dossierId: string }) {
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2 sm:px-4 sm:py-2.5">
         <button onClick={basculerPliage} className="flex min-w-0 items-center gap-2 text-left" aria-expanded={!plie} title={plie ? "Déplier" : "Replier"}>
           <span className={`shrink-0 text-white/40 transition-transform ${plie ? "" : "rotate-90"}`} aria-hidden>▸</span>
-          <h2 className="titre-bloc truncate">✉ Emails envoyés{charge ? ` (${emails.length})` : ""}</h2>
+          <h2 className="titre-bloc truncate"><Ico n="mail" /> Emails envoyés{charge ? ` (${emails.length})` : ""}</h2>
         </button>
         {echecs > 0 && <span className="badge badge-danger">{echecs} en échec</span>}
         {!plie && (
@@ -77,7 +78,7 @@ export default function EmailsDossier({ dossierId }: { dossierId: string }) {
                       → {m.destinataire || "—"} · <span className="text-white/40">{formatDateTime(m.created_at)}</span>
                     </div>
                   </div>
-                  <button onClick={() => setOuvert(m)} className="btn-ghost btn-compact">👁 Visualiser</button>
+                  <button onClick={() => setOuvert(m)} className="btn-ghost btn-compact"><Ico n="eye" /> Visualiser</button>
                 </li>
               ))}
             </ul>

@@ -90,7 +90,7 @@ const REGLES: Regle[] = [
     conseil:
       "Le véhicule est sous procédure VGE (art. L327-5 du Code de la route) : immatriculation bloquée jusqu'au rapport de conformité de l'expert. Les réparations doivent suivre exactement le rapport, avec contre-visite obligatoire avant restitution.",
     motifs: [
-      /proc[ée]dure\s+VGE\s*:?\s*(?:oui|✓|x)\b/i,
+      /proc[ée]dure\s+VGE\s*:?\s*(?:oui||x)\b/i,
       /objet\s+de\s+la\s+proc[ée]dure\s+VGE/i,
       /suivi\s+VGE/i,
       /v[ée]hicule\s+gravement\s+endommag/i,

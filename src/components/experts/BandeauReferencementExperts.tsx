@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import type { Expert } from "@/lib/types";
 import DeclarationExpertsModal from "@/components/experts/DeclarationExpertsModal";
+import Ico from "@/components/Ico";
 
 export default function BandeauReferencementExperts({ experts, onChange }: { experts?: Expert[]; onChange?: () => void }) {
   const [ouvert, setOuvert] = useState(false);
@@ -32,7 +33,7 @@ export default function BandeauReferencementExperts({ experts, onChange }: { exp
     <>
       <div className="glass-card mb-5 flex flex-wrap items-center justify-between gap-3 border-2 border-accent-pink/40 p-4">
         <div className="min-w-0">
-          <div className="font-semibold text-white">📣 Se faire référencer auprès des experts</div>
+          <div className="font-semibold text-white"><Ico n="bell" /> Se faire référencer auprès des experts</div>
           <p className="text-sm text-white/65">
             Garage nouveau ou repris ? Un assistant prépare un email à ton logo — coordonnées, Kbis, taux horaires T1, T2, T3, peinture et ingrédients — et l&apos;envoie à chaque cabinet d&apos;expertise.
             {liste.length > 0
