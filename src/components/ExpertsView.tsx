@@ -5,6 +5,9 @@ import { supabase } from "@/lib/supabaseClient";
 import { messageErreur } from "@/lib/format";
 import { Expert } from "@/lib/types";
 import BandeauReferencementExperts from "@/components/experts/BandeauReferencementExperts";
+import ModalShell from "@/components/ModalShell";
+import CarteContact, { LigneContact, formaterTel, lienCarte, lienTelephone } from "@/components/annuaire/CarteContact";
+import { BarreAnnuaire, GrilleContacts, type TriAnnuaire } from "@/components/annuaire/GrilleContacts";
 
 const EMPTY = {
   cabinet: "", adresse: "", code_postal: "", ville: "", tel: "", email: "",
@@ -20,6 +23,7 @@ export default function ExpertsView() {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormE>({ ...EMPTY });
+  const [tri, setTri] = useState<TriAnnuaire>("az");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,79 +73,87 @@ export default function ExpertsView() {
       {/* v13.40 — se faire référencer auprès de tous les cabinets */}
       <BandeauReferencementExperts experts={rows} onChange={load} />
 
-      <div className="flex items-center justify-between mb-4">
-        <input className="field-input max-w-sm" placeholder="Rechercher un cabinet / expert…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <button onClick={ouvrirAjout} className="btn-primary">+ Cabinet</button>
-      </div>
+      <BarreAnnuaire
+        q={q}
+        onQ={setQ}
+        placeholder="Rechercher un cabinet, un expert, une ville…"
+        tri={tri}
+        onTri={setTri}
+        total={rows.length}
+        visibles={filtered.length}
+        actions={<button onClick={ouvrirAjout} className="btn-primary whitespace-nowrap">+ Cabinet</button>}
+      />
 
       {showForm && (
-        <div className="glass-card p-5 mb-5">
-          <h3 className="font-semibold text-white mb-3">{editingId ? "Modifier le cabinet" : "Nouveau cabinet"}</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <input className="field-input" placeholder="Cabinet *" value={form.cabinet} onChange={(e) => set("cabinet", e.target.value)} />
-            <input className="field-input" placeholder="Téléphone cabinet" value={form.tel} onChange={(e) => set("tel", e.target.value)} />
-            <input className="field-input" placeholder="Email cabinet" value={form.email} onChange={(e) => set("email", e.target.value)} />
-            <input className="field-input" placeholder="Adresse" value={form.adresse} onChange={(e) => set("adresse", e.target.value)} />
-            <input className="field-input" placeholder="Code postal" value={form.code_postal} onChange={(e) => set("code_postal", e.target.value)} />
-            <input className="field-input" placeholder="Ville" value={form.ville} onChange={(e) => set("ville", e.target.value)} />
-            <input className="field-input" placeholder="Nom de l'expert" value={form.expert_nom} onChange={(e) => set("expert_nom", e.target.value)} />
-            <input className="field-input" placeholder="Téléphone expert" value={form.expert_tel} onChange={(e) => set("expert_tel", e.target.value)} />
-            <input className="field-input" placeholder="Email expert" value={form.expert_email} onChange={(e) => set("expert_email", e.target.value)} />
+        <ModalShell title={editingId ? "Modifier le cabinet" : "Nouveau cabinet"} onClose={() => { setShowForm(false); setEditingId(null); }} maxWidth="max-w-2xl">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="sm:col-span-2"><label className="field-label !mb-0.5">Cabinet *</label><input className="field-input" value={form.cabinet} onChange={(e) => set("cabinet", e.target.value)} /></div>
+            <div><label className="field-label !mb-0.5">Téléphone du cabinet</label><input className="field-input" type="tel" value={form.tel} onChange={(e) => set("tel", e.target.value)} /></div>
+            <div><label className="field-label !mb-0.5">E-mail du cabinet</label><input className="field-input" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} /></div>
+            <div className="sm:col-span-2"><label className="field-label !mb-0.5">Adresse</label><input className="field-input" value={form.adresse} onChange={(e) => set("adresse", e.target.value)} /></div>
+            <div className="grid grid-cols-[7rem_1fr] gap-2 sm:col-span-2">
+              <div><label className="field-label !mb-0.5">Code postal</label><input className="field-input" value={form.code_postal} onChange={(e) => set("code_postal", e.target.value)} /></div>
+              <div><label className="field-label !mb-0.5">Ville</label><input className="field-input" value={form.ville} onChange={(e) => set("ville", e.target.value)} /></div>
+            </div>
+            <div className="sm:col-span-2 mt-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mea-texte-3)" }}>Expert référent</div>
+            <div className="sm:col-span-2"><label className="field-label !mb-0.5">Nom de l&apos;expert</label><input className="field-input" value={form.expert_nom} onChange={(e) => set("expert_nom", e.target.value)} /></div>
+            <div><label className="field-label !mb-0.5">Téléphone de l&apos;expert</label><input className="field-input" type="tel" value={form.expert_tel} onChange={(e) => set("expert_tel", e.target.value)} /></div>
+            <div><label className="field-label !mb-0.5">E-mail de l&apos;expert</label><input className="field-input" type="email" value={form.expert_email} onChange={(e) => set("expert_email", e.target.value)} /></div>
+            <div className="sm:col-span-2"><label className="field-label !mb-0.5">Commentaire</label><textarea className="field-input" rows={2} value={form.notes} onChange={(e) => set("notes", e.target.value)} /></div>
           </div>
-          <textarea className="field-input mt-3" rows={2} placeholder="Commentaire" value={form.notes} onChange={(e) => set("notes", e.target.value)} />
-          <div className="flex justify-end gap-2 mt-3">
-            <button onClick={() => { setShowForm(false); setEditingId(null); }} className="btn-ghost">Annuler</button>
-            <button onClick={enregistrer} disabled={saving} className="btn-primary">{saving ? "Enregistrement…" : editingId ? "Enregistrer" : "Ajouter"}</button>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button onClick={() => { setShowForm(false); setEditingId(null); }} className="btn-ghost w-full sm:w-auto">Annuler</button>
+            <button onClick={enregistrer} disabled={saving || !form.cabinet.trim()} className="btn-primary w-full sm:w-auto">{saving ? "Enregistrement…" : editingId ? "Enregistrer" : "Ajouter"}</button>
           </div>
-        </div>
+        </ModalShell>
       )}
 
-      {/* v11.4 — sans largeur minimale, le tableau se comprimait jusqu'à une
-          lettre par colonne sur téléphone au lieu de défiler. */}
-      <div className="glass-card overflow-x-auto">
-        <table className="w-full min-w-[50rem] text-sm">
-          <thead className="text-left text-white/50">
-            <tr>
-              <th className="px-5 py-3 font-medium">Cabinet</th>
-              <th className="px-5 py-3 font-medium">Expert</th>
-              <th className="px-5 py-3 font-medium">Téléphone</th>
-              <th className="px-5 py-3 font-medium">Email</th>
-              <th className="px-5 py-3 font-medium">Ville</th>
-              <th className="px-5 py-3 font-medium">Origine</th>
-              <th className="px-5 py-3 font-medium">Déclaration</th>
-              <th className="px-5 py-3 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && <tr><td colSpan={8} className="px-5 py-8 text-center text-white/40">Chargement…</td></tr>}
-            {!loading && filtered.length === 0 && (
-              <tr><td colSpan={8} className="px-5 py-8 text-center text-white/40">Aucun cabinet. Ils s&apos;ajoutent automatiquement depuis les dossiers.</td></tr>
-            )}
-            {filtered.map((r) => (
-              <tr key={r.id} className="border-t border-white/5 hover:bg-white/5">
-                <td className="px-5 py-3 font-medium text-white">{r.cabinet || "—"}</td>
-                <td className="px-5 py-3 text-white/80">{r.expert_nom || "—"}</td>
-                <td className="px-5 py-3 text-white/80">{r.tel || r.expert_tel || "—"}</td>
-                <td className="px-5 py-3 text-white/80">{r.email || r.expert_email || "—"}</td>
-                <td className="px-5 py-3 text-white/80">{r.ville || "—"}</td>
-                <td className="px-5 py-3">
-                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${r.source === "auto" ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-700"}`}>
-                    {r.source === "auto" ? "Auto" : "Manuel"}
-                  </span>
-                </td>
-                <td className="px-5 py-3 text-xs text-white/60">
-                  {r.declaration_envoyee_le ? <span className="text-emerald-300">✓ {new Date(r.declaration_envoyee_le).toLocaleDateString("fr-FR")}</span> : "—"}
-                </td>
-                <td className="px-5 py-3 text-right whitespace-nowrap">
-                  <button onClick={() => ouvrirEdition(r)} className="text-accent-pink hover:underline mr-3">Modifier</button>
-                  <button onClick={() => supprimer(r.id)} className="text-white/40 hover:text-rose-300">Suppr.</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
+      <GrilleContacts
+        lignes={filtered}
+        nomDe={(r) => r.cabinet}
+        tri={tri}
+        loading={loading}
+        vide={
+          term ? (
+            <>Aucun cabinet ne correspond à « <strong>{q.trim()}</strong> ».</>
+          ) : (
+            <><strong>Aucun cabinet d&apos;expertise pour l&apos;instant.</strong><br />Ils s&apos;ajoutent automatiquement à l&apos;import d&apos;un rapport — ou avec le bouton « + Cabinet ».</>
+          )
+        }
+        rendre={(r) => (
+          <CarteContact
+            key={r.id}
+            famille="expert"
+            nom={r.cabinet}
+            sousTitre={r.expert_nom ? <>Expert : <span style={{ color: "var(--mea-texte-2)" }}>{r.expert_nom}</span></> : "Expert non renseigné"}
+            lignes={
+              <>
+                <LigneContact ico="📞" href={lienTelephone(r.tel || r.expert_tel)}>{r.tel ? formaterTel(r.tel) : r.expert_tel ? `${formaterTel(r.expert_tel)} (expert)` : null}</LigneContact>
+                <LigneContact ico="✉️" href={r.email || r.expert_email ? `mailto:${r.email || r.expert_email}` : null}>{r.email || r.expert_email}</LigneContact>
+                {r.expert_nom && (r.expert_tel || r.expert_email) && (r.tel || r.email) && (
+                  <LigneContact ico="👤" href={r.expert_tel ? lienTelephone(r.expert_tel) : r.expert_email ? `mailto:${r.expert_email}` : null}>
+                    {[r.expert_tel ? formaterTel(r.expert_tel) : null, r.expert_email].filter(Boolean).join(" · ")}
+                  </LigneContact>
+                )}
+                <LigneContact ico="📍" href={lienCarte(r.adresse, r.code_postal, r.ville)} externe>{[r.adresse, [r.code_postal, r.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ") || null}</LigneContact>
+              </>
+            }
+            note={r.notes}
+            etiquettes={
+              <>
+                <span className="etiquette-contact">{r.source === "auto" ? "Créé depuis un dossier" : "Saisi à la main"}</span>
+                {r.declaration_envoyee_le ? (
+                  <span className="etiquette-contact ok" title="Déclaration du garage envoyée à ce cabinet">✓ Référencé le {new Date(r.declaration_envoyee_le).toLocaleDateString("fr-FR")}</span>
+                ) : (
+                  <span className="etiquette-contact warn" title="Ce cabinet n'a pas encore reçu la déclaration du garage">Pas encore référencé</span>
+                )}
+              </>
+            }
+            onModifier={() => ouvrirEdition(r)}
+            onSupprimer={() => supprimer(r.id)}
+          />
+        )}
+      />
     </div>
   );
 }

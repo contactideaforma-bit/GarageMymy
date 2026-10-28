@@ -1,42 +1,68 @@
 "use client";
 
+// ============================================================
+//  BASE DE DONNÉES (v13.52 — refonte) : trois familles de contacts
+//  (clients, assurances, experts / cabinets) présentées en CARTES,
+//  avec onglets comptés, recherche, tri A → Z / récents et formulaires
+//  en modale. Les vues gardent leur logique (ClientsView, AssureursView,
+//  ExpertsView) ; seule la présentation change.
+// ============================================================
+
 import { useEffect, useState } from "react";
 import ClientsView from "@/components/ClientsView";
 import ExpertsView from "@/components/ExpertsView";
 import AssureursView from "@/components/AssureursView";
 import ConfigBanner from "@/components/ConfigBanner";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 type Tab = "clients" | "assureurs" | "experts";
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: "clients", label: "Clients" },
-  { key: "assureurs", label: "Assurances" },
-  { key: "experts", label: "Experts / cabinets" },
+const TABS: { key: Tab; label: string; ico: string; table: "clients" | "assureurs" | "experts" }[] = [
+  { key: "clients", label: "Clients", ico: "👤", table: "clients" },
+  { key: "assureurs", label: "Assurances", ico: "🛡️", table: "assureurs" },
+  { key: "experts", label: "Experts / cabinets", ico: "🧑‍💼", table: "experts" },
 ];
 
 export default function AnnuairePage() {
   const [tab, setTab] = useState<Tab>("clients");
+  const [nb, setNb] = useState<Record<Tab, number | null>>({ clients: null, assureurs: null, experts: null });
+
   // v13.40 — lien direct vers un onglet : /annuaire?tab=experts
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get("tab");
     if (t === "experts" || t === "assureurs" || t === "clients") setTab(t);
   }, []);
 
+  // Compteurs des onglets (best-effort, rafraîchis à chaque changement d'onglet).
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    let annule = false;
+    (async () => {
+      const res = await Promise.all(TABS.map((t) => supabase.from(t.table).select("id", { count: "exact", head: true })));
+      if (annule) return;
+      const suivant: Record<Tab, number | null> = { clients: null, assureurs: null, experts: null };
+      TABS.forEach((t, i) => { suivant[t.key] = res[i].count ?? null; });
+      setNb(suivant);
+    })();
+    return () => { annule = true; };
+  }, [tab]);
+
   return (
     <div>
-      <h1 className="titre-page mb-4">Base de données</h1>
+      <div className="mb-4">
+        <h1 className="titre-page">Base de données</h1>
+        <p className="mt-1 text-sm" style={{ color: "var(--mea-texte-3)" }}>
+          Tous les contacts du garage, remplis automatiquement à l&apos;import des rapports. Un tap sur un numéro ou un e-mail pour appeler ou écrire.
+        </p>
+      </div>
       <ConfigBanner />
 
-      <div className="inline-flex rounded-xl border border-white/10 bg-white/5 p-1 mb-5">
+      <div className="annuaire-onglets" role="tablist">
         {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`rounded-lg px-4 py-1.5 text-sm transition-colors ${
-              tab === t.key ? "bg-white/15 text-white font-medium" : "text-white/60 hover:text-white"
-            }`}
-          >
+          <button key={t.key} type="button" role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)} className={`annuaire-onglet ${tab === t.key ? "actif" : ""}`}>
+            <span aria-hidden>{t.ico}</span>
             {t.label}
+            {nb[t.key] != null && <span className="nb">{nb[t.key]}</span>}
           </button>
         ))}
       </div>
