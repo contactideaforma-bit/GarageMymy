@@ -30,7 +30,7 @@ import EnvoiPostalModal from "./EnvoiPostalModal";
 
 export type CanalPapier = "lrar" | "courrier" | "remis_en_main";
 
-const LRAR_PAR_DEFAUT = new Set(["mise_en_demeure", "reclamation_assureur", "mise_en_demeure_retrait", "attribution_gage", "position_assureur"]);
+const LRAR_PAR_DEFAUT = new Set(["mise_en_demeure", "reclamation_assureur", "mise_en_demeure_retrait", "attribution_gage", "position_assureur", "mise_en_demeure_recours", "recours_direct"]);
 
 export default function CourrierPapierModal({ courrier, dossier, numeroFacture, mode = "envoi", onClose, onConfirmer }: {
   courrier: CourrierRecouvrement;

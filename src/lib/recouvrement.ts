@@ -551,6 +551,11 @@ export const LIBELLE_TYPE_COURRIER: Record<string, string> = {
   accord_reparation_expert: "Demande d'accord de réparation (expert)",
   position_assureur: "Mise en demeure de prise de position (assureur)",
   remise_commissaire: "Remise du titre au commissaire de justice",
+  // v13.53 — recours direct contre l'assureur du responsable
+  mandat_recours: "Mandat de recouvrement (recours direct)",
+  recours_direct: "Lettre de recours direct (assureur du responsable)",
+  relance_recours: "Relance de recours direct",
+  mise_en_demeure_recours: "Mise en demeure de régler (recours direct)",
 };
 
 /* ===================== Étapes réalisées (v13.12) ====================== */

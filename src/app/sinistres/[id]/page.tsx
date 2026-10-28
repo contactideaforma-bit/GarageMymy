@@ -24,6 +24,7 @@ import {
 import { calculeProchaineAction } from "@/lib/actions";
 import SuggestionAction from "@/components/SuggestionAction";
 import LitigePanel from "@/components/LitigePanel";
+import RecoursDirectPanel from "@/components/RecoursDirectPanel";
 import HistoriqueLitige from "@/components/HistoriqueLitige";
 import EmailsDossier from "@/components/EmailsDossier";
 import EnvoisPostauxDossier from "@/components/EnvoisPostauxDossier";
@@ -347,7 +348,7 @@ export default function DossierDetailPage() {
   async function toggleModeCession() {
     if (!dossier) return;
     const next = !dossier.mode_cession;
-    const patch = next ? { mode_cession: true, mode_pec: false } : { mode_cession: false };
+    const patch = next ? { mode_cession: true, mode_pec: false, mode_recours: false } : { mode_cession: false };
     setDossier({ ...dossier, ...patch });
     const { error } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
     if (error) {
@@ -359,12 +360,29 @@ export default function DossierDetailPage() {
   async function toggleModePec() {
     if (!dossier) return;
     const next = !dossier.mode_pec;
-    const patch = next ? { mode_pec: true, mode_cession: false } : { mode_pec: false };
+    const patch = next ? { mode_pec: true, mode_cession: false, mode_recours: false } : { mode_pec: false };
     setDossier({ ...dossier, ...patch });
     const { error } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
     if (error) {
       setDossier(dossier);
       alert("Impossible de changer le mode prise en charge (migration v32 exécutée ?).");
+    }
+  }
+
+  // RECOURS DIRECT (v13.53) : troisième circuit de paiement direct, exclusif
+  // des deux autres. Activer ouvre la procédure à l'étape « mandat » ; lever
+  // conserve toutes les informations et les courriers.
+  async function toggleModeRecours() {
+    if (!dossier) return;
+    const next = !dossier.mode_recours;
+    const patch: Partial<Dossier> = next
+      ? { mode_recours: true, mode_cession: false, mode_pec: false, recours_depuis: dossier.recours_depuis || new Date().toISOString(), recours_etape: dossier.recours_etape || "mandat", recours_resolu_le: null, recours_date_constat: dossier.recours_date_constat || dossier.date_sinistre || null }
+      : { mode_recours: false };
+    setDossier({ ...dossier, ...patch });
+    const { error } = await supabase.from("dossiers").update(patch).eq("id", dossier.id);
+    if (error) {
+      setDossier(dossier);
+      alert("Impossible de changer le mode recours direct (migration v103 exécutée ?).");
     }
   }
 
@@ -731,6 +749,8 @@ export default function DossierDetailPage() {
   // Prise en charge : accord fourni par l'expert, rempli par le garage et
   // joint à la facture → paiement direct (ce n'est PAS une cession de créance).
   const enPec = Boolean(dossier.mode_pec);
+  // v13.53 — recours direct : la facture est réclamée à l'assureur adverse, copie au client.
+  const enRecours = Boolean(dossier.mode_recours);
   const pecPieces = pieces.filter((p) => p.type === "prise_en_charge");
   const pecJointe = pecPieces.length > 0;
   // v12.4 — les autres pièces déposées (carte grise, constat, permis…) sont
@@ -811,7 +831,7 @@ export default function DossierDetailPage() {
     documents.length + ordres.length + cessions.length + restitutions.length === 0;
 
   const destinatairesDocument = (doc: Document): string =>
-    [dossier.expert_email || dossier.cabinet_email, doc.type === "facture" && (enCession || enPec) ? dossier.assureur_email : dossier.client_email]
+    [dossier.expert_email || dossier.cabinet_email, doc.type === "facture" && enRecours ? dossier.recours_tiers_assureur_email : doc.type === "facture" && (enCession || enPec) ? dossier.assureur_email : dossier.client_email, doc.type === "facture" && enRecours ? dossier.client_email : null]
       .filter(Boolean)
       .join(", ");
 
@@ -881,6 +901,11 @@ export default function DossierDetailPage() {
                   PRISE EN CHARGE
                 </span>
               )}
+              {dossier.mode_recours && (
+                <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-teal-100 text-teal-800" title="Recours direct contre l'assureur du responsable">
+                  ⚖️ RECOURS DIRECT
+                </span>
+              )}
               {dossier.litige && (
                 <span className="inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold bg-rose-100 text-rose-700">
                   ⚠ LITIGE
@@ -948,6 +973,7 @@ export default function DossierDetailPage() {
           <StatutBadge statut={dossier.statut} />
           {dossier.mode_cession && <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-700">CESSION</span>}
           {dossier.mode_pec && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-700">PRISE EN CHARGE</span>}
+          {dossier.mode_recours && <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-800">⚖️ RECOURS DIRECT</span>}
           {dossier.litige && <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-semibold text-rose-700">⚠ LITIGE</span>}
           {dossier.retard_paiement && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">⏰ RETARD</span>}
         </div>
@@ -1123,7 +1149,38 @@ export default function DossierDetailPage() {
             </div>
           )}
         </div>
+
+        {/* RECOURS DIRECT (v13.53) : client non responsable → le garage,
+            mandaté, réclame directement à l'assureur du responsable. */}
+        <div className="mt-3 border-t border-white/10 pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm text-white/70">
+              <span className="font-semibold text-white">Recours direct</span>
+              <span className="text-white/50"> — client non responsable : le garage, mandaté par le client, réclame les réparations directement à l&apos;assureur du responsable (art. L. 124-3). Pas de franchise, pas de malus.</span>
+            </div>
+            <button
+              onClick={toggleModeRecours}
+              className="flex items-center gap-2 text-sm text-white/70 hover:text-white transition-colors"
+              aria-pressed={Boolean(dossier.mode_recours)}
+            >
+              {dossier.mode_recours ? "Activé" : "Désactivé"}
+              <span className={`relative h-5 w-9 rounded-full transition-colors ${dossier.mode_recours ? "bg-accent-teal" : "bg-white/20"}`}>
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${dossier.mode_recours ? "left-[1.15rem]" : "left-0.5"}`} />
+              </span>
+            </button>
+          </div>
+        </div>
       </section>
+
+      {dossier.mode_recours && (
+        <RecoursDirectPanel
+          dossier={dossier}
+          documents={documents}
+          pieces={pieces}
+          onPatch={(patch) => setDossier((d) => (d ? { ...d, ...patch } : d))}
+          onLever={toggleModeRecours}
+        />
+      )}
 
       {/* Infos */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">

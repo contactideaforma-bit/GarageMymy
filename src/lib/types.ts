@@ -94,6 +94,24 @@ export type Dossier = {
   /** v13.20 — trace des litiges résolus (migration v84). */
   litige_resolu_le?: string | null;
   litige_historique?: LitigePasse[] | null;
+  // v13.53 — RECOURS DIRECT (migration v103) : le garage, mandaté par le
+  // client non responsable, réclame directement à l'assureur adverse.
+  mode_recours?: boolean | null;
+  recours_depuis?: string | null;
+  recours_etape?: string | null; // mandat | recours_envoye | relance | mise_en_demeure | mediateur | injonction | regle
+  recours_resolu_le?: string | null;
+  recours_tiers_nom?: string | null;
+  recours_tiers_immat?: string | null;
+  recours_tiers_assureur?: string | null;
+  recours_tiers_assureur_adresse?: string | null;
+  recours_tiers_assureur_email?: string | null;
+  recours_tiers_assureur_tel?: string | null;
+  recours_tiers_police?: string | null;
+  recours_sinistre_adverse?: string | null;
+  recours_date_constat?: string | null;
+  recours_part_responsabilite?: number | null;
+  recours_vetuste?: number | null;
+  recours_notes?: string | null;
   // v12.7 — mode « retard de paiement » assisté (migration v70)
   retard_paiement?: boolean | null;
   retard_depuis?: string | null;
@@ -372,7 +390,7 @@ export type CourrierRecouvrement = {
   created_at: string;
   dossier_id: string;
   document_id: string | null;
-  type: "relance" | "mise_en_demeure" | "mise_en_demeure_retrait" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire" | "requete_vente_1903" | "attribution_gage" | "accord_reparation_expert" | "position_assureur";
+  type: "relance" | "mise_en_demeure" | "mise_en_demeure_retrait" | "saisine_conciliateur" | "reclamation_assureur" | "requete_injonction" | "transmission_avocat" | "remise_commissaire" | "requete_vente_1903" | "attribution_gage" | "accord_reparation_expert" | "position_assureur" | "mandat_recours" | "recours_direct" | "relance_recours" | "mise_en_demeure_recours";
   destinataire: "client" | "assurance" | "tiers";
   destinataire_nom: string | null;
   destinataire_adresse: string | null;

@@ -354,6 +354,7 @@ export default function SinistresPage() {
       if (filtreLitige === "oui" && !d.litige) return false;
       if (filtreLitige === "non" && d.litige) return false;
       if (filtreLitige === "retard" && !d.retard_paiement) return false; // v12.7
+      if (filtreLitige === "recours" && !d.mode_recours) return false; // v13.53
       // Période : comparaison sur les 10 premiers caractères (AAAA-MM-JJ),
       // ce qui marche aussi bien pour une date que pour un timestamp.
       if (du || au) {
@@ -513,6 +514,7 @@ export default function SinistresPage() {
           <option value="oui">⚠ En litige</option>
           <option value="non">Sans litige</option>
           <option value="retard">⏰ Retard de paiement</option>
+          <option value="recours">⚖️ Recours direct</option>
         </select>
       </div>
 
@@ -682,6 +684,7 @@ export default function SinistresPage() {
         ))}
         <button type="button" className={`chip ${filtreLitige === "oui" ? "actif" : ""}`} onClick={() => setFiltreLitige(filtreLitige === "oui" ? "" : "oui")}>⚠ Litige</button>
         <button type="button" className={`chip ${filtreLitige === "retard" ? "actif" : ""}`} onClick={() => setFiltreLitige(filtreLitige === "retard" ? "" : "retard")}>⏰ Retard</button>
+        <button type="button" className={`chip ${filtreLitige === "recours" ? "actif" : ""}`} onClick={() => setFiltreLitige(filtreLitige === "recours" ? "" : "recours")}>⚖️ Recours</button>
       </div>
 
       {/* Pastilles des filtres actifs — on voit ce qui est appliqué même
@@ -694,7 +697,7 @@ export default function SinistresPage() {
           {filtreExpert && <PastilleFiltre label={filtreExpert} onRetirer={() => setFiltreExpert("")} />}
           {filtrePart && <PastilleFiltre label={nomParticularite} onRetirer={() => setFiltrePart("")} />}
           {filtreLitige && (
-            <PastilleFiltre label={filtreLitige === "oui" ? "⚠ En litige" : filtreLitige === "retard" ? "⏰ Retard de paiement" : "Sans litige"} onRetirer={() => setFiltreLitige("")} />
+            <PastilleFiltre label={filtreLitige === "oui" ? "⚠ En litige" : filtreLitige === "retard" ? "⏰ Retard de paiement" : filtreLitige === "recours" ? "⚖️ Recours direct" : "Sans litige"} onRetirer={() => setFiltreLitige("")} />
           )}
           {(du || au) && (
             <PastilleFiltre
@@ -782,6 +785,11 @@ export default function SinistresPage() {
               {d.mode_cession && (
                 <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
                   Cession
+                </span>
+              )}
+              {d.mode_recours && (
+                <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-800" title="Recours direct contre l'assureur du responsable">
+                  ⚖️ Recours
                 </span>
               )}
               {(partsParDossier[d.id] || []).slice(0, 2).map((p) => (
@@ -899,6 +907,11 @@ export default function SinistresPage() {
                     {d.mode_cession && (
                       <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-700">
                         Cession
+                      </span>
+                    )}
+                    {d.mode_recours && (
+                      <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[11px] font-semibold text-teal-800" title="Recours direct contre l'assureur du responsable">
+                        ⚖️ Recours
                       </span>
                     )}
                   </div>

@@ -70,6 +70,21 @@ export function sectionsRecap(dossier: Dossier, documents: Document[]): SectionR
         { cle: "date_expertise", label: "Date d'expertise", valeur: dossier.date_expertise ? formatDate(dossier.date_expertise) : "" },
       ],
     },
+    // v13.53 — recours direct : le tiers responsable et son assureur.
+    ...(dossier.mode_recours
+      ? [{
+          titre: "Recours direct",
+          lignes: [
+            { cle: "recours_tiers_nom", label: "Tiers responsable", valeur: dossier.recours_tiers_nom || "" },
+            { cle: "recours_tiers_immat", label: "Immat. du tiers", valeur: dossier.recours_tiers_immat || "" },
+            { cle: "recours_tiers_assureur", label: "Assureur adverse", valeur: dossier.recours_tiers_assureur || "" },
+            { cle: "recours_tiers_assureur_tel", label: "Tél. assureur adverse", valeur: dossier.recours_tiers_assureur_tel || "", tel: true },
+            { cle: "recours_tiers_assureur_email", label: "Email assureur adverse", valeur: dossier.recours_tiers_assureur_email || "", email: true },
+            { cle: "recours_sinistre_adverse", label: "N° sinistre adverse", valeur: dossier.recours_sinistre_adverse || "" },
+            { cle: "recours_etape", label: "Étape", valeur: dossier.recours_etape || "" },
+          ],
+        }]
+      : []),
     {
       titre: "Montant",
       lignes: [

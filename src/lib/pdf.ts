@@ -2563,7 +2563,7 @@ export async function buildCourrierRecouvrementPdf(c: CourrierRecouvrement, doss
 }
 
 export function nomFichierCourrier(c: CourrierRecouvrement, numeroFacture?: string | null): string {
-  const GENRES: Record<string, string> = { relance: "Relance", mise_en_demeure: "Mise en demeure", mise_en_demeure_retrait: "Mise en demeure retrait", accord_reparation_expert: "Demande accord réparation", position_assureur: "Mise en demeure assureur", requete_vente_1903: "Demande vente 1903", attribution_gage: "Transfert propriété gage", saisine_conciliateur: "Saisine conciliateur", reclamation_assureur: "Réclamation assureur", requete_injonction: "Requête injonction", transmission_avocat: "Dossier avocat", remise_commissaire: "Remise commissaire de justice" };
+  const GENRES: Record<string, string> = { relance: "Relance", mise_en_demeure: "Mise en demeure", mise_en_demeure_retrait: "Mise en demeure retrait", accord_reparation_expert: "Demande accord réparation", position_assureur: "Mise en demeure assureur", requete_vente_1903: "Demande vente 1903", attribution_gage: "Transfert propriété gage", saisine_conciliateur: "Saisine conciliateur", reclamation_assureur: "Réclamation assureur", requete_injonction: "Requête injonction", transmission_avocat: "Dossier avocat", remise_commissaire: "Remise commissaire de justice", mandat_recours: "Mandat recours direct", recours_direct: "Recours direct assureur adverse", relance_recours: "Relance recours direct", mise_en_demeure_recours: "Mise en demeure recours direct" };
   const genre = GENRES[c.type] || "Courrier";
   return nomFichierSur(numeroFacture ? `${genre} facture N°${numeroFacture}` : `${genre} ${dateFr(c.date_courrier)}`);
 }

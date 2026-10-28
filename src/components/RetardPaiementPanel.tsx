@@ -423,7 +423,7 @@ export default function RetardPaiementPanel({
   };
 
   const factureDe = (c: CourrierRecouvrement) => factures.find((f) => f.id === c.document_id) || principale;
-  const courriersDe = (types: TypeCourrier[]) => courriers.filter((c) => types.includes(c.type));
+  const courriersDe = (types: TypeCourrier[]) => courriers.filter((c) => (types as string[]).includes(c.type));
 
   /* --------------------------- Rendu d'une étape ------------------------ */
 
@@ -454,7 +454,7 @@ export default function RetardPaiementPanel({
             <div className="flex flex-wrap gap-1">
               <button onClick={() => apercuCourrierRecouvrementPdf(c, dossier, factureDe(c)?.numero)} className="btn-ghost btn-compact">Aperçu</button>
               <button onClick={() => generateCourrierRecouvrementPdf(c, dossier, factureDe(c)?.numero)} className="btn-ghost btn-compact">⬇ PDF</button>
-              {c.statut !== "envoye" && <button onClick={() => setCourrierModal({ type: c.type, courrier: c })} className="btn-ghost btn-compact">Modifier / signer</button>}
+              {c.statut !== "envoye" && <button onClick={() => setCourrierModal({ type: c.type as TypeCourrier, courrier: c })} className="btn-ghost btn-compact">Modifier / signer</button>}
               {c.statut !== "envoye" && <button onClick={() => courrierEnvoyeParEmail(c)} className="btn-ghost btn-compact">✉ Email</button>}
               {c.statut !== "envoye" && <button onClick={() => setEnvoiModal(c)} className="btn-primary btn-compact">📮 Imprimer et poster</button>}
               {c.statut === "envoye" && c.canal_envoi === "lrar" && !arJoint(piecesAR, c.id) && <button onClick={() => setArModal(c)} className="btn-primary btn-compact" title="Photo de la preuve de dépôt / de l'avis de réception, rangée dans les pièces du dossier">📬 Joindre l&apos;AR</button>}
