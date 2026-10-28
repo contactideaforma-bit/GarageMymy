@@ -75,7 +75,7 @@ export type CollaborateurDocument = {
   signe_le: string | null; envoye_le: string | null; envoye_a: string | null; notes: string | null;
 };
 
-export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "collaborateur_documents" | "ventes" | "comptes_etat" | "comptes_purges" | "prospects" | "prospect_documents" | "prospect_interactions" | "demandes_rappel";
+export type TableAdmin = "collaborateurs" | "abonnements" | "abonnement_mensualites" | "collaborateur_reglements" | "collaborateur_demandes" | "collaborateur_documents" | "ventes" | "comptes_etat" | "comptes_purges" | "prospects" | "prospect_documents" | "prospect_interactions" | "demandes_rappel" | "mutualise_experts" | "mutualise_assureurs";
 export type CompteAuth = { id: string; email: string };
 export type EtatCompteAdmin = {
   owner_id: string; etat: "actif" | "suspendu" | "lecture_seule" | "ferme"; motif: string | null; message: string | null;
@@ -105,6 +105,8 @@ export const supprimerLigne = (table: TableAdmin, id: string) => post({ action: 
 export const enregistrerParametres = (valeur: Parametres) => post<{ parametres: Parametres }>({ action: "parametres", valeur });
 export const genererMensualites = (abonnement_id: string) => post<{ ajoutees: number }>({ action: "generer_mensualites", abonnement_id });
 export const genererReleve = () => post<{ ajoutees: number; total: number }>({ action: "generer_releve" });
+// v13.51 — consolide la base mutualisée experts & assureurs depuis tous les garages
+export const consoliderAnnuaire = () => post<{ experts: number; assureurs: number; lus: { experts: number; assureurs: number } }>({ action: "consolider_annuaire" });
 export async function lireComptes(): Promise<CompteAuth[]> {
   const res = await fetchAuth("/api/admin/donnees?table=comptes");
   const r = await lireReponse<{ rows: CompteAuth[] }>(res);

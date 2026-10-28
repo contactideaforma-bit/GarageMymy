@@ -15,6 +15,8 @@ import { appliquerFinsDeContrat, comptesAPurger, definirEtat, purgerCompte, Etat
 import { reactiverSiRegularise } from "@/lib/admin/paiementsServeur";
 import { ErreurInscription, activerInscription } from "@/lib/admin/inscriptionServeur";
 import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from "@/lib/admin/economie";
+import { consoliderAssureurs, consoliderExperts } from "@/lib/admin/annuaireMutualise";
+import type { Assureur, Expert } from "@/lib/types";
 
 // ============================================================
 //  ESPACE ÉDITEUR — accès aux données d'administration (v53).
@@ -38,7 +40,7 @@ import { Formule, fusionnerParametres, lignesDues, Parametres, prixVente } from 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes", "collaborateur_documents", "ventes", "comptes_etat", "comptes_purges", "prospects", "prospect_documents", "prospect_interactions", "demandes_rappel"] as const;
+const TABLES = ["collaborateurs", "abonnements", "abonnement_mensualites", "collaborateur_reglements", "collaborateur_demandes", "collaborateur_documents", "ventes", "comptes_etat", "comptes_purges", "prospects", "prospect_documents", "prospect_interactions", "demandes_rappel", "mutualise_experts", "mutualise_assureurs"] as const;
 type Table = (typeof TABLES)[number];
 const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   collaborateurs: { col: "nom", asc: true },
@@ -56,6 +58,9 @@ const ORDRE: Record<Table, { col: string; asc: boolean }> = {
   prospect_interactions: { col: "created_at", asc: false },
   // v13.41 — demandes de rappel du parcours d'inscription en ligne
   demandes_rappel: { col: "created_at", asc: false },
+  // v13.51 — base mutualisée experts & assureurs (consolidée depuis tous les garages)
+  mutualise_experts: { col: "garages", asc: false },
+  mutualise_assureurs: { col: "garages", asc: false },
 };
 
 type Garde = { erreur: NextResponse; admin: null } | { erreur: null; admin: SupabaseClient };
@@ -474,6 +479,47 @@ export async function POST(req: Request) {
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }
     return NextResponse.json({ ok: true, ajoutees: nouvelles.length, total: dues.length });
+  }
+
+  // ---- BASE MUTUALISÉE (v13.51) : relire experts + assureurs de TOUS les
+  //      garages (service role, hors RLS), fusionner les doublons, compter
+  //      les garages, et mettre à jour les tables mutualisées SANS écraser
+  //      ce que l'éditeur a corrigé (notes, vérifié, partagé — non envoyés
+  //      dans l'upsert, donc conservés). Les clients
+  //      ne sont jamais lus.
+  if (body.action === "consolider_annuaire") {
+    const [ex, as] = await Promise.all([
+      admin.from("experts").select("*"),
+      admin.from("assureurs").select("*"),
+    ]);
+    if (ex.error) return NextResponse.json({ error: ex.error.message }, { status: 500 });
+    if (as.error) return NextResponse.json({ error: as.error.message }, { status: 500 });
+    const experts = consoliderExperts((ex.data || []) as (Expert & { owner_id?: string | null })[]);
+    const assureurs = consoliderAssureurs((as.data || []) as (Assureur & { owner_id?: string | null })[]);
+    const maj_le = new Date().toISOString();
+    // Une ligne cochée « vérifié » par l'éditeur n'est plus écrasée par les
+    // données des garages (seul son compteur de garages est rafraîchi).
+    const [vE, vA] = await Promise.all([
+      admin.from("mutualise_experts").select("cle").eq("verifie", true),
+      admin.from("mutualise_assureurs").select("cle").eq("verifie", true),
+    ]);
+    const verifE = new Set((vE.data || []).map((r) => r.cle as string));
+    const verifA = new Set((vA.data || []).map((r) => r.cle as string));
+    for (const r of experts.filter((x) => verifE.has(x.cle))) await admin.from("mutualise_experts").update({ garages: r.garages, maj_le }).eq("cle", r.cle);
+    for (const r of assureurs.filter((x) => verifA.has(x.cle))) await admin.from("mutualise_assureurs").update({ garages: r.garages, maj_le }).eq("cle", r.cle);
+    const expertsAEcrire = experts.filter((x) => !verifE.has(x.cle));
+    const assureursAEcrire = assureurs.filter((x) => !verifA.has(x.cle));
+    let erreur: string | null = null;
+    if (expertsAEcrire.length) {
+      const { error } = await admin.from("mutualise_experts").upsert(expertsAEcrire.map(({ notes: _n, ...r }) => ({ ...r, maj_le })), { onConflict: "cle" });
+      if (error) erreur = error.message;
+    }
+    if (!erreur && assureursAEcrire.length) {
+      const { error } = await admin.from("mutualise_assureurs").upsert(assureursAEcrire.map(({ notes: _n, ...r }) => ({ ...r, maj_le })), { onConflict: "cle" });
+      if (error) erreur = error.message;
+    }
+    if (erreur) return NextResponse.json({ error: erreur }, { status: 500 });
+    return NextResponse.json({ ok: true, experts: experts.length, assureurs: assureurs.length, lus: { experts: ex.data?.length || 0, assureurs: as.data?.length || 0 } });
   }
 
   // ---- CRUD générique sur la liste blanche
