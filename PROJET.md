@@ -305,6 +305,13 @@ PLAQUE_API_FOURNISSEUR=api-plaque-immatriculation  # ou apiplaqueimmatriculation
 - Fenêtre : cartes par section avec case à cocher pour exclure une section du texte partagé (ex. ne pas envoyer le montant au client), tél/email cliquables, aperçu du texte, choix du destinataire (libre / client / expert → pré-remplit le numéro), boutons WhatsApp · Messages · Mail · **Copier la fiche** (presse-papiers, repli `execCommand`).
 - Inventaire public `fonctionnalites.ts` mis à jour (badge Nouveau).
 
+### Ajouté v13.57 — Remise exceptionnelle à durée limitée · mise en service offerte / remisée · devis lisible (migration v106)
+- **Durée de la remise** (fiche prospect → Offre, compte manuel éditeur) : 1 / 3 / 6 / 12 mois ou définitive (`ParametresOffre.remise_supp_mois`, `DUREES_REMISE` dans `lib/prospects.ts`). `prixVente()` renvoie `mensualitePleine`, `remiseSupp {pct, mois}`, `mensualiteMoyenne12` (base de la prime du commercial : une remise de 3 mois n'ampute plus la prime comme une remise définitive).
+- **Mise en service** hors engagement : facturée / remisée 25-50 % / offerte (`mise_en_service_remise_pct`, `GESTES_MISE_EN_SERVICE`). Avec engagement elle reste offerte automatiquement.
+- **Facturation** : `ventes` + `remise_supp_mois`, `prix_plein_ht`, `mise_en_service_remise_pct` ; `abonnements` + `remise_supp_pct`, `remise_supp_fin`. Remise limitée en mensuel → `prix_ht` = prix plein et les N premières mensualités sont remisées (`montantMensualite(prix, periode, lancement, remiseSupp)` partagé par `lignesMensualites`, le cron et `generer_mensualites`) ; remise définitive → inchangé (`prix_ht` déjà remisé). En annuel la remise ne porte que sur les N douzièmes.
+- **Devis / contrat PDF** (`contratPdf.ts`, `contratGarage.ts`) : ligne « pendant N mois » + « mensualité ensuite », mise en service libellée selon le geste, et nouveau tableau « Ce que représente la première année » : mensualités détaillées (`echeancierPremiereAnnee`), sous-total abonnement, mise en service à part, total 1re année — l'ancien « Total sur 12 mois » mélangeait les deux sans le dire. Conditions particulières du contrat : même détail.
+- **Bug corrigé** : en-tête des PDF, le filet dégradé recouvrait la dernière ligne des coordonnées (« myeasyauto.fr ») → email + site sur une ligne, filet descendu.
+
 ## Ce qu'il reste à faire
 
 1. **Envoi de mails via Resend** (priorité suivante) : route serveur + composition depuis un dossier + **journal des mails** (table `emails` déjà créée). Nécessite `RESEND_API_KEY`.

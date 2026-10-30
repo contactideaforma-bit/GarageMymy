@@ -16,6 +16,7 @@ import RechercheSiren from "@/components/RechercheSiren";
 import { ChampAdmin, euros } from "@/components/admin/AdminShell";
 import { Collaborateur, SaisieCompteManuel, creerCompteGarageManuel, nomCollab } from "@/lib/admin/client";
 import { FORMULES, Formule, Parametres, Periodicite, prixVente } from "@/lib/admin/economie";
+import { DUREES_REMISE } from "@/lib/prospects";
 
 type Etape = "saisie" | "fini";
 type Resultat = Awaited<ReturnType<typeof creerCompteGarageManuel>>;
@@ -33,7 +34,7 @@ export default function CompteGarageModal({ p, collabs, onClose, onCree }: { p: 
   const [res, setRes] = useState<Resultat | null>(null);
 
   const [g, setG] = useState<SaisieCompteManuel["garage"]>({ nom: "", email: "", siret: "", adresse: "", cp: "", ville: "", tel: "", contactNom: "", contactFonction: "Gérant(e)" });
-  const [o, setO] = useState<SaisieCompteManuel["offre"]>({ formule: "essentiel", engagement_12: true, periodicite: "mensuel", remise_supp_pct: 0, date_debut: premierDuMoisProchain(), commercial_id: null, secretaire_id: null, notes: "" });
+  const [o, setO] = useState<SaisieCompteManuel["offre"]>({ formule: "essentiel", engagement_12: true, periodicite: "mensuel", remise_supp_pct: 0, remise_supp_mois: 0, date_debut: premierDuMoisProchain(), commercial_id: null, secretaire_id: null, notes: "" });
   const [avecAbonnement, setAvecAbonnement] = useState(true);
   const [envoyerEmail, setEnvoyerEmail] = useState(true);
 
@@ -42,7 +43,7 @@ export default function CompteGarageModal({ p, collabs, onClose, onCree }: { p: 
   const setGf = (k: keyof SaisieCompteManuel["garage"]) => (e: React.ChangeEvent<HTMLInputElement>) => setG((x) => ({ ...x, [k]: e.target.value }));
 
   const prix = useMemo(
-    () => prixVente(o.formule, { engagement12: o.engagement_12 || o.periodicite === "annuel", periodicite: o.periodicite, remiseSupp: Number(o.remise_supp_pct) || 0 }, p),
+    () => prixVente(o.formule, { engagement12: o.engagement_12 || o.periodicite === "annuel", periodicite: o.periodicite, remiseSupp: Number(o.remise_supp_pct) || 0, remiseSuppMois: Number(o.remise_supp_mois) || 0 }, p),
     [o, p]
   );
 
@@ -140,6 +141,13 @@ export default function CompteGarageModal({ p, collabs, onClose, onCree }: { p: 
               </select>
             </ChampAdmin>
             <ChampAdmin label="Remise exceptionnelle (%)"><input className="field-input text-right tabular-nums" type="number" min="0" max="30" step="0.5" value={o.remise_supp_pct ?? 0} onChange={(e) => setO((x) => ({ ...x, remise_supp_pct: Number(e.target.value) || 0 }))} /></ChampAdmin>
+            {Number(o.remise_supp_pct) > 0 && (
+              <ChampAdmin label="Durée de la remise">
+                <select className="field-input" value={o.remise_supp_mois ?? 0} onChange={(e) => setO((x) => ({ ...x, remise_supp_mois: Number(e.target.value) || 0 }))}>
+                  {DUREES_REMISE.map((d) => <option key={d.mois} value={d.mois}>{d.label}</option>)}
+                </select>
+              </ChampAdmin>
+            )}
             <ChampAdmin label="1re mensualité"><input className="field-input" type="date" value={o.date_debut || ""} onChange={(e) => setO((x) => ({ ...x, date_debut: e.target.value }))} /></ChampAdmin>
             <ChampAdmin label="Commercial (prime)"><select className="field-input" value={o.commercial_id || ""} onChange={(e) => setO((x) => ({ ...x, commercial_id: e.target.value || null }))}><option value="">— sans commercial —</option>{commerciaux.map((c) => <option key={c.id} value={c.id}>{nomCollab(c)}</option>)}</select></ChampAdmin>
             <ChampAdmin label="Chargé de mission"><select className="field-input" value={o.secretaire_id || ""} onChange={(e) => setO((x) => ({ ...x, secretaire_id: e.target.value || null }))}><option value="">— aucun —</option>{secretaires.map((c) => <option key={c.id} value={c.id}>{nomCollab(c)}</option>)}</select></ChampAdmin>

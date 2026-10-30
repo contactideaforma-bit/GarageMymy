@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { finRemiseLancement } from "@/lib/offreLancement";
+import { finRemiseLancement, montantMensualite } from "@/lib/offreLancement";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { getAdminClient } from "@/lib/supabaseAdmin";
 import { utilisateurDepuisRequete, REPONSE_401 } from "@/lib/apiAuth";
@@ -144,8 +144,10 @@ export async function POST(req: Request) {
       }
     } else {
       const fin = a.date_fin ? new Date(a.date_fin) : new Date();
+      // v13.57 — même règle que le cron : offre de lancement + remise exceptionnelle limitée dans le temps.
       while (d <= fin) {
-        lignes.push({ abonnement_id: a.id, periode: premierDuMois(d), montant_ht: Number(a.prix_ht) });
+        const periode = premierDuMois(d);
+        lignes.push({ abonnement_id: a.id, periode, montant_ht: montantMensualite(Number(a.prix_ht) || 0, periode, { pct: a.lancement_pct, fin: a.lancement_fin }, { pct: a.remise_supp_pct, fin: a.remise_supp_fin }) });
         d.setMonth(d.getMonth() + 1);
       }
     }
@@ -406,14 +408,19 @@ export async function POST(req: Request) {
     const engagement = Boolean(v.engagement_12) || v.periodicite === "annuel";
     // Remise exceptionnelle : appliquée seulement si l'éditeur l'accepte.
     const remiseSupp = body.remise_acceptee ? Number(v.remise_supp_pct) || 0 : 0;
+    // v13.57 — durée de la remise exceptionnelle telle que signée (0 = définitive).
+    const remiseSuppMois = remiseSupp > 0 ? Math.max(0, Math.round(Number(v.remise_supp_mois) || 0)) : 0;
     // v13.44 — l'offre de lancement est celle ENREGISTRÉE sur la vente à la signature (pas la date de validation).
     const lancementVente = Number(v.lancement_pct) > 0;
-    const prix = prixVente(formule, { engagement12: engagement, periodicite: v.periodicite, remiseSupp, lancement: lancementVente }, p);
+    const prix = prixVente(formule, { engagement12: engagement, periodicite: v.periodicite, remiseSupp, remiseSuppMois, miseEnServiceRemisePct: Number(v.mise_en_service_remise_pct) || 0, lancement: lancementVente }, p);
     const dateDebut = body.date_debut || v.date_debut_souhaitee || premierDuMois(new Date());
     const lancementPct = Number(v.lancement_pct) || 0;
     const lancementMois = Number(v.lancement_mois) || 0;
     const lancementFin = lancementPct > 0 && lancementMois > 0 && v.periodicite === "mensuel" ? finRemiseLancement(dateDebut, lancementMois) : null;
-    const prixMensuel = prix.montantAnnuel != null ? Math.round((prix.montantAnnuel / 12) * 100) / 100 : prix.mensualite;
+    // Remise exceptionnelle limitée (mensuel) : l'abonnement garde le prix plein, les N premières mensualités sont remisées.
+    const suppTemporaire = v.periodicite === "mensuel" && remiseSupp > 0 && remiseSuppMois > 0;
+    const suppFin = suppTemporaire ? finRemiseLancement(dateDebut, remiseSuppMois) : null;
+    const prixMensuel = prix.montantAnnuel != null ? Math.round((prix.montantAnnuel / 12) * 100) / 100 : suppTemporaire ? prix.mensualitePleine : prix.mensualite;
     const remisePct = Math.round((100 - (prixMensuel / p.formules[formule].prix) * 100) * 100) / 100;
     const { data: abo, error: eAbo } = await admin
       .from("abonnements")
@@ -429,19 +436,21 @@ export async function POST(req: Request) {
         lancement_pct: lancementPct,
         lancement_fin: lancementFin,
         lancement_code: lancementVente ? v.lancement_code || null : null,
+        remise_supp_pct: remiseSupp,
+        remise_supp_fin: suppFin,
         date_signature: (v.signe_le || v.created_at).slice(0, 10),
         date_debut: dateDebut,
         engagement_12: engagement,
         statut: "actif",
         commercial_id: v.collaborateur_id,
         secretaire_id: body.secretaire_id || null,
-        notes: `Vente ${v.numero || ""} déclarée par le code ${v.code_apporteur}. Paiement : ${v.mode_paiement}${v.paiement_sur_place ? ` — reçu sur place ${v.paiement_montant ?? ""} € (réf. ${v.paiement_reference || "—"})` : ""}.`,
+        notes: `Vente ${v.numero || ""} déclarée par le code ${v.code_apporteur}. Paiement : ${v.mode_paiement}${v.paiement_sur_place ? ` — reçu sur place ${v.paiement_montant ?? ""} € (réf. ${v.paiement_reference || "—"})` : ""}.${remiseSupp > 0 ? ` Remise exceptionnelle −${remiseSupp} % ${remiseSuppMois > 0 ? `pendant ${remiseSuppMois} mois` : "définitive"}.` : ""}${Number(v.mise_en_service_remise_pct) > 0 && !engagement ? ` Mise en service ${Number(v.mise_en_service_remise_pct) >= 100 ? "offerte" : `remisée de ${v.mise_en_service_remise_pct} %`}.` : ""}`,
       })
       .select("id")
       .single();
     if (eAbo || !abo) return NextResponse.json({ error: eAbo?.message || "Création de l'abonnement impossible." }, { status: 500 });
     // Mensualités (même logique que generer_mensualites) — v13.44 : remisées pendant l'offre de lancement.
-    const lignes = lignesMensualites(abo.id, v.periodicite, dateDebut, prixMensuel, prix.montantAnnuel, { pct: lancementPct, fin: lancementFin });
+    const lignes = lignesMensualites(abo.id, v.periodicite, dateDebut, prixMensuel, prix.montantAnnuel, { pct: lancementPct, fin: lancementFin }, { pct: suppTemporaire ? remiseSupp : 0, fin: suppFin });
     if (lignes.length) await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });
     // v13.31 — le commercial a pu créer le compte AVANT la validation : on
     // garde le statut « compte créé » et on rattache l'abonnement au compte.

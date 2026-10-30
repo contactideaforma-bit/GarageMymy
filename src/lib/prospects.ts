@@ -56,10 +56,36 @@ export type ParametresOffre = {
   engagement_12: boolean;
   periodicite: Periodicite;
   remise_supp_pct: number;
+  /** v13.57 — durée de la remise exceptionnelle en mois (0 = définitive). */
+  remise_supp_mois?: number;
+  /** v13.57 — geste sur la mise en service : 0 = facturée, 100 = offerte, sinon % de remise. */
+  mise_en_service_remise_pct?: number;
   date_debut_souhaitee?: string | null;
   mode_paiement?: string;
   validite_jours?: number;
 };
+
+/** Durées proposées pour une remise exceptionnelle (0 = définitive). */
+export const DUREES_REMISE: { mois: number; label: string }[] = [
+  { mois: 1, label: "1 mois" },
+  { mois: 3, label: "3 mois" },
+  { mois: 6, label: "6 mois" },
+  { mois: 12, label: "12 mois" },
+  { mois: 0, label: "Définitive" },
+];
+
+/** Options du geste sur la mise en service (hors engagement, où elle est déjà offerte). */
+export const GESTES_MISE_EN_SERVICE: { pct: number; label: string }[] = [
+  { pct: 0, label: "Facturée au tarif" },
+  { pct: 25, label: "Remisée de 25 %" },
+  { pct: 50, label: "Remisée de 50 %" },
+  { pct: 100, label: "Offerte" },
+];
+
+/** Options passées à prixVente() depuis une offre de prospect. */
+export function optionsPrix(o: ParametresOffre) {
+  return { engagement12: o.engagement_12, periodicite: o.periodicite, remiseSupp: o.remise_supp_pct, remiseSuppMois: o.remise_supp_mois || 0, miseEnServiceRemisePct: o.mise_en_service_remise_pct || 0 };
+}
 
 export type ProspectDocument = {
   id: string;
@@ -359,7 +385,12 @@ export function reponseTexte(v: unknown): string {
 }
 
 /** Fiche prospect → contrat (VenteContrat de contratGarage.ts). */
-export function prospectVersContrat(p: Prospect, offre: ParametresOffre, prix: { mensualite: number; montantAnnuel: number | null; miseEnService: number; lancement?: { pct: number; mois: number } }, code?: string | null) {
+export function prospectVersContrat(
+  p: Prospect,
+  offre: ParametresOffre,
+  prix: { mensualite: number; mensualitePleine?: number; montantAnnuel: number | null; miseEnService: number; miseEnServiceRemisePct?: number; lancement?: { pct: number; mois: number } },
+  code?: string | null
+) {
   return {
     garage_nom: p.nom,
     garage_siret: p.siret || p.siren,
@@ -374,9 +405,12 @@ export function prospectVersContrat(p: Prospect, offre: ParametresOffre, prix: {
     engagement_12: offre.engagement_12 || offre.periodicite === "annuel",
     periodicite: offre.periodicite,
     remise_supp_pct: offre.remise_supp_pct,
+    remise_supp_mois: offre.remise_supp_pct > 0 ? offre.remise_supp_mois || 0 : 0,
+    prix_plein_ht: prix.mensualitePleine ?? prix.mensualite,
     prix_mensuel_ht: prix.mensualite,
     montant_annuel_ht: prix.montantAnnuel,
     mise_en_service_ht: prix.miseEnService,
+    mise_en_service_remise_pct: prix.miseEnServiceRemisePct ?? 0,
     lancement_pct: prix.lancement?.pct || 0,
     lancement_mois: prix.lancement?.mois || 0,
     mode_paiement: offre.mode_paiement || "virement",

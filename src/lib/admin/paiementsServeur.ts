@@ -433,7 +433,7 @@ export async function prolongerMensualites(admin: SupabaseClient): Promise<numbe
     const lignes: { abonnement_id: string; periode: string; montant_ht: number }[] = [];
     let p = moisSuivant(der.periode);
     while (p <= limite && (!fin || p <= fin) && lignes.length < 3) {
-      lignes.push({ abonnement_id: a.id, periode: p, montant_ht: montantMensualite(Number(a.prix_ht) || 0, p, { pct: (a as { lancement_pct?: number | null }).lancement_pct, fin: (a as { lancement_fin?: string | null }).lancement_fin }) });
+      lignes.push({ abonnement_id: a.id, periode: p, montant_ht: montantMensualite(Number(a.prix_ht) || 0, p, { pct: (a as { lancement_pct?: number | null }).lancement_pct, fin: (a as { lancement_fin?: string | null }).lancement_fin }, { pct: (a as { remise_supp_pct?: number | null }).remise_supp_pct, fin: (a as { remise_supp_fin?: string | null }).remise_supp_fin }) });
       p = moisSuivant(p);
     }
     if (!lignes.length) continue;

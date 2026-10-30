@@ -189,7 +189,22 @@ export type PrixVente = {
   /** Année payée en une fois : montant à payer, offre de lancement déjà déduite le cas échéant. */
   montantAnnuel: number | null;
   remiseTotalePct: number;
+  /** Mise en service réellement facturée (0 si offerte : engagement ou geste commercial). */
   miseEnService: number;
+  /**
+   * v13.57 — REMISE EXCEPTIONNELLE À DURÉE LIMITÉE. `mensualitePleine` =
+   * mensualité sans la remise exceptionnelle (prix de grille du cas vendu) ;
+   * `remiseSupp.mois` = 0 → remise définitive (toute la durée du contrat),
+   * sinon les `mois` premières mensualités valent `mensualite`, puis
+   * `mensualitePleine`. `mensualiteMoyenne12` = moyenne sur la 1re année
+   * (sert de base à la prime du commercial).
+   */
+  mensualitePleine: number;
+  remiseSupp: { pct: number; mois: number };
+  mensualiteMoyenne12: number;
+  /** Mise en service : tarif catalogue et % de remise accordé (100 = offerte). */
+  miseEnServiceCatalogue: number;
+  miseEnServiceRemisePct: number;
   /**
    * v13.44 — OFFRE DE LANCEMENT (−20 % pendant 3 mois jusqu'au 15/11/2026),
    * appliquée automatiquement à toute vente conclue pendant sa validité,
@@ -201,22 +216,51 @@ export type PrixVente = {
 
 export function prixVente(
   f: Formule,
-  opts: { engagement12: boolean; periodicite: Periodicite; remiseSupp?: number; /** forcer l'offre de lancement (true/false) ; par défaut : selon la date du jour */ lancement?: boolean; now?: Date },
+  opts: {
+    engagement12: boolean;
+    periodicite: Periodicite;
+    remiseSupp?: number;
+    /** v13.57 — durée de la remise exceptionnelle en mois (0 / absent = définitive). */
+    remiseSuppMois?: number;
+    /** v13.57 — remise sur la mise en service en % (100 = offerte). Sans effet si engagement (déjà offerte). */
+    miseEnServiceRemisePct?: number;
+    /** forcer l'offre de lancement (true/false) ; par défaut : selon la date du jour */
+    lancement?: boolean;
+    now?: Date;
+  },
   p: Parametres
 ): PrixVente {
   const t = tarifFormule(f, p);
   const engage = opts.engagement12 || opts.periodicite === "annuel";
   const base = engage ? t.mensuelEngage : t.mensuel;
   const supp = Math.min(100, Math.max(0, opts.remiseSupp || 0));
+  const suppMois = supp > 0 ? Math.max(0, Math.round(Number(opts.remiseSuppMois) || 0)) : 0;
   const mensualite = r2(base * (1 - supp / 100));
-  let montantAnnuel = opts.periodicite === "annuel" ? r2((t.annuelBase - t.bonusAnnuel) * (1 - supp / 100)) : null;
-  const remiseTotalePct = r2(100 - ((montantAnnuel != null ? montantAnnuel / 12 : mensualite) / t.mensuel) * 100);
+  // Remise limitée à N mois : seules les N premières mensualités sont remisées (plafonné à 12 en annuel).
+  const moisRemises = suppMois > 0 ? Math.min(12, suppMois) : 12;
+  const mensualiteMoyenne12 = r2((mensualite * moisRemises + base * (12 - moisRemises)) / 12);
+  const annuelSansSupp = r2(t.annuelBase - t.bonusAnnuel);
+  let montantAnnuel = opts.periodicite === "annuel" ? r2(annuelSansSupp - (annuelSansSupp / 12) * (supp / 100) * moisRemises) : null;
+  const remiseTotalePct = r2(100 - ((montantAnnuel != null ? montantAnnuel / 12 : mensualiteMoyenne12) / t.mensuel) * 100);
+  const mesRemise = engage ? 100 : Math.min(100, Math.max(0, Number(opts.miseEnServiceRemisePct) || 0));
+  const miseEnService = r2(p.miseEnService * (1 - mesRemise / 100));
   const actif = opts.lancement ?? offreActive(opts.now);
   const lancement = actif
     ? { pct: OFFRE_LANCEMENT.pct, mois: OFFRE_LANCEMENT.mois, mensualiteLancement: mensualiteLancement(mensualite, OFFRE_LANCEMENT.pct), code: OFFRE_LANCEMENT.code }
     : { pct: 0, mois: 0, mensualiteLancement: mensualite, code: null };
   if (actif && montantAnnuel != null) montantAnnuel = annuelLancement(montantAnnuel, mensualite, OFFRE_LANCEMENT);
-  return { mensualite, montantAnnuel, remiseTotalePct, miseEnService: engage ? 0 : p.miseEnService, lancement };
+  return {
+    mensualite,
+    montantAnnuel,
+    remiseTotalePct,
+    miseEnService,
+    mensualitePleine: base,
+    remiseSupp: { pct: supp, mois: suppMois },
+    mensualiteMoyenne12,
+    miseEnServiceCatalogue: p.miseEnService,
+    miseEnServiceRemisePct: mesRemise,
+    lancement,
+  };
 }
 
 /**

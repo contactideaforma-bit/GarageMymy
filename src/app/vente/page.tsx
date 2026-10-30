@@ -65,7 +65,7 @@ export default function VentePage() {
 
   const prix = useMemo(() => (params ? prixVente(offre.formule, { engagement12: offre.engagement_12, periodicite: offre.periodicite, remiseSupp: offre.remise_supp_pct }, params) : null), [params, offre]);
   const prime = useMemo(
-    () => (params && prix ? primeVente(offre.formule, { engagement12: offre.engagement_12 || offre.periodicite === "annuel", periodicite: offre.periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, params) : null),
+    () => (params && prix ? primeVente(offre.formule, { engagement12: offre.engagement_12 || offre.periodicite === "annuel", periodicite: offre.periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualiteMoyenne12, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, params) : null),
     [params, prix, offre]
   );
   const grille = useMemo(() => (params ? grilleTarifs(params) : []), [params]);

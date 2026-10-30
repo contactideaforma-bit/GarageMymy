@@ -61,12 +61,26 @@ export function finRemiseLancement(dateDebut: string, mois: number = OFFRE_LANCE
   return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
-/** Montant d'une mensualité donnée : remisé tant que la période ≤ lancement_fin. */
-export function montantMensualite(prixHt: number, periode: string, lancement: { pct?: number | null; fin?: string | null } | null | undefined): number {
+/** Une remise limitée dans le temps : % + dernière période (1er du mois) remisée. */
+export type RemisePeriode = { pct?: number | null; fin?: string | null } | null | undefined;
+
+/**
+ * Montant d'une mensualité donnée. `prixHt` = prix plein de l'abonnement.
+ * v13.57 — `remiseSupp` = remise exceptionnelle À DURÉE LIMITÉE (abonnements.
+ * remise_supp_pct / remise_supp_fin) appliquée d'abord ; puis l'offre de
+ * lancement, remisée tant que la période ≤ lancement_fin. Une remise
+ * exceptionnelle DÉFINITIVE est déjà intégrée dans prix_ht (fin = null).
+ */
+export function montantMensualite(prixHt: number, periode: string, lancement: RemisePeriode, remiseSupp?: RemisePeriode): number {
+  const per = periode.slice(0, 10);
+  let m = prixHt;
+  const sPct = Number(remiseSupp?.pct) || 0;
+  const sFin = remiseSupp?.fin ? String(remiseSupp.fin).slice(0, 10) : null;
+  if (sPct > 0 && sFin && per <= sFin) m = mensualiteLancement(m, sPct);
   const pct = Number(lancement?.pct) || 0;
   const fin = lancement?.fin ? String(lancement.fin).slice(0, 10) : null;
-  if (pct > 0 && fin && periode.slice(0, 10) <= fin) return mensualiteLancement(prixHt, pct);
-  return prixHt;
+  if (pct > 0 && fin && per <= fin) m = mensualiteLancement(m, pct);
+  return m;
 }
 
 /** Temps restant, découpé pour le compte à rebours. */

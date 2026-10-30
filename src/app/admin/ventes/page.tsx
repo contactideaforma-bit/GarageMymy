@@ -16,6 +16,14 @@ import {
 import { libelleCreneau, libelleSource } from "@/lib/inscription";
 import { PARAMETRES_DEFAUT, Parametres, primeVente } from "@/lib/admin/economie";
 import { MODES_PAIEMENT, VenteContrat } from "@/lib/admin/contratGarage";
+
+/** v13.57 — mensualité moyenne sur 12 mois quand la remise exceptionnelle est limitée dans le temps (base de la prime). */
+function mensualiteMoyenneVente(v: { prix_mensuel_ht: number; prix_plein_ht?: number | null; remise_supp_pct?: number | null; remise_supp_mois?: number | null }): number {
+  const mois = Number(v.remise_supp_pct) > 0 ? Math.min(12, Number(v.remise_supp_mois) || 0) : 0;
+  if (!mois) return v.prix_mensuel_ht;
+  const plein = Number(v.prix_plein_ht ?? v.prix_mensuel_ht) || 0;
+  return Math.round(((v.prix_mensuel_ht * mois + plein * (12 - mois)) / 12) * 100) / 100;
+}
 import { telechargerContratPdf } from "@/lib/admin/contratPdf";
 import { QUESTIONS_BESOINS } from "@/lib/admin/ventePublic";
 import Ico from "@/components/Ico";
@@ -155,7 +163,7 @@ export default function VentesPage() {
             const st = STATUTS_VENTE[v.statut] || STATUTS_VENTE.declaree;
             const s = suivi.get(v.id);
             const commercial = collabs.find((c) => c.id === v.collaborateur_id);
-            const prime = primeVente(v.formule, { engagement12: v.engagement_12, periodicite: v.periodicite, mensualiteFacturee: v.montant_annuel_ht != null ? v.montant_annuel_ht / 12 : v.prix_mensuel_ht, lancementPct: v.lancement_pct, lancementMois: v.lancement_mois }, p);
+            const prime = primeVente(v.formule, { engagement12: v.engagement_12, periodicite: v.periodicite, mensualiteFacturee: v.montant_annuel_ht != null ? v.montant_annuel_ht / 12 : mensualiteMoyenneVente(v), lancementPct: v.lancement_pct, lancementMois: v.lancement_mois }, p);
             return (
               <div key={v.id} className="glass-card p-3 sm:p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -172,7 +180,7 @@ export default function VentesPage() {
                     <div className="mt-1 text-xs text-white/60">
                       {p.formules[v.formule].libelle} · {v.periodicite === "annuel" ? `année en une fois ${euros(v.montant_annuel_ht)} HT` : `${euros(v.prix_mensuel_ht)} HT / mois`}
                       {v.engagement_12 ? " · engagement 12 mois" : " · sans engagement"}
-                      {Number(v.remise_supp_pct) > 0 && <span className="text-amber-300"> · remise supp. {v.remise_supp_pct} % à valider</span>}
+                      {Number(v.remise_supp_pct) > 0 && <span className="text-amber-300"> · remise supp. {v.remise_supp_pct} % {Number(v.remise_supp_mois) > 0 ? `pendant ${v.remise_supp_mois} mois` : "définitive"} à valider</span>}
                       {" · "}{MODES_PAIEMENT[v.mode_paiement] || v.mode_paiement}
                       {v.paiement_sur_place && <span className="text-emerald-300"> · reçu sur place {euros(v.paiement_montant)} (réf. {v.paiement_reference || "—"})</span>}
                       {v.paiement_demande && !v.paiement_confirme_le && <span className="text-amber-300"> · {v.paiement_demande} demandé au garage</span>}
@@ -272,7 +280,7 @@ function VenteModal({ vente: v, collabs, p, onClose, onChanged }: { vente: Vente
         <div className="glass-soft p-3">
           <div className="text-[11px] uppercase tracking-wider text-white/40">Offre & paiement</div>
           <div className="mt-1 text-white">{p.formules[v.formule].libelle} — {v.periodicite === "annuel" ? `${euros(v.montant_annuel_ht)} HT / an (en une fois)` : `${euros(v.prix_mensuel_ht)} HT / mois`}</div>
-          <div className="text-white/60">{v.engagement_12 ? "Engagement 12 mois" : "Sans engagement"}{Number(v.mise_en_service_ht) > 0 ? ` · mise en service ${euros(v.mise_en_service_ht)}` : " · mise en service offerte"}{Number(v.remise_supp_pct) > 0 ? ` · remise supp. demandée ${v.remise_supp_pct} %` : ""}</div>
+          <div className="text-white/60">{v.engagement_12 ? "Engagement 12 mois" : "Sans engagement"}{Number(v.mise_en_service_ht) > 0 ? ` · mise en service ${euros(v.mise_en_service_ht)}${Number(v.mise_en_service_remise_pct) > 0 ? ` (remisée de ${v.mise_en_service_remise_pct} %)` : ""}` : " · mise en service offerte"}{Number(v.remise_supp_pct) > 0 ? ` · remise supp. demandée ${v.remise_supp_pct} % ${Number(v.remise_supp_mois) > 0 ? `pendant ${v.remise_supp_mois} mois (puis ${euros(v.prix_plein_ht ?? v.prix_mensuel_ht)} / mois)` : "définitive"}` : ""}</div>
           <div className="text-white/60">{MODES_PAIEMENT[v.mode_paiement] || v.mode_paiement}{v.paiement_sur_place ? ` — reçu sur place ${euros(v.paiement_montant)} réf. ${v.paiement_reference || "—"}` : ""}</div>
           <div className="mt-1 text-white/60">Signé par {v.signataire_nom || "—"}{v.signataire_qualite ? ` (${v.signataire_qualite})` : ""} le {v.signe_le ? new Date(v.signe_le).toLocaleString("fr-FR") : "—"}</div>
           {v.signature && <img src={v.signature} alt="Signature" className="mt-2 h-14 rounded bg-white p-1" />}
@@ -310,7 +318,7 @@ function VenteModal({ vente: v, collabs, p, onClose, onChanged }: { vente: Vente
           {Number(v.remise_supp_pct) > 0 && (
             <label className="mt-2 flex items-center gap-2 text-sm text-amber-200">
               <input type="checkbox" checked={remiseOk} onChange={(e) => setRemiseOk(e.target.checked)} />
-              J&apos;accepte la remise exceptionnelle de {v.remise_supp_pct} % (sinon le prix de grille s&apos;applique)
+              J&apos;accepte la remise exceptionnelle de {v.remise_supp_pct} % {Number(v.remise_supp_mois) > 0 ? `pendant ${v.remise_supp_mois} mois` : "définitive"} (sinon le prix de grille s&apos;applique)
             </label>
           )}
           <label className="mt-2 flex items-center gap-2 text-sm text-white/85">

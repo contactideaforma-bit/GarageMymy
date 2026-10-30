@@ -28,6 +28,7 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   DELAIS_RAPPEL, OFFRE_DEFAUT, ORIGINES_PROSPECT, ParametresOffre, Prospect, ProspectDocument, ProspectOrigine, ProspectStatut, STATUTS_PROSPECT, TYPES_DOCUMENT, dateDansJours, etatRappel,
   chargerProspect, creerDocument, enregistrerProspect, majDocument, prospectVersContrat, supprimerDocument, supprimerProspect,
+  DUREES_REMISE, GESTES_MISE_EN_SERVICE, optionsPrix,
 } from "@/lib/prospects";
 import { ContexteCommercial, ResultatCompteGarageCommercial, ResultatRenvoiBienvenue, chargerContexteCommercial, creerCompteGarageCommercial, renvoyerBienvenueCommercial, declarerVente, enregistrerSignatureCommercial, nomCommercial } from "@/lib/commercialClient";
 import { Agrement, DemandeParticuliere, QuestionBesoin, SECTIONS_BESOINS, agrementsDe, demandesDe, reponseLisible, tauxRemplissage } from "@/lib/ficheBesoins";
@@ -71,9 +72,9 @@ export default function ProspectPage() {
   }, [load]);
 
   const params = ctx?.parametres;
-  const prix = useMemo(() => (params ? prixVente(offre.formule, { engagement12: offre.engagement_12, periodicite: offre.periodicite, remiseSupp: offre.remise_supp_pct }, params) : null), [params, offre]);
+  const prix = useMemo(() => (params ? prixVente(offre.formule, optionsPrix(offre), params) : null), [params, offre]);
   const prime = useMemo(
-    () => (params && prix && ctx?.collaborateur ? primeVente(offre.formule, { engagement12: offre.engagement_12 || offre.periodicite === "annuel", periodicite: offre.periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, params) : null),
+    () => (params && prix && ctx?.collaborateur ? primeVente(offre.formule, { engagement12: offre.engagement_12 || offre.periodicite === "annuel", periodicite: offre.periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualiteMoyenne12, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, params) : null),
     [params, prix, offre, ctx]
   );
   const contrat = useMemo(() => (p && prix ? prospectVersContrat(p, offre, prix, ctx?.collaborateur?.code_apporteur) : null), [p, prix, offre, ctx]);
@@ -92,7 +93,7 @@ export default function ProspectPage() {
   function pdfDe(d: ProspectDocument) {
     if (!p || !params) return null;
     const o = { ...OFFRE_DEFAUT, ...(d.parametres || offre) };
-    const px = prixVente(o.formule, { engagement12: o.engagement_12, periodicite: o.periodicite, remiseSupp: o.remise_supp_pct }, params);
+    const px = prixVente(o.formule, optionsPrix(o), params);
     const v = prospectVersContrat(p, o, px, ctx?.collaborateur?.code_apporteur);
     if (d.signataire_client) v.signataire_nom = d.signataire_client;
     const commun = { numero: d.numero, signature: d.signature_client, signeLe: d.signe_le, signatureCommercial: d.signature_commercial || ctx?.collaborateur?.signature || null, commercialNom: nomCommercial(ctx?.collaborateur || null) };
@@ -227,6 +228,22 @@ export default function ProspectPage() {
             </div>
             <div className="mt-3 grid gap-3 sm:grid-cols-4">
               <div><label className="field-label">Remise exceptionnelle (%)</label><input className="field-input field-compact" inputMode="decimal" value={offre.remise_supp_pct || ""} onChange={(e) => setOffre((o) => ({ ...o, remise_supp_pct: Math.min(30, Number(e.target.value) || 0) }))} placeholder="0" /></div>
+              {offre.remise_supp_pct > 0 && (
+                <div>
+                  <label className="field-label">Durée de la remise</label>
+                  <select className="field-input field-compact" value={offre.remise_supp_mois || 0} onChange={(e) => setOffre((o) => ({ ...o, remise_supp_mois: Number(e.target.value) || 0 }))}>
+                    {DUREES_REMISE.map((d) => <option key={d.mois} value={d.mois}>{d.label}</option>)}
+                  </select>
+                </div>
+              )}
+              {!(offre.engagement_12 || offre.periodicite === "annuel") && (
+                <div>
+                  <label className="field-label">Mise en service ({formatEuros(params.miseEnService)})</label>
+                  <select className="field-input field-compact" value={offre.mise_en_service_remise_pct || 0} onChange={(e) => setOffre((o) => ({ ...o, mise_en_service_remise_pct: Number(e.target.value) || 0 }))}>
+                    {GESTES_MISE_EN_SERVICE.map((g) => <option key={g.pct} value={g.pct}>{g.label}{g.pct > 0 && g.pct < 100 ? ` (${formatEuros(params.miseEnService * (1 - g.pct / 100))})` : ""}</option>)}
+                  </select>
+                </div>
+              )}
               <div><label className="field-label">Mode de règlement</label><select className="field-input field-compact" value={offre.mode_paiement} onChange={(e) => setOffre((o) => ({ ...o, mode_paiement: e.target.value }))}>{Object.entries(MODES_PAIEMENT).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
               <div><label className="field-label">Mise en service souhaitée</label><input type="date" className="field-input field-compact" value={offre.date_debut_souhaitee || ""} onChange={(e) => setOffre((o) => ({ ...o, date_debut_souhaitee: e.target.value }))} /></div>
               <div><label className="field-label">Validité du devis (jours)</label><input className="field-input field-compact" inputMode="numeric" value={offre.validite_jours || 30} onChange={(e) => setOffre((o) => ({ ...o, validite_jours: Number(e.target.value) || 30 }))} /></div>
@@ -234,7 +251,7 @@ export default function ProspectPage() {
             <div className="glass-soft mt-3 p-3 text-sm text-white/80">
               <ul className="space-y-0.5">{contrat && conditionsParticulieres(contrat, params).map((l, i) => <li key={i}>• {l}</li>)}</ul>
               {prime && <p className="mt-2 border-t border-white/10 pt-2 text-xs text-white/50">Votre prime : <b className="text-white/80">{formatEuros(prime.total)}</b>, acquise à la {prime.mensualiteEcheance}<sup>e</sup> mensualité encaissée.</p>}
-              {offre.remise_supp_pct > 0 && <p className="mt-1 text-xs text-amber-300">Remise exceptionnelle : soumise à validation IDEAFORMA — le devis et le contrat le mentionnent.</p>}
+              {offre.remise_supp_pct > 0 && <p className="mt-1 text-xs text-amber-300">Remise exceptionnelle {offre.remise_supp_mois ? `pendant ${offre.remise_supp_mois} mois (puis ${formatEuros(prix.mensualitePleine)} / mois)` : "définitive"} : soumise à validation IDEAFORMA — le devis et le contrat le mentionnent.</p>}
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
               <button className="btn-ghost" onClick={() => generer("simulation")}>Simulation tarifaire (PDF)</button>
@@ -728,7 +745,7 @@ function VenteDeclaration({ prospect, doc, offre, params, paiementEnLigne, onClo
   const [paiement, setPaiement] = useState<"virement" | "cb">(paiementEnLigne ? "cb" : "virement");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const prix = prixVente(offre.formule, { engagement12: offre.engagement_12, periodicite: offre.periodicite, remiseSupp: offre.remise_supp_pct }, params);
+  const prix = prixVente(offre.formule, optionsPrix(offre), params);
   const du = (offre.periodicite === "annuel" ? prix.montantAnnuel || 0 : prix.lancement.mensualiteLancement) + prix.miseEnService;
   async function go() {
     setBusy(true); setErr(null);

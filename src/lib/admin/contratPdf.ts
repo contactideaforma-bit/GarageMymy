@@ -10,7 +10,7 @@ import jsPDF from "jspdf";
 import autoTable, { CellDef, RowInput, UserOptions } from "jspdf-autotable";
 import { SOCIETE, ADRESSE_COMPLETE } from "@/components/vitrine/societe";
 import { Formule, Parametres, grilleTarifs, tarifFormule } from "./economie";
-import { ACCEPTATION_CGV, VERSION_CGV, VenteContrat, articlesCGV, conditionsParticulieres } from "./contratGarage";
+import { ACCEPTATION_CGV, VERSION_CGV, VenteContrat, articlesCGV, conditionsParticulieres, echeancierPremiereAnnee, libelleDureeRemise, libelleMiseEnService, moisRemiseSupp, remiseSuppTemporaire } from "./contratGarage";
 import { SECTIONS_BESOINS, demandesDe, libelleQuestion, lignesSection, tauxRemplissage } from "@/lib/ficheBesoins";
 import type { ContenuContrat } from "./contratCollaborateur";
 import { titreContrat } from "./contratCollaborateur";
@@ -159,11 +159,13 @@ function entete(c: Ctx, lignesDroite: string[]) {
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.5);
   pdf.setTextColor(GRIS);
-  const coord = [SOCIETE.editeur, ADRESSE_COMPLETE, `SIRET ${SOCIETE.siret}`, SOCIETE.email, SOCIETE.site.replace(/^https?:\/\//, "")].map(txt);
+  // v13.57 — 4 lignes (email et site sur la même) et filet placé SOUS le bloc :
+  // la dernière ligne était recouverte par le filet dégradé.
+  const coord = [SOCIETE.editeur, ADRESSE_COMPLETE, `SIRET ${SOCIETE.siret}`, `${SOCIETE.email} - ${SOCIETE.site.replace(/^https?:\/\//, "")}`].map(txt);
   pdf.text(coord, pageW - M, yTop - 1, { align: "right", lineHeightFactor: 1.35 });
 
-  // Filet dégradé
-  const yF = yTop + 13;
+  // Filet dégradé (sous le logo ET sous le bloc de coordonnées)
+  const yF = yTop + 14.5;
   const n = 40;
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1);
@@ -483,28 +485,43 @@ export function construireDevisPdf(
 
   h2(c, `Formule ${libelleFormule(t)}`);
   const engage = v.engagement_12 || v.periodicite === "annuel";
-  const total12 = v.periodicite === "annuel" ? v.montant_annuel_ht || 0 : v.prix_mensuel_ht * 12 + (engage ? 0 : v.mise_en_service_ht ?? p.miseEnService);
   const gras = (s: string): CellDef => ({ content: s, styles: { fontStyle: "bold", textColor: NOIR } });
+  const temporaire = remiseSuppTemporaire(v) && v.periodicite === "mensuel";
+  const plein = v.prix_plein_ht ?? v.prix_mensuel_ht;
   const lignes: RowInput[] = [
     ["Prix catalogue (sans engagement)", `${eurPdf(t.mensuel)} HT / mois`],
     ...(engage ? [[`Remise engagement 12 mois (- ${t.remiseEngagementPct} %)`, `${eurPdf(t.mensuelEngage)} HT / mois`]] : []),
-    ...(Number(v.remise_supp_pct) > 0 ? [["Remise commerciale exceptionnelle (sous validation IDEAFORMA)", `- ${v.remise_supp_pct} %`]] : []),
+    ...(Number(v.remise_supp_pct) > 0 ? [[`Remise commerciale exceptionnelle ${libelleDureeRemise(v)} (sous validation IDEAFORMA)`, `- ${v.remise_supp_pct} %`]] : []),
     v.periodicite === "annuel"
       ? ["Année payée en une fois (12 mois d'abonnement)", gras(`${eurPdf(v.montant_annuel_ht)} HT  (${t.bonusAnnuelLibelle})`)]
-      : ["Mensualité retenue", gras(`${eurPdf(v.prix_mensuel_ht)} HT / mois`)],
-    ["Mise en service (paramétrage, import des données, formation)", engage ? "Offerte" : `${eurPdf(v.mise_en_service_ht ?? p.miseEnService)} HT, facturée une fois`],
+      : temporaire
+        ? [`Mensualité retenue pendant les ${moisRemiseSupp(v)} premiers mois`, gras(`${eurPdf(v.prix_mensuel_ht)} HT / mois`)]
+        : ["Mensualité retenue", gras(`${eurPdf(v.prix_mensuel_ht)} HT / mois`)],
+    ...(temporaire ? [["Mensualité ensuite (fin de la remise exceptionnelle)", gras(`${eurPdf(plein)} HT / mois`)]] : []),
+    ["Mise en service (paramétrage, import des données, formation)", txt(libelleMiseEnService(v, p).replace(/^./, (ch) => ch.toUpperCase()))],
     ["Heure de Adhésion Service hors forfait", `${eurPdf(p.heureHorsForfait)} HT`],
     ["TVA", "En sus, au taux en vigueur"],
     ["Engagement", engage ? "12 mois fermes (CGV art. 2), puis mois par mois" : "Aucun - préavis d'un mois (fin de mois)"],
-    [gras("Total sur 12 mois"), gras(`${eurPdf(total12)} HT`)],
   ];
-  tableau(c, ["Désignation", "Montant / condition"], lignes, {
+  tableau(c, ["Désignation", "Montant / condition"], lignes, { largeurs: [1.35, 1], taille: 9.2, droite: [1] });
+
+  // v13.57 — « Total sur 12 mois » était un chiffre sec (abonnement + mise en
+  // service mélangés). On détaille la 1re année ligne par ligne.
+  const ech = echeancierPremiereAnnee(v, p);
+  const lignesTotal: RowInput[] = [
+    ...ech.segments.map((sgt): RowInput => [txt(sgt.libelle), sgt.nb > 1 ? `${sgt.nb} x ${eurPdf(sgt.montant)} = ${eurPdf(sgt.nb * sgt.montant)} HT` : `${eurPdf(sgt.montant)} HT`]),
+    ["Sous-total abonnement (12 mois)", `${eurPdf(ech.totalAbonnement)} HT`],
+    ["Mise en service (une seule fois)", ech.miseEnService > 0 ? `${eurPdf(ech.miseEnService)} HT` : "Offerte"],
+    [gras("Total de la première année (abonnement + mise en service)"), gras(`${eurPdf(ech.total)} HT`)],
+  ];
+  h3(c, "Ce que représente la première année");
+  tableau(c, ["Détail", "Montant HT"], lignesTotal, {
     largeurs: [1.35, 1],
-    taille: 9.2,
+    taille: 9,
     droite: [1],
     options: {
       didParseCell: (d) => {
-        if (d.section === "body" && d.row.index === lignes.length - 1) d.cell.styles.fillColor = VIOLET_PALE;
+        if (d.section === "body" && d.row.index === lignesTotal.length - 1) d.cell.styles.fillColor = VIOLET_PALE;
       },
     },
   });

@@ -204,7 +204,7 @@ export async function POST(req: Request) {
     const comptes = await comptesAdmin(admin);
     const expediteurId = comptes[0]?.id;
     if (expediteurId) {
-      const prime = primeVente(formule, { engagement12: engagement_12, periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, p);
+      const prime = primeVente(formule, { engagement12: engagement_12, periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualiteMoyenne12, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, p);
       const resume = [
         `Vente ${numero} déclarée par ${[c.prenom, c.nom].filter(Boolean).join(" ")} (code ${code})`,
         `Garage : ${garage_nom}${ligne.garage_ville ? ` — ${ligne.garage_ville}` : ""} · ${ligne.contact_nom || ""} ${ligne.contact_tel || ""} ${contact_email}`,

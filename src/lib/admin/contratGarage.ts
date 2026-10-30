@@ -28,9 +28,16 @@ export type VenteContrat = {
   engagement_12: boolean;
   periodicite: Periodicite;
   remise_supp_pct?: number | null;
+  /** v13.57 — durée de la remise exceptionnelle en mois (0 / null = définitive). */
+  remise_supp_mois?: number | null;
+  /** v13.57 — mensualité sans la remise exceptionnelle (facturée après la période remisée). */
+  prix_plein_ht?: number | null;
   prix_mensuel_ht: number;
   montant_annuel_ht?: number | null;
+  /** Mise en service réellement facturée (0 = offerte). */
   mise_en_service_ht?: number | null;
+  /** v13.57 — geste sur la mise en service : 0 facturée, 100 offerte, sinon % de remise. */
+  mise_en_service_remise_pct?: number | null;
   mode_paiement: string;
   date_debut_souhaitee?: string | null;
   signataire_nom?: string | null;
@@ -52,6 +59,93 @@ export const MODES_PAIEMENT: Record<string, string> = {
 const eur = (n: number | null | undefined) =>
   (Number(n) || 0).toLocaleString("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
 
+/* ------------------------------------------------------------------
+   v13.57 — ÉCHÉANCIER DE LA PREMIÈRE ANNÉE
+   Une seule source de vérité pour « ce que paie le garage sur 12 mois »,
+   reprise par le devis, le contrat et l'écran de l'offre : mensualités
+   remisées (remise exceptionnelle limitée à N mois, offre de lancement),
+   puis mensualités pleines, puis la mise en service à part.
+------------------------------------------------------------------ */
+export type SegmentEcheancier = { nb: number; montant: number; libelle: string };
+export type EcheancierAnnee = {
+  segments: SegmentEcheancier[];
+  totalAbonnement: number;
+  miseEnService: number;
+  total: number;
+  /** Libellé compact : « 3 mois à 55,30 € puis 9 mois à 79,00 € ». */
+  resume: string;
+};
+
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Mois de remise exceptionnelle (12 = toute la 1re année). */
+export function moisRemiseSupp(v: Pick<VenteContrat, "remise_supp_pct" | "remise_supp_mois">): number {
+  if (!(Number(v.remise_supp_pct) > 0)) return 0;
+  const m = Number(v.remise_supp_mois) || 0;
+  return m > 0 ? Math.min(12, m) : 12;
+}
+
+/** La remise exceptionnelle est-elle limitée dans le temps ? */
+export const remiseSuppTemporaire = (v: Pick<VenteContrat, "remise_supp_pct" | "remise_supp_mois">) => Number(v.remise_supp_pct) > 0 && Number(v.remise_supp_mois) > 0;
+
+/** Libellé de la durée : « pendant 3 mois » / « pendant toute la durée du contrat ». */
+export function libelleDureeRemise(v: Pick<VenteContrat, "remise_supp_pct" | "remise_supp_mois">): string {
+  const m = Number(v.remise_supp_mois) || 0;
+  return m > 0 ? `pendant ${m} mois` : "pendant toute la durée du contrat";
+}
+
+export function echeancierPremiereAnnee(v: VenteContrat, p: Parametres): EcheancierAnnee {
+  const miseEnService = r2(Number(v.mise_en_service_ht ?? (v.engagement_12 || v.periodicite === "annuel" ? 0 : p.miseEnService)) || 0);
+  if (v.periodicite === "annuel") {
+    const montant = r2(Number(v.montant_annuel_ht) || 0);
+    return { segments: [{ nb: 1, montant, libelle: "Année payée en une fois (12 mois d'abonnement)" }], totalAbonnement: montant, miseEnService, total: r2(montant + miseEnService), resume: `${eur(montant)} pour 12 mois` };
+  }
+  const plein = r2(Number(v.prix_plein_ht ?? v.prix_mensuel_ht) || 0);
+  const remise = r2(Number(v.prix_mensuel_ht) || 0);
+  const nbRemise = moisRemiseSupp(v);
+  const lancementPct = Number(v.lancement_pct) || 0;
+  const lancementMois = lancementPct > 0 ? Number(v.lancement_mois) || 0 : 0;
+  // Montant de chaque mensualité (1 à 12), avec les motifs qui la remisent
+  const mois: { montant: number; motifs: string[] }[] = [];
+  for (let i = 1; i <= 12; i++) {
+    let m = i <= nbRemise ? remise : plein;
+    const motifs: string[] = [];
+    if (i <= nbRemise && nbRemise < 12) motifs.push(`remise exceptionnelle −${v.remise_supp_pct} %`);
+    if (i <= lancementMois) {
+      m = mensualiteLancement(m, lancementPct);
+      motifs.push(`offre de lancement −${lancementPct} %`);
+    }
+    mois.push({ montant: r2(m), motifs });
+  }
+  const segments: SegmentEcheancier[] = [];
+  for (const x of mois) {
+    const dernier = segments[segments.length - 1];
+    if (dernier && dernier.montant === x.montant) dernier.nb += 1;
+    else segments.push({ nb: 1, montant: x.montant, libelle: x.motifs.length ? x.motifs.join(" + ") : "" });
+  }
+  // Libellés : « 3 premières mensualités (remise…) », « 9 mensualités suivantes au tarif retenu »
+  let debut = 1;
+  for (const sgt of segments) {
+    const plage = sgt.nb === 12 ? "12 mensualités" : sgt.nb === 1 ? `Mensualité n° ${debut}` : debut === 1 ? `${sgt.nb} premières mensualités` : `${sgt.nb} mensualités suivantes (n° ${debut} à ${debut + sgt.nb - 1})`;
+    sgt.libelle = sgt.libelle ? `${plage} — ${sgt.libelle}` : `${plage}${debut === 1 ? "" : " — tarif de l'abonnement"}`;
+    debut += sgt.nb;
+  }
+  const totalAbonnement = r2(mois.reduce((a, x) => a + x.montant, 0));
+  const resume = segments.map((sgt) => `${sgt.nb} mois à ${eur(sgt.montant)}`).join(" puis ");
+  return { segments, totalAbonnement, miseEnService, total: r2(totalAbonnement + miseEnService), resume };
+}
+
+/** Libellé de la mise en service selon le geste accordé. */
+export function libelleMiseEnService(v: VenteContrat, p: Parametres): string {
+  const engage = v.engagement_12 || v.periodicite === "annuel";
+  if (engage) return "offerte (engagement de 12 mois)";
+  const pct = Number(v.mise_en_service_remise_pct) || 0;
+  const net = Number(v.mise_en_service_ht ?? p.miseEnService) || 0;
+  if (pct >= 100 || net <= 0) return "offerte (geste commercial)";
+  if (pct > 0) return `${eur(net)} HT, facturée une fois (tarif ${eur(p.miseEnService)} HT remisé de ${pct} %)`;
+  return `${eur(net)} HT, facturée une fois`;
+}
+
 /** Récapitulatif chiffré de l'abonnement (bloc « Conditions particulières »). */
 export function conditionsParticulieres(v: VenteContrat, p: Parametres): string[] {
   const t = tarifFormule(v.formule, p);
@@ -62,7 +156,13 @@ export function conditionsParticulieres(v: VenteContrat, p: Parametres): string[
   ];
   if (engage) lignes.push(`Engagement ferme de 12 mois : remise de ${t.remiseEngagementPct} % → ${eur(t.mensuelEngage)} HT par mois.`);
   else lignes.push("Sans engagement : résiliable à tout moment avec un préavis d'un mois (fin de mois).");
-  if (Number(v.remise_supp_pct) > 0) lignes.push(`Remise commerciale exceptionnelle : ${v.remise_supp_pct} % (sous réserve de validation par IDEAFORMA).`);
+  if (Number(v.remise_supp_pct) > 0) {
+    lignes.push(
+      `Remise commerciale exceptionnelle : ${v.remise_supp_pct} % ${libelleDureeRemise(v)} (sous réserve de validation par IDEAFORMA)${
+        remiseSuppTemporaire(v) && v.periodicite === "mensuel" ? ` ; à l'issue de cette période, la mensualité revient à ${eur(v.prix_plein_ht ?? v.prix_mensuel_ht)} HT sans autre formalité` : ""
+      }.`
+    );
+  }
   const lancementPct = Number(v.lancement_pct) || 0;
   const lancementMois = Number(v.lancement_mois) || 0;
   if (v.periodicite === "annuel") {
@@ -70,17 +170,21 @@ export function conditionsParticulieres(v: VenteContrat, p: Parametres): string[
       `Paiement de l'année en une fois : ${eur(v.montant_annuel_ht)} HT (${t.bonusAnnuelLibelle}${lancementPct > 0 ? `, offre de lancement −${lancementPct} % sur ${lancementMois} mois déduite` : ""}), soit 12 mois d'abonnement.`
     );
   } else {
-    lignes.push(`Mensualité : ${eur(v.prix_mensuel_ht)} (TVA non applicable, art. 293 B du CGI), payable d'avance chaque mois.`);
+    lignes.push(
+      remiseSuppTemporaire(v)
+        ? `Mensualité : ${eur(v.prix_mensuel_ht)} HT pendant les ${moisRemiseSupp(v)} premiers mois, puis ${eur(v.prix_plein_ht ?? v.prix_mensuel_ht)} HT (TVA non applicable, art. 293 B du CGI), payable d'avance chaque mois.`
+        : `Mensualité : ${eur(v.prix_mensuel_ht)} (TVA non applicable, art. 293 B du CGI), payable d'avance chaque mois.`
+    );
     if (lancementPct > 0 && lancementMois > 0) {
       lignes.push(
         `Offre de lancement : remise de ${lancementPct} % sur les ${lancementMois} premières mensualités, soit ${eur(mensualiteLancement(Number(v.prix_mensuel_ht) || 0, lancementPct))} HT par mois, puis ${eur(v.prix_mensuel_ht)} HT par mois. Cette remise ne modifie ni la durée d'engagement ni les autres conditions.`
       );
     }
   }
+  lignes.push(`Mise en service (paramétrage, import, formation à distance) : ${libelleMiseEnService(v, p)}.`);
+  const ech = echeancierPremiereAnnee(v, p);
   lignes.push(
-    engage
-      ? `Mise en service (paramétrage, import, formation à distance) : offerte.`
-      : `Mise en service (paramétrage, import, formation à distance) : ${eur(v.mise_en_service_ht ?? p.miseEnService)} HT, facturée une fois.`
+    `Total de la première année : ${eur(ech.total)} HT, soit ${eur(ech.totalAbonnement)} HT d'abonnement (${ech.resume})${ech.miseEnService > 0 ? ` + ${eur(ech.miseEnService)} HT de mise en service` : ", mise en service offerte"}.`
   );
   lignes.push(`Heure de Adhésion Service hors forfait : ${eur(p.heureHorsForfait)} HT ; heures non consommées reportables à 50 % sur le mois suivant.`);
   lignes.push(`Mode de règlement : ${MODES_PAIEMENT[v.mode_paiement] || v.mode_paiement}.`);

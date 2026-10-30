@@ -108,7 +108,10 @@ export async function POST(req: Request) {
     const periodicite = offre.periodicite === "annuel" ? "annuel" : "mensuel";
     const engagement_12 = periodicite === "annuel" || Boolean(offre.engagement_12);
     const remise_supp_pct = Math.min(30, Math.max(0, Number(offre.remise_supp_pct) || 0));
-    const prix = prixVente(formule, { engagement12: engagement_12, periodicite, remiseSupp: remise_supp_pct }, p);
+    // v13.57 — durée de la remise (0 = définitive) + geste sur la mise en service (0 facturée … 100 offerte)
+    const remise_supp_mois = remise_supp_pct > 0 ? Math.max(0, Math.round(Number(offre.remise_supp_mois) || 0)) : 0;
+    const mise_en_service_remise_pct = Math.min(100, Math.max(0, Number(offre.mise_en_service_remise_pct) || 0));
+    const prix = prixVente(formule, { engagement12: engagement_12, periodicite, remiseSupp: remise_supp_pct, remiseSuppMois: remise_supp_mois, miseEnServiceRemisePct: mise_en_service_remise_pct }, p);
     const mode = texte(offre.mode_paiement, 20);
     const d = new Date();
     const numero = `V-${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}-${String(Date.now()).slice(-5)}`;
@@ -132,9 +135,12 @@ export async function POST(req: Request) {
       engagement_12,
       periodicite,
       remise_supp_pct,
+      remise_supp_mois,
+      prix_plein_ht: prix.mensualitePleine,
       prix_mensuel_ht: prix.mensualite,
       montant_annuel_ht: prix.montantAnnuel,
       mise_en_service_ht: prix.miseEnService,
+      mise_en_service_remise_pct: prix.miseEnServiceRemisePct,
       // v13.44 — offre de lancement (automatique pendant sa validité)
       lancement_pct: prix.lancement.pct,
       lancement_mois: prix.lancement.mois,
@@ -163,7 +169,7 @@ export async function POST(req: Request) {
       const comptes = await comptesAdmin(admin);
       const expediteurId = comptes[0]?.id;
       if (expediteurId) {
-        const prime = collab ? primeVente(formule, { engagement12: engagement_12, periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualite, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, p) : null;
+        const prime = collab ? primeVente(formule, { engagement12: engagement_12, periodicite, mensualiteFacturee: prix.montantAnnuel != null ? prix.montantAnnuel / 12 : prix.mensualiteMoyenne12, lancementPct: prix.lancement.pct, lancementMois: prix.lancement.mois }, p) : null;
         const qui = collab ? `${[collab.prenom, collab.nom].filter(Boolean).join(" ")} (code ${collab.code_apporteur || "—"})` : "l'éditeur";
         await envoyerEmailServeur(
           {
@@ -172,7 +178,7 @@ export async function POST(req: Request) {
             text: [
               `Vente ${numero} déclarée par ${qui} depuis l'espace clients.`,
               `Garage : ${pr.nom} · ${pr.ville || ""} · ${pr.contact_nom || pr.gerant || ""} ${pr.tel || ""} ${pr.email}`,
-              `Formule : ${p.formules[formule].libelle} · ${engagement_12 ? "engagement 12 mois" : "sans engagement"} · ${periodicite === "annuel" ? `année ${prix.montantAnnuel} € HT` : `${prix.mensualite} € HT / mois`}${remise_supp_pct ? ` · remise supp. ${remise_supp_pct} % À VALIDER` : ""}`,
+              `Formule : ${p.formules[formule].libelle} · ${engagement_12 ? "engagement 12 mois" : "sans engagement"} · ${periodicite === "annuel" ? `année ${prix.montantAnnuel} € HT` : `${prix.mensualite} € HT / mois`}${remise_supp_pct ? ` · remise supp. ${remise_supp_pct} % ${remise_supp_mois ? `pendant ${remise_supp_mois} mois` : "définitive"} À VALIDER` : ""}${mise_en_service_remise_pct > 0 && !engagement_12 ? ` · mise en service ${mise_en_service_remise_pct >= 100 ? "offerte" : `−${mise_en_service_remise_pct} %`}` : ""}`,
               `Paiement demandé : ${paiementDemande || "—"} · mode : ${ligne.mode_paiement}`,
               prime ? `Prime prévue : ${prime.total} € (acquise à la ${prime.mensualiteEcheance}e mensualité encaissée).` : "",
               `À valider : ${process.env.NEXT_PUBLIC_SITE_URL || "https://myeasyauto.fr"}/admin/ventes`,

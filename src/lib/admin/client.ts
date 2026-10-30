@@ -21,6 +21,8 @@ export type Vente = {
   contact_nom: string | null; contact_fonction: string | null; contact_tel: string | null; contact_email: string;
   formule: "essentiel" | "starter" | "confort" | "serenite"; engagement_12: boolean; periodicite: "mensuel" | "annuel";
   remise_supp_pct: number; prix_mensuel_ht: number; montant_annuel_ht: number | null; mise_en_service_ht: number; date_debut_souhaitee: string | null;
+  /** v13.57 — durée de la remise exceptionnelle (0 = définitive), prix plein, geste sur la mise en service */
+  remise_supp_mois?: number | null; prix_plein_ht?: number | null; mise_en_service_remise_pct?: number | null;
   mode_paiement: string; paiement_sur_place: boolean; paiement_montant: number | null; paiement_reference: string | null;
   besoins: Record<string, unknown> | null; cgv_acceptees: boolean; cgu_acceptees?: boolean; version_cgu?: string | null; autorisation_sous_traitance?: boolean; version_dpa?: string | null; signataire_nom: string | null; signataire_qualite: string | null;
   signature: string | null; signe_le: string | null;
@@ -51,6 +53,8 @@ export type Abonnement = {
   origine?: string | null; stripe_subscription_id?: string | null; stripe_customer_id?: string | null; date_renouvellement?: string | null; renouvellement_avise_le?: string | null;
   /** v13.44 (migration v100) — offre de lancement : % et dernière période remisée. */
   lancement_pct?: number | null; lancement_fin?: string | null; lancement_code?: string | null;
+  /** v13.57 — remise exceptionnelle limitée dans le temps (null = définitive / aucune) */
+  remise_supp_pct?: number | null; remise_supp_fin?: string | null;
 };
 export type Mensualite = {
   id: string; abonnement_id: string; periode: string; montant_ht: number; payee_le: string | null; heures_faites: number | null; notes: string | null;
@@ -127,7 +131,7 @@ export const creerCompteDepuisAbonnement = (abonnement_id: string) => post<Resul
 /** v13.31 — compte garage créé DE A À Z depuis l'espace éditeur (sans vente) : abonnement + compte + profil + email. */
 export type SaisieCompteManuel = {
   garage: { nom: string; email: string; siret?: string | null; adresse?: string | null; cp?: string | null; ville?: string | null; tel?: string | null; contactNom?: string | null; contactFonction?: string | null };
-  offre: { formule: Abonnement["formule"]; engagement_12: boolean; periodicite: Abonnement["periodicite"]; remise_supp_pct?: number; date_debut?: string | null; commercial_id?: string | null; secretaire_id?: string | null; notes?: string | null };
+  offre: { formule: Abonnement["formule"]; engagement_12: boolean; periodicite: Abonnement["periodicite"]; remise_supp_pct?: number; remise_supp_mois?: number; date_debut?: string | null; commercial_id?: string | null; secretaire_id?: string | null; notes?: string | null };
   avecAbonnement: boolean;
   envoyerEmail: boolean;
 };

@@ -157,7 +157,16 @@ export async function envoyerBienvenue(
 }
 
 /** Lignes de mensualités d'un abonnement (même logique que generer_mensualites / valider_vente). */
-export function lignesMensualites(abonnementId: string, periodicite: "mensuel" | "annuel", dateDebut: string, prixMensuel: number, montantAnnuel: number | null, lancement?: { pct?: number | null; fin?: string | null } | null) {
+export function lignesMensualites(
+  abonnementId: string,
+  periodicite: "mensuel" | "annuel",
+  dateDebut: string,
+  prixMensuel: number,
+  montantAnnuel: number | null,
+  lancement?: { pct?: number | null; fin?: string | null } | null,
+  /** v13.57 — remise exceptionnelle limitée dans le temps (prixMensuel = prix plein). */
+  remiseSupp?: { pct?: number | null; fin?: string | null } | null
+) {
   const d = new Date(dateDebut);
   const m0 = new Date(d.getFullYear(), d.getMonth(), 1);
   const lignes: { abonnement_id: string; periode: string; montant_ht: number; notes?: string }[] = [];
@@ -171,8 +180,15 @@ export function lignesMensualites(abonnementId: string, periodicite: "mensuel" |
   } else {
     const fin = new Date();
     // v13.44 — offre de lancement : mensualités remisées jusqu'à lancement_fin.
-    const montant = (periode: string) => montantMensualite(prixMensuel, periode, lancement);
-    const note = (periode: string) => (lancement?.pct && montant(periode) !== prixMensuel ? { notes: `Offre de lancement −${lancement.pct} %` } : {});
+    const montant = (periode: string) => montantMensualite(prixMensuel, periode, lancement, remiseSupp);
+    const note = (periode: string) => {
+      if (montant(periode) === prixMensuel) return {};
+      const parts = [
+        remiseSupp?.pct && remiseSupp.fin && periode.slice(0, 10) <= String(remiseSupp.fin).slice(0, 10) ? `Remise exceptionnelle −${remiseSupp.pct} %` : "",
+        lancement?.pct && lancement.fin && periode.slice(0, 10) <= String(lancement.fin).slice(0, 10) ? `Offre de lancement −${lancement.pct} %` : "",
+      ].filter(Boolean);
+      return parts.length ? { notes: parts.join(" · ") } : {};
+    };
     if (m0 > fin) lignes.push({ abonnement_id: abonnementId, periode: premierDuMois(m0), montant_ht: montant(premierDuMois(m0)), ...note(premierDuMois(m0)) });
     while (m0 <= fin) {
       lignes.push({ abonnement_id: abonnementId, periode: premierDuMois(m0), montant_ht: montant(premierDuMois(m0)), ...note(premierDuMois(m0)) });
@@ -252,6 +268,8 @@ export type SaisieCompteManuel = {
     engagement_12: boolean;
     periodicite: "mensuel" | "annuel";
     remise_supp_pct?: number;
+    /** v13.57 — durée de la remise exceptionnelle (0 = définitive). */
+    remise_supp_mois?: number;
     date_debut?: string | null;
     commercial_id?: string | null;
     secretaire_id?: string | null;
@@ -278,9 +296,13 @@ export async function creerCompteManuel(admin: SupabaseClient, s: SaisieCompteMa
     const periodicite = s.offre.periodicite === "annuel" ? "annuel" : "mensuel";
     const engagement = periodicite === "annuel" || Boolean(s.offre.engagement_12);
     const remiseSupp = Math.min(30, Math.max(0, Number(s.offre.remise_supp_pct) || 0));
-    const prix = prixVente(formule, { engagement12: engagement, periodicite, remiseSupp }, p);
+    const remiseSuppMois = Math.max(0, Math.round(Number(s.offre.remise_supp_mois) || 0));
+    const prix = prixVente(formule, { engagement12: engagement, periodicite, remiseSupp, remiseSuppMois }, p);
     const dateDebut = s.offre.date_debut || premierDuMois(new Date());
-    const prixMensuel = prix.montantAnnuel != null ? r2(prix.montantAnnuel / 12) : prix.mensualite;
+    // v13.57 — remise limitée dans le temps (mensuel) : prix_ht = prix plein, mensualités remisées jusqu'à remise_supp_fin.
+    const suppTemporaire = periodicite === "mensuel" && remiseSupp > 0 && remiseSuppMois > 0;
+    const suppFin = suppTemporaire ? finRemiseLancement(dateDebut, remiseSuppMois) : null;
+    const prixMensuel = prix.montantAnnuel != null ? r2(prix.montantAnnuel / 12) : suppTemporaire ? prix.mensualitePleine : prix.mensualite;
     const remisePct = r2(100 - (prixMensuel / p.formules[formule].prix) * 100);
     // v13.44 — offre de lancement (automatique pendant sa validité, mensuel : N premières mensualités remisées).
     const lancementPct = prix.lancement.pct;
@@ -306,13 +328,22 @@ export async function creerCompteManuel(admin: SupabaseClient, s: SaisieCompteMa
         lancement_pct: lancementPct,
         lancement_fin: lancementFin,
         lancement_code: prix.lancement.code,
-        notes: [`Compte créé de A à Z depuis l'espace éditeur.`, prix.lancement.pct > 0 ? `Offre de lancement −${prix.lancement.pct} %.` : "", s.offre.notes || ""].filter(Boolean).join(" "),
+        remise_supp_pct: remiseSupp,
+        remise_supp_fin: suppFin,
+        notes: [
+          `Compte créé de A à Z depuis l'espace éditeur.`,
+          prix.lancement.pct > 0 ? `Offre de lancement −${prix.lancement.pct} %.` : "",
+          remiseSupp > 0 ? `Remise exceptionnelle −${remiseSupp} % ${remiseSuppMois > 0 ? `pendant ${remiseSuppMois} mois` : "définitive"}.` : "",
+          s.offre.notes || "",
+        ]
+          .filter(Boolean)
+          .join(" "),
       })
       .select("id")
       .single();
     if (error || !abo) throw new ErreurCompte(error?.message || "Création de l'abonnement impossible.", 500);
     abonnementId = abo.id;
-    const lignes = lignesMensualites(abo.id, periodicite, dateDebut, prixMensuel, prix.montantAnnuel, { pct: lancementPct, fin: lancementFin });
+    const lignes = lignesMensualites(abo.id, periodicite, dateDebut, prixMensuel, prix.montantAnnuel, { pct: lancementPct, fin: lancementFin }, { pct: suppTemporaire ? remiseSupp : 0, fin: suppFin });
     if (lignes.length) await admin.from("abonnement_mensualites").upsert(lignes, { onConflict: "abonnement_id,periode", ignoreDuplicates: true });
   }
 
