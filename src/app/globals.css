@@ -908,18 +908,32 @@ input, select, textarea { max-width: 100%; }
    contenu au lieu de le laisser chevaucher la colonne voisine. */
 table.table-fixed th, table.table-fixed td { overflow: hidden; }
 
-/* ===== TABLEAUX FLUIDES (v12.6, cf. components/TableauxFluides.tsx) =====
-   Colonnes en pourcentages : le tableau remplit l'écran sans dépasser ;
-   une cellule ne mord jamais sur sa voisine ; la frontière entre deux
-   colonnes se glisse (large zone de prise au doigt). */
-table.tf { table-layout: fixed; width: 100%; }
+/* ===== TABLEAUX FLUIDES v2 « lisibles » (v13.58, cf. components/TableauxFluides.tsx) =====
+   Mise en page automatique : une colonne ne descend jamais sous son contenu.
+   Cellules « atomes » (références, dates, montants, badges, boutons) jamais
+   coupées ; cellules de texte repliées entre les mots ; le cadre défile
+   horizontalement si l'ensemble ne tient pas dans l'écran. */
+.tf-cadre { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+table.tf { table-layout: auto; width: 100%; min-width: 0; }
 table.tf th, table.tf td {
-  overflow: hidden;
-  overflow-wrap: break-word;   /* jamais « anywhere » (cf. cadrage mobile) */
+  overflow: visible;
+  overflow-wrap: normal;       /* jamais de mot coupé au milieu */
+  word-break: normal;
+  hyphens: manual;
   vertical-align: middle;
 }
+table.tf th { white-space: nowrap; }
+table.tf td.tf-atome { white-space: nowrap; }
+table.tf td.tf-texte { white-space: normal; min-width: 11rem; overflow-wrap: break-word; }
+table.tf td .truncate { max-width: 22rem; }
 table.tf td .field-input, table.tf td select, table.tf td input { max-width: 100%; }
-table.tf .truncate, table.tf .whitespace-nowrap { text-overflow: ellipsis; }
+/* Lignes aérées et régulières : plus de hauteurs qui varient selon les coupures */
+table.tf td { line-height: 1.35; }
+/* L'ancienne règle mobile « min-width: 40rem » ne s'applique plus : la largeur
+   naturelle suffit et le cadre défile. */
+@media (max-width: 640px) {
+  .overflow-x-auto table.tf { min-width: 0; }
+}
 table.tf thead th, table.tf tr:first-child th { position: relative; touch-action: none; user-select: none; }
 /* Frontière : fine ligne, rose au survol / pendant le glissement */
 table.tf thead th:not(:last-child)::after, table.tf tr:first-child th:not(:last-child)::after {
@@ -951,11 +965,6 @@ table.tf.tf-glisse th, table.tf.tf-glisse td { cursor: col-resize; user-select: 
     background: var(--mea-neon-bordure);
     opacity: 0.55;
   }
-}
-/* La règle mobile « min-width: 40rem » ne s'applique plus aux tableaux fluides
-   (ils calculent eux-mêmes leur largeur minimale selon le nombre de colonnes). */
-@media (max-width: 640px) {
-  .overflow-x-auto table.tf { min-width: 0; }
 }
 
 /* ===== Densité MOBILE ===== */

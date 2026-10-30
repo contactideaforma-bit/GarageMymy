@@ -305,6 +305,11 @@ PLAQUE_API_FOURNISSEUR=api-plaque-immatriculation  # ou apiplaqueimmatriculation
 - Fenêtre : cartes par section avec case à cocher pour exclure une section du texte partagé (ex. ne pas envoyer le montant au client), tél/email cliquables, aperçu du texte, choix du destinataire (libre / client / expert → pré-remplit le numéro), boutons WhatsApp · Messages · Mail · **Copier la fiche** (presse-papiers, repli `execCommand`).
 - Inventaire public `fonctionnalites.ts` mis à jour (badge Nouveau).
 
+### Ajouté v13.58 — Tableaux LISIBLES partout (TableauxFluides v2, sans migration)
+- Problème (capture /factures, écran moyen) : colonnes en % + `table-layout: fixed` → numéros de facture, dates et montants coupés au milieu (« FAC-20260 / 9-69018 »), lignes hautes et illisibles. Demande : corriger TOUS les tableaux de ce type.
+- `components/TableauxFluides.tsx` réécrit (toujours global, monté dans AppShell, aucun écran retouché) : mise en page AUTOMATIQUE (`table-layout: auto`), cellules classées `tf-atome` (nowrap : référence, date, montant, badge, bouton, texte ≤ 26 car.) ou `tf-texte` (repli entre les mots, min 11rem) — classement harmonisé par colonne ; le parent reçoit `tf-cadre` (`overflow-x: auto`) : si ça ne tient pas, le tableau défile au lieu de s'écraser. En-têtes toujours nowrap. Glisser une frontière = largeur minimale en px de la colonne de gauche (memo `mea.tableaux.colonnes.v2`), double-clic = automatique.
+- CSS « TABLEAUX FLUIDES v2 » dans globals.css : `overflow-wrap: normal`, `word-break: normal` (plus de coupure dans un mot), `line-height 1.35`.
+
 ### Ajouté v13.57 — Remise exceptionnelle à durée limitée · mise en service offerte / remisée · devis lisible (migration v106)
 - **Durée de la remise** (fiche prospect → Offre, compte manuel éditeur) : 1 / 3 / 6 / 12 mois ou définitive (`ParametresOffre.remise_supp_mois`, `DUREES_REMISE` dans `lib/prospects.ts`). `prixVente()` renvoie `mensualitePleine`, `remiseSupp {pct, mois}`, `mensualiteMoyenne12` (base de la prime du commercial : une remise de 3 mois n'ampute plus la prime comme une remise définitive).
 - **Mise en service** hors engagement : facturée / remisée 25-50 % / offerte (`mise_en_service_remise_pct`, `GESTES_MISE_EN_SERVICE`). Avec engagement elle reste offerte automatiquement.

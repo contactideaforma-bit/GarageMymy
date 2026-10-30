@@ -1,43 +1,43 @@
 "use client";
 
 // ====================================================================
-//  TABLEAUX FLUIDES (v12.6) — un seul mécanisme pour TOUS les tableaux
+//  TABLEAUX FLUIDES — v2 « LISIBLES » (v13.58)
 //
-//  Demande : « dès qu'il y a un tableau, on l'adapte à la largeur de
-//  l'écran pour qu'il ne dépasse pas (tablette, ordi, mobile), sans jamais
-//  de chevauchement de texte, et on rend le réglage des colonnes facile,
-//  surtout au tactile ».
+//  v12.6 forçait chaque tableau à 100 % de la largeur avec des colonnes en
+//  pourcentages (`table-layout: fixed`). Résultat sur les écrans moyens :
+//  les numéros de facture, les dates et les montants étaient COUPÉS AU
+//  MILIEU (« FAC-20260 / 9-69018 / 0867 », « 18/10/202 / 6 ») et les lignes
+//  devenaient hautes et illisibles. L'utilisateur a demandé la même chose
+//  sur TOUS les tableaux de l'appli : « les lignes se coupent, ce n'est
+//  pas clair ».
 //
-//  Principe : monté UNE fois dans AppShell, ce composant observe le DOM et
-//  « équipe » chaque <table> qu'il rencontre (pas besoin de retoucher les
-//  19 écrans) :
-//   · largeurs de colonnes en POURCENTAGES (somme = 100 %) → le tableau
-//     remplit exactement la largeur disponible, quel que soit l'écran ;
-//   · `table-layout: fixed` + `overflow: hidden` sur les cellules → une
-//     cellule trop étroite coupe/replie son contenu, elle ne mord jamais
-//     sur la voisine ;
-//   · réglage = on GLISSE LA FRONTIÈRE entre deux colonnes (comme un
-//     séparateur de volets) : la colonne de gauche s'élargit, celle de
-//     droite se réduit d'autant, le total ne bouge pas → rien ne sort de
-//     l'écran. Événements pointeur + zone de prise LARGE (22 px au doigt) ;
-//   · double-clic / double-tap sur la frontière = largeurs automatiques ;
-//   · mémorisé PAR APPAREIL (localStorage), clé = page + en-têtes.
-//   · téléphone (< 640 px) : au-delà de 4 colonnes le tableau garde une
-//     largeur minimale et défile (sinon les colonnes seraient illisibles) ;
-//     jusqu'à 4 colonnes il tient dans l'écran.
+//  Nouveau principe, toujours GLOBAL (monté une fois dans AppShell, aucun
+//  des 30+ écrans à retoucher) :
+//   · mise en page AUTOMATIQUE du navigateur (`table-layout: auto`) : une
+//     colonne ne descend jamais sous la largeur de son contenu ;
+//   · les cellules « atomes » (référence, date, montant, badge, bouton,
+//     texte court) sont en `white-space: nowrap` → jamais coupées ; seules
+//     les cellules de TEXTE LONG (nom de client, libellé, commentaire)
+//     passent à la ligne, entre les mots ;
+//   · si l'ensemble ne tient pas dans l'écran, le CADRE du tableau défile
+//     horizontalement (la 1re colonne reste lisible, rien ne s'écrase) ;
+//   · la frontière entre deux en-têtes se glisse toujours (largeur minimale
+//     de la colonne de gauche, en px, mémorisée par appareil) ; double-clic
+//     = automatique.
+//  Exclure un tableau : `data-tf="off"` sur la table ou un ancêtre.
 // ====================================================================
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
-const CLE = "mea.tableaux.colonnes";
-const PCT_MIN = 5;
-const ZONE_SOURIS = 10;  // px de part et d'autre de la frontière
+const CLE = "mea.tableaux.colonnes.v2";
+const ZONE_SOURIS = 10; // px de part et d'autre de la frontière
 const ZONE_DOIGT = 22;
-const COLONNES_MAX_MOBILE = 4;
-const LARGEUR_COL_MOBILE = 6.5; // rem
+const LARGEUR_MIN = 48; // px — une colonne ne se réduit pas en dessous
+/** Au-delà de cette longueur (par ligne), une cellule est du texte qui peut se replier. */
+const TEXTE_LONG = 26;
 
-type Memo = Record<string, number[]>;
+type Memo = Record<string, Record<number, number>>;
 
 function lireMemo(): Memo {
   try {
@@ -69,46 +69,51 @@ function cleTable(table: HTMLTableElement, pathname: string): string {
   return `${racine}#${texte}`;
 }
 
-function estMobile() {
-  return window.innerWidth < 640;
-}
+/* ------------------------------------------------------------------
+   Classement des cellules : « atome » (jamais coupé) ou « texte » (replié
+   entre les mots). On regarde chaque LIGNE visuelle de la cellule
+   (innerText garde les retours des blocs) : si toutes sont courtes, ou si
+   la cellule ne contient que des boutons / badges / champs, c'est un atome.
+------------------------------------------------------------------ */
+const MOTIF_ATOME = /^(\d[\d\s.,/:%€-]*\s*(€|%|HT|TTC|h|j|km)?|\d{1,2}\/\d{1,2}\/\d{2,4}.*|[A-Z0-9][A-Z0-9/_-]{2,})$/i;
 
-/** Applique des pourcentages (indexés sur TOUTES les colonnes) aux colonnes visibles. */
-function appliquer(table: HTMLTableElement, pct: number[]) {
-  const ths = enTetes(table);
-  const vis = ths.map((th, i) => (visible(th) ? i : -1)).filter((i) => i >= 0);
-  const somme = vis.reduce((s, i) => s + (pct[i] || 0), 0) || 1;
-  ths.forEach((th, i) => {
-    if (!visible(th)) return;
-    th.style.width = `${((pct[i] || 0) / somme) * 100}%`;
-  });
-  table.style.tableLayout = "fixed";
-  table.style.width = "100%";
-  table.style.minWidth =
-    estMobile() && vis.length > COLONNES_MAX_MOBILE ? `${vis.length * LARGEUR_COL_MOBILE}rem` : "0";
-}
-
-/** Mesure les largeurs naturelles (mise en page automatique) → pourcentages. */
-function mesurer(table: HTMLTableElement): number[] {
-  const ths = enTetes(table);
-  const layout = table.style.tableLayout;
-  const largeur = table.style.width;
-  const min = table.style.minWidth;
-  table.style.tableLayout = "auto";
-  table.style.width = "100%";
-  table.style.minWidth = "0";
-  ths.forEach((th) => { th.style.width = ""; });
-  const px = ths.map((th) => (visible(th) ? th.getBoundingClientRect().width : 0));
-  let total = px.reduce((s, v) => s + v, 0);
-  if (total <= 0) {
-    // Tableau masqué à cet instant (ex. « hidden sm:table ») : parts égales.
-    total = ths.length;
-    for (let i = 0; i < px.length; i += 1) px[i] = 1;
+function classerCellule(td: HTMLTableCellElement) {
+  if (td.dataset.tfc) return;
+  td.dataset.tfc = "1";
+  const lignes = (td.innerText || td.textContent || "")
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const texteSeul = lignes.join(" ");
+  const interactif = td.querySelector("button, a, input, select, textarea, .badge, [class*='badge']");
+  const longue = lignes.some((l) => l.length > TEXTE_LONG && !MOTIF_ATOME.test(l));
+  // Une cellule tronquée volontairement (.truncate) avec un texte long reste du texte : on la laisse se replier.
+  const tronquee = td.classList.contains("truncate") || td.querySelector(".truncate");
+  if (!longue && (texteSeul.length <= TEXTE_LONG || interactif || !/\s/.test(texteSeul))) {
+    td.classList.add("tf-atome");
+    td.classList.remove("tf-texte");
+  } else {
+    td.classList.add("tf-texte");
+    td.classList.remove("tf-atome");
+    if (tronquee && td.classList.contains("truncate")) td.classList.remove("truncate");
   }
-  table.style.tableLayout = layout;
-  table.style.width = largeur;
-  table.style.minWidth = min;
-  return px.map((v) => (v / total) * 100);
+}
+
+/** Le cadre qui entoure le tableau doit pouvoir défiler horizontalement. */
+function cadreDe(table: HTMLTableElement): HTMLElement | null {
+  const parent = table.parentElement;
+  if (!parent || parent === document.body) return null;
+  return parent;
+}
+
+function appliquerLargeurs(table: HTMLTableElement) {
+  const ths = enTetes(table);
+  const memo = lireMemo()[table.dataset.tf || ""] || {};
+  ths.forEach((th, i) => {
+    const px = memo[i];
+    th.style.width = px ? `${px}px` : "";
+    th.style.minWidth = px ? `${px}px` : "";
+  });
 }
 
 function equiper(table: HTMLTableElement, pathname: string) {
@@ -117,18 +122,39 @@ function equiper(table: HTMLTableElement, pathname: string) {
   const ths = enTetes(table);
   if (ths.length < 2) return;
   const cle = cleTable(table, pathname);
-  const dejaFait = table.dataset.tf === cle && ths.every((th) => !visible(th) || th.style.width);
-  if (dejaFait) return;
-
-  table.dataset.tf = cle;
-  table.classList.add("tf");
-  const memo = lireMemo();
-  const pct = memo[cle] && memo[cle].length === ths.length ? memo[cle] : mesurer(table);
-  appliquer(table, pct);
-  (table as HTMLTableElement & { __tfPct?: number[] }).__tfPct = pct;
+  if (table.dataset.tf !== cle) {
+    table.dataset.tf = cle;
+    table.classList.add("tf");
+    table.style.tableLayout = "auto";
+    table.style.width = "100%";
+    table.style.minWidth = "0";
+    const cadre = cadreDe(table);
+    if (cadre) cadre.classList.add("tf-cadre");
+    appliquerLargeurs(table);
+  }
+  // Les lignes arrivent / changent après coup : on classe les cellules pas encore vues.
+  const nouvelles = table.querySelectorAll<HTMLTableCellElement>("td:not([data-tfc])");
+  if (!nouvelles.length) return;
+  nouvelles.forEach(classerCellule);
+  harmoniserColonnes(table);
 }
 
-/** Frontière la plus proche du pointeur : renvoie l'index de la colonne visible de gauche, ou -1. */
+/** Une colonne entière se comporte pareil : dès qu'une cellule est du texte
+ *  long, toute la colonne se replie (sinon les largeurs varient d'une ligne
+ *  à l'autre et le tableau a l'air bancal). */
+function harmoniserColonnes(table: HTMLTableElement) {
+  const texte = new Set<number>();
+  table.querySelectorAll<HTMLTableCellElement>("td.tf-texte").forEach((td) => texte.add(td.cellIndex));
+  if (!texte.size) return;
+  table.querySelectorAll<HTMLTableCellElement>("td.tf-atome").forEach((td) => {
+    if (texte.has(td.cellIndex) && td.colSpan === 1) {
+      td.classList.remove("tf-atome");
+      td.classList.add("tf-texte");
+    }
+  });
+}
+
+/** Frontière la plus proche du pointeur : colonne visible de gauche, ou null. */
 function frontiereSous(table: HTMLTableElement, x: number, zone: number): { gauche: number; droite: number } | null {
   const ths = enTetes(table);
   const vis = ths.map((th, i) => (visible(th) ? i : -1)).filter((i) => i >= 0);
@@ -164,16 +190,7 @@ export default function TableauxFluides() {
       planifie = window.requestAnimationFrame(() => { planifie = 0; tout(); });
     });
     obs.observe(document.body, { childList: true, subtree: true });
-
-    // Rotation / redimensionnement : la règle mobile peut changer.
-    const surResize = () => {
-      document.querySelectorAll<HTMLTableElement>("table.tf").forEach((t) => {
-        const pct = (t as HTMLTableElement & { __tfPct?: number[] }).__tfPct;
-        if (pct && visible(t)) appliquer(t, pct);
-      });
-      tout();
-    };
-    window.addEventListener("resize", surResize);
+    window.addEventListener("resize", tout);
 
     // Curseur ↔ sur la frontière, au survol (souris).
     const surMove = (e: PointerEvent) => {
@@ -185,7 +202,7 @@ export default function TableauxFluides() {
       if (f) enTetes(table)[f.gauche].classList.add("tf-pres");
     };
 
-    // Glisser la frontière entre deux colonnes.
+    // Glisser la frontière : règle la largeur (minimale) de la colonne de gauche.
     let dernierTap = 0;
     const surDown = (e: PointerEvent) => {
       const table = tableEnTeteSous(e.target, e.clientY);
@@ -196,55 +213,43 @@ export default function TableauxFluides() {
       e.preventDefault();
       e.stopPropagation();
 
+      const cle = table.dataset.tf || "";
       // Double-tap / double-clic sur la frontière → largeurs automatiques.
       const maintenant = Date.now();
       if (maintenant - dernierTap < 350) {
         dernierTap = 0;
         const memo = lireMemo();
-        delete memo[table.dataset.tf || ""];
+        delete memo[cle];
         ecrireMemo(memo);
-        const pct = mesurer(table);
-        (table as HTMLTableElement & { __tfPct?: number[] }).__tfPct = pct;
-        appliquer(table, pct);
+        appliquerLargeurs(table);
         return;
       }
       dernierTap = maintenant;
 
       const ths = enTetes(table);
-      const t = table as HTMLTableElement & { __tfPct?: number[] };
-      const depart = t.__tfPct ? [...t.__tfPct] : mesurer(table);
-      const largeurTable = table.getBoundingClientRect().width || 1;
-      const vis = ths.map((th2, i) => (visible(th2) ? i : -1)).filter((i) => i >= 0);
-      const sommeVis = vis.reduce((s, i) => s + (depart[i] || 0), 0) || 1;
+      const th = ths[f.gauche];
+      const depart = th.getBoundingClientRect().width;
       const x0 = e.clientX;
       const cible = e.target as HTMLElement;
       try { cible.setPointerCapture(e.pointerId); } catch { /* ignoré */ }
       table.classList.add("tf-glisse");
-      ths[f.gauche].classList.add("tf-actif");
+      th.classList.add("tf-actif");
+      let largeur = depart;
 
       const bouger = (ev: PointerEvent) => {
-        // dx en pourcentage de la largeur du tableau, ramené à l'échelle des colonnes visibles
-        const d = ((ev.clientX - x0) / largeurTable) * sommeVis;
-        const g = depart[f.gauche] + d;
-        const dr = depart[f.droite] - d;
-        if (g < PCT_MIN || dr < PCT_MIN) return;
-        const pct = [...depart];
-        pct[f.gauche] = g;
-        pct[f.droite] = dr;
-        t.__tfPct = pct;
-        appliquer(table, pct);
+        largeur = Math.max(LARGEUR_MIN, depart + (ev.clientX - x0));
+        th.style.width = `${largeur}px`;
+        th.style.minWidth = `${largeur}px`;
       };
       const lacher = () => {
         cible.removeEventListener("pointermove", bouger);
         cible.removeEventListener("pointerup", lacher);
         cible.removeEventListener("pointercancel", lacher);
         table.classList.remove("tf-glisse");
-        ths[f.gauche].classList.remove("tf-actif");
-        if (t.__tfPct) {
-          const memo = lireMemo();
-          memo[table.dataset.tf || ""] = t.__tfPct.map((v) => Math.round(v * 100) / 100);
-          ecrireMemo(memo);
-        }
+        th.classList.remove("tf-actif");
+        const memo = lireMemo();
+        memo[cle] = { ...(memo[cle] || {}), [f.gauche]: Math.round(largeur) };
+        ecrireMemo(memo);
       };
       cible.addEventListener("pointermove", bouger);
       cible.addEventListener("pointerup", lacher);
@@ -263,7 +268,7 @@ export default function TableauxFluides() {
     document.addEventListener("click", surClick, true);
     return () => {
       obs.disconnect();
-      window.removeEventListener("resize", surResize);
+      window.removeEventListener("resize", tout);
       document.removeEventListener("pointerdown", surDown, true);
       document.removeEventListener("pointermove", surMove);
       document.removeEventListener("click", surClick, true);
